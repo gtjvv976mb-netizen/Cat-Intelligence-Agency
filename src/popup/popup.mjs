@@ -5,8 +5,15 @@
  * computed here that the lane does not already know. The one thing this page does that
  * matters is the arming ceremony: the lane prints the sentence for the connected wallet,
  * the user puts it in the box, and the worker compares the two byte for byte.
+ *
+ * The Autopilot card drives the autopilot wallet through the worker's AUTOPILOT messages:
+ * create, unlock, lock, fund from Phantom, sweep back, and the recovery export. The page
+ * builds no transaction and holds no key. A passphrase typed here goes to the worker once
+ * and is cleared from its field; the exported key is shown once, in one box, and cleared
+ * when hidden, when its section closes, after two minutes, or when the popup closes.
+ * Nothing here is stored or logged.
  */
-import { UI } from "../lib/protocol.mjs";
+import { UI, AUTOPILOT } from "../lib/protocol.mjs";
 
 const $ = (id) => document.getElementById(id);
 const send = (type, payload = {}) => chrome.runtime.sendMessage({ type, ...payload });
@@ -43,8 +50,11 @@ function render() {
   pill.textContent = s.executing ? "LIVE" : s.lane === "execute" ? "execute — not armed" : s.lane;
   pill.className = `pill ${s.executing ? "execute" : s.lane === "execute" ? "armq" : s.lane}`;
 
-  $("walletLine").textContent = s.wallet ? s.wallet : s.bridgeReady ? "console open — not connected" : "open the console page first";
+  const phantom = s.phantomWallet !== undefined ? s.phantomWallet : s.wallet;
+  $("walletLine").textContent = phantom ? phantom : s.bridgeReady ? "console open — not connected" : "open the console page first";
   $("btnConnect").disabled = !s.bridgeReady;
+  $("setupCard").classList.toggle("hidden", Boolean(s.setupCompletedAt) || s.booting === true);
+  renderSigner(s);
   $("feedLine").textContent = `${s.feed?.state ?? "stopped"}${s.feed?.counters?.notifications ? ` · ${s.feed.counters.notifications} logs` : ""}`;
   $("rpcLine").textContent = s.rpc ? (() => { try { return new URL(s.rpc).host; } catch { return "set"; } })() : "not set";
 
@@ -53,16 +63,20 @@ function render() {
   const arm = s.armability;
   const showArm = chosenLane === "execute" && !s.executing;
   $("armBox").classList.toggle("hidden", !showArm);
+  const auto = s.signerMode === "autopilot";
   if (arm) {
     $("checklist").innerHTML = arm.items.map((i) => `<li class="${i.ok ? "ok" : ""}"><b>${esc(i.name.replace(/_/g, " "))}</b> — ${esc(i.detail)}</li>`).join("");
-    $("expectedAck").textContent = arm.expectedAck ?? "connect Phantom on the console page to see the sentence";
+    $("expectedAck").textContent = arm.expectedAck ?? (auto ? "create the autopilot wallet to see the sentence" : "connect Phantom on the console page to see the sentence");
     $("btnArm").disabled = !arm.expectedAck;
+    $("btnArm").textContent = auto ? "Arm — the autopilot wallet will sign without asking" : "Arm — Phantom will be asked to sign";
     $("warnings").innerHTML = (arm.warnings ?? []).map((w) => `<li>${esc(w.detail)}</li>`).join("");
   }
   $("laneHint").textContent = s.executing
-    ? `Armed. ${s.entryInFlight ? `A Phantom window is open for ${short(s.entryInFlight)}.` : "Waiting for a launch that clears the gates and holds up for the wait."}`
+    ? `Armed${auto ? " on autopilot" : ""}. ${s.entryInFlight ? (auto ? `The autopilot wallet is signing a buy of ${short(s.entryInFlight)}.` : `A Phantom window is open for ${short(s.entryInFlight)}.`) : "Waiting for a launch that clears the gates and holds up for the wait."}`
     : chosenLane === "observe" ? "Observe: every launch is evaluated and a would-have position is sampled forward. Nothing is signed."
-      : chosenLane === "execute" ? "Execute: once the checklist is green and the sentence matches, each cleared launch that still marks above its would-have fill after the wait becomes one Phantom window."
+      : chosenLane === "execute" ? (auto
+        ? "Execute on autopilot: once the checklist is green and the sentence matches, each cleared launch that still marks above its would-have fill after the wait is bought — signed by the autopilot wallet, without asking you — and sold the same way."
+        : "Execute: once the checklist is green and the sentence matches, each cleared launch that still marks above its would-have fill after the wait becomes one Phantom window.")
         : "Off constructs nothing.";
 
   $("dayLine").textContent = `${Number(s.deployedTodaySol ?? 0).toFixed(4)} / ${s.dailySolCap} SOL`;
@@ -98,7 +112,10 @@ function render() {
   $("positions").innerHTML = open.length ? open.map((p) => {
     const cls = p.live ? "live" : "";
     const pend = p.pendingSell ? "pending" : "";
-    const state = p.graduated ? "graduated — SELL BY HAND" : p.pendingSell ? `APPROVE THE SELL IN PHANTOM — ${esc(p.pendingSell.reason)}` : p.waitedOut ? `not bought: ${esc(p.waitedOut)}` : p.live ? "held" : p.liveAttempted ? "watched (attempted)" : "watching";
+    const onAuto = p.live && s.autopilot?.publicKey && p.wallet === s.autopilot.publicKey;
+    const state = p.graduated ? (onAuto ? "graduated — Forget, Sweep back, SELL BY HAND in Phantom" : "graduated — SELL BY HAND")
+      : p.pendingSell ? (onAuto ? (s.autopilot.unlocked ? `selling (autopilot) — ${esc(p.pendingSell.reason)}` : `UNLOCK THE AUTOPILOT WALLET TO SELL — ${esc(p.pendingSell.reason)}`) : `APPROVE THE SELL IN PHANTOM — ${esc(p.pendingSell.reason)}`)
+        : p.waitedOut ? `not bought: ${esc(p.waitedOut)}` : p.live ? (onAuto ? "held by the autopilot wallet" : "held") : p.liveAttempted ? "watched (attempted)" : "watching";
     return `<div class="item ${cls} ${pend}" data-mint="${esc(p.mint)}">
       <div class="t">${esc(p.symbol ?? short(p.mint))} <span class="tag ${p.live ? "live" : "paper"}">${p.live ? "live" : "would-have"}</span></div>
       <div class="r">${p.lastMarkX == null ? "mark unread" : `${Number(p.lastMarkX).toFixed(3)}x`} · ${ago(now - Number(p.openedAt))}</div>
@@ -151,6 +168,156 @@ function render() {
   $("versionLine").textContent = s.version ?? "";
 }
 
+/* ── the autopilot card ─────────────────────────────────────────────────────────────── */
+let ap = null;               // the worker's AUTOPILOT.STATUS answer: balances, tokens, fund assets, where a sweep goes
+let secretTimer = null;
+const until = (ms) => (Number.isFinite(ms) ? new Date(ms).toTimeString().slice(0, 5) : "—");
+function renderSigner(s) {
+  const auto = s.signerMode === "autopilot";
+  for (const b of document.querySelectorAll("#signerSeg button")) b.classList.toggle("on", b.dataset.signer === (auto ? "autopilot" : "phantom"));
+  const a = s.autopilot ?? null;
+  $("signerHint").textContent = auto
+    ? `Autopilot: buys and sells are signed by the autopilot wallet without a window${a?.unlocked ? `, while it is unlocked (until ${until(a.expiresAt)})` : " — it is locked now and signs nothing"}. The console tab is needed only to fund from Phantom.`
+    : "Phantom: every buy and every sell is one approval window on the console tab. The extension holds no key.";
+  const exists = Boolean(a?.publicKey) || Boolean(ap?.exists);
+  $("apNone").classList.toggle("hidden", exists);
+  $("apSome").classList.toggle("hidden", !exists);
+  if (!exists) return;
+  const unlocked = a ? a.unlocked === true : ap?.unlocked === true;
+  $("apAddress").textContent = a?.publicKey ?? ap?.publicKey ?? "—";
+  $("apLockPill").textContent = unlocked ? `unlocked · ${until(a?.expiresAt ?? ap?.expiresAt)}` : "locked";
+  $("apLockPill").className = `pill ${unlocked ? "unlocked" : ""}`;
+  $("apUnlockRow").classList.toggle("hidden", unlocked);
+  $("btnApLock").classList.toggle("hidden", !unlocked);
+  const bal = ap?.balanceSol ?? a?.balanceSol ?? null;
+  $("apBalance").textContent = bal === null || bal === undefined ? (ap?.readError ? "not read" : "—") : `${Number(bal).toFixed(6)} SOL`;
+  $("apTokens").textContent = (ap?.tokens ?? []).map((t) => `${t.ui} ${t.symbol}`).join(" · ");
+  $("btnApFund").disabled = !(s.bridgeReady && (s.phantomWallet ?? null));
+  $("apFundHint").textContent = s.phantomWallet
+    ? `From Phantom ${short(s.phantomWallet)}: one approval on the console tab. The default is your daily budget; the day cap binds either way, and the balance binds too.`
+    : "Open the console page and connect Phantom to fund: funding is one Phantom approval, asked on that tab.";
+  $("btnApSweep").disabled = !unlocked || !(ap?.sweepTo);
+  $("apSweepHint").textContent = !ap?.sweepTo ? "Connect Phantom once so the sweep has a destination."
+    : !unlocked ? "Unlock to sweep: the sweep is signed by the autopilot wallet."
+      : (s.autopilotHeld ?? 0) > 0 ? `It holds ${s.autopilotHeld} live position${s.autopilotHeld === 1 ? "" : "s"}: a sweep waits until ${s.autopilotHeld === 1 ? "it is" : "they are"} sold.`
+        : `Every token, then all SOL above the ${((ap?.rentFloorLamports ?? 890880) / 1e9).toFixed(8)} SOL rent floor, to ${short(ap.sweepTo)}. Phantom is not asked.`;
+}
+function fillFundForm() {
+  if (!ap) return;
+  const sel = $("apFundAsset");
+  const chosen = sel.value;
+  sel.innerHTML = (ap.fundAssets ?? []).map((f) => `<option value="${esc(f.asset)}">${esc(f.symbol)}</option>`).join("");
+  if (chosen && [...sel.options].some((o) => o.value === chosen)) sel.value = chosen;
+  const asset = (ap.fundAssets ?? []).find((f) => f.asset === sel.value);
+  if (asset && !$("apFundAmount").dataset.touched) $("apFundAmount").value = asset.defaultAmount;
+  const mins = $("apMinutes");
+  if (!mins.options.length) {
+    const range = ap.unlockMinutesRange ?? { min: 5, max: 1440 };
+    const choices = [...new Set([15, 60, 240, 480, 720, 1440, ap.unlockMinutes])].filter((m) => m >= range.min && m <= range.max).sort((x, y) => x - y);
+    mins.innerHTML = choices.map((m) => `<option value="${m}" ${m === ap.unlockMinutes ? "selected" : ""}>${m < 60 ? `${m} min` : `${m / 60} h`}</option>`).join("");
+  }
+}
+async function refreshAutopilot() {
+  const res = await send(AUTOPILOT.STATUS).catch(() => null);
+  if (res?.ok) { ap = res.autopilot; fillFundForm(); if (status) renderSigner(status); }
+}
+function clearSecret() {
+  $("apSecret").textContent = "";
+  $("apSecretBox").classList.add("hidden");
+  if (secretTimer) { clearTimeout(secretTimer); secretTimer = null; }
+}
+async function autopilotCall(type, payload, button) {
+  if (button) button.disabled = true;
+  try {
+    const res = await send(type, payload).catch((error) => ({ ok: false, error: String(error?.message ?? error) }));
+    if (!res?.ok) toast(res?.error ?? "the autopilot wallet refused");
+    return res;
+  } finally {
+    if (button) button.disabled = false;
+    await refreshAutopilot();
+    refresh();
+  }
+}
+for (const b of document.querySelectorAll("#signerSeg button")) b.addEventListener("click", async () => {
+  const next = b.dataset.signer;
+  if (next === status?.signerMode) return;
+  if (next === "autopilot" && !confirm("Switch to autopilot? Once armed, the autopilot wallet signs every buy and sell WITHOUT asking you. The arm sentence changes, so you will type it again.")) return;
+  const res = await send(UI.SET_CONFIG, { config: { signerMode: next } });
+  if (!res?.ok) toast(res?.error ?? "could not change the signer");
+  await refreshAutopilot();
+  refresh();
+});
+$("btnApCreate").addEventListener("click", async () => {
+  const p1 = $("apPass1"), p2 = $("apPass2");
+  const passphrase = p1.value, confirmText = p2.value;
+  p1.value = ""; p2.value = "";
+  if (passphrase.length < 12) { toast("The passphrase must be at least 12 characters."); return; }
+  if (passphrase !== confirmText) { toast("The two passphrases differ — type the same one twice."); return; }
+  toast("Creating and encrypting the key…");
+  const res = await autopilotCall(AUTOPILOT.CREATE, { passphrase, confirm: confirmText }, $("btnApCreate"));
+  if (res?.ok) toast("Created. It is locked and empty: fund it from Phantom, then unlock it.");
+});
+$("btnApUnlock").addEventListener("click", async () => {
+  const input = $("apPassUnlock");
+  const passphrase = input.value;
+  input.value = "";
+  const res = await autopilotCall(AUTOPILOT.UNLOCK, { passphrase, minutes: Number($("apMinutes").value) }, $("btnApUnlock"));
+  if (res?.ok) toast(`Unlocked until ${until(res.expiresAt)}. Lock clears it sooner.`);
+});
+$("btnApLock").addEventListener("click", async () => {
+  const held = status?.autopilotHeld ?? 0;
+  if (held && !confirm(`The autopilot wallet holds ${held} live position${held === 1 ? "" : "s"}. Locked, it cannot sell ${held === 1 ? "it" : "them"} until you unlock it again. Lock anyway?`)) return;
+  const res = await autopilotCall(AUTOPILOT.LOCK, {}, $("btnApLock"));
+  if (res?.ok) toast("Locked: the unlocked key is cleared. It signs nothing until unlocked.");
+});
+$("apFundAmount").addEventListener("input", () => { $("apFundAmount").dataset.touched = "1"; });
+$("apFundAsset").addEventListener("change", () => { delete $("apFundAmount").dataset.touched; fillFundForm(); });
+$("btnApFund").addEventListener("click", async () => {
+  const asset = $("apFundAsset").value || "SOL";
+  const amount = $("apFundAmount").value.trim();
+  const f = (ap?.fundAssets ?? []).find((x) => x.asset === asset);
+  if (asset === "SOL" && Number(amount) > Number(status?.dailySolCap ?? Infinity)
+    && !confirm(`${amount} SOL is more than your ${status.dailySolCap} SOL daily budget. The day cap still binds every trade, but the balance would no longer be the tighter limit. Fund anyway?`)) return;
+  toast(`Approve the transfer of ${amount} ${f?.symbol ?? asset} in Phantom, on the console tab.`);
+  const res = await autopilotCall(AUTOPILOT.FUND, { asset, amount }, $("btnApFund"));
+  if (res?.ok) { delete $("apFundAmount").dataset.touched; toast(`Funded — ${res.summary}.`); }
+});
+$("btnApSweep").addEventListener("click", async () => {
+  const to = ap?.sweepTo;
+  if (!to) return;
+  if (!confirm(`Sweep the autopilot wallet back to ${to}?\n\nEvery token first, then all SOL above the rent floor. Signed by the autopilot wallet; Phantom is not asked.`)) return;
+  toast("Sweeping…");
+  const res = await autopilotCall(AUTOPILOT.SWEEP, { expectTo: to }, $("btnApSweep"));
+  if (res?.ok) {
+    const parts = [res.sol ? `${res.sol.sol} SOL` : res.solNote, ...res.tokens.map((t) => `${t.ui} ${t.symbol}`)].filter(Boolean);
+    toast(`Swept to ${short(res.to)}: ${parts.join(", ")}${res.closed ? `; ${res.closed} empty account${res.closed === 1 ? "" : "s"} closed` : ""}${res.skipped.length ? `; not moved: ${res.skipped.map((x) => `${x.symbol ?? "accounts"} (${x.why})`).join("; ")}` : ""}.`);
+  }
+});
+$("btnApExport").addEventListener("click", async () => {
+  const input = $("apPassExport");
+  const passphrase = input.value;
+  input.value = "";
+  if (!confirm("Show the autopilot wallet's private key? Anyone who sees it can spend everything in the wallet. Make sure nobody is watching your screen.")) return;
+  const res = await send(AUTOPILOT.EXPORT_SECRET, { passphrase }).catch(() => null);
+  if (!res?.ok) { toast(res?.error ?? "export refused"); return; }
+  $("apSecret").textContent = res.secretBase58;
+  $("apSecretBox").classList.remove("hidden");
+  if (secretTimer) clearTimeout(secretTimer);
+  secretTimer = setTimeout(clearSecret, 120_000);
+});
+$("btnApReplace").addEventListener("click", async () => {
+  const cur = $("apPassCurrent"), n1 = $("apPassNew1"), n2 = $("apPassNew2");
+  const currentPassphrase = cur.value, passphrase = n1.value, confirmText = n2.value;
+  cur.value = ""; n1.value = ""; n2.value = "";
+  if (passphrase.length < 12) { toast("The new passphrase must be at least 12 characters."); return; }
+  if (passphrase !== confirmText) { toast("The two new passphrases differ — type the same one twice."); return; }
+  if (!confirm("Replace the autopilot wallet? Its key is discarded for good. Only an empty, swept wallet can be replaced.")) return;
+  const res = await autopilotCall(AUTOPILOT.CREATE, { passphrase, confirm: confirmText, replace: true, currentPassphrase }, $("btnApReplace"));
+  if (res?.ok) { $("apReplaceBox").open = false; toast(`Replaced: the new autopilot wallet is ${short(res.publicKey)}, locked and empty.`); }
+});
+$("btnApSecretHide").addEventListener("click", clearSecret);
+$("apExportBox").addEventListener("toggle", () => { if (!$("apExportBox").open) clearSecret(); });
+
 async function refresh() {
   const res = await send(UI.GET_STATUS).catch(() => null);
   if (res?.ok) { status = res.status; render(); }
@@ -163,6 +330,9 @@ $("btnConnect").addEventListener("click", async () => {
   refresh();
 });
 $("lnkOptions").addEventListener("click", (e) => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
+const openSetup = (e) => { e?.preventDefault?.(); chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") }); };
+$("lnkSetup").addEventListener("click", openSetup);
+$("btnSetup").addEventListener("click", openSetup);
 for (const b of document.querySelectorAll("#laneSeg button")) b.addEventListener("click", async () => {
   chosenLane = b.dataset.lane;
   if (chosenLane === "execute") { render(); return; }         // the ceremony below arms it
@@ -197,4 +367,6 @@ $("btnExport").addEventListener("click", async () => {
 });
 chrome.runtime.onMessage.addListener((msg) => { if (msg?.type === UI.STATUS_CHANGED && msg.status) { status = msg.status; render(); } });
 refresh();
+refreshAutopilot();
 setInterval(refresh, 3_000);
+setInterval(refreshAutopilot, 15_000);    // the balance and tokens are live chain reads: not every 3 s

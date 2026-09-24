@@ -74,7 +74,7 @@ if (built) {
     ok(`${out}: no node: specifier survived`, !/["']node:[a-z_]+["']/.test(text));
     ok(`${out}: no require() of a package survived`, !/\brequire\(["'][^"']+["']\)/.test(text.replace(/\/\*[\s\S]*?\*\//g, "")));
   }
-  for (const stat of ["manifest.json", "popup.html", "popup.css", "options.html", "icons/coinmarketcat-32.png", "icons/coinmarketcat-128.png", "icons/coinmarketcat-512.png"])
+  for (const stat of ["manifest.json", "popup.html", "popup.css", "options.html", "welcome.html", "welcome.css", "icons/coinmarketcat-32.png", "icons/coinmarketcat-128.png", "icons/coinmarketcat-512.png"])
     ok(`${stat} was copied`, fs.existsSync(path.join(outdir, stat)));
 
   /* The manifest names files the build produced — a renamed entry would load as a blank
@@ -86,6 +86,9 @@ if (built) {
   ok("popup.html loads popup.js and popup.css by the built names", /src="popup\.js"/.test(popupHtml) && /href="popup\.css"/.test(popupHtml));
   const optionsHtml = fs.readFileSync(path.join(outdir, "options.html"), "utf8");
   ok("options.html loads options.js", /src="options\.js"/.test(optionsHtml));
+  const welcomeHtml = fs.readFileSync(path.join(outdir, "welcome.html"), "utf8");
+  ok("welcome.html, the first-run setup page, loads welcome.js and welcome.css by the built names", /src="welcome\.js"/.test(welcomeHtml) && /href="welcome\.css"/.test(welcomeHtml));
+  ok("…and the icon it shows was copied beside it", /src="icons\/coinmarketcat-128\.png"/.test(welcomeHtml) && fs.existsSync(path.join(outdir, "icons", "coinmarketcat-128.png")));
 
   console.log("\nTHE BUNDLE EVALUATES, AND DECIDES LIKE THE EXECUTOR\n──────────────────────────────────────────────────");
   /* A library bundle from the engine entry, built with the same options, so the decision

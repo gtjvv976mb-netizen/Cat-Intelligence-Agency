@@ -10,10 +10,17 @@
  * grades WALL-ST-E's. What this file owns is the plumbing around a signer that is a
  * person, and one entry rule the record supports:
  *
- *   · ONE APPROVAL PER TRADE. Phantom has no auto-approve, by design, and this lane does
- *     not try to route around it. A buy the contract clears becomes one Phantom window;
- *     a sell the determiner orders becomes one Phantom window. The extension never sees
- *     a key, and test-hawk-no-key.mjs scans this folder for one on every run.
+ *   · TWO SIGNERS, ONE SHAPE. `bridge` is Phantom: one approval window per trade, by
+ *     design — Phantom has no auto-approve and this lane does not route around it; in
+ *     that mode the extension never sees a key. `sessionSigner` is the AUTOPILOT WALLET
+ *     (the session wallet module, which only the background host imports): the same
+ *     { isReady(), wallet(), signTransaction() } shape, answered by a key the extension
+ *     generated, keeps encrypted, and unlocks for a while — no window. `config.signerMode`
+ *     picks which one BUYS; a SELL is always signed by whichever of the two holds the
+ *     position, so switching modes never strands one. On autopilot the budget is also the
+ *     balance: a buy the autopilot wallet cannot cover (ticket, fee, rent, one sell's fee
+ *     and the rent floor) is refused before anything is signed. This file never touches a
+ *     key either way; test-hawk-no-key.mjs scans it on every run.
  *
  *   · WATCH FIRST, THEN BUY. Every launch is evaluated at first notice exactly as the
  *     executor evaluates it — same contract, same ceiling — and opens a WOULD-HAVE
@@ -68,19 +75,22 @@ import { readSocials } from "../../vendor/executor/snipe-socials.mjs";
 import { TOKEN_PROGRAM, TOKEN_2022_PROGRAM, describeMint } from "../../vendor/executor/token2022.mjs";
 import {
   HAWK_BROWSER_VERSION, CONFIG_DEFAULTS, normalizeConfig, laneConfigFor, policyConfigFor, feeModelFor,
-  browserArmability, browserArmSentence, quoteEntryFor, STOCK_CANARY_RULE, RECORD,
+  browserArmability, browserArmSentence, quoteEntryFor, STOCK_CANARY_RULE, RECORD, autopilotBuyNeedLamports,
 } from "./config.mjs";
 import {
   buildUnsignedTransaction, createAtaIdempotentIx, toTransactionInstruction, associatedTokenAddress,
   fillFromTransaction, tokenAmountOf, toBase64, fromBase64, signatureOf, sameMessage, TxError,
   WSOL, unitsToRaw, rawToUnits,
 } from "./tx.mjs";
-import { SIGN_ERRORS } from "./protocol.mjs";
+import { SIGN_ERRORS, BridgeError } from "./protocol.mjs";
 
 const LAMPORTS = 1_000_000_000n;
 const ZERO_KEY = "11111111111111111111111111111111";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+/** How often an autopilot lane re-reads its wallet's balance for the checklist. Every
+ *  buy reads it again at the moment of asking, whatever this says. */
+const AUTOPILOT_BALANCE_EVERY_MS = 15_000;
 const isPlainObject = (v) => v != null && typeof v === "object" && !Array.isArray(v);
 const sol = (lamports) => Number(BigInt(lamports)) / Number(LAMPORTS);
 const short = (mint) => (typeof mint === "string" && mint.length > 12 ? `${mint.slice(0, 4)}…${mint.slice(-4)}` : String(mint));
@@ -124,7 +134,8 @@ export function memoryStore(initial = null) {
 export function createHawkEngine({
   rpc = null,                 // createRpc() or a scripted double; may be swapped with setRpc()
   secondaryRpc = null,        // optional second reader; when present the curve must agree
-  bridge,                     // { isReady(), wallet(), signTransaction({txBase64,...}) }
+  bridge,                     // Phantom: { isReady(), wallet(), signTransaction({txBase64,...}) }
+  sessionSigner = null,       // the autopilot wallet, the same shape (createSessionSigner); null = Phantom only
   store = memoryStore(),
   feedFactory = null,         // ({ onLogs, onState }) => { start(), stop(), state, counters }
   clock = () => Date.now(),
@@ -138,6 +149,8 @@ export function createHawkEngine({
 } = {}) {
   if (!bridge || typeof bridge.signTransaction !== "function" || typeof bridge.wallet !== "function")
     throw new Error("createHawkEngine needs a bridge with wallet() and signTransaction()");
+  if (sessionSigner !== null && (typeof sessionSigner.signTransaction !== "function" || typeof sessionSigner.wallet !== "function" || typeof sessionSigner.isReady !== "function"))
+    throw new Error("createHawkEngine's sessionSigner needs isReady(), wallet() and signTransaction()");
   const determiner = bindDeterminer(snipePolicyModule);
   let config = normalizeConfig({ ...CONFIG_DEFAULTS, ...initialConfig });
   let S = freshState();
@@ -241,19 +254,86 @@ export function createHawkEngine({
     return Number.isFinite(observed) ? observed : null;
   };
   const feeReserveLamports = () => BigInt(Math.round((Number(SNIPE_LANE_DEFAULTS.networkFeeReserveSol) || 0) * Number(LAMPORTS)));
+
+  /* ── who signs ───────────────────────────────────────────────────────────────────────
+     Phantom (`bridge`) or the autopilot wallet (`sessionSigner`), by config.signerMode,
+     for BUYS; a sell goes to whichever of the two holds the position. */
+  const NO_AUTOPILOT = Object.freeze({
+    isReady: () => false, wallet: () => null,
+    async signTransaction() { throw new BridgeError(SIGN_ERRORS.NO_WALLET, "no autopilot wallet is wired into this lane"); },
+  });
+  const onAutopilot = () => config.signerMode === "autopilot";
+  const readyOf = (signer) => (typeof signer?.isReady === "function" ? signer.isReady() === true : true);
+  const isAutopilot = (signer) => sessionSigner !== null && signer === sessionSigner;
+  function activeSigner() { return onAutopilot() ? (sessionSigner ?? NO_AUTOPILOT) : bridge; }
+  /** The signer whose wallet holds `wallet`, or null. The autopilot wallet's address is
+   *  known locked or unlocked; Phantom's only while it is connected. */
+  function signerHolding(wallet) {
+    if (!wallet) return null;
+    if (sessionSigner && sessionSigner.wallet() === wallet) return sessionSigner;
+    if (bridge.wallet() === wallet) return bridge;
+    return null;
+  }
+  /** The autopilot wallet as the checklist and the popup see it: its address, whether it
+   *  is unlocked now, until when, and the balance last read off the chain. */
+  const autopilotBalance = { wallet: null, lamports: null, at: 0 };
+  let lastSignerSnapshot = null;
+  function autopilotView() {
+    if (!sessionSigner) return null;
+    const publicKey = sessionSigner.wallet() ?? null;
+    const unlocked = readyOf(sessionSigner);
+    const fresh = publicKey !== null && autopilotBalance.wallet === publicKey && autopilotBalance.lamports !== null;
+    return {
+      publicKey, unlocked, expiresAt: unlocked ? lastSignerSnapshot?.expiresAt ?? null : null,
+      balanceLamports: fresh ? autopilotBalance.lamports.toString() : null, balanceSol: fresh ? sol(autopilotBalance.lamports) : null,
+      balanceAt: fresh ? autopilotBalance.at : null,
+    };
+  }
+  async function refreshAutopilotBalance({ force = false } = {}) {
+    if (!sessionSigner || !rpc) return null;
+    const wallet = sessionSigner.wallet();
+    if (!wallet) { autopilotBalance.wallet = null; autopilotBalance.lamports = null; return null; }
+    if (!force && autopilotBalance.wallet === wallet && clock() - autopilotBalance.at < AUTOPILOT_BALANCE_EVERY_MS) return autopilotBalance.lamports;
+    try {
+      const lamports = BigInt(await rpc.getBalance(wallet));
+      autopilotBalance.wallet = wallet; autopilotBalance.lamports = lamports; autopilotBalance.at = clock();
+    } catch { /* the last read stands; an unread balance keeps the checklist red, not green */ }
+    return autopilotBalance.lamports;
+  }
+  /** What the host calls at start and after every keystore call: re-read the keystore,
+   *  then the autopilot wallet's balance. */
+  async function refreshSigner() {
+    if (sessionSigner && typeof sessionSigner.refresh === "function") {
+      try { lastSignerSnapshot = await sessionSigner.refresh(); }
+      catch (error) { say(`the autopilot wallet could not be read: ${error?.message ?? error}`); }
+    }
+    await refreshAutopilotBalance({ force: true });
+    emit();
+    return autopilotView();
+  }
+  function armabilityNow() {
+    const signer = activeSigner();
+    return browserArmability({
+      config, wallet: signer.wallet(), hasBridge: readyOf(bridge),
+      autopilot: onAutopilot() ? autopilotView() : null,
+    });
+  }
   function armed() {
     if (config.lane !== "execute") return false;
-    const wallet = bridge.wallet();
+    const signer = activeSigner();
+    const wallet = signer.wallet();
     if (!wallet || !rpc) return false;
-    const hasBridge = typeof bridge.isReady === "function" ? bridge.isReady() : true;
-    if (!hasBridge) return false;
-    /* With no stock listed this is the executor's snipeArmSentence byte for byte; with
-       stocks listed it names every one, its canary, its cap and its mint address. */
-    if (config.liveAck !== browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, config.quoteMints)) return false;
+    /* Phantom: the console tab answers. Autopilot: the wallet is unlocked now — judged
+       against the clock, so an unlock that ran out stops the next buy without a read. */
+    if (!readyOf(signer)) return false;
+    /* With no stock listed and Phantom signing this is the executor's snipeArmSentence
+       byte for byte; with stocks listed it names every one, its canary, its cap and its
+       mint address; on autopilot it says that nothing will ask before it signs. */
+    if (config.liveAck !== browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, config.quoteMints, { autopilot: onAutopilot() })) return false;
     /* The checklist the popup prints under "Before this lane may spend money" is the
        condition, not a decoration: a matching sentence with a red item (a stock listed
-       with no stop chosen, say) does not arm. */
-    return browserArmability({ config, wallet, hasBridge }).armable;
+       with no stop chosen, an autopilot wallet that cannot cover a ticket) does not arm. */
+    return armabilityNow().armable;
   }
   /** The contract sees "execute" only at the moment a live entry is attempted with the
    *  instruction it will sign. Every first-notice evaluation is an observe evaluation. */
@@ -515,7 +595,7 @@ export function createHawkEngine({
       const ceiling = stock
         ? `${units(entryInputLamports, stock.quoteDecimals, stock.quoteSymbol)} (network fee ~${sol(feeLamports).toFixed(4)} SOL beside it)`
         : `${sol(entryInputLamports).toFixed(4)} SOL`;
-      say(`${short(mint)}${notice?.raw?.symbol ? ` (${notice.raw.symbol})` : ""}: cleared — would have entered for at most ${ceiling}; ${armed() ? `watching ${Math.round(config.entryWaitMs / 1000)}s before asking Phantom` : "watching"}`);
+      say(`${short(mint)}${notice?.raw?.symbol ? ` (${notice.raw.symbol})` : ""}: cleared — would have entered for at most ${ceiling}; ${armed() ? `watching ${Math.round(config.entryWaitMs / 1000)}s before ${onAutopilot() ? "the autopilot wallet signs" : "asking Phantom"}` : "watching"}`);
       persist();
       return { verdict, entered: true, paper: true, position: filed };
     } catch (error) {
@@ -528,7 +608,8 @@ export function createHawkEngine({
   /* ── the entry: the live attempt, after the wait ───────────────────────────────────── */
   async function attemptLiveEntry({ pos, now }) {
     const mint = pos.mint;
-    const wallet = bridge.wallet();
+    const signer = activeSigner();
+    const wallet = signer.wallet();
     S.counters.liveAttempts++;
     entryInFlight = mint;
     updateSnipe(S, { ...pos, mint, liveAttempted: true, liveAttemptAt: now });
@@ -604,9 +685,24 @@ export function createHawkEngine({
         const held = await rpc.getTokenAccountBalance(prepared.associatedQuoteUser);
         const ceiling = BigInt(verdict.detail.maxQuoteInRaw);
         if (BigInt(held) < ceiling)
-          return await refuse("quote_balance_short", `the wallet holds ${units(held, quote.decimals, quote.symbol)} in its ${quote.symbol} account, under the ${units(ceiling, quote.decimals, quote.symbol)} this buy may spend — nothing was asked of Phantom`);
+          return await refuse("quote_balance_short", `the wallet holds ${units(held, quote.decimals, quote.symbol)} in its ${quote.symbol} account, under the ${units(ceiling, quote.decimals, quote.symbol)} this buy may spend — nothing was ${isAutopilot(signer) ? "signed" : "asked of Phantom"}`);
       }
-      return await enterForReal({ mint, pos, curve, verdict, frictionX: frictionFor(verdict), read, prepared, wallet, now, quote, canary });
+      if (isAutopilot(signer)) {
+        /* THE BUDGET IS THE BALANCE. Read at the moment of asking: the wallet must cover the
+           SOL ceiling (a stock buy pays its ticket in the stock), the buy's fee and rent,
+           one sell's fee so the position can always leave, and the rent floor. Short of
+           that the buy is refused here, by name, before anything is built for signing —
+           and were this check wrong, the chain would refuse the spend anyway. */
+        const need = autopilotBuyNeedLamports(config, { ticketLamports: quote ? 0n : BigInt(verdict.detail.maxQuoteInRaw), quoteAtaCreate: quote !== null });
+        let balance = null;
+        try { balance = BigInt(await rpc.getBalance(wallet)); autopilotBalance.wallet = wallet; autopilotBalance.lamports = balance; autopilotBalance.at = clock(); }
+        catch { balance = null; }
+        if (balance === null) return await refuse("autopilot_balance_unread", "the autopilot wallet's balance could not be read — nothing was signed");
+        if (balance < need.total)
+          return await refuse("autopilot_balance_short", `the autopilot wallet holds ${sol(balance)} SOL; this buy needs up to ${sol(need.total)} SOL ` +
+            `(${quote ? `no SOL ticket — it pays in ${quote.symbol} — ` : `a ${sol(need.ticket)} SOL ceiling, `}${sol(need.buyFees)} SOL of fee and rent, ${sol(need.sellFee)} SOL for the sell, the ${sol(need.reserve)} SOL rent floor). The budget is the balance; nothing was signed`);
+      }
+      return await enterForReal({ mint, pos, curve, verdict, frictionX: frictionFor(verdict), read, prepared, wallet, now, quote, canary, signer });
     } catch (error) {
       S.counters.entryFailures++;
       S.attempts[mint] = { at: now, outcome: "failed", detail: String(error?.message ?? error) };
@@ -671,11 +767,12 @@ export function createHawkEngine({
     return { spend, units: Number(sim.unitsConsumed) || null };
   }
 
-  /** Ask Phantom, check what came back is what was asked, send it, wait for the chain. */
-  async function signSendConfirm({ txBase64, purpose, mint, summary, lastValidBlockHeight, timeoutMs, wallet }) {
+  /** Ask the signer (Phantom's window, or the autopilot wallet), check what came back is
+   *  what was asked, send it, wait for the chain. */
+  async function signSendConfirm({ txBase64, purpose, mint, summary, lastValidBlockHeight, timeoutMs, wallet, signer = bridge }) {
     S.counters.signRequests++;
     let signed;
-    try { signed = await bridge.signTransaction({ txBase64, purpose, mint, summary, timeoutMs, wallet }); }
+    try { signed = await signer.signTransaction({ txBase64, purpose, mint, summary, timeoutMs, wallet }); }
     catch (error) {
       if (error?.code === SIGN_ERRORS.REJECTED) S.counters.signRejected++;
       if (error?.code === SIGN_ERRORS.TIMEOUT) S.counters.signTimeouts++;
@@ -683,7 +780,7 @@ export function createHawkEngine({
     }
     const unsignedBytes = fromBase64(txBase64);
     const signedBytes = fromBase64(signed?.signedBase64 ?? signed);
-    if (!sameMessage(unsignedBytes, signedBytes)) throw new TxError("tampered", "the transaction Phantom returned is not the one it was asked to sign — refusing to send it");
+    if (!sameMessage(unsignedBytes, signedBytes)) throw new TxError("tampered", `the transaction ${isAutopilot(signer) ? "the autopilot wallet" : "Phantom"} returned is not the one it was asked to sign — refusing to send it`);
     const signature = signatureOf(signedBytes);
     const signedB64 = toBase64(signedBytes);
     const sends = await Promise.allSettled([rpc, secondaryRpc].filter(Boolean).map((r) => r.sendTransaction(signedB64)));
@@ -718,9 +815,10 @@ export function createHawkEngine({
     }
   }
 
-  async function enterForReal({ mint, pos, curve, verdict, frictionX, read, prepared, wallet, now, quote = null, canary = false }) {
-    if (quote) return enterStockForReal({ mint, pos, curve, verdict, frictionX, read, prepared, wallet, now, quote, canary });
-    S.attempts[mint] = { at: now, outcome: "signing", detail: "waiting for Phantom" };
+  async function enterForReal({ mint, pos, curve, verdict, frictionX, read, prepared, wallet, now, quote = null, canary = false, signer = bridge }) {
+    if (quote) return enterStockForReal({ mint, pos, curve, verdict, frictionX, read, prepared, wallet, now, quote, canary, signer });
+    const auto = isAutopilot(signer);
+    S.attempts[mint] = { at: now, outcome: "signing", detail: auto ? "the autopilot wallet is signing" : "waiting for Phantom" };
     emit();
     const baseOutRaw = BigInt(verdict.detail.baseOutRaw), maxQuoteInRaw = BigInt(verdict.detail.maxQuoteInRaw);
     try {
@@ -735,8 +833,8 @@ export function createHawkEngine({
       const txBase64 = toBase64(tx.serialize());
       await simulateGuard({ txBase64, wallet, ata: prepared.associatedBaseUser, mint, side: "buy", expected: { baseOutRaw, maxQuoteInRaw } });
       const summary = `BUY ${pos.symbol ?? short(mint)} — up to ${sol(maxQuoteInRaw).toFixed(4)} SOL for ${baseOutRaw} base units`;
-      notify({ kind: "buy", mint, title: "COINMARKETCAT: approve the buy in Phantom", body: summary });
-      const { signature, tx: landed } = await signSendConfirm({ txBase64, purpose: "buy", mint, summary, lastValidBlockHeight, timeoutMs: config.approvalTimeoutMs, wallet });
+      if (!auto) notify({ kind: "buy", mint, title: "COINMARKETCAT: approve the buy in Phantom", body: summary });
+      const { signature, tx: landed } = await signSendConfirm({ txBase64, purpose: "buy", mint, summary, lastValidBlockHeight, timeoutMs: config.approvalTimeoutMs, wallet, signer });
       const fill = fillFromTransaction(landed, { wallet, mint, side: "buy" });
       const openedAt = clock();
       const entryInputLamports = BigInt(fill.quoteInRaw);
@@ -772,7 +870,11 @@ export function createHawkEngine({
       S.counters.entered++;
       S.attempts[mint] = { at: now, outcome: "entered", detail: signature };
       charge("entry", entryInputLamports + paidFee, openedAt);
-      say(`live ${short(mint)}: ENTERED — ${fill.qtyRaw} base for ${entryInputLamports} lamports plus ${paidFee} fee, ${Math.round(filed.msSinceNotice / 1000)}s after the notice, sig ${signature}`);
+      say(`live ${short(mint)}: ENTERED — ${fill.qtyRaw} base for ${entryInputLamports} lamports plus ${paidFee} fee, ${Math.round(filed.msSinceNotice / 1000)}s after the notice, ${auto ? "signed by the autopilot wallet, " : ""}sig ${signature}`);
+      if (auto) {
+        notify({ kind: "buy", mint, title: "COINMARKETCAT autopilot: bought", body: `${pos.symbol ?? short(mint)} for ${sol(entryInputLamports).toFixed(4)} SOL, signed by the autopilot wallet without a window.` });
+        refreshAutopilotBalance({ force: true }).catch(() => {});
+      }
       await persist();
       return { verdict, entered: true, paper: false, position: filed, signature };
     } catch (error) {
@@ -804,8 +906,9 @@ export function createHawkEngine({
    *     whose fill cannot be read or booked BLOCKS further buys in that stock, loudly,
    *     until the user clears it in the popup.
    */
-  async function enterStockForReal({ mint, pos, curve, verdict, frictionX, read, prepared, wallet, now, quote, canary }) {
-    S.attempts[mint] = { at: now, outcome: "signing", detail: "waiting for Phantom" };
+  async function enterStockForReal({ mint, pos, curve, verdict, frictionX, read, prepared, wallet, now, quote, canary, signer = bridge }) {
+    const auto = isAutopilot(signer);
+    S.attempts[mint] = { at: now, outcome: "signing", detail: auto ? "the autopilot wallet is signing" : "waiting for Phantom" };
     emit();
     const baseOutRaw = BigInt(verdict.detail.baseOutRaw), maxQuoteInRaw = BigInt(verdict.detail.maxQuoteInRaw);
     const u = (raw) => units(raw, quote.decimals, quote.symbol);
@@ -827,8 +930,8 @@ export function createHawkEngine({
         quote: { mint: quote.mint, ata: prepared.associatedQuoteUser, decimals: quote.decimals, symbol: quote.symbol } });
       const summary = `BUY ${pos.symbol ?? short(mint)} — up to ${u(maxQuoteInRaw)} for ${baseOutRaw} base units` +
         `${canary ? ` (the ${quote.symbol} canary: sized at its minimum until one ${quote.symbol} buy is read back)` : ""}; network fee and rent in SOL`;
-      notify({ kind: "buy", mint, title: "COINMARKETCAT: approve the buy in Phantom", body: summary });
-      const signed = await signSendConfirm({ txBase64, purpose: "buy", mint, summary, lastValidBlockHeight, timeoutMs: config.approvalTimeoutMs, wallet });
+      if (!auto) notify({ kind: "buy", mint, title: "COINMARKETCAT: approve the buy in Phantom", body: summary });
+      const signed = await signSendConfirm({ txBase64, purpose: "buy", mint, summary, lastValidBlockHeight, timeoutMs: config.approvalTimeoutMs, wallet, signer });
       signature = signed.signature;
       const landed = signed.tx;
       /* From here the buy has LANDED. A failure below is not "the entry failed"; it is a
@@ -873,7 +976,11 @@ export function createHawkEngine({
         S.stockCanary[quote.mint] = { state: "proven", at: openedAt, signature, mint, quoteInRaw: quoteInRaw.toString(), qtyRaw: fill.qtyRaw };
         say(`the ${quote.symbol} canary buy was read back off the chain (sig ${signature}): later ${quote.symbol} buys may use the full ${quoteEntryFor(config, quote.mint)?.maxPerTrade ?? "configured"} ${quote.symbol} ticket`);
       }
-      say(`live ${short(mint)}: ENTERED — ${fill.qtyRaw} base for ${u(quoteInRaw)}${canary ? " (the canary)" : ""}, plus ${paidLamports} lamports of network fee and rent in SOL, ${Math.round(filed.msSinceNotice / 1000)}s after the notice, sig ${signature}`);
+      say(`live ${short(mint)}: ENTERED — ${fill.qtyRaw} base for ${u(quoteInRaw)}${canary ? " (the canary)" : ""}, plus ${paidLamports} lamports of network fee and rent in SOL, ${Math.round(filed.msSinceNotice / 1000)}s after the notice, ${auto ? "signed by the autopilot wallet, " : ""}sig ${signature}`);
+      if (auto) {
+        notify({ kind: "buy", mint, title: "COINMARKETCAT autopilot: bought", body: `${pos.symbol ?? short(mint)} for ${u(quoteInRaw)}, signed by the autopilot wallet without a window.` });
+        refreshAutopilotBalance({ force: true }).catch(() => {});
+      }
       await persist();
       return { verdict, entered: true, paper: false, position: filed, signature };
     } catch (error) {
@@ -923,6 +1030,8 @@ export function createHawkEngine({
     if (ticking) return [];
     ticking = true;
     try {
+      /* On autopilot the checklist reads the wallet's balance; keep it no older than 15 s. */
+      if (onAutopilot()) await refreshAutopilotBalance();
       const out = [];
       for (const pos of snipeList(S)) {
         try { out.push(await stepOne(pos)); }
@@ -1074,17 +1183,35 @@ export function createHawkEngine({
       }
       return { mint, action: "sell", markX, closed: false, pending: true, paused: true };
     }
+    const heldByAutopilot = sessionSigner !== null && Boolean(pos.wallet) && sessionSigner.wallet() === pos.wallet;
     if (curve.complete === true) {
       if (!pos.graduated) {
         updateSnipe(S, { ...pos, mint, graduated: true });
-        say(`live ${short(mint)}: the curve has graduated to a pool — this lane sells on the curve only. SELL IT BY HAND on pump.fun or Jupiter, then press Forget on the row`);
-        notify({ kind: "attention", mint, title: "COINMARKETCAT: sell by hand", body: `${pos.symbol ?? short(mint)} graduated to a pool. The lane cannot sell it; sell it yourself.` });
+        say(heldByAutopilot
+          ? `live ${short(mint)}: the curve has graduated to a pool — this lane sells on the curve only, and the tokens are in the autopilot wallet. Press Forget on the row, then Sweep back sends them to Phantom: SELL THEM BY HAND there`
+          : `live ${short(mint)}: the curve has graduated to a pool — this lane sells on the curve only. SELL IT BY HAND on pump.fun or Jupiter, then press Forget on the row`);
+        notify({ kind: "attention", mint, title: "COINMARKETCAT: sell by hand", body: heldByAutopilot
+          ? `${pos.symbol ?? short(mint)} graduated to a pool. The lane cannot sell it: Forget the row, Sweep back to Phantom, and sell it there.`
+          : `${pos.symbol ?? short(mint)} graduated to a pool. The lane cannot sell it; sell it yourself.` });
         await persist();
       }
       return { mint, action: "sell", markX, closed: false, graduated: true };
     }
-    const wallet = bridge.wallet();
-    if (!wallet || (pos.wallet && wallet !== pos.wallet)) { say(`live ${short(mint)}: Phantom is not connected as the wallet that holds this position (${pos.wallet ?? "?"})`); return { mint, action: "sell", markX, closed: false, pending: true }; }
+    /* THE SELL IS SIGNED BY WHOEVER HOLDS THE POSITION, whatever the mode is now. */
+    const signer = pos.wallet ? signerHolding(pos.wallet) : bridge;
+    const wallet = signer ? signer.wallet() : null;
+    if (!signer || !wallet || (pos.wallet && wallet !== pos.wallet)) { say(`live ${short(mint)}: Phantom is not connected as the wallet that holds this position (${pos.wallet ?? "?"})`); return { mint, action: "sell", markX, closed: false, pending: true }; }
+    const auto = isAutopilot(signer);
+    if (auto && !readyOf(signer)) {
+      /* A LOCKED AUTOPILOT WALLET CANNOT SELL. Said once per re-ask interval, loudly: the
+         determiner still says sell, and only the passphrase can let it. */
+      if (!pos.lockedSellNotedAt || now - Number(pos.lockedSellNotedAt) >= Number(config.sellReaskMs)) {
+        updateSnipe(S, { ...pos, mint, lockedSellNotedAt: now });
+        say(`live ${short(mint)}: the determiner says sell (${reason}) but the autopilot wallet that holds it is LOCKED — unlock it in the popup and it sells on the next tick`);
+        notify({ kind: "sell", mint, title: "COINMARKETCAT: unlock the autopilot wallet to sell", body: `${pos.symbol ?? short(mint)} should be sold (${reason}), and the autopilot wallet holding it is locked. Unlock it in the popup.` });
+      }
+      return { mint, action: "sell", markX, closed: false, pending: true, locked: true };
+    }
     sellInFlight.add(mint);
     try {
       const ata = pos.associatedBaseUser ?? associatedTokenAddress(wallet, mint, pos.baseTokenProgram ?? TOKEN_PROGRAM);
@@ -1130,10 +1257,10 @@ export function createHawkEngine({
         ? `SELL ${pos.symbol ?? short(mint)} — ${reason}; floor ${units(minQuoteOutRaw, stock.decimals, stock.symbol)}; network fee in SOL`
         : `SELL ${pos.symbol ?? short(mint)} — ${reason}; floor ${sol(minQuoteOutRaw).toFixed(4)} SOL`;
       updateSnipe(S, { ...snipeFor(S, mint), mint, pendingSell: { reason, askedAt: clock(), attempts: Number(pos.pendingSell?.attempts ?? 0) + 1 } });
-      notify({ kind: "sell", mint, title: "COINMARKETCAT: APPROVE THE SELL IN PHANTOM", body: summary });
-      say(`live ${short(mint)}: asking Phantom to sell — ${reason}`);
+      if (!auto) notify({ kind: "sell", mint, title: "COINMARKETCAT: APPROVE THE SELL IN PHANTOM", body: summary });
+      say(`live ${short(mint)}: ${auto ? "the autopilot wallet is selling" : "asking Phantom to sell"} — ${reason}`);
       emit();
-      const { signature, tx: landed } = await signSendConfirm({ txBase64, purpose: "sell", mint, summary, lastValidBlockHeight, timeoutMs: Number(config.sellReaskMs) * 4, wallet });
+      const { signature, tx: landed } = await signSendConfirm({ txBase64, purpose: "sell", mint, summary, lastValidBlockHeight, timeoutMs: Number(config.sellReaskMs) * 4, wallet, signer });
       const fill = stock
         ? fillFromTransaction(landed, { wallet, mint, side: "sell", quoteMint: stock.mint, quoteDecimals: stock.decimals })
         : fillFromTransaction(landed, { wallet, mint, side: "sell" });
@@ -1148,8 +1275,12 @@ export function createHawkEngine({
       if (exitLamports !== null && exitLamports > 0n) charge("exit_fee", exitLamports, closedAt);
       recordClose({ closed, pos, realized, now: closedAt, signature, exitLamports });
       say(stock
-        ? `live ${short(mint)}: SOLD — ${reason}; ${units(fill.quoteOutRaw, stock.decimals, stock.symbol)} back, ${exitLamports} lamports of network fee in SOL, sig ${signature}`
-        : `live ${short(mint)}: SOLD — ${reason}; ${fill.quoteOutRaw} lamports gross, sig ${signature}`);
+        ? `live ${short(mint)}: SOLD — ${reason}; ${units(fill.quoteOutRaw, stock.decimals, stock.symbol)} back, ${exitLamports} lamports of network fee in SOL, ${auto ? "signed by the autopilot wallet, " : ""}sig ${signature}`
+        : `live ${short(mint)}: SOLD — ${reason}; ${fill.quoteOutRaw} lamports gross, ${auto ? "signed by the autopilot wallet, " : ""}sig ${signature}`);
+      if (auto) {
+        notify({ kind: "sold", mint, title: "COINMARKETCAT autopilot: sold", body: `${pos.symbol ?? short(mint)} — ${reason}. Signed by the autopilot wallet without a window.` });
+        refreshAutopilotBalance({ force: true }).catch(() => {});
+      }
       await persist();
       return { mint, action: "sell", markX, closed: true, signature };
     } catch (error) {
@@ -1221,6 +1352,7 @@ export function createHawkEngine({
   /* ── lifecycle ─────────────────────────────────────────────────────────────────────── */
   async function start() {
     await load();
+    if (sessionSigner) await refreshSigner();
     if (!ticker) ticker = timers.setInterval(() => { tick().catch(() => {}); }, Number(config.tickMs) || 1000);
     startFeed();
     emit();
@@ -1236,6 +1368,10 @@ export function createHawkEngine({
     config = normalizeConfig({ ...config, ...next });
     if (before.lane !== config.lane || before.shadowCapacity !== config.shadowCapacity) buildShadow();
     if (before.lane !== config.lane) say(`lane: ${before.lane} → ${config.lane}`);
+    if (before.signerMode !== config.signerMode) {
+      say(`signer: ${before.signerMode} → ${config.signerMode}${config.signerMode === "autopilot" ? " — buys are signed by the autopilot wallet without a window" : " — every trade is one Phantom approval"}`);
+      if (config.signerMode === "autopilot") await refreshAutopilotBalance({ force: true });
+    }
     stopFeed();
     if (config.lane !== "off") startFeed();
     emit();
@@ -1297,9 +1433,13 @@ export function createHawkEngine({
   }
 
   function status() {
-    const wallet = bridge.wallet();
-    const hasBridge = typeof bridge.isReady === "function" ? bridge.isReady() : true;
-    const arm = browserArmability({ config, wallet, hasBridge });
+    /* `wallet` is the lane's wallet — the one the arm sentence binds and buys come from:
+       Phantom's, or on autopilot the autopilot wallet's. `phantomWallet` and `bridgeReady`
+       are always Phantom's and the console tab's, whatever the mode. */
+    const signer = activeSigner();
+    const wallet = signer.wallet();
+    const hasBridge = readyOf(bridge);
+    const arm = armabilityNow();
     const open = snipeList(S).map((p) => ({ ...p }));
     const now = clock();
     const liveCloses = S.closes.filter((c) => c.live);
@@ -1324,6 +1464,9 @@ export function createHawkEngine({
       version: ENGINE_VERSION,
       lane: config.lane, executing: armed(), armable: arm.armable, armability: arm,
       wallet, bridgeReady: hasBridge,
+      signerMode: config.signerMode, signerReady: readyOf(signer), phantomWallet: bridge.wallet() ?? null,
+      autopilot: autopilotView(),
+      autopilotHeld: sessionSigner && sessionSigner.wallet() ? open.filter((p) => p.live === true && p.wallet === sessionSigner.wallet()).length : 0,
       control: controlView(),
       feed: { state: feedState, detail: feedDetail, counters: feed?.counters ?? null },
       rpc: rpc ? rpc.url ?? "configured" : null,
@@ -1345,6 +1488,7 @@ export function createHawkEngine({
 
   return Object.freeze({
     start, stop, tick, handleNotice, onLogs, setConfig, setRpc, forgetPosition, clearStockCanary, status, exportShadow, scorecard, scorecardByQuote, report, load,
+    refreshSigner,
     get config() { return config; },
     get state() { return S; },
     setControl(next) { control = { ...control, ...next }; say(`control: hard stop ${control.hardStop ? "ON" : "off"}, entries ${control.pauseEntries ? "PAUSED" : "open"}`); emit(); },

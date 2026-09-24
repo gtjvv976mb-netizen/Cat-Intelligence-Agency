@@ -65,6 +65,30 @@ export function computeUnitPriceFor({ priorityFeeLamports, computeUnitLimit }) {
   return 1;
 }
 
+/** The chain's per-signature base fee, in lamports. */
+export const SIGNATURE_FEE_LAMPORTS = 5_000;
+/**
+ * The rent-exempt minimum of a system account holding 0 data bytes at the current rate
+ * (3,480 lamports per byte-year, two years, over 0 + 128 overhead bytes = 890,880), as
+ * `getMinimumBalanceForRentExemption(0)` returns it on mainnet. A wallet that pays for a
+ * transaction must end it at 0 or at least this; anything between is InsufficientFundsForRent.
+ * The session wallet's sweep leaves exactly this behind, and the lane's autopilot balance
+ * check keeps it out of every buy.
+ */
+export const RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS = 890_880;
+
+/**
+ * What the chain charges for a transaction built by buildUnsignedTransaction: the base fee
+ * per signature plus the prioritization fee, ceil(price × limit / 10^6), at the compute
+ * price this file derives. Exact, so a sweep can move a balance to the lamport.
+ */
+export function transactionFeeLamports({ computeUnitLimit, priorityFeeLamports = 0, signatures = 1 }) {
+  const price = BigInt(computeUnitPriceFor({ priorityFeeLamports, computeUnitLimit }));
+  const limit = BigInt(Number(computeUnitLimit));
+  const priority = (price * limit + 999_999n) / 1_000_000n;
+  return BigInt(SIGNATURE_FEE_LAMPORTS) * BigInt(signatures) + priority;
+}
+
 /** An unsigned v0 transaction: budget, price, then the instructions given. */
 export function buildUnsignedTransaction({ payer, blockhash, instructions, computeUnitLimit, priorityFeeLamports }) {
   const message = new TransactionMessage({

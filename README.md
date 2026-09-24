@@ -1,11 +1,22 @@
 # COINMARKETCAT
 
-*A sniper bot for Phantom. It hovers ten seconds over every launch and buys only what others followed.*
+*The sniper cat. It hovers ten seconds over every launch and buys only what others followed.*
 
-CoinMarketCat is the Claude Company launch sniper's lane — HAWK-AI's — run in your own
-browser and signed by **your own Phantom**, one approval window per trade. It never holds
-a key. You set the limits: the take-profit, the SOL per trade, the daily budget it will
-not exceed, the stop, and which stock-paired tokens to focus on.
+CoinMarketCat — the sniper cat, the first trading agent of Cat Intelligence Agency — is
+the Claude Company launch sniper's lane (HAWK-AI's), run in your own browser. You set the
+limits: the take-profit, the SOL per trade, the daily budget it will not exceed, the stop,
+and which stock-paired tokens to focus on. You also choose who signs:
+
+- **Phantom, one approval per trade** (the default). The extension holds no key. Every buy
+  and every sell is one Phantom window on the console tab.
+- **Autopilot.** The extension generates one wallet of its own, keeps its key encrypted
+  under your passphrase, and — while you have it unlocked — signs the lane's buys and
+  sells without asking. You fund it from Phantom with one approval and sweep it back when
+  you are done. This is the one mode in which the extension holds a key; see
+  [Who signs](#who-signs-phantom-per-trade-or-autopilot) for exactly what that means.
+
+When you install it, a setup page opens and walks you through your own limits before
+anything can spend.
 
 It is a Chrome extension you build from this repository and load unpacked. It is not in
 a store.
@@ -22,13 +33,16 @@ a store.
 - **Hovers, then buys only what others followed.** Every launch that clears opens a
   would-have position. In an armed lane, only once that position is ten seconds old
   **and still marks at or above its own would-have fill** does the lane re-read the
-  curve, rebuild and simulate the exact instruction it will sign, and ask Phantom.
+  curve, rebuild and simulate the exact instruction it will sign, and ask Phantom (or, on
+  autopilot, have the autopilot wallet sign it).
 - **Leaves in full** at the 1.5× take, the stop, the creator's exit, the 90-second stall
-  or the three-minute clock — each one more Phantom window.
+  or the three-minute clock — each one more Phantom window, or on autopilot, none.
 - **Keeps the executor's shadow book**, exported as the JSONL
   `node vendor/executor/grade-entry-gates.mjs --file <export>` reads, with the scorecard
   for the two entry rulers live in the popup.
 - **Puts its own losing record beside the arming switch.** The lane starts **Off**; you choose Observe before you ever choose Execute.
+- **Trades on its own, if you choose autopilot** — from a wallet you funded, inside the
+  same caps, with the balance as one more cap the chain enforces.
 - **Can pay in a tokenised stock, if you list one.** pump.fun "Custom Pairs" let a launch be
   priced in a token instead of SOL; the ones this lane is built and tested for are xStocks
   (GLDx, TSLAx, SPYx), paid from the stock already in your wallet. With nothing listed — the
@@ -110,6 +124,66 @@ you choose is its only stop, and the lane will not arm with a stock listed until
 chosen one. SPYx carries a display multiplier: Phantom shows it scaled, this lane shows the
 raw count over 10^8. A coin that graduates to a pool must be sold by hand, as with SOL.
 
+## Who signs: Phantom per trade, or autopilot
+
+**Phantom per trade** is the default. Phantom has no auto-approve, and this mode does not
+route around it: a buy the lane clears becomes one Phantom window on the console tab; a
+sell the exit rules order becomes one Phantom window. The extension never sees a key.
+Close the console tab and the lane cannot sign; a stop that needs a click is a weaker
+stop than a key's.
+
+**Autopilot** trades without asking. In the popup's *Who signs* card:
+
+1. **Create** the autopilot wallet: a passphrase of at least 12 characters, typed twice.
+   The extension generates a keypair and stores its 64-byte secret as AES-GCM-256
+   ciphertext under a key PBKDF2-SHA256 derives from your passphrase (600,000 iterations,
+   a fresh salt and nonce every write), in `chrome.storage.local`. The passphrase is never
+   stored. There is no reset: write it down somewhere that is not this browser.
+2. **Fund from Phantom**: an amount you type (default: your daily budget), or a listed
+   stock. The extension builds the transfer, simulates it, and asks Phantom **once**, on
+   the console tab.
+3. **Unlock** for a while (8 hours by default; 5 minutes to 24 hours, set in Options). The
+   decrypted key then sits in `chrome.storage.session` — memory only, readable by the
+   extension's own pages and worker, gone when the browser closes — until the unlock runs
+   out. **Lock** removes it at once.
+4. **Arm**: the sentence you type names the autopilot wallet's address and ends *"signed
+   without asking me, by the autopilot key this browser holds"*. A sentence typed for
+   Phantom cannot arm autopilot. The checklist adds three items: the wallet exists, it is
+   unlocked, and it holds enough for one buy (the ticket, the buy's fee and rent, one
+   sell's fee, and the 0.00089088 SOL rent floor).
+5. **Sweep back**: every token it holds (by `TransferChecked`, each emptied account closed
+   for its rent), every empty token account closed, then all SOL above the rent floor — to
+   your Phantom wallet, signed by the autopilot wallet. Refused while it holds a live
+   position (the position would have no SOL left to sell with).
+6. **Export** is for recovery: with the passphrase, the key is shown once in the base58
+   form Phantom imports. After exporting, treat the wallet as exposed: sweep it and
+   **Replace** it (the popup does this only for a swept wallet holding no position, and
+   only with its current passphrase).
+
+What is true on autopilot, plainly:
+
+- **A key in a browser is a bigger attack surface than Phantom.** While the wallet is
+  unlocked, anything that can read the extension's session storage — malware on the
+  machine, a debugger attached to the worker, a hostile extension — can read the key and
+  spend what the wallet holds. A keylogger has the passphrase.
+- **Your exposure is what you fund it with.** The budget is enforced twice: by the day cap,
+  as always, and by the balance — a buy the wallet cannot cover is refused by name before
+  anything is signed (`autopilot_balance_short`), and were that check wrong, the chain
+  would refuse the spend.
+- **Locking clears the unlocked key; a locked wallet signs nothing** — including sells. An
+  unlock that runs out locks itself and says so; a position the locked wallet holds waits,
+  with a notification, until you unlock it.
+- **A sell is always signed by the wallet that holds the position**, whatever the signer
+  setting says now, so switching modes never strands one. A curve that graduates must be
+  sold by hand: Forget the row, Sweep back, and sell it in Phantom.
+- **The console tab is not needed to trade on autopilot** (only to fund). The worker is
+  kept awake by the feed's socket and the half-minute keepalive alarm.
+- **Unmeasured:** no autopilot trade, fund or sweep has been made on mainnet. The path is
+  proven against the scripted chains in the tests below and nowhere else. Autopilot
+  changes who signs, not what is bought: the record below still loses.
+
+`docs/session-wallet.md` has the threat model.
+
 ## Install
 
 ```bash
@@ -118,7 +192,19 @@ cd coinmarketcat && npm ci && npm run build      # → dist/
 ```
 
 1. `chrome://extensions` → **Developer mode** → **Load unpacked** → `coinmarketcat/dist`.
-2. Open the extension's **Options** and paste an RPC URL (Helius, Triton, QuickNode). The
+   A setup page opens: connect, pick a style, set your limits, choose stocks and who
+   signs, and save — which puts the lane in **Observe**. Everything it sets stays editable
+   in Options, and the popup's *Setup* link opens it again. The styles: **Balanced** is
+   the lane's own defaults (the record's 1.5× take, 90 s stall and 180 s time stop at the
+   executor's 0.005 SOL canary, 0.01 SOL a day); **Cautious** is no looser on any dial and
+   tighter on three (one canary a day, 60 s stall, 120 s time stop — a choice, not a
+   measured improvement); **Bold** is labelled *looser than the record supports* (0.05 SOL
+   a ticket, 0.25 SOL a day, 2× take, 120 s stall, 300 s time stop, a proposed 0.5× stop).
+   Every style keeps the 10 s wait and the ≥ 1.0× follow-through. The stock checklist
+   offers GLDx, TSLAx and SPYx (read from the vendored fixture) and AAPLx and NVDAx (read
+   over RPC on 2026-09-24, not in the fixture); a ticked stock is written into the same
+   stock list Options edits, in that stock's own units.
+2. Open the extension's **Options** and paste an RPC URL (the setup page asks for it too) (Helius, Triton, QuickNode). The
    public mainnet RPC refuses browsers. A second RPC is optional; with one set, a curve
    the two disagree on is not trusted, and a read one of them missed or failed is used
    alone (the shadow row's `endpointVerdict` says `single` or `one_missing`).
@@ -128,7 +214,7 @@ cd coinmarketcat && npm ci && npm run build      # → dist/
    **Keep it open.**
 4. In the popup choose **Observe**. Watch the shadow book fill. Export it, grade it.
 5. To arm: choose **Execute**, read the checklist, type the sentence the lane prints for
-   the connected wallet, press **Arm**. It is compared byte for byte, as WALL-ST-E does
+   the wallet that will sign (Phantom's, or the autopilot wallet's), press **Arm**. It is compared byte for byte, as WALL-ST-E does
    with `SNIPE_LIVE_ACK`. A ticket above the 0.005 SOL canary must also have a stop you
    chose.
 
@@ -136,14 +222,15 @@ cd coinmarketcat && npm ci && npm run build      # → dist/
 
 ## What it refuses, and what you must know
 
-- **A stop that needs a click is a weaker stop than a key's.** Every exit is one Phantom
+- **A stop that needs a click is a weaker stop than a key's.** In Phantom mode every exit is one Phantom
   window. A declined sell is asked again 8 s later, and an unanswered window is abandoned
   after 32 s and asked again, for as long as the determiner still says sell; the lane
   fires a notification and puts SELL on the badge. It cannot press Approve for you.
-- **Close the console tab and the lane loses its signer.** Open positions are still
-  yours, and still priced, but nothing can be sold until it is back.
+- **In Phantom mode, close the console tab and the lane loses its signer.** Open
+  positions are still yours, and still priced, but nothing can be sold until it is back.
+  On autopilot the tab is needed only to fund; a locked autopilot wallet is the same stop.
 - **A buy window that sits past 25 s is abandoned.** A declined buy is never re-asked.
-- **One live position at a time** by default. One window at a time is the whole point.
+- **One live position at a time** by default, on either signer.
 - **The checklist is the condition.** The sentence alone does not arm: every item the popup
   lists under "Before this lane may spend money" must be green (a stock listed with no stop
   chosen, for one, keeps the lane unarmed with the sentence typed).
@@ -153,10 +240,17 @@ cd coinmarketcat && npm ci && npm run build      # → dist/
   the content script matches the console pages only; `injected.js` is the only
   web-accessible resource. Widening any of it (beyond `unlimitedStorage`, which the test
   tolerates) fails `test-hawk-manifest.mjs`.
-- **It never holds a key.** `test-hawk-no-key.mjs` scans every source file on every run,
-  and the built bundle in `dist/` whenever one is present (build first, then `npm test`,
-  to have it scanned). The engine refuses to send any signed transaction whose message
-  is not the one it asked Phantom to sign.
+- **Exactly one file may hold a key, and only on autopilot.** In Phantom mode the
+  extension holds no key at all. On autopilot the key lives in `src/lib/session-wallet.mjs`
+  and nowhere else: `test-hawk-no-key.mjs` scans every source file on every run, and the
+  built bundle in `dist/` whenever one is present (build first, then `npm test`), for a
+  Keypair, a secret, a derivation or a signer outside that file; pins that only the
+  service worker imports it; that the unlocked key goes to session storage only; that
+  only the create, unlock and export messages carry a passphrase and only the export
+  returns a key; that no message carries transaction bytes from a page; and that nothing
+  logs or stores either. `test-hawk-autopilot.mjs` checks the same through the running
+  worker. Either way, the engine refuses to send any signed transaction whose message is
+  not the one it asked to have signed.
 - **Two RPCs are optional here; on the executor they are mandatory.** A single provider
   is a single witness; the shadow row's `endpointVerdict` says `single` when so.
 
@@ -165,14 +259,16 @@ cd coinmarketcat && npm ci && npm run build      # → dist/
 ```
 manifest.json            MV3; permissions pinned by test-hawk-manifest.mjs
 build.mjs                esbuild; a plugin swaps node:crypto and jupiter.mjs for src/shims/
-src/background.mjs       the service worker: hosts the engine, the bridge, the badge, notifications
+src/background.mjs       the service worker: hosts the engine, the bridge, the autopilot wallet's keystore, fund and sweep, the badge, notifications
 src/content.mjs          on the console page only: injects injected.js, relays with a nonce
 src/injected.mjs         in the page's world: the only code that touches window.phantom.solana
 src/lib/engine.mjs       the lane — dependency-injected, runs in Node for its tests
 src/lib/config.mjs       the dials, the arming checklist, RECORD
 src/lib/rpc.mjs          a small JSON-RPC client and the logsSubscribe feed with its watchdog
 src/lib/tx.mjs           transaction assembly (mirrors snipe-execute.mjs) and the fill reader
+src/lib/session-wallet.mjs  the autopilot wallet: keystore, signer, fund and sweep builders — the one file that may hold a key
 src/popup/ src/options/  the UI
+src/welcome/             the first-run setup page, opened once on install
 vendor/executor/         the executor's decision modules, verbatim, from PROVENANCE.json's commit
 scripts/sync-executor.mjs  --from <checkout> re-vendors; --check reports drift from upstream main
 site/                    the website: the landing page, and under console/ the page Phantom lives on
@@ -206,8 +302,11 @@ on every push to `main`.
 | file | proves |
 |---|---|
 | `test-hawk-engine.mjs` | the lane end to end against a scripted chain that executes the venue's own `buy_v2`/`sell_v2` and a scripted Phantom: notice → shadow row → the wait → re-read → sign → fill → 1.5× take → declined sell re-asked → approved sell closes with the chain's SOL; a launch nobody followed is never bought; a declined or unanswered buy; a tampered signature refused; the day cap; the hard stop; the JSONL export read back and scored. Then a GLDx-quoted curve built from the live fixture bytes: refused when GLDx is not listed; read on the same call and filed in GLDx when it is; the canary buy with the GLDx account created under Token-2022, simulated on the GLDx delta, read back in eight decimals; the sell for GLDx; the full ticket once proven; the per-stock day cap and the SOL day; a short wallet, a paused stock, a buy that cannot be read back; SOL and GLDx graded apart; the stock list's validation and the arm sentence; the fill reader alone |
-| `test-hawk-manifest.mjs` | the permissions, matches and resources above |
-| `test-hawk-no-key.mjs` | no key, no key derivation, no signer but the bridge, in source and in the bundle |
+| `test-hawk-engine.mjs` §18 | autopilot with the real session wallet (a keystore over Maps, `createSessionSigner`): locked it does not arm; unlocked and funded it arms on the autopilot sentence; the buy and the sell reaching the chain carry ed25519 signatures by the autopilot key and Phantom is asked nothing; the key reaches no log, notification or store; a wallet short of one buy does not arm, and one that fell short since the last read is refused at `autopilot_balance_short`; switching to Phantom never strands a position; locked, a sell waits and says so; an unlock that runs out disarms |
+| `test-hawk-autopilot.mjs` | the running service worker under a `chrome` double and a JSON-RPC chain double that verifies every signature and applies the rent rule: install opens the setup page once; the three styles against the defaults dial by dial; only extension pages drive the wallet; create, fund (one Phantom approval, SOL and GLDx by TransferChecked), unlock with a TTL and its alarm, export, sweep to exactly the rent floor with every token and empty account, lock, an unlock that runs out; nothing logged or stored carries the passphrase or the key; no sweep while a position is held |
+| `test-hawk-session-wallet.mjs` | the keystore, the signer and the builders in isolation, including why a token sweep is TransferChecked: Token-2022 refuses a plain Transfer out of an xStock's pausable, hooked account |
+| `test-hawk-manifest.mjs` | the permissions, matches and resources above; the setup page is built, not web-accessible, and opened only on install |
+| `test-hawk-no-key.mjs` | one file may hold a key and only the worker imports it; the autopilot messages, the passphrase and the exported key pinned to where they may appear; in source and in the bundle |
 | `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
@@ -217,4 +316,5 @@ on every push to `main`.
 
 A user-operated tool that runs in your own browser against your own wallet. Nothing here
 is financial advice, nothing here has an edge until you have graded its book over a real
-sample, and every position it opens can be sold only by a click you make.
+sample. In Phantom mode every position it opens can be sold only by a click you make; on
+autopilot it sells without asking, from a wallet that can lose everything you fund it with.

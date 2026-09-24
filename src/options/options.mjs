@@ -1,7 +1,8 @@
 /** THE OPTIONS PAGE: every config key, described, validated by the same normalizeConfig the engine runs. */
 import { UI } from "../lib/protocol.mjs";
 import {
-  CONFIG_DEFAULTS, CONSOLE_URLS, normalizeConfig, RECORD, KNOWN_STOCK_QUOTES, STOCK_CANARY_RULE, MAX_QUOTE_MINTS,
+  CONFIG_DEFAULTS, CONSOLE_URLS, normalizeConfig, RECORD, STOCK_FOCUS_CHOICES, STOCK_CANARY_RULE, MAX_QUOTE_MINTS,
+  AUTOPILOT_UNLOCK_MINUTES, STYLE_PRESETS,
 } from "../lib/config.mjs";
 
 const FIELDS = [
@@ -10,6 +11,11 @@ const FIELDS = [
     ["rpcWsUrl", "text", "RPC websocket (wss)", "Blank derives it from the https URL. The feed is one logsSubscribe on the pump.fun program."],
     ["secondaryRpcUrl", "text", "Second RPC (optional)", "When set, both providers must agree on the curve before a mark is trusted, as WALL-ST-E requires."],
     ["consoleUrl", "select", "Console page", "The page Phantom lives on; the extension is built for these pages only. Keep that tab open."],
+  ]],
+  ["Who signs", [
+    ["signerMode", "select", "Signer", "<b>Phantom</b>: every buy and sell is one Phantom approval window on the console tab, and the extension holds no key. <b>Autopilot</b>: the autopilot wallet (created, funded, unlocked and swept in the popup) signs each trade without a window. A key in a browser is a bigger attack surface than Phantom; your exposure is what you fund it with. Changing this changes the arm sentence.",
+      [["phantom", "Phantom — one approval per trade"], ["autopilot", "Autopilot — the autopilot wallet signs"]]],
+    ["autopilotUnlockMinutes", "number", "Autopilot unlock lasts (minutes)", `How long an unlock keeps the autopilot wallet's key in memory-only session storage, ${AUTOPILOT_UNLOCK_MINUTES.min} to ${AUTOPILOT_UNLOCK_MINUTES.max}. When it runs out the wallet locks itself and signs nothing — including sells — until you unlock it again. Closing the browser locks it too.`],
   ]],
   ["Size and caps", [
     ["maxSolPerTrade", "number", "SOL per launch", `Operator maximum 1 SOL. The record: every SOL of net loss sat in tickets of 0.35 SOL and up.`],
@@ -81,9 +87,9 @@ function stockEditor(list) {
     <p class="help">Nothing about stock-quoted launches has been measured: HAWK-AI's record is SOL launches only. Every xStock mint carries an issuer's freeze authority, pause switch and permanent delegate; the lane refuses a paused stock and says so, and cannot defend against a freeze. Changing this list changes the arm sentence, so an armed lane must be re-armed.</p>
     <table class="stocks"><thead><tr>${STOCK_COLUMNS.map(([, , label]) => `<th>${label}</th>`).join("")}<th></th></tr></thead>
       <tbody id="stockRows">${list.map(stockRow).join("")}</tbody></table>
-    <div class="stockadd">${KNOWN_STOCK_QUOTES.map((k) => `<button type="button" class="btn ghost" data-add="${esc(k.mint)}" title="${esc(k.name)} — ${esc(k.mint)}">+ ${esc(k.symbol)}</button>`).join("")}
+    <div class="stockadd">${STOCK_FOCUS_CHOICES.map((k) => `<button type="button" class="btn ghost" data-add="${esc(k.mint)}" title="${esc(k.name)} — ${esc(k.mint)} — ${esc(k.sourceNote)}">+ ${esc(k.symbol)}${k.source === "fixture" ? "" : " *"}</button>`).join("")}
       <button type="button" class="btn ghost" data-add="">+ another mint</button>
-      <span class="help">at most ${MAX_QUOTE_MINTS}; the address and symbol of each shortcut were read from its mint account on mainnet</span></div>
+      <span class="help">at most ${MAX_QUOTE_MINTS}; the address and symbol of each shortcut were read from its mint account on mainnet. * AAPLx and NVDAx were read over RPC on 2026-09-24 and are not in the vendored fixture; the lane checks each mint's own symbol on every read.</span></div>
   </fieldset>`;
 }
 function wireStockEditor() {
@@ -93,7 +99,7 @@ function wireStockEditor() {
     if (!(t instanceof HTMLElement)) return;
     if (t.hasAttribute("data-remove")) { t.closest("tr")?.remove(); return; }
     if (t.hasAttribute("data-add")) {
-      const known = KNOWN_STOCK_QUOTES.find((k) => k.mint === t.dataset.add);
+      const known = STOCK_FOCUS_CHOICES.find((k) => k.mint === t.dataset.add);
       if (known && rows.querySelector(`input[data-q="mint"][value="${known.mint}"]`)) { msg.className = "msg bad"; msg.textContent = `${known.symbol} is already listed`; return; }
       rows.insertAdjacentHTML("beforeend", stockRow(known ? { mint: known.mint, symbol: known.symbol } : {}));
       rows.lastElementChild?.querySelector(known ? 'input[data-q="maxPerTrade"]' : 'input[data-q="mint"]')?.focus();
@@ -109,11 +115,15 @@ function readStocks() {
 }
 
 function build(config) {
-  form.innerHTML = FIELDS.map(([legend, fields]) => `<fieldset><legend>${legend}</legend>${fields.map(([key, type, label, help]) => {
+  const preset = STYLE_PRESETS[config.stylePreset];
+  form.innerHTML = `<fieldset><legend>First-run setup</legend><p class="help">${config.setupCompletedAt
+    ? `Saved from the setup page${preset ? ` with the ${esc(preset.label)} style` : config.stylePreset === "custom" ? " with your own numbers" : ""}. Every number below stays yours to change.`
+    : "Not run yet."} <a href="welcome.html" target="_blank">Run the setup again</a> — it saves into these same fields and puts the lane in Observe.</p></fieldset>` +
+    FIELDS.map(([legend, fields]) => `<fieldset><legend>${legend}</legend>${fields.map(([key, type, label, help, choices]) => {
     const v = config[key];
     let input;
     if (type === "checkbox") input = `<input type="checkbox" name="${key}" ${v ? "checked" : ""}>`;
-    else if (type === "select") input = `<select name="${key}">${CONSOLE_URLS.map((u) => `<option value="${u}" ${u === v ? "selected" : ""}>${u}</option>`).join("")}</select>`;
+    else if (type === "select") input = `<select name="${key}">${(choices ?? CONSOLE_URLS.map((u) => [u, u])).map(([value, text]) => `<option value="${esc(value)}" ${value === v ? "selected" : ""}>${esc(text)}</option>`).join("")}</select>`;
     else input = `<input type="${type}" name="${key}" value="${v === null || v === undefined ? "" : String(v)}" ${type === "number" ? 'step="any"' : ""} spellcheck="false">`;
     return `<div class="field"><label>${label}<small>${key}</small></label><div>${input}</div><div class="help">${help}</div></div>`;
   }).join("")}</fieldset>`).join("") + stockEditor(config.quoteMints ?? []);

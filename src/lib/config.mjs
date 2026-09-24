@@ -19,6 +19,14 @@
  * before. A listed mint is what the lane hands the executor as `quoteMintAllowlist`, and
  * the arm sentence names every listed mint and number, so a sentence typed for SOL alone
  * can never arm a stock trade.
+ *
+ * WHO SIGNS. `signerMode` is "phantom" (the default: one Phantom approval window per
+ * trade, and the extension holds no key) or "autopilot" (the autopilot wallet — the
+ * session wallet, the one module the background host imports for it — signs each buy and sell without a
+ * window). The arming checklist and the arm sentence follow the mode: an autopilot lane
+ * arms only for the autopilot wallet's own address, only while it is unlocked, only while
+ * its balance covers a ticket, and only with a sentence that says, in words, that nothing
+ * will ask before it signs. A sentence typed for Phantom cannot arm autopilot.
  */
 import { PublicKey } from "@solana/web3.js";
 import {
@@ -27,11 +35,16 @@ import {
 } from "../../vendor/executor/snipe-lane.mjs";
 import { SNIPE_DEFAULTS as POLICY_DEFAULTS } from "../../vendor/executor/snipe-policy.mjs";
 import { PUMPFUN_VENUE } from "../../vendor/executor/snipe-venue-pumpfun.mjs";
-import { WSOL, unitsToRaw } from "./tx.mjs";
+import { WSOL, unitsToRaw, RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS } from "./tx.mjs";
 
 export const HAWK_BROWSER_VERSION = "coinmarketcat-v1";
 export const LANE_MODES = SNIPE_LANE_MODES;
 export { SNIPE_OPERATOR_MAX, snipeArmSentence };
+
+/** Who signs a trade. Phantom is the default and holds no key here. */
+export const SIGNER_MODES = Object.freeze(["phantom", "autopilot"]);
+/** How long an unlock of the autopilot wallet lasts, in minutes: the default, and the fence. */
+export const AUTOPILOT_UNLOCK_MINUTES = Object.freeze({ default: 480, min: 5, max: 1440 });
 
 /** The canary: the size the lane's defaults were derived for. A ticket above it must
  *  carry a stop the operator chose (armabilityReport's stopExplicit). */
@@ -95,6 +108,15 @@ export const CONFIG_DEFAULTS = Object.freeze({
   sellReaskMs: 8_000,         // a declined or unanswered sell is asked again after this
   tickMs: 1_000,
   liveAck: "",                // the arm sentence, typed
+  /* ── who signs ──────────────────────────────────────────────────────────────────────
+     "phantom": one Phantom approval window per trade; the extension holds no key.
+     "autopilot": the autopilot wallet signs without a window. It must exist, be unlocked
+     and be funded, and the arm sentence says so in words. */
+  signerMode: "phantom",
+  autopilotUnlockMinutes: AUTOPILOT_UNLOCK_MINUTES.default,
+  /* ── the first-run setup ────────────────────────────────────────────────────────────── */
+  stylePreset: "",            // "" until the setup page is saved: cautious | balanced | bold | custom
+  setupCompletedAt: 0,        // when the setup page was saved (ms), 0 = never
 });
 
 const NUMBER_KEYS = new Set([
@@ -106,6 +128,7 @@ const NUMBER_KEYS = new Set([
   "forwardSamples", "forwardIntervalMs", "shadowMaxOpen", "shadowCapacity",
   "computeUnitLimit", "priorityFeeLamports", "sellToleranceFrac",
   "approvalTimeoutMs", "sellReaskMs", "tickMs",
+  "autopilotUnlockMinutes", "setupCompletedAt",
 ]);
 const NULLABLE = new Set(["stopFrac", "takeAtEntryX", "timeStopMs", "stallMs", "stallAtX", "maxCreatorSharePct", "maxLaunchSharePct"]);
 
@@ -144,7 +167,47 @@ export const RECORD = Object.freeze({
   sizeBucketWarnAboveSol: 0.15,
 });
 const BOOL_KEYS = new Set(["requireSocials"]);
-const STRING_KEYS = new Set(["rpcUrl", "rpcWsUrl", "secondaryRpcUrl", "consoleUrl", "lane", "liveAck"]);
+const STRING_KEYS = new Set(["rpcUrl", "rpcWsUrl", "secondaryRpcUrl", "consoleUrl", "lane", "liveAck", "signerMode", "stylePreset"]);
+
+/**
+ * THE THREE STYLES THE FIRST-RUN SETUP OFFERS. Each fills the limits a new user is asked
+ * about — the ticket, the day's budget, the take, the stall and the time stop — and leaves
+ * the entry rule alone: every style waits 10 s and buys only a launch that still marks at
+ * or above its would-have fill.
+ *
+ *   · BALANCED is the lane's own defaults: the record's exits (1.5x take, 90 s stall, 180 s
+ *     time stop, from snipe-policy and the record) at the executor's 0.005 SOL canary and
+ *     its 0.01 SOL day.
+ *   · CAUTIOUS is no looser than Balanced on any dial and tighter on three: one canary a
+ *     day, and a flat launch is left at 60 s and any launch at 120 s. Those tighter exits
+ *     are a choice, not a measurement: nothing in the record says they do better.
+ *   · BOLD is LOOSER, and says so: a ticket ten times the canary, a 2x take, a 120 s stall
+ *     and a five-minute clock. On the record, 16 of 64 coins ever reached 2x (28 reached
+ *     1.5x), and positions held 120–300 s won 0 of 3. It proposes a 0.5x stop, which the
+ *     user must keep or change: a ticket above the canary cannot arm without a stop chosen.
+ *
+ * test-hawk-autopilot.mjs holds Cautious and Balanced to "no looser than the defaults" dial
+ * by dial, and Bold to "labelled looser".
+ */
+export const STYLE_PRESETS = Object.freeze({
+  cautious: Object.freeze({
+    id: "cautious", label: "Cautious", looser: false,
+    summary: "Tighter than the lane's defaults: one 0.005 SOL canary a day, a flat launch left at 60 s, any launch left at 120 s. The tighter exits are a choice, not a measured improvement.",
+    values: Object.freeze({ maxSolPerTrade: 0.005, dailySolCap: 0.005, takeAtEntryX: 1.5, stallMs: 60_000, timeStopMs: 120_000, stopFrac: null, entryWaitMs: 10_000, entryFollowThroughX: 1.0 }),
+  }),
+  balanced: Object.freeze({
+    id: "balanced", label: "Balanced", looser: false,
+    summary: "The lane's own defaults: the record's exits (1.5× take, 90 s stall, 180 s time stop) at the executor's 0.005 SOL canary, up to two tickets a day.",
+    values: Object.freeze({ maxSolPerTrade: SNIPE_LANE_DEFAULTS.maxSolPerTrade, dailySolCap: SNIPE_LANE_DEFAULTS.dailySolCap, takeAtEntryX: 1.5,
+      stallMs: POLICY_DEFAULTS.stallMs, timeStopMs: POLICY_DEFAULTS.timeStopMs, stopFrac: null, entryWaitMs: 10_000, entryFollowThroughX: 1.0 }),
+  }),
+  bold: Object.freeze({
+    id: "bold", label: "Bold — looser than the record supports", looser: true,
+    summary: "LOOSER than the record supports: a 0.05 SOL ticket (ten canaries), a 2× take (16 of the record's 64 coins ever reached 2×), a 120 s stall and a five-minute clock (positions held 120–300 s won 0 of 3). It proposes a 0.5× stop; keep it or choose your own. Every modelled variant of the record still loses.",
+    values: Object.freeze({ maxSolPerTrade: 0.05, dailySolCap: 0.25, takeAtEntryX: 2, stallMs: 120_000, timeStopMs: 300_000, stopFrac: 0.5, entryWaitMs: 10_000, entryFollowThroughX: 1.0 }),
+  }),
+});
+export const STYLE_PRESET_IDS = Object.freeze(["", ...Object.keys(STYLE_PRESETS), "custom"]);
 
 /** How many stocks one lane may list. A list is typed by a person; eight is plenty. */
 export const MAX_QUOTE_MINTS = 8;
@@ -172,6 +235,24 @@ export const KNOWN_STOCK_QUOTES = Object.freeze([
   Object.freeze({ mint: "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re", symbol: "GLDx", name: "Gold xStock" }),
   Object.freeze({ mint: "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB", symbol: "TSLAx", name: "Tesla xStock" }),
   Object.freeze({ mint: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W", symbol: "SPYx", name: "SP500 xStock" }),
+]);
+
+/**
+ * THE STOCKS A NEW USER MAY CHOOSE TO FOCUS ON, WITH WHERE EACH ADDRESS CAME FROM.
+ * The three above are read from their mint accounts in the vendored fixture, and a test
+ * reads those bytes. AAPLx and NVDAx were read from their mint accounts over RPC on
+ * 2026-09-24 (getAccountInfo, jsonParsed: Token-2022, 8 decimals, the symbol in the
+ * mint's own TokenMetadata) and are on pump.fun's quote-mint whitelist, but they are
+ * NOT in the vendored fixture, so no test here reads their bytes: the lane checks each
+ * mint's own symbol against the list on every read, and refuses a mismatch by name. Both
+ * carry a display multiplier (Phantom shows them scaled; this lane counts raw units).
+ */
+export const STOCK_FOCUS_CHOICES = Object.freeze([
+  ...KNOWN_STOCK_QUOTES.map((k) => Object.freeze({ ...k, source: "fixture", sourceNote: "read from its mint account in the vendored fixture (slot 449,986,225); a test reads those bytes" })),
+  Object.freeze({ mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", symbol: "AAPLx", name: "Apple xStock", source: "rpc-2026-09-24",
+    sourceNote: "read from its mint account over RPC on 2026-09-24; not in the vendored fixture, so no test here reads its bytes" }),
+  Object.freeze({ mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh", symbol: "NVDAx", name: "NVIDIA xStock", source: "rpc-2026-09-24",
+    sourceNote: "read from its mint account over RPC on 2026-09-24; not in the vendored fixture, so no test here reads its bytes" }),
 ]);
 
 /** One entry of `quoteMints`, validated; a malformed one is refused under the key "quoteMints". */
@@ -291,8 +372,34 @@ export function normalizeConfig(input = {}) {
   if (!(out.computeUnitLimit >= 50_000 && out.computeUnitLimit <= 1_400_000))
     throw new ConfigError("computeUnitLimit", "computeUnitLimit must be 50000..1400000");
   if (!(out.priorityFeeLamports >= 0)) throw new ConfigError("priorityFeeLamports", "priorityFeeLamports must be >= 0");
+  if (!SIGNER_MODES.includes(out.signerMode))
+    throw new ConfigError("signerMode", `signerMode must be one of ${SIGNER_MODES.join(", ")}, got ${JSON.stringify(out.signerMode)}`);
+  if (!(Number.isInteger(out.autopilotUnlockMinutes) && out.autopilotUnlockMinutes >= AUTOPILOT_UNLOCK_MINUTES.min && out.autopilotUnlockMinutes <= AUTOPILOT_UNLOCK_MINUTES.max))
+    throw new ConfigError("autopilotUnlockMinutes", `autopilotUnlockMinutes must be a whole number from ${AUTOPILOT_UNLOCK_MINUTES.min} to ${AUTOPILOT_UNLOCK_MINUTES.max}`);
+  if (!STYLE_PRESET_IDS.includes(out.stylePreset))
+    throw new ConfigError("stylePreset", `stylePreset must be one of ${STYLE_PRESET_IDS.filter(Boolean).join(", ")} or blank`);
+  if (!(Number.isFinite(out.setupCompletedAt) && out.setupCompletedAt >= 0)) throw new ConfigError("setupCompletedAt", "setupCompletedAt must be a time in ms, or 0");
+  if (out.stallMs !== null && !(out.stallMs >= 0)) throw new ConfigError("stallMs", "stallMs must be >= 0 (0 turns the stall exit off), or blank for the policy's 90000");
+  if (out.timeStopMs !== null && !(out.timeStopMs > 0)) throw new ConfigError("timeStopMs", "timeStopMs must be above 0, or blank for the policy's 180000");
   return Object.freeze(out);
 }
+
+/**
+ * WHAT ONE AUTOPILOT BUY NEEDS IN THE WALLET, IN LAMPORTS. The ticket (SOL-quoted; a
+ * stock-quoted buy pays its ticket in the stock), the buy's modelled network fee and rent,
+ * one sell's fee — so the position can always be sold — and the rent-exempt floor the
+ * wallet must keep. The autopilot balance check refuses a buy the wallet cannot cover, and
+ * the arming checklist is red while it could not cover even one.
+ */
+export function autopilotBuyNeedLamports(config, { ticketLamports = null, quoteAtaCreate = false } = {}) {
+  const fees = feeModelFor(config, { quoteAtaCreate });
+  const ticket = ticketLamports === null ? BigInt(Math.round(Number(config.maxSolPerTrade) * 1e9)) : BigInt(ticketLamports);
+  const buyFees = BigInt(fees.signatureFeeLamports) + BigInt(fees.prioritizationFeeLamports) + BigInt(fees.rentFeeLamports);
+  const sellFee = BigInt(fees.signatureFeeLamports) + BigInt(fees.prioritizationFeeLamports);
+  const reserve = BigInt(RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS);
+  return Object.freeze({ ticket, buyFees, sellFee, reserve, total: ticket + buyFees + sellFee + reserve });
+}
+const lamportsToSol = (v) => Number(BigInt(v)) / 1e9;
 
 /** The websocket the feed dials: the pasted one, else the https URL with its scheme turned. */
 export function websocketUrlFor(config) {
@@ -369,27 +476,55 @@ export function feeModelFor(config, { quoteAtaCreate = false } = {}) {
  * the exact mint the way the executor's binds the wallet: a SOL sentence cannot arm a
  * GLDx trade, and a sentence typed before a list changed does not arm after it.
  */
-export function browserArmSentence(wallet, maxSolPerTrade, dailySolCap, quoteMints = []) {
+export function browserArmSentence(wallet, maxSolPerTrade, dailySolCap, quoteMints = [], { autopilot = false } = {}) {
   const base = snipeArmSentence(wallet, maxSolPerTrade, dailySolCap);
-  if (!Array.isArray(quoteMints) || quoteMints.length === 0) return base;
-  const parts = quoteMints.map((q) =>
-    `${q.maxPerTrade} ${q.symbol} per launch (the first at ${q.minPerTrade} ${q.symbol}), ${q.dailyCap} ${q.symbol} per day (${q.mint})`);
-  return `${base} — and in stock quotes: ${parts.join("; ")}`;
+  const stocks = !Array.isArray(quoteMints) || quoteMints.length === 0 ? "" : ` — and in stock quotes: ${quoteMints.map((q) =>
+    `${q.maxPerTrade} ${q.symbol} per launch (the first at ${q.minPerTrade} ${q.symbol}), ${q.dailyCap} ${q.symbol} per day (${q.mint})`).join("; ")}`;
+  /* AUTOPILOT SAYS SO IN THE SENTENCE. The wallet above is then the autopilot wallet's own
+     address, and the words below are what the person is agreeing to: no window, no click. */
+  return `${base}${stocks}${autopilot ? AUTOPILOT_ARM_CLAUSE : ""}`;
 }
+/** The words an autopilot arm sentence ends with. */
+export const AUTOPILOT_ARM_CLAUSE = " — signed without asking me, by the autopilot key this browser holds";
 
 /**
  * THE ARMING CHECKLIST FOR A BROWSER LANE. The lane's own armabilityReport (size within
  * the operator max, the daily cap charged, the take and stop fundable, exit signals
- * wired, the venue proved) plus the four facts only this host can know: an RPC, a
- * connected Phantom, the typed sentence for THAT wallet, and a stop the operator chose
- * once the ticket is above the canary.
+ * wired, the venue proved) plus the facts only this host can know: an RPC, the signer —
+ * a connected Phantom on an open console tab, or on autopilot an autopilot wallet that
+ * exists, is unlocked and holds enough for one buy — the typed sentence for THAT wallet,
+ * and a stop the operator chose once the ticket is above the canary.
+ *
+ * `autopilot` is { publicKey, unlocked, expiresAt, balanceLamports } — what the engine
+ * last read of the autopilot wallet; it is read only when config.signerMode is autopilot.
  */
-export function browserArmability({ config, wallet = null, hasBridge = false }) {
+export function browserArmability({ config, wallet = null, hasBridge = false, autopilot = null }) {
   const items = [];
   const add = (name, ok, detail) => items.push({ name, ok: ok === true, detail });
+  const onAutopilot = config.signerMode === "autopilot";
   add("rpc_configured", Boolean(config.rpcUrl), config.rpcUrl ? `reads and sends through ${new URL(config.rpcUrl).host}` : "no RPC URL is set — the public RPC refuses browsers");
-  add("console_page_open", hasBridge, hasBridge ? "the console tab is open and the bridge answers" : "open the console page in a tab (the popup's Console button opens it); Phantom lives there");
-  add("phantom_connected", typeof wallet === "string" && wallet.length > 30, wallet ? `Phantom connected as ${wallet}` : "Phantom is not connected on the console page");
+  let need = null, balance = null;
+  if (!onAutopilot) {
+    add("console_page_open", hasBridge, hasBridge ? "the console tab is open and the bridge answers" : "open the console page in a tab (the popup's Console button opens it); Phantom lives there");
+    add("phantom_connected", typeof wallet === "string" && wallet.length > 30, wallet ? `Phantom connected as ${wallet}` : "Phantom is not connected on the console page");
+  } else {
+    /* THE AUTOPILOT WALLET IN PLACE OF PHANTOM: it exists, it is unlocked, and it holds
+       enough for one ticket, its fees, one sell's fee and the rent floor. The console tab
+       is not needed to trade in this mode; it is needed only to fund from Phantom. */
+    const exists = typeof autopilot?.publicKey === "string" && autopilot.publicKey.length > 30;
+    add("autopilot_wallet_created", exists, exists ? `the autopilot wallet is ${autopilot.publicKey}` : "create the autopilot wallet in the popup (a passphrase of 12 characters or more)");
+    const unlocked = exists && autopilot.unlocked === true;
+    const until = Number.isFinite(Number(autopilot?.expiresAt)) && Number(autopilot.expiresAt) > 0
+      ? ` until ${new Date(Number(autopilot.expiresAt)).toISOString().slice(0, 16).replace("T", " ")} UTC` : "";
+    add("autopilot_unlocked", unlocked, unlocked
+      ? `unlocked${until}; locking clears the unlocked key and stops the lane buying`
+      : "locked — unlock it in the popup with your passphrase; a locked wallet signs nothing");
+    need = autopilotBuyNeedLamports(config);
+    balance = autopilot?.balanceLamports === null || autopilot?.balanceLamports === undefined ? null : BigInt(autopilot.balanceLamports);
+    add("autopilot_funded", balance !== null && balance >= need.total, balance === null
+      ? "the autopilot wallet's balance has not been read yet"
+      : `it holds ${lamportsToSol(balance)} SOL; one buy needs up to ${lamportsToSol(need.total)} SOL (the ${config.maxSolPerTrade} SOL ticket, ~${lamportsToSol(need.buyFees)} SOL of fee and rent, one sell's fee, and the ${lamportsToSol(need.reserve)} SOL rent floor)${balance >= need.total ? "" : " — fund it from Phantom in the popup"}`);
+  }
   const stopExplicit = config.stopFrac !== null;
   add("stop_chosen_above_canary", config.maxSolPerTrade <= CANARY_SOL || stopExplicit,
     config.maxSolPerTrade <= CANARY_SOL
@@ -401,10 +536,10 @@ export function browserArmability({ config, wallet = null, hasBridge = false }) 
     add("stop_chosen_for_stock_quotes", stopExplicit,
       stopExplicit ? `stop ${config.stopFrac}x of entry applies to stock-quoted positions too`
         : "a stock-quoted ticket has no derived stop floor (its network fee is paid in SOL, its size in the stock) — choose a stop");
-  const expected = wallet ? browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, stocks) : null;
+  const expected = wallet ? browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, stocks, { autopilot: onAutopilot }) : null;
   add("live_ack_typed", Boolean(expected) && config.liveAck === expected,
     !expected ? "no wallet to write the sentence for"
-      : config.liveAck === expected ? `the arm sentence matches, byte for byte, for the connected wallet${stocks.length ? ` and the ${stocks.length} listed stock${stocks.length === 1 ? "" : "s"}` : ""}`
+      : config.liveAck === expected ? `the arm sentence matches, byte for byte, for the ${onAutopilot ? "autopilot" : "connected"} wallet${stocks.length ? ` and the ${stocks.length} listed stock${stocks.length === 1 ? "" : "s"}` : ""}`
         : `type exactly: ${expected}`);
   const lane = armabilityReport({ cfg: laneConfigFor(config, { lane: "execute" }), venue: PUMPFUN_VENUE, stopExplicit });
   for (const item of lane.items) items.push(item);
@@ -425,6 +560,12 @@ export function browserArmability({ config, wallet = null, hasBridge = false }) 
     warnings.push({ name: "stock_quote_unmeasured", detail: "HAWK-AI's record is SOL-quoted launches only. Nothing has been measured about stock-quoted launches: no win rate, no follow-through, no fee on a buy. The shadow book grades them on a separate card per stock." });
     warnings.push({ name: "stock_quote_friction_unpriced", detail: "a stock row's frictionX is 1.0: the network fee and rent are paid in SOL beside it and cannot be netted against a size in the stock, so the stop and the take judge the stock amount only." });
     warnings.push({ name: "stock_quote_issuer_controls", detail: "every xStock mint read carries a live freeze authority, a pause switch and a permanent delegate held by its issuer. The lane detects a pause on every read and will not buy or sell through one; it cannot defend against a freeze or a clawback of a held position." });
+  }
+  if (onAutopilot) {
+    warnings.push({ name: "autopilot_no_window", detail: "Autopilot: every buy and every sell is signed by the autopilot wallet without asking you. The ticket, the day cap and the wallet's own balance are the limits; nothing waits for a click, and nothing asks before it spends." });
+    warnings.push({ name: "autopilot_key_in_browser", detail: "The autopilot wallet's key lives in this browser: encrypted under your passphrase at rest, and in memory-only session storage while unlocked. That is a bigger attack surface than Phantom — malware on this machine or a hostile extension could read it while it is unlocked. What is at risk is what you fund it with: fund it with what you are willing to lose, lock it when you step away (locking clears the unlocked key), and sweep it back to Phantom when you are done." });
+    if (balance !== null && lamportsToSol(balance) > Number(config.dailySolCap) + lamportsToSol(RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS) + 0.01)
+      warnings.push({ name: "autopilot_balance_above_day_cap", detail: `the autopilot wallet holds ${lamportsToSol(balance)} SOL, more than the ${config.dailySolCap} SOL day cap: the day cap still binds every trade, but today the balance is not the tighter of the two limits.` });
   }
   warnings.push({ name: "the_record_loses", detail: `the record is ${RECORD.first58.won} up, ${RECORD.first58.lost} down, ${RECORD.first58.netSol} SOL over ${RECORD.first58.trades} trades, and every modelled exit ladder still loses. Nothing here is evidence of an edge. Observe first.` });
   return Object.freeze({ armable: blocking.length === 0, items: Object.freeze(items), blocking: Object.freeze(blocking), warnings: Object.freeze(warnings), expectedAck: expected });

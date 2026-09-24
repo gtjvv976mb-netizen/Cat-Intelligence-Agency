@@ -42,6 +42,17 @@
  *   15. one book, two populations: SOL and GLDx rows are graded apart;
  *   16. the stock list is fenced by normalizeConfig, and the arm sentence binds it;
  *   17. the fill reader alone, and the exact unit conversions.
+ *
+ * And ON AUTOPILOT, with the REAL session wallet — a keystore over Maps, a key generated
+ * and sealed under a passphrase, unlocked, and createSessionSigner's own signTransaction:
+ *   18. locked, the lane does not arm; unlocked and funded it arms on a sentence that says
+ *       nothing will ask; the buy and the sell are signed by the autopilot key (ed25519
+ *       verifies both over the bytes that reached the chain) and Phantom is asked nothing;
+ *       the key reaches no log, note or store; the balance is a cap — a wallet that cannot
+ *       cover a ticket does not arm, and one that fell short since the last read is refused
+ *       at the moment of asking; switching to Phantom never strands a position the
+ *       autopilot wallet holds; locked, a sell waits and says so, and sells once unlocked;
+ *       an unlock that runs out disarms the lane without a read.
  */
 import assert from "node:assert/strict";
 import { Keypair, PublicKey, VersionedTransaction } from "@solana/web3.js";
@@ -50,7 +61,10 @@ import { createHawkEngine, memoryStore, freshState } from "./src/lib/engine.mjs"
 import {
   CONFIG_DEFAULTS, snipeArmSentence, browserArmability, normalizeConfig, RECORD,
   browserArmSentence, laneConfigFor, feeModelFor, STOCK_CANARY_RULE, MAX_QUOTE_MINTS, KNOWN_STOCK_QUOTES,
+  autopilotBuyNeedLamports, AUTOPILOT_ARM_CLAUSE,
 } from "./src/lib/config.mjs";
+import { createKeystore, createSessionSigner } from "./src/lib/session-wallet.mjs";
+import { ed25519 } from "@noble/curves/ed25519";
 import { SIGN_ERRORS, BridgeError } from "./src/lib/protocol.mjs";
 import {
   fromBase64, toBase64, associatedTokenAddress, fillFromTransaction, unitsToRaw, rawToUnits, ATA_PROGRAM, WSOL,
@@ -154,7 +168,8 @@ function tokenAccount({ mint, owner, amount }) {
  * lane asks it to simulate and send exactly as the venue's own quoting says they would
  * land. `bump(x)` moves the curve as if buyers arrived; `dump(x)` as if they left.
  */
-function createChain({ curve: initial, walletLamports = 2n * LAMPORTS, now }) {
+function createChain({ curve: initial, walletLamports = 2n * LAMPORTS, now, wallet: WALLET_ = WALLET, enforceRentFloor = false }) {
+  const WALLET = WALLET_;          // the wallet this chain holds: Phantom's double, or the autopilot wallet
   const state = {
     curve: { ...initial }, walletLamports, walletTokens: 0n, ataExists: false, slot: 446_023_200, blockHeight: 300_000_000,
     sent: new Map(), calls: [], confirmAfterPolls: 1,
@@ -195,6 +210,10 @@ function createChain({ curve: initial, walletLamports = 2n * LAMPORTS, now }) {
       state.curve.vQuote -= q.grossQuoteOutRaw; state.curve.vBase += args.baseInRaw;
       state.curve.realQuote -= q.grossQuoteOutRaw; state.curve.realBase += args.baseInRaw;
     }
+    /* The runtime's rent rule, when asked for: a payer may end at 0 or at the rent-exempt
+       floor, never between. The autopilot wallet's balance check must keep buys off it. */
+    if (enforceRentFloor && state.walletLamports < 890_880n && state.walletLamports !== 0n) throw new Error(`InsufficientFundsForRent: the payer would hold ${state.walletLamports} lamports`);
+    if (state.walletLamports < 0n) throw new Error("insufficient lamports");
     return { before, after: { lamports: state.walletLamports, tokens: state.walletTokens }, rent, side: args.instruction === "buy_v2" ? "buy" : "sell" };
   }
   const rpc = {
@@ -229,8 +248,9 @@ function createChain({ curve: initial, walletLamports = 2n * LAMPORTS, now }) {
       const sig = bs58.encode(tx.signatures[0]);
       if (!state.sent.has(sig)) {
         let effects, err = null;
-        try { effects = execute(bytes); } catch (error) { err = { InstructionError: [2, { Custom: 6002 }] }; effects = null; }
-        state.sent.set(sig, { polls: 0, effects, err, slot: ++state.slot, fee: Number(TX_FEE) });
+        const saved = { lamports: state.walletLamports, tokens: state.walletTokens, ataExists: state.ataExists };
+        try { effects = execute(bytes); } catch (error) { err = { InstructionError: [2, { Custom: 6002 }] }; effects = null; state.walletLamports = saved.lamports; state.walletTokens = saved.tokens; state.ataExists = saved.ataExists; }
+        state.sent.set(sig, { polls: 0, effects, err, slot: ++state.slot, fee: Number(TX_FEE), bytes });
       }
       return sig;
     },
@@ -1180,6 +1200,154 @@ section("17. THE FILL READER ALONE, AND THE EXACT UNIT CONVERSIONS");
   ok("…and refuses more precision than the mint carries rather than rounding", /more precision than the mint's 8 decimals/.test(fine ?? ""), fine);
   ok("rawToUnits is exact both ways", rawToUnits(5_000_000n, 8) === "0.05" && rawToUnits(-2_500n, 8) === "-0.000025" && rawToUnits(123n, 0) === "123");
 }
+
+section("18. AUTOPILOT: THE AUTOPILOT WALLET SIGNS — THE REAL ONE — AND ITS BALANCE IS A CAP");
+{
+  const mapStore = () => {
+    const m = new Map();
+    return { async get(k) { return m.has(k) ? structuredClone(m.get(k)) : undefined; }, async set(k, v) { m.set(k, structuredClone(v)); }, async remove(k) { m.delete(k); }, dump: () => JSON.stringify([...m]), raw: (k) => m.get(k) };
+  };
+  const PASS = "the cat keeps its own counsel";
+  /** A fresh autopilot wallet: keystore, signer, unlocked for 30 minutes on `clock`. */
+  async function autopilotWallet(clock) {
+    const storage = mapStore(), session = mapStore();
+    const keystore = createKeystore({ storage, session, clock: clock.now });
+    const { publicKey } = await keystore.create({ passphrase: PASS });
+    const signer = createSessionSigner({ keystore, clock: clock.now });
+    return { keystore, signer, storage, session, publicKey };
+  }
+  const verifies = (bytes, key) => {
+    const tx = VersionedTransaction.deserialize(bytes);
+    return ed25519.verify(tx.signatures[0], tx.message.serialize(), new PublicKey(key).toBytes());
+  };
+  const autoConfig = (wallet, over = {}) => armedConfig({ signerMode: "autopilot", liveAck: browserArmSentence(wallet, 0.05, 0.5, [], { autopilot: true }), ...over });
+  function autoEngine({ chain, clock, ap, config, phantom = createBridge(), store = memoryStore() }) {
+    const lines = [], notes = [];
+    const engine = createHawkEngine({
+      rpc: chain.rpc, bridge: phantom, sessionSigner: ap.signer, store, clock: clock.now, timers: clock.timers,
+      log: (l) => lines.push(l), notify: (n) => notes.push(n), socialsReader: socialsOk, config: { rpcUrl: "https://chain.double", ...config },
+    });
+    return { engine, lines, notes, phantom, store };
+  }
+  const need = autopilotBuyNeedLamports(normalizeConfig(armedConfig()));
+
+  const clock = createClock();
+  const ap = await autopilotWallet(clock);
+  const AUTO = ap.publicKey;
+  const chain = createChain({ curve: CURVE_AT_CREATE, now: clock.now, wallet: AUTO, walletLamports: 100_000_000n, enforceRentFloor: true });
+  chain.bump(1_500_000_000n);
+  const t = autoEngine({ chain, clock, ap, config: autoConfig(AUTO) });
+  await t.engine.load();
+  await t.engine.refreshSigner();
+  let st = t.engine.status();
+  ok("locked: the autopilot lane does not arm, and says why", st.executing === false && st.armability.blocking.includes("autopilot_unlocked") && st.signerMode === "autopilot", st.armability.blocking.join(","));
+  ok("the autopilot checklist replaces Phantom's: wallet created, unlocked, funded — no console tab item", ["autopilot_wallet_created", "autopilot_unlocked", "autopilot_funded"].every((n) => st.armability.items.some((i) => i.name === n)) && !st.armability.items.some((i) => i.name === "console_page_open" || i.name === "phantom_connected"));
+  ok("the autopilot sentence is the executor's, then the stock part, then words that say nothing will ask", st.armability.expectedAck === snipeArmSentence(AUTO, 0.05, 0.5) + AUTOPILOT_ARM_CLAUSE && /without asking me/.test(AUTOPILOT_ARM_CLAUSE), st.armability.expectedAck.slice(-90));
+  const phantomSentence = normalizeConfig({ ...autoConfig(AUTO), rpcUrl: "https://x.y", liveAck: snipeArmSentence(AUTO, 0.05, 0.5) });
+  ok("a sentence typed for Phantom cannot arm autopilot, even for the same address", browserArmability({ config: phantomSentence, wallet: AUTO, autopilot: { publicKey: AUTO, unlocked: true, expiresAt: clock.now() + 60_000, balanceLamports: 10n ** 9n } }).blocking.includes("live_ack_typed"));
+  ok("the warnings say what autopilot changes: no window, and a key in the browser", ["autopilot_no_window", "autopilot_key_in_browser"].every((n) => st.armability.warnings.some((w) => w.name === n)) && /bigger attack surface/.test(st.armability.warnings.find((w) => w.name === "autopilot_key_in_browser").detail));
+
+  await ap.keystore.unlock({ passphrase: PASS, ttlMs: 30 * 60_000 });
+  await t.engine.refreshSigner();
+  st = t.engine.status();
+  ok("unlocked and funded: armed on autopilot, trading from the autopilot wallet", st.executing === true && st.wallet === AUTO && st.autopilot?.unlocked === true && st.autopilot?.balanceLamports === "100000000", `executing ${st.executing}; blocking ${st.armability.blocking.join(",") || "none"}`);
+  ok("Phantom's own wallet is still reported apart, for the console tab", st.phantomWallet === WALLET && st.bridgeReady === true);
+
+  t.engine.onLogs({ logs: CREATE_LOGS, signature: "sig18", slot: 446_023_102, err: null, receivedAt: clock.now() });
+  await new Promise((r) => setTimeout(r, 30));
+  clock.advance(5_000); await t.engine.tick();
+  chain.bump(2_000_000_000n);
+  clock.advance(5_000);
+  await drive(clock, t.engine.tick());
+  st = t.engine.status();
+  const live = st.open.find((p) => p.live === true);
+  ok("after the wait the autopilot wallet bought, and Phantom was asked nothing", live && live.wallet === AUTO && t.phantom.requests.length === 0 && st.counters.signRequests === 1, live ? `qty ${live.qtyRaw} for ${live.entryInputLamports} lamports` : t.lines.slice(0, 4).join(" | "));
+  const sentBuy = [...chain.state.sent.values()][0];
+  ok("the buy that reached the chain carries an ed25519 signature by the autopilot key over its own message", sentBuy && verifies(sentBuy.bytes, AUTO) && !verifies(sentBuy.bytes, WALLET));
+  ok("…with the autopilot wallet as the fee payer", VersionedTransaction.deserialize(sentBuy.bytes).message.staticAccountKeys[0].toBase58() === AUTO);
+  ok("it was simulated before it was signed", chain.state.calls.indexOf("sim") < chain.state.calls.indexOf("send"), chain.state.calls.join(" "));
+  ok("the user was told after the fact, never asked to approve", t.notes.some((n) => n.kind === "buy" && /autopilot: bought/.test(n.title)) && !t.notes.some((n) => /approve/i.test(n.title)), t.notes.map((n) => n.title).join(" | "));
+  ok("the log says who signed", t.lines.some((l) => /ENTERED/.test(l) && /signed by the autopilot wallet/.test(l)));
+
+  const secretB64 = ap.session.raw("coinmarketcat:session-secret")?.secretKey;
+  const secret58 = bs58.encode(Buffer.from(secretB64, "base64"));
+  const everywhere = [t.lines.join("\n"), JSON.stringify(t.notes), JSON.stringify(t.store.snapshot), JSON.stringify(t.engine.status())].join("\n");
+  ok("the key reached no log line, notification, persisted state or status", typeof secretB64 === "string" && secretB64.length > 40 && !everywhere.includes(secretB64) && !everywhere.includes(secret58) && !everywhere.includes(PASS));
+
+  chain.bump(10_000_000_000n);
+  clock.advance(1_000);
+  await drive(clock, t.engine.tick());
+  st = t.engine.status();
+  ok("the take sold it, signed by the autopilot wallet, without a window", st.open.length === 0 && st.closes[0]?.live === true && /take/.test(st.closes[0]?.reason) && t.phantom.requests.length === 0, st.closes[0]?.reason);
+  const sentSell = [...chain.state.sent.values()][1];
+  ok("the sell's signature verifies under the autopilot key", sentSell && verifies(sentSell.bytes, AUTO));
+  ok("the realized SOL is the chain's", BigInt(st.closes[0].realizedLamports) > 0n && BigInt(st.closes[0].pnlLamports) > 0n, `pnl ${st.closes[0].pnlSol} SOL`);
+  ok("the balance the lane reports is re-read after the trade", st.autopilot.balanceLamports === String(chain.state.walletLamports), `${st.autopilot.balanceLamports} vs chain ${chain.state.walletLamports}`);
+
+  /* THE BALANCE IS A CAP, TWICE. */
+  const clock2 = createClock();
+  const ap2 = await autopilotWallet(clock2);
+  await ap2.keystore.unlock({ passphrase: PASS, ttlMs: 30 * 60_000 });
+  const chain2 = createChain({ curve: CURVE_AT_CREATE, now: clock2.now, wallet: ap2.publicKey, walletLamports: need.total - 1n, enforceRentFloor: true });
+  chain2.bump(1_500_000_000n);
+  const t2 = autoEngine({ chain: chain2, clock: clock2, ap: ap2, config: autoConfig(ap2.publicKey) });
+  await t2.engine.load(); await t2.engine.refreshSigner();
+  st = t2.engine.status();
+  ok(`a wallet one lamport short of a buy's ${need.total} does not arm: autopilot_funded is red`, st.executing === false && st.armability.blocking.join(",") === "autopilot_funded", st.armability.items.find((i) => i.name === "autopilot_funded")?.detail);
+  chain2.state.walletLamports = need.total * 3n;
+  await t2.engine.refreshSigner();
+  ok("funded enough, it arms", t2.engine.status().executing === true, t2.engine.status().armability.blocking.join(","));
+  t2.engine.onLogs({ logs: CREATE_LOGS, signature: "sig18b", slot: 446_023_102, err: null, receivedAt: clock2.now() });
+  await new Promise((r) => setTimeout(r, 30));
+  chain2.bump(2_000_000_000n);
+  chain2.state.walletLamports = need.total - 1n;          // spent elsewhere since the last read
+  clock2.advance(10_000);
+  await drive(clock2, t2.engine.tick());
+  ok("a wallet that fell short since the last read is refused at the moment of asking, by name, before anything is signed", t2.lines.some((l) => /autopilot_balance_short/.test(l)) && !chain2.state.calls.includes("send") && t2.engine.status().counters.signRequests === 0, t2.lines.find((l) => /autopilot_balance_short/.test(l))?.slice(0, 160));
+  ok("…and the refusal says the budget is the balance", t2.lines.some((l) => /The budget is the balance; nothing was signed/.test(l)));
+
+  /* SWITCHING TO PHANTOM NEVER STRANDS A POSITION; A LOCKED WALLET WAITS AND SAYS SO. */
+  const clock3 = createClock();
+  const ap3 = await autopilotWallet(clock3);
+  await ap3.keystore.unlock({ passphrase: PASS, ttlMs: 30 * 60_000 });
+  const chain3 = createChain({ curve: CURVE_AT_CREATE, now: clock3.now, wallet: ap3.publicKey, walletLamports: 100_000_000n, enforceRentFloor: true });
+  chain3.bump(1_500_000_000n);
+  const t3 = autoEngine({ chain: chain3, clock: clock3, ap: ap3, config: autoConfig(ap3.publicKey) });
+  await t3.engine.load(); await t3.engine.refreshSigner();
+  t3.engine.onLogs({ logs: CREATE_LOGS, signature: "sig18c", slot: 446_023_102, err: null, receivedAt: clock3.now() });
+  await new Promise((r) => setTimeout(r, 30));
+  chain3.bump(2_000_000_000n);
+  clock3.advance(10_000);
+  await drive(clock3, t3.engine.tick());
+  ok("bought on autopilot", t3.engine.status().open.some((p) => p.live && p.wallet === ap3.publicKey) && t3.engine.status().autopilotHeld === 1);
+  await t3.engine.setConfig({ signerMode: "phantom" });
+  ok("switched to Phantom: the lane is no longer armed (the sentence named the autopilot key)", t3.engine.status().executing === false && t3.engine.status().signerMode === "phantom");
+  await ap3.keystore.lock();
+  await t3.engine.refreshSigner();
+  chain3.bump(10_000_000_000n);
+  clock3.advance(1_000);
+  await drive(clock3, t3.engine.tick());
+  ok("locked while holding: the sell waits, nothing is sent, Phantom is not asked in its place", t3.engine.status().open.length === 1 && chain3.state.sent.size === 1 && t3.phantom.requests.length === 0);
+  ok("…and the lane says so, loudly", t3.lines.some((l) => /autopilot wallet that holds it is LOCKED/.test(l)) && t3.notes.some((n) => /unlock the autopilot wallet to sell/i.test(n.title)), t3.notes.map((n) => n.title).join(" | "));
+  await ap3.keystore.unlock({ passphrase: PASS, ttlMs: 30 * 60_000 });
+  await t3.engine.refreshSigner();
+  clock3.advance(engine3ReaskMs(t3.engine));
+  await drive(clock3, t3.engine.tick());
+  const st3 = t3.engine.status();
+  ok("unlocked, it sells — signed by the autopilot wallet that holds it, though the lane is now on Phantom", st3.open.length === 0 && st3.closes[0]?.live === true && t3.phantom.requests.length === 0 && verifies([...chain3.state.sent.values()][1].bytes, ap3.publicKey), st3.closes[0]?.reason);
+
+  /* AN UNLOCK THAT RUNS OUT DISARMS WITHOUT A READ. */
+  const clock4 = createClock();
+  const ap4 = await autopilotWallet(clock4);
+  await ap4.keystore.unlock({ passphrase: PASS, ttlMs: 60_000 });
+  const chain4 = createChain({ curve: CURVE_AT_CREATE, now: clock4.now, wallet: ap4.publicKey, walletLamports: 100_000_000n });
+  const t4 = autoEngine({ chain: chain4, clock: clock4, ap: ap4, config: autoConfig(ap4.publicKey) });
+  await t4.engine.load(); await t4.engine.refreshSigner();
+  ok("armed inside the unlock", t4.engine.status().executing === true);
+  clock4.advance(60_001);
+  ok("one millisecond past it, disarmed — judged against the clock, no read needed", t4.engine.status().executing === false && t4.engine.status().armability.blocking.includes("autopilot_unlocked"));
+}
+function engine3ReaskMs(engine) { return Number(engine.config.sellReaskMs); }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

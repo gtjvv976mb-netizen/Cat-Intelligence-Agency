@@ -6,7 +6,7 @@ Copy for the X page, the launch, the agents, the memecoin and the site. Paste-re
 - **Ticker.** `$CIA` is a working placeholder. The owner may change it; if so, replace it everywhere in this file.
 - **OWNER TO CONFIRM** marks a decision that has not been made yet. Do not publish those lines until it has.
 - **Names to check.** "Grumpy Cat" is a registered trademark, and "Popcat" is also the name of an existing memecoin. Read section 7 before either name goes public. The owner's names stay the defaults throughout.
-- **How the counts work.** Every X post and bio below is plain ASCII, so the count printed under it is what X counts. X counts any link as 23 characters, however long it is. A post with a contract-address slot `[CA]` is counted as if it held a full 44-character Solana address. X also links a bare domain such as `pump.fun`, so it counts 23 too: the posts rewritten for the seven cats are counted that way; the memecoin posts in sections 2 and 5 were counted before, as plain text, and should be re-checked before they go out.
+- **How the counts work.** Every X post and bio below is plain ASCII, so the count printed under it is what X counts. X counts any link as 23 characters, however long it is. A post with a contract-address slot `[CA]` is counted as if it held a full 44-character Solana address. X also links a bare domain such as `pump.fun`, so it counts 23 too, and every count below is made that way.
 
 **The rules this copy follows. Keep to them in every new post:**
 
@@ -188,11 +188,11 @@ The agency is launching a memecoin: Cat Intelligence Agency, $CIA.
 
 Fair launch on pump.fun. No presale, no team allocation.
 
-It's a meme: no intrinsic value, no utility, no expectation of profit.
+A meme: no intrinsic value, no utility, no expectation of profit.
 
-The only real CA is the one posted on this account. We will never DM you. 8/9
+The only real CA is the one posted on this account. We never DM. 8/9
 ```
-Count: 275 / 280
+Count: 276 / 280
 
 If the launch terms are not confirmed, use this version instead:
 ```text
@@ -501,11 +501,11 @@ Cat Intelligence Agency ($CIA) is live on pump.fun.
 
 CA: [CA]
 
-This account is the only place we post the CA. Check it character by character. We will never DM you.
+This account is the only place we post the CA. Check it character by character. We never DM.
 
-It's a meme: no intrinsic value, no expectation of profit. NFA.
+A meme: no intrinsic value, no expectation of profit. NFA.
 ```
-Count: 269 / 280
+Count: 270 / 280
 
 ### Scam warning
 

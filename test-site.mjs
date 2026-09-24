@@ -669,7 +669,7 @@ const KIT = {
   "brand/sprites/coinmarketcat.png": ["1e6342be07c91082", 175, 209], "brand/sprites/snipurr.png": ["4e29deea08dd7594", 146, 207],
   "brand/agents/coinmarketcat-1024.png": ["8b39e84ec94b767f", 1024, 1024], "brand/agents/coinmarketcat-avatar-400.png": ["4fcdf4a023094adf", 400, 400],
   "brand/agents/snipurr-1024.png": ["eeb7486f59b934c3", 1024, 1024], "brand/agents/snipurr-avatar-400.png": ["d91a259f9f1e9ffa", 400, 400],
-  "brand/floor/workfloor.png": ["44ca49846a9ff430", 2688, 1520], "brand/floor/screen-coinmarketcat.png": ["7062354d73fe3960", 1168, 880],
+  "brand/floor/workfloor.png": ["8aef43df0c67716c", 2688, 1520], "brand/floor/screen-cashcat.png": ["f08daff33e2e8f0d", 1168, 880], "brand/floor/screen-coinmarketcat.png": ["7062354d73fe3960", 1168, 880],
   "brand/floor/screen-snipurr.png": ["37b93ddc105e5269", 1168, 880],
   "brand/source/pixel-roster-2688x1152.png": ["8c4058b0518ff8e1", 2688, 1152], "brand/source/pixel-coinmarketcat-alt-1024.png": ["29cf77da23b786e6", 1024, 1024],
   "icons/coinmarketcat-32.png": ["65f329ec4cd372ea", 32, 32], "icons/coinmarketcat-128.png": ["3ed3f3104839059c", 128, 128], "icons/coinmarketcat-512.png": ["d5553c9863b2ed62", 512, 512],

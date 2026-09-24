@@ -37,7 +37,9 @@ a:hover{color:var(--mint-text)}
 :focus-visible{outline:3px solid var(--mint);outline-offset:3px}
 p{margin:0 0 14px;color:var(--text-soft)}
 b,strong{color:var(--text)}
+code,pre,.post,.ca,.slot{font-variant-ligatures:none}
 code{font-family:var(--mono);font-size:.86em;background:var(--bg-2);border:1px solid var(--line);padding:1px 5px;overflow-wrap:anywhere}
+code .nw{white-space:nowrap}
 .skip{position:absolute;left:-9999px;top:0}
 .skip:focus{left:12px;top:12px;z-index:60;background:var(--card);color:var(--text);padding:8px 12px}
 .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
@@ -149,11 +151,13 @@ code{font-family:var(--mono);font-size:.86em;background:var(--bg-2);border:1px s
   .hero{min-height:0}
   .hero-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"top" "stage" "bottom";grid-template-rows:auto auto auto;padding-top:28px;padding-bottom:36px}
   .stage{position:relative;height:clamp(300px,94vw,500px);min-height:0;margin:-8px -24px 0}
-  .hero-poster{object-fit:cover;object-position:74% 66%}
+  .hero-poster{inset:auto auto 0 -37.3%;width:137%;max-width:none;height:auto;aspect-ratio:1200/514;object-fit:cover;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 30%);mask-image:linear-gradient(180deg,transparent 0,#000 30%)}
   .hero[data-scene="poster"] .stage,.hero[data-scene="loading"] .stage,.hero[data-scene="fallback"] .stage{box-shadow:inset 0 3px 0 rgba(20,241,149,.35),inset 0 -3px 0 rgba(20,241,149,.35)}
-  .hero::after{background:
-    linear-gradient(180deg,rgba(11,7,22,.72) 0%,rgba(11,7,22,.2) 30%,rgba(11,7,22,0) 40%),
-    linear-gradient(0deg,rgba(11,7,22,.97) 0%,rgba(11,7,22,.86) 34%,rgba(11,7,22,0) 52%)}
+  /* The scrim darkens behind the title and, below the stage, behind the words, never over the kittens. */
+  .hero::after{background:linear-gradient(180deg,rgba(11,7,22,.72) 0%,rgba(11,7,22,.2) 30%,rgba(11,7,22,0) 40%)}
+  .hero-bottom::before{content:"";position:absolute;z-index:-1;top:0;bottom:-64px;left:-50vw;right:-50vw;
+    background:linear-gradient(180deg,rgba(11,7,22,0) 0,rgba(11,7,22,.9) 26px,rgba(11,7,22,.97) 100%)}
   .hero h1{font-size:clamp(50px,13.4vw,84px);margin-top:18px}
   .hint{right:12px;bottom:10px}
 }
@@ -168,7 +172,8 @@ code{font-family:var(--mono);font-size:.86em;background:var(--bg-2);border:1px s
   clip-path:polygon(0 0,100% 0,100% 25%,75% 25%,75% 50%,62.5% 50%,62.5% 75%,37.5% 75%,37.5% 50%,25% 50%,25% 25%,0 25%)}
 .nt-code{font:400 11px/1.2 var(--pixel);color:var(--accent);letter-spacing:.02em;text-transform:uppercase}
 .nt-beat{font:400 8px/1.3 var(--pixel);color:#e6e0ff;text-transform:uppercase}
-.nt-open{font:400 8px/1 var(--pixel);color:#0b0716;background:var(--accent);border:0;padding:7px 8px 6px;cursor:pointer;margin-top:2px;pointer-events:auto}
+.nt-open{font:400 8px/1 var(--pixel);color:#0b0716;background:var(--accent);border:0;padding:7px 8px 6px;cursor:pointer;margin-top:2px;pointer-events:auto;display:inline-flex;align-items:center;gap:6px}
+.nt-open::after{content:"";width:6px;height:8px;background:currentColor;clip-path:polygon(0 0,50% 0,50% 25%,75% 25%,75% 37.5%,100% 37.5%,100% 62.5%,75% 62.5%,75% 75%,50% 75%,50% 100%,0 100%)}
 .nametag.hover .nt-open{display:none}
 
 /* ── sections ──────────────────────────────────────────────────────────── */
@@ -274,8 +279,8 @@ details.file[open] summary::before{transform:rotate(90deg)}
 .rules li::before{content:counter(rule);grid-row:span 2;width:44px;height:44px;display:grid;place-content:center;font:400 16px/1 var(--pixel);color:#04160e;background:var(--mint);clip-path:var(--corners);box-shadow:inset 0 -4px 0 rgba(0,0,0,.25)}
 .rules h3{font:800 19px/1.3 var(--sans);color:var(--text);margin:8px 0 4px}
 .rules p{font-size:15px;margin:0}
-.casefile{--accent:var(--tear);position:relative;margin:0;background:var(--card);padding:26px 24px 24px;box-shadow:0 0 0 3px var(--tear),10px 10px 0 3px var(--shadow-ink);transform:rotate(.6deg)}
-@media (max-width:600px){.casefile{padding:22px 16px 18px;transform:none}}
+.casefile{--accent:var(--tear);position:relative;margin:0;background:var(--card);padding:26px 24px 24px;box-shadow:0 0 0 3px var(--tear),10px 10px 0 3px var(--shadow-ink)}
+@media (max-width:600px){.casefile{padding:22px 16px 18px}}
 .casefile figcaption{font-size:14px;color:var(--text-soft);margin:0 0 16px;padding-right:120px}
 @media (max-width:600px){.casefile figcaption{padding-right:0;padding-top:38px}}
 .case-stamp{position:absolute;top:18px;right:16px;font:400 12px/1 var(--pixel);text-transform:uppercase;color:var(--bad);border:3px dashed var(--bad);padding:9px 10px 8px;transform:rotate(-7deg);background:var(--card)}
@@ -293,6 +298,7 @@ details.file[open] summary::before{transform:rotate(90deg)}
 .cia-grid{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:60px;align-items:start}
 @media (max-width:900px){.cia-grid{grid-template-columns:minmax(0,1fr);gap:40px}}
 .cia-portrait{position:relative;max-width:400px;margin:3px}
+@media (min-width:901px){.cia-portrait{position:sticky;top:104px}}
 .cia-portrait img{display:block;width:100%;height:auto;image-rendering:pixelated;box-shadow:0 0 0 3px var(--gold),12px 12px 0 3px var(--shadow-ink);background:#0b0716}
 @media (max-width:900px){.cia-portrait{max-width:300px}}
 .ticker{position:absolute;right:-14px;bottom:-22px;margin:0;font:400 clamp(40px,5vw,64px)/1 var(--display);color:var(--gold);background:#0b0716;padding:6px 14px 8px;box-shadow:0 0 0 3px var(--gold);transform:rotate(-4deg)}
@@ -308,14 +314,14 @@ details.file[open] summary::before{transform:rotate(90deg)}
 .ca-slot{display:grid;gap:8px}
 .ca{display:block;font:400 14px/1.4 var(--mono);color:var(--text);background:var(--bg-2);border:2px dashed var(--line-2);padding:12px 14px;overflow-wrap:anywhere;user-select:all}
 .ca[data-empty="true"]{color:var(--text-faint);font-style:italic;user-select:none}
-.ca-note{font:400 9px/1.6 var(--pixel);text-transform:uppercase;color:var(--gold-text)}
+.ca-note{font:400 9px/1.6 var(--pixel);text-transform:uppercase;color:var(--gold-text);text-wrap:balance}
 .scam{margin-top:32px;position:relative;background:var(--card);padding:22px 24px 20px 24px;box-shadow:0 0 0 3px var(--bad),8px 8px 0 3px var(--shadow-ink)}
 .scam-title{font:400 12px/1.4 var(--pixel);text-transform:uppercase;color:var(--bad);margin:0 0 10px}
 :root[data-theme="light"] .scam-title{color:#b8372a}
 .scam p{font-size:15.5px}
 .scam p:last-child{margin:0}
 .scam .crying{display:flex;align-items:center;gap:12px;font-weight:800;color:var(--tear-text)}
-.scam .crying img{width:auto;height:52px;flex:none}
+.scam .crying img{width:72px;height:auto;flex:none}
 
 /* ── CoinMarketCat ─────────────────────────────────────────────────────── */
 .cmc{background:linear-gradient(180deg,rgba(20,241,149,.07),transparent 380px),var(--bg-2);border-top:3px solid var(--line)}
@@ -372,8 +378,6 @@ details.file[open] summary::before{transform:rotate(90deg)}
 .dossier .agent .agent-floor{width:min(40%,320px);position:sticky;top:0;align-self:flex-start;height:min(560px,calc(100dvh - 54px));min-height:360px}
 /* On a wide screen the kitten in a file stands at twice its size (Popcat, holding its radar out, at one and a half). */
 @media (min-width:641px) and (min-height:620px){
-  .dossier .agent .agent-floor .kitten{width:auto;height:414px}
-  .dossier .agent[data-cat="popcat"] .agent-floor .kitten{height:316px}
   .dossier .agent .agent-floor::after{width:190px;margin-left:-95px;height:20px;bottom:30px}
 }
 .dossier .agent-body{padding:26px 28px 28px}
@@ -382,7 +386,7 @@ details.file[open] summary::before{transform:rotate(90deg)}
 @media (max-width:640px){
   .dossier{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
   .dossier .agent{flex-direction:column}
-  .dossier .agent .agent-floor{width:auto;min-height:0;height:250px;position:relative}
+  .dossier .agent .agent-floor{width:auto;align-self:stretch;min-height:0;height:250px;position:relative}
   .dossier .agent-body{padding:20px 18px 22px}
   .dossier .agent h3{font-size:38px}
 }

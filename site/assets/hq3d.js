@@ -362,10 +362,11 @@ function frame() {
   const sw = Math.max(right - left, 200), sh = Math.max(box.height, 200);
   const sx = left + sw / 2, sy = top + sh / 2;
   const az = AZ_CENTER;
+  // Fit over the whole slow swing, so no kitten walks off the edge at either end of it.
   const measure = (d) => {
     distance = d;
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (const a of [az - AZ_SWING * 0.25, az, az + AZ_SWING * 0.25]) {
+    for (const a of [az - AZ_SWING, az - AZ_SWING * 0.5, az, az + AZ_SWING * 0.5, az + AZ_SWING]) {
       placeCamera(a);
       camera.updateMatrixWorld();
       for (const p of subject) {
@@ -387,8 +388,14 @@ function frame() {
   controls.minDistance = controls.maxDistance = distance;
   placeCamera(currentAz ?? AZ_CENTER, currentPolar ?? POLAR);
   controls.update();
+  dirty = true;
 }
 let currentAz = null, currentPolar = null;
+/* With reduced motion nothing moves on its own, so a frame is drawn only when something
+   changed: a drag, a resize, or the preference itself. */
+let dirty = true;
+controls.addEventListener("change", () => { dirty = true; });
+reduceMotion.addEventListener?.("change", () => { dirty = true; });
 
 /* ── interaction: hover, tap, click, keys ─────────────────────────────── */
 const raycaster = new THREE.Raycaster();
@@ -580,6 +587,8 @@ function tick() {
     cycling = -1;
   }
 
+  if (still && !dirty) return;
+  dirty = false;
   renderer.render(scene, camera);
   placeTag();
 }

@@ -56,6 +56,14 @@
     copy.classList.add("in-dossier");
     for (const el of copy.querySelectorAll("[id]")) el.removeAttribute("id");
     for (const img of copy.querySelectorAll("img")) img.loading = "eager";
+    // On a wide screen the kitten in a file stands at exactly twice its size (Popcat, holding
+    // its radar out, at one and a half), so every art pixel stays square and sharp.
+    const kit = copy.querySelector(".agent-floor .kitten");
+    if (kit && matchMedia("(min-width:641px) and (min-height:620px)").matches) {
+      const s = cat === "popcat" ? 1.5 : 2;
+      kit.style.width = Number(kit.getAttribute("width")) * s + "px";
+      kit.style.height = Number(kit.getAttribute("height")) * s + "px";
+    }
     const file = copy.querySelector("details.file");
     if (file) file.open = true;
     const title = copy.querySelector("h3");
@@ -65,10 +73,12 @@
     opener = document.activeElement;
     dialog.showModal();
     dialog.scrollTop = 0;
-    // Side by side, the kitten's column is as tall as the file, or the panel, whichever is shorter.
+    // Side by side, the kitten's column is as tall as the file, or the panel, whichever is
+    // shorter, and never shorter than the kitten standing on its floor.
     const floor = copy.querySelector(".agent-floor"), body = copy.querySelector(".agent-body");
     if (floor && body && getComputedStyle(copy).flexDirection === "row") {
-      floor.style.height = Math.max(360, Math.min(body.offsetHeight, dialog.clientHeight)) + "px";
+      const standing = kit ? kit.offsetHeight + 110 : 0;
+      floor.style.height = Math.max(360, standing, Math.min(body.offsetHeight, dialog.clientHeight)) + "px";
     }
   };
   document.addEventListener("cia:dossier", (e) => open(e.detail.cat));

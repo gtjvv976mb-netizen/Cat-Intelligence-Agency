@@ -13,7 +13,7 @@ house rules, the pump.fun description, and the site copy.
 
 | File | Size | Use |
 |---|---|---|
-| `logo/cia-token-1000.png` | 1000×1000 | The $CIA image on pump.fun: **Crying Cat, sobbing with a thumbs up** (wallets crop it round; it is circle-safe) |
+| `logo/cia-token-1000.png` | 1000×1000 | The $CIA image on pump.fun: **Crying Cat, sobbing over a case file stamped RUGGED** (wallets crop it round; it is circle-safe) |
 | `logo/cia-avatar-400.png` | 400×400 | X profile photo, the same Crying Cat (circle-safe) |
 | `banner/x-header-1500x500.jpg` | 1500×500 | X header. The title sits clear of the profile photo's overlap, lower left |
 | `banner/og-1200x630.jpg` | 1200×630 | Link previews: the site's `og:image`, and the image to attach to launch posts |
@@ -24,7 +24,7 @@ house rules, the pump.fun description, and the site copy.
 | `agents/<cat>-avatar-400.png` | 400×400 | Each kitten standing on the pixel floor, as a profile picture |
 | `agents/<cat>-1024.png` | 1024×1024 | Each kitten as generated, transparent, for posts and reaction images |
 | `3d/agency-hq.glb` | 1.4 MB | The agency headquarters, a textured 3D model (about 11,000 vertices, one 1024 JPEG texture), unit-sized and centred |
-| `source/` | | The coin logo at 2160 px (and the earlier Director version), the roster scene, the Director portrait, the seamless pixel floor tile, and the building concept image, as generated |
+| `source/` | | The coin logo at 2160 px (and the two earlier versions: the Director, and Crying Cat with a thumbs up), the roster scene, the Director portrait, the seamless pixel floor tile, and the building concept image, as generated |
 
 The cats: `director` (the logo), `coinmarketcat` (the sniper; the extension's icons are made
 from this one), `crying-cat` (ruggers), `grumpy-cat` (fake hype), `cashcat` (whales and KOLs), `popcat` (emerging cat memecoins).

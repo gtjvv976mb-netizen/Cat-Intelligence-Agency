@@ -21,7 +21,7 @@ house rules, the pump.fun description, and the site copy.
 | `logo/favicon-32.png`, `favicon-64.png`, `apple-touch-180.png` | | Site icons |
 | `agents/<cat>-1024.png` | 1024×1024 | Each agent at full size, for posts and reaction images |
 | `agents/<cat>-avatar-400.png` | 400×400 | Each agent as a profile picture, if a cat gets its own account |
-| `source/` | | The untouched Higgsfield outputs, including the unused second roster |
+| `source/` | | The Director at 2160 px and both roster scenes as generated (the agents in `agents/` are the untouched outputs) |
 
 The cats: `director` (the logo), `coinmarketcat` (the sniper; the extension's icons are made
 from this one), `crying-cat` (ruggers), `grumpy-cat` (fake hype), `cashcat` (whales and KOLs).

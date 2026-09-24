@@ -429,7 +429,7 @@ Rule 6 matters more than it looks. CashCat investigates paid promos, and Popcat'
 | Name | `Cat Intelligence Agency` |
 | Ticker | `CIA` (shown as `$CIA`). **Working placeholder.** The owner may change it; see section 7. |
 | Chain / venue | Solana, launched on pump.fun |
-| Image | The Director |
+| Image | Crying Cat, sobbing with a thumbs up (`brand/logo/cia-token-1000.png`) |
 | Launch mechanics | **OWNER TO CONFIRM:** a fair launch on pump.fun, with no presale and no team allocation. |
 
 **The dev buy.** If the creator wallet buys at creation (a "dev buy"), say so in the launch-day post, with the amount and the wallet. Crying Cat investigates devs who dump and Popcat checks every new cat coin, so the agency's own coin has to pass the agency's own house rules.

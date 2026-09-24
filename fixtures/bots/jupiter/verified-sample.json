@@ -1,0 +1,1820 @@
+{
+ "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+ "read": "2026-09-24",
+ "total": 3693,
+ "note": "164 of the 3693 verified tokens (every symbol the tests name, then the first ones listed); fields trimmed to id, name, symbol, tags",
+ "tokens": [
+  {
+   "id": "So11111111111111111111111111111111111111112",
+   "name": "Wrapped SOL",
+   "symbol": "SOL",
+   "tags": [
+    "major",
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified"
+   ]
+  },
+  {
+   "id": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+   "name": "USD Coin",
+   "symbol": "USDC",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "stable"
+   ]
+  },
+  {
+   "id": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+   "name": "USDT",
+   "symbol": "USDT",
+   "tags": [
+    "verified",
+    "stable",
+    "community",
+    "moonshot-verified",
+    "strict"
+   ]
+  },
+  {
+   "id": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
+   "name": "Pump",
+   "symbol": "PUMP",
+   "tags": [
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "defi",
+    "community-assist"
+   ]
+  },
+  {
+   "id": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+   "name": "Jupiter",
+   "symbol": "JUP",
+   "tags": [
+    "defi",
+    "birdeye-trending",
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified"
+   ]
+  },
+  {
+   "id": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+   "name": "Popcat",
+   "symbol": "POPCAT",
+   "tags": [
+    "meme",
+    "birdeye-trending",
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified"
+   ]
+  },
+  {
+   "id": "MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5",
+   "name": "cat in a dogs world",
+   "symbol": "MEW",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB",
+   "name": "GameStop",
+   "symbol": "GME",
+   "tags": [
+    "strict",
+    "verified",
+    "meme",
+    "birdeye-trending",
+    "community",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "26VfKb7jjtdEdvfovoBijScoZmJbWWasFZkgfUD5w7cy",
+   "name": "Mog Coin",
+   "symbol": "Mog",
+   "tags": [
+    "moonshot-verified",
+    "verified",
+    "meme",
+    "community-assist"
+   ]
+  },
+  {
+   "id": "3joMReCCSESngJEpFLoKR2dNcChjSRCDtybQet5uSpse",
+   "name": "Simon's Cat",
+   "symbol": "CAT",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui",
+   "name": "Shark Cat",
+   "symbol": "SC",
+   "tags": [
+    "meme",
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified"
+   ]
+  },
+  {
+   "id": "5mbK36SZ7J19An8jFochhQS4of8g6BwUjbeCSxBSoWdp",
+   "name": "michi",
+   "symbol": "$michi",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "25hAyBQfoDhfWx9ay6rarbgvWGwDdNqcHsXS3jQ3mTDJ",
+   "name": "MANEKI",
+   "symbol": "MANEKI",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "meme",
+    "birdeye-trending"
+   ]
+  },
+  {
+   "id": "7atgF8KQo4wJrD5ATGX7t1V2zVvykPJbFfNeVf1icFv1",
+   "name": "catwifhat",
+   "symbol": "$CWIF",
+   "tags": [
+    "strict",
+    "token-2022",
+    "verified",
+    "meme",
+    "community"
+   ]
+  },
+  {
+   "id": "9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D",
+   "name": "Jupiter Lend USDC",
+   "symbol": "jlUSDC",
+   "tags": [
+    "community-assist",
+    "verified",
+    "jup-lend-earn",
+    "yb",
+    "yield"
+   ]
+  },
+  {
+   "id": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+   "name": "STONK",
+   "symbol": "STONK",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+   "name": "Global Dollar",
+   "symbol": "USDG",
+   "tags": [
+    "token-2022",
+    "verified",
+    "stable",
+    "community"
+   ]
+  },
+  {
+   "id": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
+   "name": "Coinbase Wrapped BTC",
+   "symbol": "cbBTC",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "verified"
+   ]
+  },
+  {
+   "id": "A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS",
+   "name": "Zcash",
+   "symbol": "ZEC",
+   "tags": [
+    "verified",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "98sMhvDwXj1RQi5c5Mndm3vPe9cBqPrbLaufMXFNMh5g",
+   "name": "HYPE",
+   "symbol": "HYPE",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+   "name": "Ether (Portal)",
+   "symbol": "ETH",
+   "tags": [
+    "major",
+    "birdeye-trending",
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified"
+   ]
+  },
+  {
+   "id": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+   "name": "Raydium",
+   "symbol": "RAY",
+   "tags": [
+    "verified",
+    "defi",
+    "birdeye-trending",
+    "community",
+    "strict"
+   ]
+  },
+  {
+   "id": "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu",
+   "name": "Meta xStock",
+   "symbol": "METAx",
+   "tags": [
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "equities",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+   "name": "SP500 xStock",
+   "symbol": "SPYx",
+   "tags": [
+    "rwa",
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks"
+   ]
+  },
+  {
+   "id": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+   "name": "NVIDIA xStock",
+   "symbol": "NVDAx",
+   "tags": [
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "equities",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+   "name": "Pudgy Penguins",
+   "symbol": "PENGU",
+   "tags": [
+    "birdeye-trending",
+    "community",
+    "moonshot-verified",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "HiMSSzzwkZkrXJ4PGVJRdtfLaANeAztjjcgk5Dxe7Lwx",
+   "name": "Hims & Hers Health - Backpack Securities",
+   "symbol": "HIMS",
+   "tags": [
+    "verified",
+    "stocks",
+    "rwa",
+    "backpack",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
+   "name": "NVIDIA (Ondo Tokenized)",
+   "symbol": "NVDAon",
+   "tags": [
+    "ondo",
+    "equities",
+    "token-2022",
+    "verified",
+    "stocks",
+    "rwa"
+   ]
+  },
+  {
+   "id": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+   "name": "OFFICIAL TRUMP",
+   "symbol": "TRUMP",
+   "tags": [
+    "meme",
+    "birdeye-trending",
+    "community",
+    "moonshot-verified",
+    "verified"
+   ]
+  },
+  {
+   "id": "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB",
+   "name": "World Liberty Financial USD",
+   "symbol": "USD1",
+   "tags": [
+    "community-assist",
+    "verified",
+    "stable"
+   ]
+  },
+  {
+   "id": "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re",
+   "name": "Gold xStock",
+   "symbol": "GLDx",
+   "tags": [
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+   "name": "PayPal USD",
+   "symbol": "PYUSD",
+   "tags": [
+    "community",
+    "strict",
+    "token-2022",
+    "verified",
+    "stable",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+   "name": "Wrapped BTC (Portal)",
+   "symbol": "WBTC",
+   "tags": [
+    "birdeye-trending",
+    "community",
+    "strict",
+    "verified",
+    "major"
+   ]
+  },
+  {
+   "id": "9fvHrYNw1A8Evpcj7X2yy4k4fT7nNHcA9L6UsamNHAif",
+   "name": "Jupiter Lend USDG",
+   "symbol": "jlUSDG",
+   "tags": [
+    "verified",
+    "jup-lend-earn",
+    "yb",
+    "yield",
+    "community-assist",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+   "name": "USELESS COIN",
+   "symbol": "USELESS",
+   "tags": [
+    "community-assist",
+    "launchpad",
+    "moonshot-verified",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "JuprjznTrTSp2UFa3ZBUFgwdAmtZCq4MQCwysN55USD",
+   "name": "Jupiter USD",
+   "symbol": "JupUSD",
+   "tags": [
+    "verified",
+    "stable",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+   "name": "Meteora",
+   "symbol": "MET",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "Xs3oZwbHvqis4NYcf4YKWmEia2eC84wSiVrcYcTqpH8",
+   "name": "SpaceX xStock",
+   "symbol": "SPCXx",
+   "tags": [
+    "verified",
+    "stocks",
+    "rwa",
+    "xstocks",
+    "moonshot-verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "CARDSccUMFKoPRZxt5vt3ksUbxEFEcnZ3H2pd3dKxYjp",
+   "name": "Collector Crypt",
+   "symbol": "CARDS",
+   "tags": [
+    "community-assist",
+    "moonshot-verified",
+    "verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "7ga6rtE9qSb3wdEiDCpTu2kHqoGVfT52jD8ign1rYTvx",
+   "name": "Hylo Leveraged HYPE",
+   "symbol": "xHYPE",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4",
+   "name": "Jupiter Perps",
+   "symbol": "JLP",
+   "tags": [
+    "verified",
+    "defi",
+    "community",
+    "strict"
+   ]
+  },
+  {
+   "id": "XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1",
+   "name": "Circle xStock",
+   "symbol": "CRCLx",
+   "tags": [
+    "rwa",
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks"
+   ]
+  },
+  {
+   "id": "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH",
+   "name": "CASH",
+   "symbol": "CASH",
+   "tags": [
+    "verified",
+    "stable",
+    "token-2022",
+    "community-assist"
+   ]
+  },
+  {
+   "id": "3ZLekZYq2qkZiSpnSvabjit34tUkjSwD1JFuW9as9wBG",
+   "name": "Wrapped NEAR fungible token",
+   "symbol": "wNEAR",
+   "tags": [
+    "verified",
+    "defi",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "BPxxfRCXkUVhig4HS1Lh7kZqV6SPJhzfEk4x6fVBjPCy",
+   "name": "Backpack",
+   "symbol": "BP",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "TTWofwAge91oFhZs7kpQdyrVRkmevgM88xijGvQFbKo",
+   "name": "Take-Two Interactive Software - Backpack Securities",
+   "symbol": "TTWO",
+   "tags": [
+    "stocks",
+    "rwa",
+    "backpack",
+    "token-2022",
+    "verified"
+   ]
+  },
+  {
+   "id": "4Zp52aF4hZi9fzH19xpbWKYKQvgLyCN67KFbrQDqeTKh",
+   "name": "Zama",
+   "symbol": "ZAMA",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "4sWNB8zGWHkh6UnmwiEtzNxL4XrN7uK9tosbESbJFfVs",
+   "name": "Hylo Leveraged SOL",
+   "symbol": "xSOL",
+   "tags": [
+    "community-assist",
+    "verified"
+   ]
+  },
+  {
+   "id": "RENzhrJQgmAnfcLhU1U5XwAMc6TC15UA6jCbPBaasnj",
+   "name": "IREN - Backpack Securities",
+   "symbol": "IREN",
+   "tags": [
+    "token-2022",
+    "stocks",
+    "rwa",
+    "backpack",
+    "verified"
+   ]
+  },
+  {
+   "id": "SPCXxcqXj6e5dJDVNovHN8744zkbhM2bYudU45BimGb",
+   "name": "SpaceX - Backpack Securities",
+   "symbol": "SPCX",
+   "tags": [
+    "backpack",
+    "token-2022",
+    "verified",
+    "stocks",
+    "rwa"
+   ]
+  },
+  {
+   "id": "KMNo3nJsBXfcpJTVhZcXLW7RmTwTt4GVFE7suUBo9sS",
+   "name": "Kamino",
+   "symbol": "KMNO",
+   "tags": [
+    "birdeye-trending",
+    "community",
+    "strict",
+    "verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "Pren1FvFX6J3E4kXhJuCiAD5aDmGEb7qJRncwA8Lkhw",
+   "name": "Anthropic PreStocks",
+   "symbol": "ANTHROPIC",
+   "tags": [
+    "prestocks",
+    "token-2022",
+    "verified",
+    "stocks",
+    "rwa"
+   ]
+  },
+  {
+   "id": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+   "name": "Jito Staked SOL",
+   "symbol": "JitoSOL",
+   "tags": [
+    "original-lst",
+    "strict",
+    "verified",
+    "yield",
+    "community",
+    "lst"
+   ]
+  },
+  {
+   "id": "MUxEsUKSMACyw5fZf68wxf5FLnZVhtU9CwH8uNNGay1",
+   "name": "Micron Technology - Backpack Securities",
+   "symbol": "MU",
+   "tags": [
+    "verified",
+    "rwa",
+    "backpack",
+    "stocks",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "CWZ6BsdnjkDVTGkmL6bGbJXXig6ceef12KvyGQW14cMt",
+   "name": "AntFun",
+   "symbol": "ANTFUN",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "DEkqHyPN7GMRJ5cArtQFAWefqbZb33Hyf6s5iCwjEonT",
+   "name": "USDe",
+   "symbol": "USDe",
+   "tags": [
+    "community",
+    "verified",
+    "stable"
+   ]
+  },
+  {
+   "id": "Ai66LHZG9MCzg1WKdawwqduVAXpNDUuV8M3uyq5ppump",
+   "name": "Cate",
+   "symbol": "CATE",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "DoGEV7LASBkQbibMc5k5vKnTZoMg423GpJ5QtJEGfm7R",
+   "name": "Dogecoin",
+   "symbol": "DOGE",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "5YMkXAYccHSGnHn9nob9xEvv6Pvka9DZWH7nTbotTu9E",
+   "name": "hyUSD",
+   "symbol": "hyUSD",
+   "tags": [
+    "community-assist",
+    "verified",
+    "stable"
+   ]
+  },
+  {
+   "id": "WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp",
+   "name": "Monero",
+   "symbol": "XMR",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82",
+   "name": "BOOK OF MEME",
+   "symbol": "BOME",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+   "name": "Fartcoin",
+   "symbol": "Fartcoin",
+   "tags": [
+    "moonshot-verified",
+    "verified",
+    "meme",
+    "community",
+    "launchpad"
+   ]
+  },
+  {
+   "id": "DBRiDgJAMsM95moTzJs7M9LnkGErpbv9v6CUR1DXnUu5",
+   "name": "deBridge",
+   "symbol": "DBR",
+   "tags": [
+    "verified",
+    "defi",
+    "community"
+   ]
+  },
+  {
+   "id": "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX",
+   "name": "Microsoft xStock",
+   "symbol": "MSFTx",
+   "tags": [
+    "stocks",
+    "rwa",
+    "equities",
+    "token-2022",
+    "verified",
+    "xstocks"
+   ]
+  },
+  {
+   "id": "EicWvteVi2fWepEzS3FYWsnuPoP6caZfjnKqNvydLjCH",
+   "name": "Lighter",
+   "symbol": "LIT",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+   "name": "Bonk",
+   "symbol": "Bonk",
+   "tags": [
+    "birdeye-trending",
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2",
+   "name": "McDonald's xStock",
+   "symbol": "MCDx",
+   "tags": [
+    "equities",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa"
+   ]
+  },
+  {
+   "id": "5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5",
+   "name": "OnRe Tokenized Reinsurance",
+   "symbol": "ONyc",
+   "tags": [
+    "community-assist",
+    "verified",
+    "yb",
+    "yield"
+   ]
+  },
+  {
+   "id": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+   "name": "NotInEmploymentEducationTraining",
+   "symbol": "neet",
+   "tags": [
+    "launchpad",
+    "moonshot-verified",
+    "verified",
+    "meme",
+    "community-assist"
+   ]
+  },
+  {
+   "id": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
+   "name": "Anonymous Cat",
+   "symbol": "ZCAT",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+   "name": "Tesla xStock",
+   "symbol": "TSLAx",
+   "tags": [
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "equities"
+   ]
+  },
+  {
+   "id": "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+   "name": "Alphabet xStock",
+   "symbol": "GOOGLx",
+   "tags": [
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "equities"
+   ]
+  },
+  {
+   "id": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+   "name": "embercurve",
+   "symbol": "EMBER",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+   "name": "MicroStrategy xStock",
+   "symbol": "MSTRx",
+   "tags": [
+    "equities",
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa"
+   ]
+  },
+  {
+   "id": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+   "name": "dogwifhat",
+   "symbol": "$WIF",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v",
+   "name": "Jupiter Staked SOL",
+   "symbol": "JupSOL",
+   "tags": [
+    "original-lst",
+    "strict",
+    "verified",
+    "yield",
+    "community",
+    "lst"
+   ]
+  },
+  {
+   "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+   "name": "The Black Bull",
+   "symbol": "ANSEM",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "meme",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7",
+   "name": "",
+   "symbol": "PRIME",
+   "tags": [
+    "yield",
+    "verified",
+    "yb"
+   ]
+  },
+  {
+   "id": "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+   "name": "Nasdaq xStock",
+   "symbol": "QQQx",
+   "tags": [
+    "rwa",
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks"
+   ]
+  },
+  {
+   "id": "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr",
+   "name": "EURC",
+   "symbol": "EURC",
+   "tags": [
+    "community",
+    "strict",
+    "verified",
+    "stable"
+   ]
+  },
+  {
+   "id": "DJTu7vi8norVzdVAffgvb39VP7wjKeTsgaMBJrzfxvoF",
+   "name": "Trump Media & Technology Group Corp. Common Stock - Backpack Securities",
+   "symbol": "DJT",
+   "tags": [
+    "token-2022",
+    "verified",
+    "stocks",
+    "rwa",
+    "backpack"
+   ]
+  },
+  {
+   "id": "J6pQQ3FAcJQeWPPGppWRb4nM8jU3wLyYbRrLh7feMfvd",
+   "name": "DoubleZero",
+   "symbol": "2Z",
+   "tags": [
+    "community-assist",
+    "verified"
+   ]
+  },
+  {
+   "id": "SKHYhSjuRWHgikq8eRKbtBbpABgJSkd7ytQV14i9EQ3",
+   "name": "SK Hynix - Backpack Securities",
+   "symbol": "SKHY",
+   "tags": [
+    "stocks",
+    "rwa",
+    "backpack",
+    "token-2022",
+    "verified"
+   ]
+  },
+  {
+   "id": "XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg",
+   "name": "Robinhood xStock",
+   "symbol": "HOODx",
+   "tags": [
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "equities"
+   ]
+  },
+  {
+   "id": "72QvBVwpxqmheEPfaCwWSWqEFsUy3rhWt6JhQBMNTwD1",
+   "name": "Ethena",
+   "symbol": "ENA",
+   "tags": [
+    "community",
+    "verified",
+    "moonshot-verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "sUSDai6Y3GxysDEtA9BVcEFTaog6UZpYUVxJiMhAKYE",
+   "name": "Staked USDai",
+   "symbol": "sUSDai",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+   "name": "Pyth Network",
+   "symbol": "PYTH",
+   "tags": [
+    "verified",
+    "defi",
+    "birdeye-trending",
+    "community",
+    "strict"
+   ]
+  },
+  {
+   "id": "METAwkXcqyXKy1AtsSgJ8JiUHwGCafnZL38n3vYmeta",
+   "name": "MetaDAO",
+   "symbol": "META",
+   "tags": [
+    "defi",
+    "community-assist",
+    "verified",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "XsoBhf2ufR8fTyNSjqfU71DYGaE6Z3SUGAidpzriAA4",
+   "name": "Palantir xStock",
+   "symbol": "PLTRx",
+   "tags": [
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "equities"
+   ]
+  },
+  {
+   "id": "SiLVFMgD3eD2rgK628NbTBq9MnuJF5FW2CRaVyTB35L",
+   "name": "Dominion Silver",
+   "symbol": "SILV",
+   "tags": [
+    "verified",
+    "rwa",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "GRNDYDpqwpCm6jVxpbh4xT5AM4r3p391qYsKTHqgaET2",
+   "name": "Grindr - Backpack Securities",
+   "symbol": "GRND",
+   "tags": [
+    "rwa",
+    "backpack",
+    "token-2022",
+    "verified",
+    "stocks"
+   ]
+  },
+  {
+   "id": "59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw",
+   "name": "PayFi Strategy Token USDC",
+   "symbol": "PST",
+   "tags": [
+    "community-assist",
+    "verified",
+    "yb",
+    "yield"
+   ]
+  },
+  {
+   "id": "SNDKbwMUQvZhnLnxLduradgLHG5KrPuKwpnrkkGRhfH",
+   "name": "Sandisk - Backpack Securities",
+   "symbol": "SNDK",
+   "tags": [
+    "token-2022",
+    "verified",
+    "stocks",
+    "rwa",
+    "backpack"
+   ]
+  },
+  {
+   "id": "PEPEqnuuCDbBC89p1u9vpnP1KQ2oj1xTcQBsjt9X55m",
+   "name": "Pepe",
+   "symbol": "PEPE",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "RBLXDGRD64AtRamHMFVcjqne3Ar7NLWtFtYNtsrf1cE",
+   "name": "Roblox - Backpack Securities",
+   "symbol": "RBLX",
+   "tags": [
+    "token-2022",
+    "verified",
+    "stocks",
+    "rwa",
+    "backpack"
+   ]
+  },
+  {
+   "id": "Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu",
+   "name": "Coinbase xStock",
+   "symbol": "COINx",
+   "tags": [
+    "rwa",
+    "equities",
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks"
+   ]
+  },
+  {
+   "id": "GbbesPbaYh5uiAZSYNXTc7w9jty1rpg3P9L4JeN4LkKc",
+   "name": "TRON",
+   "symbol": "TRX",
+   "tags": [
+    "community-assist",
+    "verified"
+   ]
+  },
+  {
+   "id": "Xsf9mBktVB9BSU5kf4nHxPq5hCBJ2j2ui3ecFGxPRGc",
+   "name": "Gamestop xStock",
+   "symbol": "GMEx",
+   "tags": [
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "equities"
+   ]
+  },
+  {
+   "id": "J3NKxxXZcnNiMjKw9hYb2K4LUxgwB6t1FtPtQVsv3KFr",
+   "name": "SPX6900 (Wormhole)",
+   "symbol": "SPX",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "verified",
+    "meme",
+    "birdeye-trending"
+   ]
+  },
+  {
+   "id": "CYPHuMmCL1GxJWa2tsPhLKykC7GrHJTCHwbXD4g5uawK",
+   "name": "Cypherpunk Technologies - Backpack Securities",
+   "symbol": "CYPH",
+   "tags": [
+    "verified",
+    "stocks",
+    "rwa",
+    "backpack",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "taoC6xyv2v8tDLcev4uaGUgV4vdQsWJrGft2kcBRrBY",
+   "name": "Bittensor",
+   "symbol": "TAO",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "infra"
+   ]
+  },
+  {
+   "id": "NKEda5nHhNGgjrE9nDdMvaEmkmJ96qqxzBVZEcKmjSg",
+   "name": "Nike - Backpack Securities",
+   "symbol": "NKE",
+   "tags": [
+    "token-2022",
+    "verified",
+    "backpack",
+    "rwa",
+    "stocks"
+   ]
+  },
+  {
+   "id": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF",
+   "name": "OpenAI PreStocks",
+   "symbol": "OPENAI",
+   "tags": [
+    "rwa",
+    "pre-ipo",
+    "prestocks",
+    "token-2022",
+    "verified",
+    "stocks"
+   ]
+  },
+  {
+   "id": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+   "name": "JITO",
+   "symbol": "JTO",
+   "tags": [
+    "birdeye-trending",
+    "community",
+    "strict",
+    "verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "C1MHyoTJpRTeS9AQCyspNVu2EWAYCZwmJ1jNkEArFP1f",
+   "name": "ApeCoin",
+   "symbol": "APE",
+   "tags": [
+    "moonshot-verified",
+    "verified",
+    "meme",
+    "community-assist"
+   ]
+  },
+  {
+   "id": "uniHfuPhEQSrtpzXpJZDCSq53yaejKKpNhFUiKoHKHV",
+   "name": "Uniswap",
+   "symbol": "UNI",
+   "tags": [
+    "verified",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
+   "name": "Orca",
+   "symbol": "ORCA",
+   "tags": [
+    "birdeye-trending",
+    "community",
+    "strict",
+    "verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "8RNUw4N655VSrZKuhGdywhbSMDTrheguFPfxbpE2NZHQ",
+   "name": "Hypurr",
+   "symbol": "PURR",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "NeonTjSjsuo3rexg9o6vHuMXw62f9V7zvmu8M8Zut44",
+   "name": "Neon EVM",
+   "symbol": "NEON",
+   "tags": [
+    "defi",
+    "community",
+    "strict",
+    "verified"
+   ]
+  },
+  {
+   "id": "8RVBk8vxLiUHueLUW1f4izFVqN3nWippLhkohKg6EGkS",
+   "name": "KNOTS",
+   "symbol": "KNOTS",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ",
+   "name": "T-OpenAI",
+   "symbol": "tOpenAI",
+   "tags": [
+    "stocks",
+    "rwa",
+    "tessera",
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "DKNGQFNGQmoBdXSRGKJ8tTu7uPDasw5JDcfMmWniNfow",
+   "name": "DraftKings - Backpack Securities",
+   "symbol": "DKNG",
+   "tags": [
+    "verified",
+    "stocks",
+    "rwa",
+    "backpack",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "5UUH9RTDiSpq6HKS6bp4NdU9PNJpXRXuiw6ShBTBhgH2",
+   "name": "TROLL",
+   "symbol": "TROLL",
+   "tags": [
+    "community-assist",
+    "moonshot-verified",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp",
+   "name": "ORE",
+   "symbol": "ORE",
+   "tags": [
+    "community",
+    "verified",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "CTPoyCwkjMvoJwU4xvZZqoD8tiYk6yDchySiN5gGpump",
+   "name": "apeonfone",
+   "symbol": "fone",
+   "tags": [
+    "token-2022",
+    "verified"
+   ]
+  },
+  {
+   "id": "1NJMqVM4PadjuzYmeB7zV7q7DV8oB3ExaQCd9x6KsLz",
+   "name": "Injective",
+   "symbol": "INJ",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "MukLDtJ8Cx9DxLbeyLRSWPSposTMWuwHANbuaudpump",
+   "name": "OTC",
+   "symbol": "OTC",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "LULUmT9VMttkfAJE236LXJcYJ2tTP7nunrSWR5G1BdS",
+   "name": "lululemon athletica inc. - Backpack Securities",
+   "symbol": "LULU",
+   "tags": [
+    "rwa",
+    "backpack",
+    "token-2022",
+    "verified",
+    "stocks"
+   ]
+  },
+  {
+   "id": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+   "name": "Seeker",
+   "symbol": "SKR",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "defi"
+   ]
+  },
+  {
+   "id": "5XZw2LKTyrfvfiskJ78AMpackRjPcyCif1WhUsPDuVqQ",
+   "name": "Wrapped BTC",
+   "symbol": "WBTC",
+   "tags": [
+    "community-assist",
+    "verified",
+    "major"
+   ]
+  },
+  {
+   "id": "HgcxVs6kJhPAaGqnPNGaa7zYgNT49hJrLufiqcNMuYZT",
+   "name": "Feels Good Man",
+   "symbol": "FEELSGOOD",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
+   "name": "Lombard Staked BTC",
+   "symbol": "LBTC",
+   "tags": [
+    "community-assist",
+    "verified",
+    "major",
+    "yield"
+   ]
+  },
+  {
+   "id": "CzLTZppPdZtTjyq3WGpHLstoc3GLhu7zH5Zg6xUa6Gv5",
+   "name": "Global X Copper Miners ETF - Backpack Securities",
+   "symbol": "COPX",
+   "tags": [
+    "token-2022",
+    "verified",
+    "backpack",
+    "stocks",
+    "rwa"
+   ]
+  },
+  {
+   "id": "2zCo6bUowJMvr89ajxuWsPadAqJ2F9akCkxumNsSdgsL",
+   "name": "Hylo Leveraged BTC",
+   "symbol": "xBTC",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "BoTx8y9ynfdxf5ZjWtCoBVkff52qKA82ysaLU8ZM6d8T",
+   "name": "RoboStrategy - Backpack Securities",
+   "symbol": "BOT",
+   "tags": [
+    "token-2022",
+    "verified",
+    "rwa",
+    "stocks",
+    "backpack"
+   ]
+  },
+  {
+   "id": "2uQsyo1fXXQkDtcpXnLofWy88PxcvnfH2L8FPSE62FVU",
+   "name": "Jupiter Lend WSOL",
+   "symbol": "jlWSOL",
+   "tags": [
+    "community-assist",
+    "verified",
+    "jup-lend-earn",
+    "yield"
+   ]
+  },
+  {
+   "id": "BcHEaaTCvycPwwsJ9yQTXdHP9X2gCLkznDbZ8VySpump",
+   "name": "Jotchua",
+   "symbol": "Jotchua",
+   "tags": [
+    "verified",
+    "meme",
+    "token-2022",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "AymATz4TCL9sWNEEV9Kvyz45CHVhDZ6kUgjTJPzLpU9P",
+   "name": "Tether Gold",
+   "symbol": "XAUt0",
+   "tags": [
+    "verified",
+    "rwa",
+    "commodities"
+   ]
+  },
+  {
+   "id": "MSTRdWXMeZxdE8osAQy3fA4rvTY5rgummDSMEx6U7Nz",
+   "name": "Strategy - Backpack Securities",
+   "symbol": "MSTR",
+   "tags": [
+    "backpack",
+    "rwa",
+    "stocks",
+    "token-2022",
+    "verified"
+   ]
+  },
+  {
+   "id": "6UtY9iTZMQQ5QZVrbzFnNaJntV7oySm9k97mvwnuZcxr",
+   "name": "NearKat",
+   "symbol": "NEARKAT",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "6UpQcMAb5xMzxc7ZfPaVMgx3KqsvKZdT5U718BzD5We2",
+   "name": "Wrapped XRP",
+   "symbol": "wXRP",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "infra"
+   ]
+  },
+  {
+   "id": "CASs9vMniGPtsnnKrV9uziBHA7JU5dS9MQY15WsRqVfx",
+   "name": "Duel Arena",
+   "symbol": "DUEL",
+   "tags": [
+    "token-2022",
+    "verified"
+   ]
+  },
+  {
+   "id": "Grass7B4RdKfBCjTKgSqnXkqjwiGvQyFbuSCUJr3XXjs",
+   "name": "Grass",
+   "symbol": "GRASS",
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "verified",
+    "infra"
+   ]
+  },
+  {
+   "id": "BABANGA4JE7Kkam4nTrALAwAVgsNJUuFJnnkF7S16BZp",
+   "name": "Alibaba Group Holding - Backpack Securities",
+   "symbol": "BABA",
+   "tags": [
+    "rwa",
+    "backpack",
+    "token-2022",
+    "verified",
+    "stocks"
+   ]
+  },
+  {
+   "id": "5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW",
+   "name": "PAX Gold",
+   "symbol": "PAXG",
+   "tags": [
+    "rwa",
+    "token-2022",
+    "verified"
+   ]
+  },
+  {
+   "id": "GNE6oDS6jHrfaV3GQVVCCp37fDnT7PiPuewMKBj2bqNm",
+   "name": "Hastra AUTO",
+   "symbol": "AUTO",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "61V8vBaqAGMpgDQi4JcAwo1dmBGHsyhzodcPqnEVpump",
+   "name": "AI Rig Complex",
+   "symbol": "arc",
+   "tags": [
+    "birdeye-trending",
+    "community",
+    "launchpad",
+    "moonshot-verified",
+    "verified"
+   ]
+  },
+  {
+   "id": "6FrrzDk5mQARGc1TDYoyVnSyRdds1t4PbtohCD6p3tgG",
+   "name": "USX",
+   "symbol": "USX",
+   "tags": [
+    "stable",
+    "community-assist",
+    "verified"
+   ]
+  },
+  {
+   "id": "4ChT49V1iazP2XUGtycGkEsS6pRMqvGfUbqvRC9Z91ZT",
+   "name": "Mosaic",
+   "symbol": "MOS",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "Ge87EtsjwRQbHaqQmKRno69RFTwh9bfSsm99XNxTpump",
+   "name": "Jimothy The Raccoon",
+   "symbol": "Jimothy",
+   "tags": [
+    "verified",
+    "meme",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "Morpho2VPeTr2E1Jx6monxCzF7mqwUnjz74RdwLXYyP",
+   "name": "Morpho",
+   "symbol": "MORPHO",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "SNAPcESrvnH8yUdgeMF6xm1hym9b6hW6s8YeqeHdZFz",
+   "name": "Snap - Backpack Securities",
+   "symbol": "SNAP",
+   "tags": [
+    "verified",
+    "stocks",
+    "rwa",
+    "backpack",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "pSo1f9nQXWgXibFtKf7NWYxb5enAM4qfP6UJSiXRQfL",
+   "name": "Phantom Staked SOL",
+   "symbol": "PSOL",
+   "tags": [
+    "community-assist",
+    "lst",
+    "original-lst",
+    "verified",
+    "yield"
+   ]
+  },
+  {
+   "id": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
+   "name": "Render Token",
+   "symbol": "RENDER",
+   "tags": [
+    "community",
+    "strict",
+    "verified",
+    "infra"
+   ]
+  },
+  {
+   "id": "avaxGHCq3T7hoxd73oY2KY9hJSTaeMibXvHy5KNzh5D",
+   "name": "AVAX",
+   "symbol": "AVAX",
+   "tags": [
+    "verified",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "CtzPWv73Sn1dMGVU3ZtLv9yWSyUAanBni19YWDaznnkn",
+   "name": "OKX Wrapped BTC",
+   "symbol": "xBTC",
+   "tags": [
+    "major",
+    "community-assist",
+    "verified"
+   ]
+  },
+  {
+   "id": "7GxATsNMnaC88vdwd2t3mwrFuQwwGvmYPrUQ4D6FotXk",
+   "name": "JUICED",
+   "symbol": "JUICED",
+   "tags": [
+    "verified",
+    "yb",
+    "jup-lend-earn",
+    "yield"
+   ]
+  },
+  {
+   "id": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+   "name": "Apple xStock",
+   "symbol": "AAPLx",
+   "tags": [
+    "moonshot-verified",
+    "token-2022",
+    "verified",
+    "xstocks",
+    "stocks",
+    "rwa",
+    "equities"
+   ]
+  },
+  {
+   "id": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+   "name": "Alchemist AI",
+   "symbol": "ALCH",
+   "tags": [
+    "moonshot-verified",
+    "verified",
+    "birdeye-trending",
+    "community",
+    "launchpad"
+   ]
+  },
+  {
+   "id": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+   "name": "Marinade staked SOL (mSOL)",
+   "symbol": "mSOL",
+   "tags": [
+    "community",
+    "lst",
+    "original-lst",
+    "strict",
+    "verified",
+    "yield"
+   ]
+  },
+  {
+   "id": "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA",
+   "name": "USDS",
+   "symbol": "USDS",
+   "tags": [
+    "community",
+    "verified",
+    "stable"
+   ]
+  },
+  {
+   "id": "CREDBHvVqREBCAxMihzr8D1nepHMr2gmQoZWpmgGmeta",
+   "name": "Credible Finance",
+   "symbol": "CRED",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "7C94RweVKZtBhA291WpXW7pkYEnbqhGvCFTU8nPoBTFY",
+   "name": "Botify",
+   "symbol": "BOTIFY",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "7JA5eZdCzztSfQbJvS8aVVxMFfd81Rs9VvwnocV1mKHu",
+   "name": "Geodnet Token",
+   "symbol": "GEOD",
+   "tags": [
+    "community",
+    "verified"
+   ]
+  },
+  {
+   "id": "9gP2kCy3wA1ctvYWQk75guqXuHfrEomqydHLtcTCqiLa",
+   "name": "Binance Coin (Portal)",
+   "symbol": "BNB",
+   "tags": [
+    "community",
+    "strict",
+    "verified",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "id": "8SMMso8Muv8d6i4WmMDthKt6TN1ysN6937sx3DKLXZqB",
+   "name": "Rhea Finance",
+   "symbol": "RHEA",
+   "tags": [
+    "verified"
+   ]
+  },
+  {
+   "id": "Cmn4v2wipYV41dkakDvCgFJpxhtaaKt11NyWV8pjSE8A",
+   "name": "Jupiter Lend USDT",
+   "symbol": "jlUSDT",
+   "tags": [
+    "community-assist",
+    "verified",
+    "jup-lend-earn",
+    "yb",
+    "yield"
+   ]
+  },
+  {
+   "id": "5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm",
+   "name": "Infinity",
+   "symbol": "INF",
+   "tags": [
+    "original-lst",
+    "strict",
+    "verified",
+    "yield",
+    "community",
+    "lst"
+   ]
+  },
+  {
+   "id": "HnnGv3HrSqjRpgdFmx7vQGjntNEoex1SU4e9Lxcxuihz",
+   "name": "Earn Hylo USD",
+   "symbol": "eHYUSD",
+   "tags": [
+    "yield",
+    "yb",
+    "community-assist",
+    "verified"
+   ]
+  },
+  {
+   "id": "J27UYHX5oeaG1YbUGQc8BmJySXDjNWChdGB2Pi2TMDAq",
+   "name": "PMX",
+   "symbol": "PMX",
+   "tags": [
+    "launchpad",
+    "moonshot-verified",
+    "verified",
+    "defi",
+    "community-assist"
+   ]
+  },
+  {
+   "id": "G7vQWurMkMMm2dU3iZpXYFTHT9Biio4F4gZCrwFpKNwG",
+   "name": "Moonbirds",
+   "symbol": "BIRB",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "meme"
+   ]
+  },
+  {
+   "id": "Cm6fNnMk7NfzStP9CZpsQA2v3jjzbcYGAxdJySmHpump",
+   "name": "Buttcoin",
+   "symbol": "Buttcoin",
+   "tags": [
+    "verified",
+    "moonshot-verified",
+    "meme",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "CFNRDaxFcvRwRSNnA5cHrCCr6AHhk9dNkHWpRUjNupFL",
+   "name": "Raydium Cat",
+   "symbol": "RAYCAT",
+   "tags": [
+    "verified",
+    "token-2022"
+   ]
+  },
+  {
+   "id": "LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L",
+   "name": "Chainlink Token",
+   "symbol": "LINK",
+   "tags": [
+    "verified"
+   ]
+  }
+ ]
+}

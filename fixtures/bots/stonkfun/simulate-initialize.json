@@ -1,0 +1,92 @@
+{
+ "note": "CashCat's own initialize_with_token_2022 for SPYx, built by bots/cashcat/stonkfun.mjs from the plan below, simulated on mainnet with a funded third-party payer and an unused mint; nothing was signed or sent.",
+ "payer": "FFWtrEQ4B4PKQoVuHYzZq8FabGkVatYzDpEVHsK5rrhF",
+ "mint": "CashCatSimu1ationMint1111111111111111111111",
+ "coin": {
+  "name": "Sim Cat",
+  "symbol": "SIMCAT",
+  "uri": "https://gateway.pinata.cloud/ipfs/bafkreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+ },
+ "plan": {
+  "quote": {
+   "symbol": "SPYx",
+   "mint": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+   "tokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+   "name": "SP500 xStock"
+  },
+  "globalConfig": "B7ctMMdGvy46Am56myTtzfkNzt9kWZVTNGM2BWrJ9adg",
+  "platformConfig": "4E876qZTE9FJMrBzgVtBrSrzz2TLivB5Y5QXPjB4gZL7",
+  "curveRule": "QYZp1YzqEHU67ngXphF9LAkxkxWGvpWEv3rXh4yDbWA",
+  "raiseRaw": "1288908466",
+  "cpmmCreatorFeeOn": 0,
+  "platform": {
+   "feeRate": "10000",
+   "creatorFeeRate": "0"
+  },
+  "marketCap": {
+   "startUsd": 3266.8628357133184,
+   "graduationUsd": 48002.71693574271
+  },
+  "pricedAt": "2026-09-24T21:30:55.780Z"
+ },
+ "transactionBase64": "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAKD9O7jKs0HOBShFfyw4F9MnhEGWPc1V/tWLokyZndrAKqAvewvG0Pf3aaJgOJwRNqMORekx8voydIEW7ty+xAAAAh7XyDrhfmgNaTliBaIh6IW0B5BPAojtXyJO92diKq+7pUxod4cU5pp9IUu59Cl4kebxbBQX4fMWGxLZdRqoer20ObazHtDL0lFgzw12AuX/nNeN3vqqyg3R+VPEw873YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABIHuZs13eKOS57e6X5J12OXtaSgyT+v0nTHhqAGjt1vL++lKMlvP5Ejv100IRrXD7IbY7JAMxJhYFPZr31ITdyWRu4JCekFGiomGIXnUZmH4rHsewZkpIELS1y8v0z4IwMGRm/lIRcy/+ytunLDm+e8jOW7xfcSayxDmzpAAAAABQQ7lU3KJuHvkbUsT4+Jr4pvWsjGIVbxcc8PIaxRySIGCAzQlUIub/JCxiacMis50AXbLJWZvVcyYM3gKVOhowbd9uHudY/eGEJdvORszdq2GvxNg7kNJ/69+SjYoYv8B4OoFSYhD5Sg6OhNIIcAOzpCYNKc552s/iGk6ncfpigH6Nws3nsjoNdD+PEna2V9ip7qBpULpnqNMDPFPEzeT66YknYpjahkjOGG/GDvnlnKKzoM/lnaltsmlHxKaY9HAwkABQKQ0AMACQAJAxAnAAAAAAAAChAAAAgHDQQBDgMCDAwFBgoLvQElvn7eLJqrEQYHAAAAU2ltIENhdAYAAABTSU1DQVRdAAAAaHR0cHM6Ly9nYXRld2F5LnBpbmF0YS5jbG91ZC9pcGZzL2JhZmtyZWlhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhAACAxqR+jQMAAHjF+1HRAgCyLtNMAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+ "simulatedAt": "2026-09-24",
+ "result": {
+  "err": null,
+  "unitsConsumed": 98816,
+  "payerBefore": 257171760,
+  "payerAfter": 248497860,
+  "logs": [
+   "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+   "Program ComputeBudget111111111111111111111111111111 success",
+   "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+   "Program ComputeBudget111111111111111111111111111111 success",
+   "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj invoke [1]",
+   "Program log: Instruction: InitializeWithToken2022",
+   "Program 11111111111111111111111111111111 invoke [2]",
+   "Program 11111111111111111111111111111111 success",
+   "Program 11111111111111111111111111111111 invoke [2]",
+   "Program 11111111111111111111111111111111 success",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+   "Program log: Instruction: InitializeAccount3",
+   "Program log: Warning: Mint has a permanent delegate, so tokens in this account may be seized at any time",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 3572 of 228252 compute units",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+   "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj invoke [2]",
+   "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj consumed 626 of 198056 compute units",
+   "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj success",
+   "Program 11111111111111111111111111111111 invoke [2]",
+   "Program 11111111111111111111111111111111 success",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+   "Program log: MetadataPointerInstruction::Initialize",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 925 of 191565 compute units",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+   "Program log: Instruction: InitializeMint2",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1772 of 189256 compute units",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+   "Program 11111111111111111111111111111111 invoke [2]",
+   "Program 11111111111111111111111111111111 success",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+   "Program log: TokenMetadataInstruction: Initialize",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 3507 of 181945 compute units",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+   "Program 11111111111111111111111111111111 invoke [2]",
+   "Program 11111111111111111111111111111111 success",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+   "Program log: Instruction: InitializeAccount3",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 2108 of 173059 compute units",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+   "Program log: Instruction: MintTo",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1707 of 157822 compute units",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+   "Program log: Instruction: SetAuthority",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1044 of 154448 compute units",
+   "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+   "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj consumed 98516 of 249700 compute units",
+   "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj success"
+  ]
+ }
+}

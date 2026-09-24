@@ -1,0 +1,82 @@
+# CashCat, the auto-launcher: three times a day it reads what is trending, invents a cat-themed
+# coin, and launches it on pump.fun or StonkFun — for real ONLY when the repository variable
+# CASHCAT_LIVE is 1 and every guard is green (its own wallet, its address, an RPC, the model's
+# review, the metadata pinned, the day's cap, the minimum balance, the check before signing and
+# the simulation). Otherwise it is a dry run that prints the plan and changes nothing.
+#
+# Secrets: CASHCAT_WALLET_SECRET (CashCat's OWN wallet, never the owner's main one),
+# SOLANA_RPC_URL, ANTHROPIC_API_KEY, PINATA_JWT. Variables: CASHCAT_LIVE,
+# CASHCAT_WALLET_ADDRESS, and the optional caps in bots/cashcat/config.mjs. A launch it made is
+# appended to launches.json on the floor-data branch and the site is deployed.
+#
+# Never two CashCat runs at once (the "cashcat" group): the day's cap depends on it.
+name: CashCat
+
+on:
+  schedule:
+    - cron: "23 2,10,18 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: cashcat
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.push.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: The logo renderer
+        run: npm ci --prefix bots
+      - name: Check out floor-data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node bots/floor-data.mjs checkout .floor-data
+      - name: CashCat
+        env:
+          CASHCAT_LIVE: ${{ vars.CASHCAT_LIVE }}
+          CASHCAT_WALLET_ADDRESS: ${{ vars.CASHCAT_WALLET_ADDRESS }}
+          CASHCAT_MAX_LAUNCHES_PER_DAY: ${{ vars.CASHCAT_MAX_LAUNCHES_PER_DAY }}
+          CASHCAT_MIN_BALANCE_SOL: ${{ vars.CASHCAT_MIN_BALANCE_SOL }}
+          CASHCAT_DEV_BUY_SOL: ${{ vars.CASHCAT_DEV_BUY_SOL }}
+          CASHCAT_VENUES: ${{ vars.CASHCAT_VENUES }}
+          CASHCAT_STONKFUN_QUOTE: ${{ vars.CASHCAT_STONKFUN_QUOTE }}
+          CASHCAT_PUMP_XSTOCK_QUOTE: ${{ vars.CASHCAT_PUMP_XSTOCK_QUOTE }}
+          CASHCAT_PRIORITY_MICROLAMPORTS: ${{ vars.CASHCAT_PRIORITY_MICROLAMPORTS }}
+          CASHCAT_COLLECT_FEES_MIN_SOL: ${{ vars.CASHCAT_COLLECT_FEES_MIN_SOL }}
+          CASHCAT_MODEL: ${{ vars.CASHCAT_MODEL }}
+          CASHCAT_WALLET_SECRET: ${{ secrets.CASHCAT_WALLET_SECRET }}
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+        run: node bots/cashcat/run.mjs --data-dir .floor-data
+      - name: Push the launch to floor-data
+        id: push
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node bots/floor-data.mjs push .floor-data --files launches.json --message "CashCat: launch"
+
+  deploy:
+    needs: run
+    if: needs.run.outputs.changed == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

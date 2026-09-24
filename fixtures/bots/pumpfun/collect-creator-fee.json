@@ -1,0 +1,40 @@
+{
+ "note": "A real collect_creator_fee, found by reading the creator vaults of coins pump.fun listed as recently traded, 2026-09-24.",
+ "signature": "2fktoQzWYeF4R6phLMHvv7Zcn8YTxEE45kX33LPiLvXkytgHiMTQfG6aCzHjwxmBVL7xY3Gpy3o1Ue7GPHBYficq",
+ "slot": 449937368,
+ "instructionIndex": 0,
+ "accounts": [
+  {
+   "pubkey": "C2TFeiRyzzApUxvjrfaXF1RLfad2SfaHvSqGaEPmmxfv",
+   "isSigner": true,
+   "isWritable": true
+  },
+  {
+   "pubkey": "52okb8rFtPoPLxF8Q9hmVLYSvrvCopB8bQuvCZKj1uTH",
+   "isSigner": false,
+   "isWritable": true
+  },
+  {
+   "pubkey": "11111111111111111111111111111111",
+   "isSigner": false,
+   "isWritable": false
+  },
+  {
+   "pubkey": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
+   "isSigner": false,
+   "isWritable": false
+  },
+  {
+   "pubkey": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+   "isSigner": false,
+   "isWritable": false
+  }
+ ],
+ "dataHex": "1416567bc61cdb84",
+ "signers": [
+  "C2TFeiRyzzApUxvjrfaXF1RLfad2SfaHvSqGaEPmmxfv"
+ ],
+ "creatorLamportsBefore": 31630418675,
+ "creatorLamportsAfter": 31685627168,
+ "fee": 5000
+}

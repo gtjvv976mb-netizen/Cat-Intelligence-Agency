@@ -1,0 +1,1164 @@
+{
+ "source": {
+  "account": "E6wT2uNeoWUvDrwdch1R8ETsyewR1ZM4WAwsa5hLJK5Z",
+  "read": "2026-09-24",
+  "decompressedSha256": "ce2ea0da307b65ddbbb22f7c0621a30414e1ccca0a058811e6f8831c7d7771db",
+  "metadata": {
+   "name": "raydium_launchpad",
+   "version": "0.2.0",
+   "spec": "0.1.0",
+   "description": "Created with Anchor"
+  }
+ },
+ "instructions": [
+  {
+   "name": "claim_creator_fee",
+   "docs": [
+    "Claim the fee from the exclusive creator fee vault.",
+    "# Arguments",
+    "",
+    "* `ctx` - The context of accounts",
+    ""
+   ],
+   "discriminator": [
+    26,
+    97,
+    138,
+    203,
+    132,
+    171,
+    141,
+    252
+   ],
+   "accounts": [
+    {
+     "name": "creator",
+     "docs": [
+      "The pool creator"
+     ],
+     "writable": true,
+     "signer": true
+    },
+    {
+     "name": "fee_vault_authority",
+     "pda": {
+      "seeds": [
+       {
+        "kind": "const",
+        "value": [
+         99,
+         114,
+         101,
+         97,
+         116,
+         111,
+         114,
+         95,
+         102,
+         101,
+         101,
+         95,
+         118,
+         97,
+         117,
+         108,
+         116,
+         95,
+         97,
+         117,
+         116,
+         104,
+         95,
+         115,
+         101,
+         101,
+         100
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "name": "creator_fee_vault",
+     "docs": [
+      "The creator fee vault"
+     ],
+     "writable": true,
+     "pda": {
+      "seeds": [
+       {
+        "kind": "account",
+        "path": "creator"
+       },
+       {
+        "kind": "account",
+        "path": "quote_mint"
+       }
+      ]
+     }
+    },
+    {
+     "name": "recipient_token_account",
+     "writable": true,
+     "pda": {
+      "seeds": [
+       {
+        "kind": "account",
+        "path": "creator"
+       },
+       {
+        "kind": "account",
+        "path": "token_program"
+       },
+       {
+        "kind": "account",
+        "path": "quote_mint"
+       }
+      ],
+      "program": {
+       "kind": "const",
+       "value": [
+        140,
+        151,
+        37,
+        143,
+        78,
+        36,
+        137,
+        241,
+        187,
+        61,
+        16,
+        41,
+        20,
+        142,
+        13,
+        131,
+        11,
+        90,
+        19,
+        153,
+        218,
+        255,
+        16,
+        132,
+        4,
+        142,
+        123,
+        216,
+        219,
+        233,
+        248,
+        89
+       ]
+      }
+     }
+    },
+    {
+     "name": "quote_mint",
+     "docs": [
+      "The mint for the quote token"
+     ]
+    },
+    {
+     "name": "token_program",
+     "docs": [
+      "Token program owning the quote token: either SPL Token or Token-2022"
+     ]
+    },
+    {
+     "name": "system_program",
+     "docs": [
+      "Required for account creation"
+     ],
+     "address": "11111111111111111111111111111111"
+    },
+    {
+     "name": "associated_token_program",
+     "docs": [
+      "Required for associated token program"
+     ],
+     "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    }
+   ],
+   "args": []
+  },
+  {
+   "name": "initialize_with_token_2022",
+   "docs": [
+    "Initializes a new trading pool with base token belongs to spl-token-2022,",
+    "pool created by this instruction must be migrated to cpswap after fundraising ends, i.e., curve_param.migrate_type = 1",
+    "# Arguments",
+    "",
+    "* `ctx` - The context of accounts containing pool and token information",
+    ""
+   ],
+   "discriminator": [
+    37,
+    190,
+    126,
+    222,
+    44,
+    154,
+    171,
+    17
+   ],
+   "accounts": [
+    {
+     "name": "payer",
+     "docs": [
+      "The account paying for the initialization costs",
+      "This can be any account with sufficient SOL to cover the transaction"
+     ],
+     "writable": true,
+     "signer": true
+    },
+    {
+     "name": "creator"
+    },
+    {
+     "name": "global_config",
+     "docs": [
+      "Global configuration account containing protocol-wide settings",
+      "Includes settings like quote token mint and fee parameters"
+     ]
+    },
+    {
+     "name": "platform_config",
+     "docs": [
+      "Platform configuration account containing platform info",
+      "Includes settings like the fee_rate, name, web, img of the platform"
+     ]
+    },
+    {
+     "name": "authority",
+     "docs": [
+      "PDA that acts as the authority for pool vault and mint operations",
+      "Generated using AUTH_SEED"
+     ],
+     "pda": {
+      "seeds": [
+       {
+        "kind": "const",
+        "value": [
+         118,
+         97,
+         117,
+         108,
+         116,
+         95,
+         97,
+         117,
+         116,
+         104,
+         95,
+         115,
+         101,
+         101,
+         100
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "name": "pool_state",
+     "docs": [
+      "Account that stores the pool's state and parameters",
+      "PDA generated using POOL_SEED and both token mints"
+     ],
+     "writable": true,
+     "pda": {
+      "seeds": [
+       {
+        "kind": "const",
+        "value": [
+         112,
+         111,
+         111,
+         108
+        ]
+       },
+       {
+        "kind": "account",
+        "path": "base_mint"
+       },
+       {
+        "kind": "account",
+        "path": "quote_mint"
+       }
+      ]
+     }
+    },
+    {
+     "name": "base_mint",
+     "docs": [
+      "The mint for the base token (token being sold)",
+      "Created in this instruction with specified decimals"
+     ],
+     "writable": true,
+     "signer": true
+    },
+    {
+     "name": "quote_mint",
+     "docs": [
+      "The mint for the quote token (token used to buy)",
+      "Must match the quote_mint specified in global config"
+     ]
+    },
+    {
+     "name": "base_vault",
+     "docs": [
+      "Token account that holds the pool's base tokens",
+      "PDA generated using POOL_VAULT_SEED"
+     ],
+     "writable": true,
+     "pda": {
+      "seeds": [
+       {
+        "kind": "const",
+        "value": [
+         112,
+         111,
+         111,
+         108,
+         95,
+         118,
+         97,
+         117,
+         108,
+         116
+        ]
+       },
+       {
+        "kind": "account",
+        "path": "pool_state"
+       },
+       {
+        "kind": "account",
+        "path": "base_mint"
+       }
+      ]
+     }
+    },
+    {
+     "name": "quote_vault",
+     "docs": [
+      "Token account that holds the pool's quote tokens",
+      "PDA generated using POOL_VAULT_SEED"
+     ],
+     "writable": true,
+     "pda": {
+      "seeds": [
+       {
+        "kind": "const",
+        "value": [
+         112,
+         111,
+         111,
+         108,
+         95,
+         118,
+         97,
+         117,
+         108,
+         116
+        ]
+       },
+       {
+        "kind": "account",
+        "path": "pool_state"
+       },
+       {
+        "kind": "account",
+        "path": "quote_mint"
+       }
+      ]
+     }
+    },
+    {
+     "name": "base_token_program",
+     "docs": [
+      "SPL Token program for the base token"
+     ],
+     "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+    },
+    {
+     "name": "quote_token_program",
+     "docs": [
+      "Token program owning the quote token: either SPL Token or Token-2022"
+     ]
+    },
+    {
+     "name": "system_program",
+     "docs": [
+      "Required for account creation"
+     ],
+     "address": "11111111111111111111111111111111"
+    },
+    {
+     "name": "event_authority"
+    },
+    {
+     "name": "program"
+    }
+   ],
+   "args": [
+    {
+     "name": "base_mint_param",
+     "type": {
+      "defined": {
+       "name": "MintParams"
+      }
+     }
+    },
+    {
+     "name": "curve_param",
+     "type": {
+      "defined": {
+       "name": "CurveParams"
+      }
+     }
+    },
+    {
+     "name": "vesting_param",
+     "type": {
+      "defined": {
+       "name": "VestingParams"
+      }
+     }
+    },
+    {
+     "name": "amm_fee_on",
+     "type": {
+      "defined": {
+       "name": "AmmCreatorFeeOn"
+      }
+     }
+    },
+    {
+     "name": "transfer_fee_extension_param",
+     "type": {
+      "option": {
+       "defined": {
+        "name": "TransferFeeExtensionParams"
+       }
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "types": [
+  {
+   "name": "AmmCreatorFeeOn",
+   "docs": [
+    "migrate to cpmm, creator fee on quote token or both token"
+   ],
+   "type": {
+    "kind": "enum",
+    "variants": [
+     {
+      "name": "QuoteToken"
+     },
+     {
+      "name": "BothToken"
+     }
+    ]
+   }
+  },
+  {
+   "name": "ConstantCurve",
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "supply",
+      "type": "u64"
+     },
+     {
+      "name": "total_base_sell",
+      "type": "u64"
+     },
+     {
+      "name": "total_quote_fund_raising",
+      "type": "u64"
+     },
+     {
+      "name": "migrate_type",
+      "type": "u8"
+     }
+    ]
+   }
+  },
+  {
+   "name": "CurveParams",
+   "type": {
+    "kind": "enum",
+    "variants": [
+     {
+      "name": "Constant",
+      "fields": [
+       {
+        "name": "data",
+        "type": {
+         "defined": {
+          "name": "ConstantCurve"
+         }
+        }
+       }
+      ]
+     },
+     {
+      "name": "Fixed",
+      "fields": [
+       {
+        "name": "data",
+        "type": {
+         "defined": {
+          "name": "FixedCurve"
+         }
+        }
+       }
+      ]
+     },
+     {
+      "name": "Linear",
+      "fields": [
+       {
+        "name": "data",
+        "type": {
+         "defined": {
+          "name": "LinearCurve"
+         }
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "CurveRuleGroup",
+   "docs": [
+    "A set of constraints that must all hold together, e.g.",
+    "`supply = 50W && total_base_sell >= 20W`."
+   ],
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "group_id",
+      "docs": [
+       "The stable id of the group, used to update or remove it"
+      ],
+      "type": "u16"
+     },
+     {
+      "name": "epoch",
+      "docs": [
+       "The epoch the group was written"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "constraints",
+      "docs": [
+       "The constraints of the group, an empty list allows everything"
+      ],
+      "type": {
+       "vec": {
+        "defined": {
+         "name": "ParamConstraint"
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "GlobalConfig",
+   "docs": [
+    "Holds the current owner of the factory"
+   ],
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "epoch",
+      "docs": [
+       "Account update epoch"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "curve_type",
+      "docs": [
+       "0: Constant Product Curve",
+       "1: Fixed Price Curve",
+       "2: Linear Price Curve"
+      ],
+      "type": "u8"
+     },
+     {
+      "name": "index",
+      "docs": [
+       "Config index"
+      ],
+      "type": "u16"
+     },
+     {
+      "name": "migrate_fee",
+      "docs": [
+       "The fee of migrate to amm"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "trade_fee_rate",
+      "docs": [
+       "The trade fee rate, denominated in hundredths of a bip (10^-6)"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "max_share_fee_rate",
+      "docs": [
+       "The maximum share fee rate, denominated in hundredths of a bip (10^-6)"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "min_base_supply",
+      "docs": [
+       "The minimum base supply, the value without decimals"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "max_lock_rate",
+      "docs": [
+       "The maximum lock rate, denominated in hundredths of a bip (10^-6)"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "min_base_sell_rate",
+      "docs": [
+       "The minimum base sell rate, denominated in hundredths of a bip (10^-6)"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "min_base_migrate_rate",
+      "docs": [
+       "The minimum base migrate rate, denominated in hundredths of a bip (10^-6)"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "min_quote_fund_raising",
+      "docs": [
+       "The minimum quote fund raising, the value with decimals"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "quote_mint",
+      "docs": [
+       "Mint information for quote token"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "protocol_fee_owner",
+      "docs": [
+       "Protocol Fee owner"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "migrate_fee_owner",
+      "docs": [
+       "Migrate Fee owner"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "migrate_to_amm_wallet",
+      "docs": [
+       "Migrate to amm control wallet"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "migrate_to_cpswap_wallet",
+      "docs": [
+       "Migrate to cpswap wallet"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "padding_alignment",
+      "docs": [
+       "padding alignment"
+      ],
+      "type": {
+       "array": [
+        "u8",
+        8
+       ]
+      }
+     },
+     {
+      "name": "padding",
+      "docs": [
+       "padding for future updates"
+      ],
+      "type": {
+       "array": [
+        "u64",
+        15
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "MintParams",
+   "docs": [
+    "Represents the parameters for initializing a new token mint",
+    "# Fields",
+    "* `decimals` - Number of decimal places for the token",
+    "* `name` - Name of the token",
+    "* `symbol` - Symbol/ticker of the token",
+    "* `uri` - URI pointing to token metadata"
+   ],
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "decimals",
+      "type": "u8"
+     },
+     {
+      "name": "name",
+      "type": "string"
+     },
+     {
+      "name": "symbol",
+      "type": "string"
+     },
+     {
+      "name": "uri",
+      "type": "string"
+     }
+    ]
+   }
+  },
+  {
+   "name": "ParamConstraint",
+   "docs": [
+    "A single check on one launch parameter, e.g. `(SUPPLY, GTE, 1_000_000)`.",
+    "A range check is expressed with two constraints(`GTE` + `LTE`) in the same group."
+   ],
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "field",
+      "docs": [
+       "The parameter this constraint applies to, see `param_field`"
+      ],
+      "type": "u8"
+     },
+     {
+      "name": "op",
+      "docs": [
+       "The comparison operator, see `param_op`"
+      ],
+      "type": "u8"
+     },
+     {
+      "name": "value",
+      "docs": [
+       "The value to compare the actual launch parameter with"
+      ],
+      "type": "u128"
+     }
+    ]
+   }
+  },
+  {
+   "name": "PlatformConfig",
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "epoch",
+      "docs": [
+       "The epoch for update interval"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "platform_fee_wallet",
+      "docs": [
+       "The platform fee wallet"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "platform_nft_wallet",
+      "docs": [
+       "The platform nft wallet to receive the platform NFT after migration if platform_scale is not 0(Only support MigrateType::CPSWAP)"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "platform_scale",
+      "docs": [
+       "Scale of the platform liquidity quantity rights will be converted into NFT(Only support MigrateType::CPSWAP)"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "creator_scale",
+      "docs": [
+       "Scale of the token creator liquidity quantity rights will be converted into NFT(Only support MigrateType::CPSWAP)"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "burn_scale",
+      "docs": [
+       "Scale of liquidity directly to burn"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "fee_rate",
+      "docs": [
+       "The platform fee rate"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "name",
+      "docs": [
+       "The platform name"
+      ],
+      "type": {
+       "array": [
+        "u8",
+        64
+       ]
+      }
+     },
+     {
+      "name": "web",
+      "docs": [
+       "The platform website"
+      ],
+      "type": {
+       "array": [
+        "u8",
+        256
+       ]
+      }
+     },
+     {
+      "name": "img",
+      "docs": [
+       "The platform img link"
+      ],
+      "type": {
+       "array": [
+        "u8",
+        256
+       ]
+      }
+     },
+     {
+      "name": "cpswap_config",
+      "docs": [
+       "The platform specifies the trade fee rate after migration to cp swap"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "creator_fee_rate",
+      "docs": [
+       "Creator fee rate"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "transfer_fee_extension_auth",
+      "docs": [
+       "If the base token belongs to token2022, then you can choose to support the transferfeeConfig extension, which includes permissions such as `transfer_fee_config_authority`` and `withdraw_withheld_authority`.",
+       "When initializing mint, `withdraw_withheld_authority` and `transfer_fee_config_authority` both belongs to the contract.",
+       "Once the token is migrated to AMM, the authorities will be reset to this value"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "platform_vesting_wallet",
+      "type": "pubkey"
+     },
+     {
+      "name": "platform_vesting_scale",
+      "type": "u64"
+     },
+     {
+      "name": "platform_cp_creator",
+      "docs": [
+       "If a valid platform_cp_creator is configured for the platform,",
+       "it will be used as the creator for the AMM pool during migration to cpswap pool."
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "restrict_global_config",
+      "docs": [
+       "Whether the platform restricts the global config used to create pools with this",
+       "platform config, 0: no restriction, 1: only the allowed global config can be used,"
+      ],
+      "type": "u8"
+     },
+     {
+      "name": "restrict_curve_param",
+      "docs": [
+       "Whether the platform restricts the launch params of the pools created with this",
+       "platform config, 0: no restriction, 1: the launch params must satisfy the",
+       "`PlatformCurveRule` account of the used global config"
+      ],
+      "type": "u8"
+     },
+     {
+      "name": "curve_rule_manager",
+      "docs": [
+       "The wallet allowed to manage the `PlatformCurveRule` accounts of this platform",
+       "config, the platform admin is often a multisig wallet which is inconvenient for",
+       "the day to day rule changes. The platform admin can always manage the rules too,",
+       "and it is the only one that can set this wallet."
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "padding",
+      "docs": [
+       "padding for future updates. The last 4 bytes were the length prefix of the removed",
+       "`curve_params` vec, the migration left them zeroed, so the layout keeps exactly the",
+       "byte count every platform config already has."
+      ],
+      "type": {
+       "array": [
+        "u8",
+        78
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "PlatformCurveRule",
+   "docs": [
+    "The platform launch parameter rule for one global config.",
+    "",
+    "The existence of this account is only checked when the platform restricts the launch",
+    "parameters, see `PlatformConfig::restrict_curve_param`. It narrows the launch parameters",
+    "down from what the global config allows, it can never loosen them."
+   ],
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "bump",
+      "type": "u8"
+     },
+     {
+      "name": "version",
+      "docs": [
+       "The layout version of the account"
+      ],
+      "type": "u8"
+     },
+     {
+      "name": "platform_config",
+      "docs": [
+       "The platform config the rule belongs to"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "global_config",
+      "docs": [
+       "The global config the rule applies to"
+      ],
+      "type": "pubkey"
+     },
+     {
+      "name": "epoch",
+      "docs": [
+       "The epoch of the last update"
+      ],
+      "type": "u64"
+     },
+     {
+      "name": "padding",
+      "docs": [
+       "padding for future updates"
+      ],
+      "type": {
+       "array": [
+        "u64",
+        8
+       ]
+      }
+     },
+     {
+      "name": "groups",
+      "docs": [
+       "The check groups, a launch is allowed when it satisfies any of them.",
+       "An empty list means the platform does not restrict the launch parameters of",
+       "this global config."
+      ],
+      "type": {
+       "vec": {
+        "defined": {
+         "name": "CurveRuleGroup"
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "TransferFeeExtensionParams",
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "transfer_fee_basis_points",
+      "docs": [
+       "denominator is 10000, currently, this value cannot exceed 5%, which is 500."
+      ],
+      "type": "u16"
+     },
+     {
+      "name": "maximum_fee",
+      "docs": [
+       "Maximum fee on each transfers, the value must exceed supply * transfer_fee_basis_points / 10000"
+      ],
+      "type": "u64"
+     }
+    ]
+   }
+  },
+  {
+   "name": "VestingParams",
+   "type": {
+    "kind": "struct",
+    "fields": [
+     {
+      "name": "total_locked_amount",
+      "type": "u64"
+     },
+     {
+      "name": "cliff_period",
+      "type": "u64"
+     },
+     {
+      "name": "unlock_period",
+      "type": "u64"
+     }
+    ]
+   }
+  }
+ ],
+ "accounts": [
+  {
+   "name": "GlobalConfig",
+   "discriminator": [
+    149,
+    8,
+    156,
+    202,
+    160,
+    252,
+    176,
+    217
+   ]
+  },
+  {
+   "name": "PlatformAllowConfig",
+   "discriminator": [
+    248,
+    57,
+    34,
+    138,
+    222,
+    238,
+    186,
+    75
+   ]
+  },
+  {
+   "name": "PlatformConfig",
+   "discriminator": [
+    160,
+    78,
+    128,
+    0,
+    248,
+    83,
+    230,
+    160
+   ]
+  },
+  {
+   "name": "PlatformCurveRule",
+   "discriminator": [
+    12,
+    20,
+    122,
+    169,
+    247,
+    155,
+    104,
+    234
+   ]
+  },
+  {
+   "name": "PoolState",
+   "discriminator": [
+    247,
+    237,
+    227,
+    245,
+    215,
+    195,
+    222,
+    70
+   ]
+  },
+  {
+   "name": "VestingRecord",
+   "discriminator": [
+    106,
+    243,
+    221,
+    205,
+    230,
+    126,
+    85,
+    83
+   ]
+  }
+ ]
+}

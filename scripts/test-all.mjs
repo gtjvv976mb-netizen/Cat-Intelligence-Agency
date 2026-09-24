@@ -27,7 +27,9 @@ for (const test of all) {
     encoding: "utf8",
     maxBuffer: 16 * 1024 * 1024,
     timeout: TIMEOUT_MS,
-    env: { ...process.env, NODE_ENV: "test", ANTHROPIC_API_KEY: "", EXECUTE: "0" },
+    env: { ...process.env, NODE_ENV: "test", ANTHROPIC_API_KEY: "", EXECUTE: "0",
+      /* The bots' secrets and switches, blanked: no test may launch, publish or call out. */
+      CASHCAT_WALLET_SECRET: "", SOLANA_RPC_URL: "", PINATA_JWT: "", CASHCAT_LIVE: "", POPCAT_LIVE: "" },
   });
   if (run.stderr) process.stderr.write(run.stderr.replace(/\(node:\d+\) (ExperimentalWarning|\[DEP0040\] DeprecationWarning)[^\n]*\n(\(Use `node --trace-warnings \.\.\.` to show where the warning was created\)\n)?/g, ""));
   if (run.status !== 0) {

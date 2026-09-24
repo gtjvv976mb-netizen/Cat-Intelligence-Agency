@@ -1,0 +1,57 @@
+{
+ "url": "https://api.coingecko.com/api/v3/search/trending",
+ "read": "2026-09-24",
+ "note": "trimmed to the first three coins and every category",
+ "body": {
+  "coins": [
+   {
+    "item": {
+     "id": "bitget-token",
+     "name": "Bitget Token",
+     "symbol": "BGB"
+    }
+   },
+   {
+    "item": {
+     "id": "ondo-finance",
+     "name": "Ondo",
+     "symbol": "ONDO"
+    }
+   },
+   {
+    "item": {
+     "id": "edel",
+     "name": "Edel",
+     "symbol": "EDEL"
+    }
+   }
+  ],
+  "nfts": [],
+  "categories": [
+   {
+    "id": 20767,
+    "name": "Echo Launchpad"
+   },
+   {
+    "id": 244,
+    "name": "Data Availability"
+   },
+   {
+    "id": 10673,
+    "name": "Chain Abstraction"
+   },
+   {
+    "id": 20802,
+    "name": "Privacy Infrastructure"
+   },
+   {
+    "id": 491,
+    "name": "RWA Protocol"
+   },
+   {
+    "id": 1,
+    "name": "Artificial Intelligence (AI)"
+   }
+  ]
+ }
+}

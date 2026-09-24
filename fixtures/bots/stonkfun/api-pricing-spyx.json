@@ -1,0 +1,81 @@
+{
+ "url": "https://www.stonkfun.xyz/api/public/v1/launchlab/pricing?quoteMint=XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+ "read": "2026-09-24",
+ "body": {
+  "data": {
+   "quote": {
+    "mint": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+    "symbol": "SPYX",
+    "decimals": 8,
+    "tokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+   },
+   "raise": {
+    "raw": "1289005598",
+    "units": 12.89005598,
+    "minimumRaw": "1",
+    "basis": "Sized so this launch is worth the same as the default 85 SOL raise."
+   },
+   "marketCap": {
+    "startUsd": 3267.14239511205,
+    "graduationUsd": 48006.82472475297,
+    "startQuote": 4.239936908528185,
+    "graduationQuote": 62.30089888835186,
+    "graduationMultiple": 14.69382687347073
+   },
+   "prices": {
+    "solUsd": 116.85425921247877,
+    "quoteUsd": 770.5639177178647,
+    "observedAt": "2026-09-24T21:29:50.347Z"
+   },
+   "curve": {
+    "programId": "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj",
+    "configId": "B7ctMMdGvy46Am56myTtzfkNzt9kWZVTNGM2BWrJ9adg",
+    "curveType": "ConstantCurve",
+    "migrateType": "cpmm",
+    "baseDecimals": 6,
+    "supply": "1000000000000000",
+    "totalSellA": "793100000000000",
+    "totalSupplyTokens": 1000000000,
+    "vesting": {
+     "totalLockedAmount": "0",
+     "cliffPeriod": "0",
+     "unlockPeriod": "0"
+    },
+    "cpmmCreatorFeeOn": 0,
+    "migrateFeeRaw": "0",
+    "derived": {
+     "virtualA": "1073025605840747",
+     "virtualB": "454956087"
+    }
+   },
+   "platform": {
+    "standard": "4E876qZTE9FJMrBzgVtBrSrzz2TLivB5Y5QXPjB4gZL7",
+    "reward": "6BwHHDg3u1854jC8PDLXvR4spTcLNaoBxLJNGC4nTESt"
+   },
+   "curveRule": {
+    "standard": "QYZp1YzqEHU67ngXphF9LAkxkxWGvpWEv3rXh4yDbWA",
+    "reward": "7MNLMFMmFVhN9Z3sj51QZso28oD2Ta3zDPwNAmfrs2vk",
+    "derivation": "[\"platform_curve_rule\", platform_config, global_config] on the LaunchLab program",
+    "note": "Append the address for your chosen platform as the LAST account of the initialize instruction, read-only. Required once the platform enforces its launch shape; harmless before."
+   },
+   "modes": {
+    "standard": {
+     "transferFee": null,
+     "note": "Omit the transfer-fee extension entirely; the mint provably carries none."
+    },
+    "reward": {
+     "transferFeeBps": [
+      100,
+      300
+     ],
+     "baseTokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+     "withdrawWithheldAuthority": "5KXDF6QnqhBj72hDtJNkkpFaQVUfbFXNybMsp3DiK6tD",
+     "note": "Raydium assigns the platform transferFeeExtensionAuth as the withdraw authority at creation; holder rewards are collected and distributed from it."
+    }
+   }
+  },
+  "meta": {
+   "generatedAt": "2026-09-24T21:29:50.349Z"
+  }
+ }
+}

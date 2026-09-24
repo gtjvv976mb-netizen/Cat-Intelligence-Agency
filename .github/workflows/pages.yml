@@ -1,37 +1,63 @@
-# Publishes site/ to GitHub Pages: the landing page and, under /console/, the page
-# Phantom lives on, where the extension's content script runs. Static, no build, no
-# signing code — the extension you built carries all of that; the console only draws
+# Publishes site/ to GitHub Pages: the agency, its work floor, CoinMarketCat's page and, under
+# /console/, the page Phantom lives on, where the extension's content script runs. Static, no
+# build, no signing code — the extension you built carries all of that; the console only draws
 # the status it is handed.
 #
-# One-time setup: Settings → Pages → Source: "GitHub Actions". The manifest already
-# matches this repository's Pages origin.
+# The bots' data (CashCat's launches, Popcat's callouts) is NOT committed to main: the bots keep
+# it on the floor-data branch. Every deploy — a push to main, a manual run, or a bot calling this
+# workflow after it published something — checks out main, overlays launches.json and
+# callouts.json from floor-data (validated by the site's own validators), runs the site's tests
+# and deploys. A push to main therefore never wipes the callouts, and a bot never needs a commit
+# on main to reach the site.
+#
+# One deploy at a time: every caller's deploy job is in the "pages-deploy" concurrency group. A
+# newer deploy waits for the running one; a deploy still waiting when an even newer one arrives
+# is replaced by it, which loses nothing, because each deploy reads main and floor-data when it
+# runs.
+#
+# One-time setup: Settings → Pages → Source: "GitHub Actions". The manifest already matches
+# this repository's Pages origin.
 name: Deploy console
 
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", ".github/workflows/pages.yml", "bots/floor-data.mjs", "test-site.mjs", "test-bots-data.mjs"]
   workflow_dispatch:
+  workflow_call:
 
 permissions: {}
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
+      contents: read
       pages: write
       id-token: write
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
           persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Overlay the bots' data from floor-data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node bots/floor-data.mjs overlay site/assets
+      - name: Site tests, with the overlaid data
+        run: node test-site.mjs && node test-bots-data.mjs
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: site

@@ -1,0 +1,86 @@
+{
+ "read": "2026-09-24",
+ "note": "Jupiter tokens v2 search by mint for each established cat coin",
+ "tokens": [
+  {
+   "mint": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+   "name": "Popcat",
+   "symbol": "POPCAT",
+   "isVerified": true,
+   "tags": [
+    "verified",
+    "meme",
+    "birdeye-trending",
+    "community",
+    "moonshot-verified",
+    "strict"
+   ]
+  },
+  {
+   "mint": "MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5",
+   "name": "cat in a dogs world",
+   "symbol": "MEW",
+   "isVerified": true,
+   "tags": [
+    "strict",
+    "verified",
+    "meme",
+    "community",
+    "moonshot-verified"
+   ]
+  },
+  {
+   "mint": "5mbK36SZ7J19An8jFochhQS4of8g6BwUjbeCSxBSoWdp",
+   "name": "michi",
+   "symbol": "$michi",
+   "isVerified": true,
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "meme"
+   ]
+  },
+  {
+   "mint": "7atgF8KQo4wJrD5ATGX7t1V2zVvykPJbFfNeVf1icFv1",
+   "name": "catwifhat",
+   "symbol": "$CWIF",
+   "isVerified": true,
+   "tags": [
+    "strict",
+    "token-2022",
+    "verified",
+    "meme",
+    "community"
+   ]
+  },
+  {
+   "mint": "6D7NaB2xsLd7cauWu1wKk6KBsJohJmP2qZH9GEfVi5Ui",
+   "name": "Shark Cat",
+   "symbol": "SC",
+   "isVerified": true,
+   "tags": [
+    "meme",
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified"
+   ]
+  },
+  {
+   "mint": "25hAyBQfoDhfWx9ay6rarbgvWGwDdNqcHsXS3jQ3mTDJ",
+   "name": "MANEKI",
+   "symbol": "MANEKI",
+   "isVerified": true,
+   "tags": [
+    "community",
+    "moonshot-verified",
+    "strict",
+    "verified",
+    "meme",
+    "birdeye-trending"
+   ]
+  }
+ ]
+}

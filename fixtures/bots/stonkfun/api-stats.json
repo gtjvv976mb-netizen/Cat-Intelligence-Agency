@@ -1,0 +1,39 @@
+{
+ "url": "https://www.stonkfun.xyz/api/public/v1/stats",
+ "read": "2026-09-24",
+ "body": {
+  "data": {
+   "network": "mainnet-beta",
+   "tokens": {
+    "poolsAvailable": true,
+    "total": 129466,
+    "graduated": 3807,
+    "aboutToGraduate": 4,
+    "rewardLaunches": 97069,
+    "totalMarketCapUsd": 1036832552.6363516,
+    "totalVolume24hUsd": 63594758.1381484
+   },
+   "revenue": {
+    "totalRevenueUsd": 24738566.364035822,
+    "totalBuybackUsd": 14754754.890199916
+   },
+   "burns": {
+    "totalValueUsdAtBurn": 16815549.777355056,
+    "burnCount": 78526
+   },
+   "config": {
+    "graduationMarketCapUsd": 40000,
+    "aboutToGraduateMarketCapUsd": 32000,
+    "rewardLaunchesEnabled": true,
+    "pumpLaunchesEnabled": false,
+    "apiLaunchesEnabled": true,
+    "devBuysEnabled": true,
+    "paidLaunchesEnabled": false,
+    "launchLabEnabled": true
+   }
+  },
+  "meta": {
+   "generatedAt": "2026-09-24T21:26:50.463Z"
+  }
+ }
+}

@@ -1,0 +1,467 @@
+{
+ "note": "Two cat coins pump.fun listed on 2026-09-24, with every answer Popcat's checks read about them (pump.fun's API and mainnet through the public endpoint).",
+ "snapshots": [
+  {
+   "read": "2026-09-24T21:35:13.364Z",
+   "apiRow": {
+    "mint": "64xwhN5Rshirb1rB6KAC5Qw26zhYhPEXGPxLkpNmpump",
+    "name": "Asset Cat",
+    "symbol": "ASSCAT",
+    "description": "Cash = Cash Cat Stock = Asset Cat",
+    "creator": "28ghCFrvTTRdMS88f9j4bpRE8CSoe3BrBWLtKR3KqJHu",
+    "bonding_curve": "8novHWcveTeJTGWcK82g5T9Bbqb2zQAuTDaYJcYJurTq",
+    "created_timestamp": 1790281284000,
+    "complete": true,
+    "metadata_uri": "https://ipfs.io/ipfs/bafkreic6eee5kx7bbhcyfmnmzw7hddzhp6w4ofcztll3zap5sw6xd3pwgq",
+    "is_banned": false,
+    "nsfw": false,
+    "quote_mint": "11111111111111111111111111111111",
+    "program": "pump",
+    "usd_market_cap": 158049.4603183011
+   },
+   "mintAccount": {
+    "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "dataBase64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGIeADdt5AwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEtObpq1vIiQ9qQHsFBQXEbwGwMlzHajJIB9LJttWonvEwCvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAS05umrW8iJD2pAewUFBcRvAbAyXMdqMkgH0sm21aie8JAAAAQXNzZXQgQ2F0BgAAAEFTU0NBVFAAAABodHRwczovL2lwZnMuaW8vaXBmcy9iYWZrcmVpYzZlZWU1a3g3YmJoY3lmbW5tenc3aGRkemhwNnc0b2ZjenRsbDN6YXA1c3c2eGQzcHdncQAAAAA="
+   },
+   "curveAccount": {
+    "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+    "dataBase64": "F7f4N2DYrGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAxqR+jQMAARDTojQ7Fi4iKcqDGOuTy3ReRyhrE5ZsEQ+AQzx5BYkYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+   },
+   "holders": {
+    "total": 6239,
+    "trimmedTo": 41,
+    "note": "getProgramAccounts(token program, memcmp mint, dataSlice owner+amount); kept: the 40 largest plus the creator's and the curve's accounts",
+    "list": [
+     {
+      "account": "3WanpTpGoxkD84PjNoBgV9XScU5JKUgTgZxLXWmQfr8r",
+      "owner": "ChXGE62na8CodVVSr8GUGMD4GtLWedpUc5RL169fHQ42",
+      "amount": "120491163562594"
+     },
+     {
+      "account": "3HKNC1zmSB2cozZ5ZFMrQZdxoNHLBbwSPfjoBuSyzPJQ",
+      "owner": "3VyrBbdqFVTEndhBcAdyBA9PGMDykM58wA6d9nzi9HBJ",
+      "amount": "3355866687975"
+     },
+     {
+      "account": "Zmw2z3Ev6a2dTWvHujD8DycmakkAr71zfep9ax3izfK",
+      "owner": "5j57c7esrR4fKfspJehExaJVD2481mHq2UL5T6cwqAwe",
+      "amount": "3114355875473"
+     },
+     {
+      "account": "5Kbys3GJzWM4VFqEritMnXZUvP3Gesva7vCVM8Ke6C3z",
+      "owner": "ARQLasMFjvPApdgtC9gtd8u17BiLsmx8NKNAXLR7hEwZ",
+      "amount": "2671281883435"
+     },
+     {
+      "account": "2k4DBC2azw2E99jWsT7VkqyLupgDT5DPUXzNxN6PZpu6",
+      "owner": "3NQt3yHR89ozCyJVF3wMQNBN1D2vghq2TTCnyBM7Hk6C",
+      "amount": "2645682625858"
+     },
+     {
+      "account": "FNYQtKSwHASJurvAT4xiP6D2KWkiUVhx31t3CX6rLuAv",
+      "owner": "ifhRyS91GqxkNhCRUqkEQJMUBjftVaRN2JuYB1FcikN",
+      "amount": "2641403392762"
+     },
+     {
+      "account": "EZJ9ykgkaQ6fhH7VQYhyiDcLLcyvSHoc1rv2YRuC6MZb",
+      "owner": "BBnGy3p7BTq2jTMSmf4VCESi2Q668ZeTu1qqeafn3b5i",
+      "amount": "2602902471211"
+     },
+     {
+      "account": "9G8wpCELVs2kaxLF8utraZG4c1ZCFjLTuEyefMhj1huv",
+      "owner": "41PHLEvLhmvrKkVi19X3m1ZV9eq74zG9bMxxPLTYPWST",
+      "amount": "2588060366963"
+     },
+     {
+      "account": "5x9jPRQHzWAiKHjCo7SzZ28EkGMgiZzURpHs2XsdGPT7",
+      "owner": "6P5KpkSPDJm4X2GD1GMxc3zSYmTVGU11YkWmjCg7kTMB",
+      "amount": "2585897283869"
+     },
+     {
+      "account": "5ZUEc8LENjabsVYKHEdrxmoMNGKJWYwNN4HUL2kwDsiX",
+      "owner": "GU8FyW9aeRzfbd7zcYjNCHuPieocw2F9euE4MgMr9F9k",
+      "amount": "2585411426251"
+     },
+     {
+      "account": "6ShEi7omJGPxFfu2XXEyY3XxKFNLfvebCpDZCg3Ce9By",
+      "owner": "44ZjXxAJPoTGYdqjsPqWWaq7uGERizzicdaSfkGs9Baa",
+      "amount": "2580635256988"
+     },
+     {
+      "account": "JDa5u7fmarZ2p8k1FNn3oAYodV2KTvNDjjBF28HbtN79",
+      "owner": "AnakHQJcZgSkFqwoZo7ecrbnhvPvDjikh9Y6qpS5XA9H",
+      "amount": "2550561046269"
+     },
+     {
+      "account": "6zTvaVFEmhm4rnBYdkXmtVqnQ4pRL4HicFCr9yHzvYa6",
+      "owner": "FRdsSGijDcnK3fi5yhsiv2eaFErPD3WRsCiW6DZeq9KQ",
+      "amount": "2540981025201"
+     },
+     {
+      "account": "9FFsWuJpFeULt2Zur4Co24zfqfV9ZaCdmr8wuqLy3DEH",
+      "owner": "H9jR2M6yPDFQRThpJ2i8rqPtTcND7WCjStK7TEh2BiwY",
+      "amount": "2532203376448"
+     },
+     {
+      "account": "GTtpXLAAdaonCJWjWL5NETdf6JQjCPpFzZL3LdfyBZ3H",
+      "owner": "HRSauqf8MwtcXpsvMr99wvMb7RTTHjVX6j9r4F1DuCWV",
+      "amount": "2531539643955"
+     },
+     {
+      "account": "5tMCrYdFvnimHX8KpFHhkQbUbhMXte8BfViqkhn24LAe",
+      "owner": "Gtnm94CCVUR1KTfXngn2r4ypEB4nafyGfucN9ZH39wW1",
+      "amount": "2520384969974"
+     },
+     {
+      "account": "FoAW4qwjwactySEbDJAqWaEYqBSPnw5m5W1KZWwKmiKA",
+      "owner": "Acdnzd91eeAhrbN384JuHbAYmK4AS5jYF9ULPMdrnDxZ",
+      "amount": "2519023715159"
+     },
+     {
+      "account": "58Cqf1eurdv4R5ZTsNVPP1pBqvgSLStaSiKsU7xuvQLk",
+      "owner": "ARpEBcoyqL1ZApwLVEya5dgZ1ViFtQvgZpJC6mCtvQ3S",
+      "amount": "2509758905111"
+     },
+     {
+      "account": "72Jfa9RfNzNGKbpUfvTCwHVXbZJsKWRbgy9fgkGq3wyq",
+      "owner": "4ctadB52MHELoD69TP8sEwa7RsDG1kD3BDY2F5RPQ8Go",
+      "amount": "2504536955669"
+     },
+     {
+      "account": "HH5RKryemG1GCQtZb8JHJrGBxy4YmwJKmnvs44GydMbt",
+      "owner": "bhGgkfqy4iA6DiF4kVvG8rQNmmeA15emhsAmA4nmkCm",
+      "amount": "2463444194176"
+     },
+     {
+      "account": "89R23VfT9ghvRPduRVSQYs1pP5RYEzwi9wR7t4fWdAur",
+      "owner": "Cr58qSvVyMQWmrnPnXuSo75o8G8awa76ZeZq8qPZVXPc",
+      "amount": "2458822864510"
+     },
+     {
+      "account": "1444x7LABXhgB3NUr9uZbekcdDG6gUW1zxnWVSXPcZsQ",
+      "owner": "8M3jMJCLWBCjr4L3CxHwhLQGVSueK79LbKYW6c6SDJuw",
+      "amount": "2429710781690"
+     },
+     {
+      "account": "45UmeN2JVTondhUaiBs12vUcX7SiHUXJULsTsxo8sqYt",
+      "owner": "9JYrpqcFWubZiZSRuReXqmKakMHq1JjyvmqUz3hRhzBy",
+      "amount": "2417018820761"
+     },
+     {
+      "account": "GRXxGeCcyqeiQhaAcopusdSTqF71BAXLeEZaRgzZuekj",
+      "owner": "FMRiz4qpDxLJuH655o6eVxKKcEcp2VsE4wEh4FLZ5LxY",
+      "amount": "2397023448748"
+     },
+     {
+      "account": "AVbSzwk79qcpGzNn76pcmss7Bv4nkPiUkPPwss1xhnQU",
+      "owner": "nkL75eUCkqTuPHZHRdWMJ52Rcuo1AReKQWBnPfgwZ49",
+      "amount": "2383489094316"
+     },
+     {
+      "account": "CvtyH4cE78G582aoQt7gJTZNHhoBxWcUTyxT7zpUJWaK",
+      "owner": "2FHRzLwz9AE4Mn5tJhPYCiPWCnhZLHsgeyVuiALCGaPy",
+      "amount": "2371333339098"
+     },
+     {
+      "account": "B36LEjSbPHYzx4hTt6z8kuJxuj1HGFDyEX7fSHGXXPiU",
+      "owner": "8DR715yKbnEiaxgfhjn7xb2oFJMbKdNqdbHFhWPFc322",
+      "amount": "2346502662027"
+     },
+     {
+      "account": "7G7ewg3AbVM36r55rQg3Fwp5Z2SuQSTegiUooMBdch3c",
+      "owner": "8AFreRXVZ6Nb2rMiaMwanRaQZcVMTMYwruNKeyCmZVtd",
+      "amount": "2335901364296"
+     },
+     {
+      "account": "CoiYL1SR1USg1wCwiFxN7VWpCn2yCm1Zhs52qN16kteW",
+      "owner": "3U367NuHJZtY1ruqmqHsE9Y4g1bkGcihe3TmGScnGKgy",
+      "amount": "2295449266846"
+     },
+     {
+      "account": "HiqhzEN8rBrh5KPBahd8tAJEePrYcLSkyP2nURnhy8NF",
+      "owner": "HJJwBYxCF4SqVWU4o6t8Wb6rJjmfteVzbuJdZAMQDefE",
+      "amount": "2293048498792"
+     },
+     {
+      "account": "CFXjSwAP6EZCGve8qiDQMmADJFvw7TdAA8psnzUvAqo9",
+      "owner": "6SdRWSKUUmJEDESauryFMV5Vy3zfFGspKSHGoem22skY",
+      "amount": "2292524823341"
+     },
+     {
+      "account": "ELi4cA59L6hNLTKoihoHNEwY81xsZcErpQhFc1ybDFbP",
+      "owner": "CAPZg2ZE7vijX9wRqejZtDwpGNcAaAAKCS5K8mVJBFEG",
+      "amount": "2291143423480"
+     },
+     {
+      "account": "QSbjGCF7zKokCYuQPhjiwscxGin5Hidcb5FURKp5UR3",
+      "owner": "BhZRHrtfDxSr9z4jMfh4sTmeb7uPVJPKhSSo1nVf142y",
+      "amount": "2283654772141"
+     },
+     {
+      "account": "3Go2kKhW81KjsJ8eLCwRMsm3cPH7bLsm4emKwhWhJW3q",
+      "owner": "2BRazGhyUJ4FQVoUACMntVCede3tMkCxtc8QPE2At9Tq",
+      "amount": "2276961066388"
+     },
+     {
+      "account": "FDxcVQE2QMLUECnDdZeJK4f6XZD2HzUKYH5C8uedGqZo",
+      "owner": "HBRVnoYcPWPW6QSTwsyGZY15kWLnBBRK9Q3tHBjyrW4H",
+      "amount": "2269580828486"
+     },
+     {
+      "account": "4NFkyYoRTGFdo8em56wxuy92Vc2KxCXym8VbPg92vVgf",
+      "owner": "8greFPbFV8hSdYu91dC2qNBhBAkDCGtr4JpXoHxX3cWe",
+      "amount": "2265542514012"
+     },
+     {
+      "account": "5uGDywJDVVKddr1k85fPZFXcEfd7wFKKQAKgdZbvwNPu",
+      "owner": "9zWBc6p74ZntyS5jVvk4tkbkcf9uZTZJVytYVLLoBvbL",
+      "amount": "2255095818628"
+     },
+     {
+      "account": "5ptdokj1129F2pqkYsAEUefBxSigtuB2CPyGVuqT7hNE",
+      "owner": "D3GuQwPd1YbjHedoBxVYewbpU3ZaEdh5DUtc4ieEZTfJ",
+      "amount": "2245446061212"
+     },
+     {
+      "account": "DC4nXwc6cY1FAMiPDMiQDcG1CnrHseAKNF3oDehErS6D",
+      "owner": "4soc9inhSXz3v3UUUeRrayLR8CmNmaQAvmMhAyd1esZE",
+      "amount": "2245428631111"
+     },
+     {
+      "account": "2Hu8Xk2xRj7CoPjnzR6ZutFQ79oKyE2LULHuuhGPdoiW",
+      "owner": "FE3SuhxkApLq5nWGZaFNp6Rsuu6z2HEpxaSCWuQjSiF6",
+      "amount": "2242349297677"
+     },
+     {
+      "account": "BntGT1p7mKRWfuEXPF5qB3RrNwtYVoqUexRTPhTGLqUD",
+      "owner": "8novHWcveTeJTGWcK82g5T9Bbqb2zQAuTDaYJcYJurTq",
+      "amount": "0"
+     }
+    ]
+   },
+   "creation": {
+    "createSig": "4soFPuiArNrHqzWC196AWsFPpV1NVcDD1pQvY7cq1sYm7dMQykRjQZE8J8TERxU2B19af5yavpV8B8pXvES1m75C",
+    "createSlot": 450135283,
+    "createTime": 1790281284,
+    "sameSlotBuyers": [
+     "7RyjtxfCZZwDU3Yi38GWU6TT3ywB146pKAMgNm4rSNcr",
+     "E6MzwcUExtK3aVYRdfRbHXtSjwBAV9ArmuLUKcWXMLFD"
+    ],
+    "sameSlotTxs": 3
+   },
+   "creatorLaunchCount": 1,
+   "metadata": {
+    "name": "Asset Cat",
+    "symbol": "ASSCAT",
+    "description": "Cash = Cash Cat\nStock = Asset Cat",
+    "image": "https://ipfs.io/ipfs/bafybeibxx4zxvgcl7b7hyxwj5g3wfihmiju4fcymvspw5fq54qxxtpqzcm",
+    "createdOn": "https://pump.fun",
+    "showName": true,
+    "website": "https://theassetcats.site",
+    "twitter": "https://x.com/theassetcats"
+   },
+   "evaluatedThen": {
+    "pass": true,
+    "failed": [],
+    "checks": [
+     {
+      "id": "not_cashcat",
+      "result": "pass",
+      "value": "creator and mint are not CashCat's"
+     },
+     {
+      "id": "mint_authority",
+      "result": "pass",
+      "value": "revoked"
+     },
+     {
+      "id": "freeze_authority",
+      "result": "pass",
+      "value": "revoked"
+     },
+     {
+      "id": "mint_extensions",
+      "result": "pass",
+      "value": "Token-2022: MetadataPointer, TokenMetadata"
+     },
+     {
+      "id": "creator_share",
+      "result": "pass",
+      "value": "0.00% of the supply"
+     },
+     {
+      "id": "top10_share",
+      "result": "pass",
+      "value": "14.8% of the supply; 6127 holders besides the curve"
+     },
+     {
+      "id": "same_slot_buyers",
+      "result": "pass",
+      "value": "2 in slot 450135283"
+     },
+     {
+      "id": "creator_launches",
+      "result": "pass",
+      "value": "0 earlier coins (pump.fun's count)"
+     },
+     {
+      "id": "socials",
+      "result": "pass",
+      "value": "twitter, website"
+     },
+     {
+      "id": "age",
+      "result": "pass",
+      "value": "73 minutes"
+     },
+     {
+      "id": "curve",
+      "result": "pass",
+      "value": "graduated"
+     },
+     {
+      "id": "copycat",
+      "result": "pass",
+      "value": "no match among 6 established cat coins"
+     }
+    ]
+   }
+  },
+  {
+   "read": "2026-09-24T21:35:16.571Z",
+   "apiRow": {
+    "mint": "84KdLZozr67zWCkAc2hFmo5XcwpJQUqX5vjHMyXpump",
+    "name": "cosmic cat protocol ",
+    "symbol": "$Meow ",
+    "description": "Cosmic Cat Protocol ($MEOW) is a next-gen memecoin launching on Solana that combines feline energy with cyber-futurism. Our laser-eyed space cat mascot represents the community's mission to moon-shot through the galaxy of DeFi. $MEOW",
+    "creator": "9M5n6yXec7YqeQURhvLYRgfgPH4qpTqbZdjoBpkET5Mm",
+    "bonding_curve": "73RGpdmRdqiryTqozCq9touVdxinaw2JudVTFQMpWCBB",
+    "created_timestamp": 1790285146572,
+    "complete": false,
+    "metadata_uri": "https://ipfs.io/ipfs/QmdZQP9jUWvH3j2yLDVhpYuG5ovWCNbeDMmW85vusUyWFr",
+    "is_banned": false,
+    "nsfw": false,
+    "program": "pump",
+    "usd_market_cap": 3269.5246987456662
+   },
+   "mintAccount": {
+    "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "dataBase64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIDGpH6NAwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHO0iY9y9v9at9YudLbHlQi0csv+K0dKqfD4V4TCVavEwCtAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc7SJj3L2/1q31i50tseVCLRyy/4rR0qp8PhXhMJVq8UAAAAY29zbWljIGNhdCBwcm90b2NvbCAGAAAAJE1lb3cgQwAAAGh0dHBzOi8vaXBmcy5pby9pcGZzL1FtZFpRUDlqVVd2SDNqMnlMRFZocFl1RzVvdldDTmJlRE1tVzg1dnVzVXlXRnIAAAAA"
+   },
+   "curveAccount": {
+    "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+    "dataBase64": "F7f4N2DYrGAAENhH488DAA+sI/wGAAAAAHjF+1HRAgAPAAAAAAAAAACAxqR+jQMAAHwCg4DbjscphLTUut0RsaxqQWhbleTNgHnd5z3WjT3EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+   },
+   "holders": {
+    "total": 3,
+    "trimmedTo": 3,
+    "note": "getProgramAccounts(token program, memcmp mint, dataSlice owner+amount); kept: the 40 largest plus the creator's and the curve's accounts",
+    "list": [
+     {
+      "account": "Beqjgj3JrNwcioYgkEUhYoP7unXmUZjFE7vsfdENnxPM",
+      "owner": "73RGpdmRdqiryTqozCq9touVdxinaw2JudVTFQMpWCBB",
+      "amount": "1000000000000000"
+     },
+     {
+      "account": "7q5k7rscRwpHzGFQY8ZMGWtLx6EgsiP8ea8kbt1BqW4v",
+      "owner": "5AqUyQYzAvfbo2rv2VAhJvg1jrpEjwMrEKRdxFbkt3EL",
+      "amount": "0"
+     },
+     {
+      "account": "2JEGtQBGwenveMMmR4Bjq7ZsEKGhXkBbFJ616jCauVPG",
+      "owner": "AfZQjWsSRYUrz3LTjoSyqf6ihQ5pjza5dBrXPB4EC1Hu",
+      "amount": "0"
+     }
+    ]
+   },
+   "creation": {
+    "createSig": "2Fv9rJrbJaxRk5GbtK8qHM4gLKRn2szrkXL3KVGcPuLwSikUiJfATTs9pnG9eezA2t5bqbeANGZQNnvzi55xJdSp",
+    "createSlot": 450150107,
+    "createTime": 1790285235,
+    "sameSlotBuyers": [],
+    "sameSlotTxs": 0
+   },
+   "creatorLaunchCount": 8,
+   "metadata": {
+    "name": "cosmic cat protocol ",
+    "symbol": "$Meow ",
+    "description": "Cosmic Cat Protocol ($MEOW) is a next-gen memecoin launching on Solana that combines feline energy with cyber-futurism. Our laser-eyed space cat mascot represents the community's mission to moon-shot through the galaxy of DeFi. $MEOW",
+    "showName": true,
+    "image": "https://ipfs.io/ipfs/bafybeietfu5bspvvxooql5liuf7nmjjbo2tsnmjxraqgnoubg3bd6yo3ly",
+    "createdOn": "https://pump.fun",
+    "twitter": "https://x.com/Splixak",
+    "website": "https://x.com/Splixak/status/2102574277023387934"
+   },
+   "evaluatedThen": {
+    "pass": false,
+    "failed": [
+     "top10_share",
+     "age",
+     "curve"
+    ],
+    "checks": [
+     {
+      "id": "not_cashcat",
+      "result": "pass",
+      "value": "creator and mint are not CashCat's"
+     },
+     {
+      "id": "mint_authority",
+      "result": "pass",
+      "value": "revoked"
+     },
+     {
+      "id": "freeze_authority",
+      "result": "pass",
+      "value": "revoked"
+     },
+     {
+      "id": "mint_extensions",
+      "result": "pass",
+      "value": "Token-2022: MetadataPointer, TokenMetadata"
+     },
+     {
+      "id": "creator_share",
+      "result": "pass",
+      "value": "0.00% of the supply"
+     },
+     {
+      "id": "top10_share",
+      "result": "fail",
+      "value": "0.00% of the supply; 0 holders besides the curve"
+     },
+     {
+      "id": "same_slot_buyers",
+      "result": "pass",
+      "value": "none in slot 450150107"
+     },
+     {
+      "id": "creator_launches",
+      "result": "pass",
+      "value": "7 earlier coins (pump.fun's count)"
+     },
+     {
+      "id": "socials",
+      "result": "pass",
+      "value": "twitter, website"
+     },
+     {
+      "id": "age",
+      "result": "fail",
+      "value": "8 minutes"
+     },
+     {
+      "id": "curve",
+      "result": "fail",
+      "value": "0.00% sold, market cap 28.0 SOL"
+     },
+     {
+      "id": "copycat",
+      "result": "pass",
+      "value": "no match among 6 established cat coins"
+     }
+    ]
+   }
+  }
+ ]
+}

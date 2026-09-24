@@ -24,6 +24,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: The bots' logo renderer (bots/package.json)
+        run: npm ci --prefix bots
       - name: Regression suite
         run: npm test
       - name: Build the extension

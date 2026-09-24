@@ -1,0 +1,13 @@
+{
+  "name": "cia-bots",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "CashCat (the auto-launcher) and Popcat (the callout bot) of the Cat Intelligence Agency. They run on GitHub Actions; the root package supplies @solana/web3.js and bs58, this one only the logo renderer.",
+  "engines": {
+    "node": ">=22.13 <25"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "1.0.9"
+  }
+}

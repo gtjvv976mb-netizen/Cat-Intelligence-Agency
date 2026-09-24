@@ -31,15 +31,19 @@
  *   · HONEST AND CLEAN. The risk notice and "unmeasured" are there; hype words, invented
  *     counts and returns are not; every page carries the owner's two-line disclaimer; the
  *     ticker $CIA is the only way the initials appear, and nothing describes government
- *     imagery; the six agents are the six cats, and every placeholder (the X link, the
+ *     imagery; the six agents and the Director are the seven cats (CashCat and Popcat marked as
+ *     bots being built, never live), and every placeholder (the X link, the
  *     contract address, the buy link) comes from one config and renders as empty.
  *   · IT HANGS TOGETHER. Each page has a title, a description, a viewport, og tags and the
  *     kit's favicons; the pages link to each other and to the repository, never to a
  *     github.io address; every local link, asset and #fragment resolves.
- *   · THE FLOOR IS HONEST. The 3D building and the hero lead to the work floor; its six
- *     stations are the six cats; the case file ships empty, and every entry the floor will
+ *   · THE FLOOR IS HONEST. The 3D building and the hero lead to the work floor; its seven
+ *     stations are the seven cats, each hotspot on its own desk; the case file ships empty, and every entry the floor will
  *     ever show passes the validator, which refuses unknown agents, impossible dates, any
  *     link that is not http(s) and any HTML; the floor's pictures are the brand kit's.
+ *   · THE KIT IS THE SEVEN-CAT KIT. CoinMarketCat is the hoodie tabby, Snipurr keeps its old art,
+ *     the floor has seven desks, and every copy the site ships is the kit's, byte for byte or
+ *     pixel for pixel.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -359,20 +363,23 @@ const cmcMentions = Object.values(text).join(" ").match(/[^.]*CoinMarketCap[^.]*
 ok("CoinMarketCap is named only to say there is no affiliation", cmcMentions.length >= 3 && cmcMentions.every((s) => /not affiliated|Is it CoinMarketCap\?/.test(s)), `${cmcMentions.length} mentions`);
 ok("Agent 001 is CoinMarketCat, field status active", has("agency", "Agent 001") && has("agency", "CoinMarketCat") && has("cat", "Agent 001 · field status: active"));
 
-section("THE SIX CATS, AND THE PLACEHOLDERS");
-/* The Director and the five agents: each card has its pixel kitten, codename, beat,
-   catchphrase, bio, status and accent. CoinMarketCat is the one you can download. */
+section("THE SEVEN CATS, AND THE PLACEHOLDERS");
+/* The Director and the six agents: each card has its pixel kitten, codename, beat,
+   catchphrase, bio, status and accent. CoinMarketCat is the one you can download, in its
+   hoodie purple; Snipurr, in the old mint, ships inside it; CashCat and Popcat are bots being
+   built, and their cards say so. */
 const CATS = {
   director: { name: "The Director", accent: "#9945ff", status: "On X" },
-  coinmarketcat: { name: "CoinMarketCat", accent: "#14f195", status: "Software · download it" },
+  coinmarketcat: { name: "CoinMarketCat", accent: "#8b5cf6", status: "Software · download it" },
   "crying-cat": { name: "Crying Cat", accent: "#5ab8ff", status: "On X" },
   "grumpy-cat": { name: "Grumpy Cat", accent: "#e8742c", status: "On X" },
-  cashcat: { name: "CashCat", accent: "#f5c542", status: "On X" },
-  popcat: { name: "Popcat", accent: "#ff4fd8", status: "On X" },
+  cashcat: { name: "CashCat", accent: "#f5c542", status: "Being built" },
+  popcat: { name: "Popcat", accent: "#ff4fd8", status: "Being built" },
+  snipurr: { name: "Snipurr", accent: "#14f195", status: "Software · inside CoinMarketCat" },
 };
 const cards = Object.fromEntries([...html.agency.matchAll(/<article class="agent[^"]*" id="agent-([a-z-]+)" data-cat="([a-z-]+)"[^>]*style="--accent:(#[0-9a-f]{6})">([\s\S]*?)<\/article>/g)]
   .map((m) => [m[1], { cat: m[2], accent: m[3], body: m[4] }]));
-ok("six agent cards, one per cat", JSON.stringify(Object.keys(cards).sort()) === JSON.stringify(Object.keys(CATS).sort()), Object.keys(cards).join(", "));
+ok("seven agent cards, one per cat", JSON.stringify(Object.keys(cards).sort()) === JSON.stringify(Object.keys(CATS).sort()), Object.keys(cards).join(", "));
 for (const [cat, want] of Object.entries(CATS)) {
   const c = cards[cat];
   if (!c) { ok(`${want.name}: has a card`, false); continue; }
@@ -385,6 +392,24 @@ for (const [cat, want] of Object.entries(CATS)) {
 }
 ok("Popcat's card says the character is not the $POPCAT memecoin, and $CIA is not related to it",
   cards.popcat && textOf(cards.popcat.body).includes("not affiliated with the $POPCAT memecoin, and $CIA is not related to it"));
+/* CashCat and Popcat have new jobs, and neither bot is live: their cards say what they will do,
+   that it is being built, and that nothing has been launched or called out. */
+{
+  const cash = textOf(cards.cashcat?.body || ""), pop = textOf(cards.popcat?.body || "");
+  ok("CashCat's card: the auto-launcher, cat coins from what is trending, on pump.fun and StonkFun, being built, nothing launched",
+    /data-beat="Auto-launcher · being built"/.test(html.agency) && cash.includes("launched by itself from what is trending, on pump.fun and on StonkFun")
+      && cash.includes("The bot is being built. It has launched nothing yet") && !/whale|KOL/i.test(cash));
+  ok("Popcat's card: cat-coin callouts on pump.fun with their safety checks, at its desk and in the floor's feed, being built, nothing called out",
+    /data-beat="Cat-coin callouts · being built"/.test(html.agency) && pop.includes("each with its safety checks. Cat coins only.")
+      && pop.includes("at its desk on the work floor and in the floor's feed") && pop.includes("it has called nothing out yet") && !/radar is a prop/i.test(pop));
+  ok("Snipurr's card: the sniper lane inside CoinMarketCat, software, linking to that lane, its desk and the console",
+    /data-beat="The sniper lane · software"/.test(html.agency) && textOf(cards.snipurr?.body || "").includes("the sniper lane inside CoinMarketCat")
+      && ["coinmarketcat/#snipurr", "./floor/#snipurr", "console/"].every((h) => (cards.snipurr?.body || "").includes(`href="${h}"`)));
+  ok("the headline counts six agents, two of them software", has("agency", "Six agents. Two of them are software."));
+  const rules = "Popcat never calls out a coin CashCat launched.", buyRule = "The agency never buys a coin before calling it out";
+  ok("the house rules carry the owner's two new rules, on the site and in the kit's copy",
+    has("agency", rules) && has("agency", buyRule) && [rules, buyRule].every((r) => fs.readFileSync(path.join(here, "brand", "COPY.md"), "utf8").includes(r)));
+}
 ok("the sample case file is marked a template, with placeholder fields", /class="casefile"/.test(html.agency) && has("agency", "A template with placeholder fields, not a real case") && (html.agency.match(/class="slot"/g) || []).length >= 10);
 
 /* One config holds every value the site cannot know yet. Empty means empty on the page. */
@@ -422,13 +447,16 @@ const addonImports = ["loaders/GLTFLoader.js", "controls/OrbitControls.js"].flat
 ok("every module the addons import is in site/",
   addonImports.every(([f, sp]) => sp === "three" || fs.existsSync(path.join(THREE_DIR, "addons", path.dirname(f), sp))), addonImports.map(([, sp]) => sp).join(", "));
 const sceneAssets = [...new Set([...scene.matchAll(/"(assets\/[^"$]+)"/g)].map((m) => m[1]))];
-ok("every file the scene loads exists: the model, the floor tile and the six sprites",
+ok("every file the scene loads exists: the model, the floor tile and the seven sprites",
   sceneAssets.includes("assets/agency-hq.glb") && sceneAssets.includes("assets/floor-tile-256.png")
     && sceneAssets.every((a) => fs.existsSync(path.join(SITE, a)))
     && /`assets\/sprites\/\$\{k\.cat\}\.png`/.test(scene) && Object.keys(CATS).every((c) => scene.includes(`"${c}"`)),
   sceneAssets.join(", "));
 const glb = fs.readFileSync(path.join(SITE, "assets", "agency-hq.glb"));
 const glbJson = glb.subarray(20, 20 + glb.readUInt32LE(12)).toString("utf8");
+const rosterOrder = [...scene.matchAll(/\{ cat: "([a-z-]+)",\s+t: (-?[\d.]+) \}/g)].map((m) => m[1]);
+ok("seven kittens stand on the plaza, in the roster picture's order, with the Director in the middle",
+  JSON.stringify(rosterOrder) === JSON.stringify(["popcat", "crying-cat", "grumpy-cat", "director", "cashcat", "snipurr", "coinmarketcat"]), rosterOrder.join(", "));
 ok("the model is one self-contained binary glTF 2.0, with no tool names inside",
   glb.toString("latin1", 0, 4) === "glTF" && glb.readUInt32LE(4) === 2 && glb.readUInt32LE(8) === glb.length
     && !/"uri"/.test(glbJson) && !/tripo|hunyuan|meshy|rodin|trellis/i.test(glb.toString("latin1")));
@@ -466,15 +494,36 @@ ok("a kitten wins the click: the building is asked only when no kitten was hit",
     && /if \(i >= 0\) openFile\(i\);\s*else if \(onHQ\) enterAgency\(\);/.test(upHandler));
 ok("every agent card on the home page has a way to its desk", Object.keys(CATS).every((c) => html.agency.includes(`href="./floor/#${c}"`)));
 
-/* Six stations: one hotspot button per cat over the office picture, placed in percentages so
+/* Seven stations: one hotspot button per cat over the office picture, placed in percentages so
    they scale with it, one station panel (a template) per cat, one entry in the list below. */
 const floorHtml = html.floor;
 const spots = [...floorHtml.matchAll(/<button class="spot" type="button" data-cat="([a-z-]+)" aria-haspopup="dialog" style="([^"]*)">/g)].map((m) => ({ cat: m[1], style: m[2] }));
-ok("six station hotspots, one per cat, in the order the desks read", JSON.stringify(spots.map((x) => x.cat)) === JSON.stringify(["director", "crying-cat", "grumpy-cat", "cashcat", "popcat", "coinmarketcat"]),
+ok("seven station hotspots, one per cat, in the order the desks read", JSON.stringify(spots.map((x) => x.cat)) === JSON.stringify(["director", "crying-cat", "grumpy-cat", "cashcat", "popcat", "snipurr", "coinmarketcat"]),
   spots.map((x) => x.cat).join(", "));
 ok("each hotspot is placed in percentages and carries its cat's accent",
-  spots.length === 6 && spots.every((x) => /--x:[\d.]+%;--y:[\d.]+%;--w:[\d.]+%;--h:[\d.]+%/.test(x.style) && x.style.includes(`--accent:${CATS[x.cat].accent}`)));
+  spots.length === 7 && spots.every((x) => /--x:[\d.]+%;--y:[\d.]+%;--w:[\d.]+%;--h:[\d.]+%/.test(x.style) && x.style.includes(`--accent:${CATS[x.cat].accent}`)));
 const floorCss = fs.readFileSync(path.join(SITE, "assets", "floor.css"), "utf8");
+/* Where each desk is. The office art is 2688 × 1520; the new desk for CoinMarketCat, where the
+   sofa and rug were, runs from about x 120 to 830 and y 1090 to the bottom edge. Snipurr sits at
+   the old CoinMarketCat desk, and each software cat's hotspot holds its own monitors' light. */
+const box = (style, keys = ["x", "y", "w", "h"]) => Object.fromEntries(keys.map((k) => [k, Number((style.match(new RegExp(`--${k}:([\\d.]+)%`)) || [])[1])]));
+const spotBox = Object.fromEntries(spots.map((x) => [x.cat, box(x.style)]));
+const crtBox = (cls) => { const m = floorCss.match(new RegExp(`\\.${cls}\\{([^}]*)\\}`)); if (!m) return null; const b = box(m[1], ["l", "t", "w", "h"]); return { x: b.l, y: b.t, w: b.w, h: b.h }; };
+const inside = (inner, outer) => inner && outer && inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.w <= outer.x + outer.w + 1e-9 && inner.y + inner.h <= outer.y + outer.h + 1e-9;
+ok("every hotspot sits inside the office picture", Object.values(spotBox).every((b) => b.x >= 0 && b.y >= 0 && b.x + b.w <= 100 && b.y + b.h <= 100));
+{
+  const c = spotBox.coinmarketcat, px = { x0: c.x * 26.88, x1: (c.x + c.w) * 26.88, y0: c.y * 15.2, y1: (c.y + c.h) * 15.2 };
+  ok("CoinMarketCat's hotspot, the 7th, is on the new desk in the bottom-left corner",
+    px.x0 >= 100 && px.x1 <= 830 && px.y0 >= 1040 && px.y1 <= 1520 && px.x1 - px.x0 >= 600 && px.y1 - px.y0 >= 380, JSON.stringify(c));
+  ok("Snipurr's hotspot is the old CoinMarketCat desk, where the sniper screen is",
+    JSON.stringify(spotBox.snipurr) === JSON.stringify({ x: 55, y: 61, w: 24, h: 25 }) && inside(crtBox("crt-snp"), spotBox.snipurr));
+  ok("CoinMarketCat's two monitors light inside its hotspot, and light up when its desk is pointed at",
+    inside(crtBox("crt-cmc-a"), c) && inside(crtBox("crt-cmc-b"), c)
+      && /<span class="crt crt-cmc-a"><\/span>\s*<span class="crt crt-cmc-b"><\/span>/.test(floorHtml) && /<span class="crt crt-snp"><\/span>/.test(floorHtml)
+      && floorCss.includes('.floor:has(.spot[data-cat="coinmarketcat"]:is(:hover,:focus-visible,.tour)) :is(.crt-cmc-a,.crt-cmc-b)')
+      && floorCss.includes('.floor:has(.spot[data-cat="snipurr"]:is(:hover,:focus-visible,.tour)) .crt-snp'));
+  ok("the floor says seven: seven desks, seven cats", has("floor", "Seven desks, seven cats, one case board.") && !/\bsix (desks|cats|kittens|pixel kittens)\b/i.test(Object.values(text).join(" ")));
+}
 ok("hotspots are at least 44 px to tap, and on a phone the floor pans in its frame",
   /\.spot\{[^}]*min-width:44px;min-height:44px/.test(floorCss) && /@media \(max-width:700px\)\{[\s\S]*?\.floor-frame\{[^}]*overflow-x:auto/.test(floorCss));
 ok("the ENTER marker's \"Go in\" (a phone's way in) is at least 44 px to tap", /\.et-go\{[^}]*min-height:44px/.test(homeCss));
@@ -482,20 +531,29 @@ ok("the ENTER marker's \"Go in\" (a phone's way in) is at least 44 px to tap", /
    half of the back link clicked the heading instead of going back. */
 ok("the floor's back link sits above the title, so all of it clicks", /\.crumb\{position:relative;z-index:1;/.test(floorCss) && /<a class="crumb" href="\.\.\/">/.test(floorHtml));
 const roster = [...floorHtml.matchAll(/<li id="([a-z-]+)"[^>]*><button class="roster-btn" type="button" data-cat="([a-z-]+)"/g)];
-ok("the station list below repeats all six as buttons, and each is a link target (/floor/#<cat>)",
-  roster.length === 6 && roster.every((m) => m[1] === m[2] && CATS[m[1]]) && new Set(roster.map((m) => m[1])).size === 6);
+ok("the station list below repeats all seven as buttons, and each is a link target (/floor/#<cat>)",
+  roster.length === 7 && roster.every((m) => m[1] === m[2] && CATS[m[1]]) && new Set(roster.map((m) => m[1])).size === 7);
 const tpl = Object.fromEntries(Object.keys(CATS).map((c) => [c, (floorHtml.match(new RegExp(`<template id="tpl-${c}">([\\s\\S]*?)</template>`)) || ["", ""])[1]]));
+/* Where a station's posts will go. The bots being built say it of what they will post, and
+   claim no post on X nobody has decided on: Popcat's callouts go on its desk and in the feed. */
+const WHERE = { cashcat: /No launches posted yet\. CashCat's launcher is being built, and it has launched nothing\. When it launches a coin, the launch goes up here/,
+  popcat: /No callouts posted yet\. Popcat's callout bot is being built, and it has called nothing out\. When it calls out a new cat coin, the callout goes up here and in the floor's feed/ };
 for (const [cat, want] of Object.entries(CATS)) {
   const t = tpl[cat], card = cards[cat]?.body || "";
   const same = (cls) => { const a = (t.match(new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`)) || [])[1], b = (card.match(new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`)) || [])[1]; return a && b && textOf(a).trim() === textOf(b).trim(); };
   ok(`${want.name}'s station: its sprite, codename, catchphrase and bio (as on its card), its own screen, and an honest empty state with its template`,
     t.includes(`src="../assets/sprites/${cat}.png"`) && textOf(t).includes(want.name) && same("catch") && same("bio")
       && t.includes(`src="../assets/floor/screen-${cat}-800.webp"`) && fs.existsSync(path.join(SITE, "assets", "floor", `screen-${cat}-800.webp`))
-      && /data-slot="cases"/.test(t) && /data-slot="none" hidden/.test(t) && /posted yet\./.test(textOf(t)) && /appears here and on the agency's X account|goes up here and on the agency's X account/.test(textOf(t))
+      && /data-slot="cases"/.test(t) && /data-slot="none" hidden/.test(t) && /posted yet\./.test(textOf(t)) && (WHERE[cat] || /appears here and on the agency's X account|goes up here and on the agency's X account/).test(textOf(t))
       && /<span class="tpl-stamp">Template<\/span>/.test(t) && (t.match(/class="slot"/g) || []).length >= 4);
 }
 ok("CoinMarketCat's station links to its page and the console; the Director's holds the announcements",
   /href="\.\.\/coinmarketcat\/"/.test(tpl.coinmarketcat) && /href="\.\.\/console\/"/.test(tpl.coinmarketcat) && /Agency announcements/.test(tpl.director));
+ok("Snipurr's station: software inside CoinMarketCat, the old sniper screen, and links to its lane on CoinMarketCat's page and to the console",
+  /href="\.\.\/coinmarketcat\/#snipurr"/.test(tpl.snipurr) && /href="\.\.\/console\/"/.test(tpl.snipurr)
+    && textOf(tpl.snipurr).includes("Software · inside CoinMarketCat") && /FIELD REPORT \| SNIPURR/.test(tpl.snipurr) && /alt="Snipurr's monitor: a green candle chart under a sniper crosshair/.test(tpl.snipurr));
+ok("CoinMarketCat's station shows the agent console, the hoodie tabby, and the disclaimer",
+  /alt="CoinMarketCat's monitor: its agent console/.test(tpl.coinmarketcat) && /style="--w:175;--h:209"/.test(tpl.coinmarketcat) && textOf(tpl.coinmarketcat).includes("CoinMarketCat is not affiliated with CoinMarketCap."));
 ok("the floor has a \"Latest from the floor\" feed, with the same empty state", /id="latest"/.test(floorHtml) && has("floor", "Latest from the floor.") && /id="feed-empty" hidden/.test(floorHtml) && /id="feed-list" hidden/.test(floorHtml));
 
 /* The case file: one JSON file, a small schema, shipped empty. POSTED_CASES is how many real
@@ -508,11 +566,16 @@ ok(`cases.json holds ${POSTED_CASES} cases: nothing invented, nothing posted yet
 const { validateCases, AGENTS, EXPLORER } = await import("./site/assets/cases.js");
 const shipped = validateCases(caseFile);
 ok("every entry in cases.json passes the validator", shipped.problems.length === 0 && shipped.cases.length === (caseFile?.cases.length ?? -1), shipped.problems.join(" | "));
-ok("the validator knows the six agents, each with the verdicts of its case template",
+ok("the validator knows the seven agents, each with the verdicts of its case template, Snipurr's field reports as SNP",
   JSON.stringify(Object.keys(AGENTS).sort()) === JSON.stringify(Object.keys(CATS).sort())
     && AGENTS["crying-cat"].verdicts.includes("RUGGED") && AGENTS["grumpy-cat"].verdicts.includes("NOT IMPRESSED") && AGENTS.cashcat.verdicts.includes("WHALE MOVE")
     && ["COPYCAT", "CLONE", "HONEYPOT", "NO RED FLAGS FOUND"].every((v) => AGENTS.popcat.verdicts.includes(v)) && AGENTS.coinmarketcat.verdicts.includes("FIELD REPORT")
-    && AGENTS.director.verdicts.includes("ANNOUNCEMENT") && !Object.values(AGENTS).some((a) => a.verdicts.some((v) => /SAFE|BUY|LEGIT/.test(v))));
+    && AGENTS.director.verdicts.includes("ANNOUNCEMENT") && JSON.stringify(AGENTS.snipurr) === JSON.stringify({ name: "Snipurr", prefix: "SNP", verdicts: ["FIELD REPORT"], evidence: true })
+    && !Object.values(AGENTS).some((a) => a.verdicts.some((v) => /SAFE|BUY|LEGIT/.test(v))));
+ok("the floor knows Snipurr: its case prefix, its sprite's size and its field reports",
+  /\(DIR\|CRY\|GRR\|CSH\|POP\|CMC\|SNP\)/.test(fs.readFileSync(path.join(SITE, "assets", "floor.js"), "utf8"))
+    && /snipurr: \[146, 207\]/.test(fs.readFileSync(path.join(SITE, "assets", "floor.js"), "utf8")) && /coinmarketcat: \[175, 209\]/.test(fs.readFileSync(path.join(SITE, "assets", "floor.js"), "utf8"))
+    && /snipurr: \["field report", "field reports"\]/.test(fs.readFileSync(path.join(SITE, "assets", "floor.js"), "utf8")));
 /* A fixture, never shipped: one good entry, and one entry per way a typo could go wrong. */
 const good = { id: "CRY-001", agent: "crying-cat", date: "2026-10-01", verdict: "RUGGED", title: "Fixture: a well-formed case", summary: "A test fixture, not a case.",
   evidence: [{ label: "A transaction", tx: "1".repeat(88) }, { label: "A wallet", address: "11111111111111111111111111111111" }, { label: "An archived page", url: "https://example.com/archived" }],
@@ -582,7 +645,7 @@ ok("site/assets/floor/ holds web-sized copies of brand/floor/ and nothing else",
 const floorPics = [...new Set([...floorHtml.matchAll(/\s(?:src|srcset|imagesrcset)="([^"]+)"/g)].flatMap((m) => m[1].split(",").map((x) => x.trim().split(/\s+/)[0]))
   .filter((u) => /\.(png|jpe?g|webp|gif|svg)$/.test(u)))];
 const cssPics = [...floorCss.matchAll(/url\(([^)]+)\)/g)].map((m) => m[1]);
-ok("every picture the floor shows is the kit's: the office and its screens, the six sprites, the icons, the floor tile",
+ok("every picture the floor shows is the kit's: the office and its screens, the seven sprites, the icons, the floor tile",
   floorPics.length >= 12 && floorPics.every((u) => /^\.\.\/assets\/(floor\/[a-z0-9-]+\.(webp|png)|sprites\/[a-z-]+\.png|favicon-64\.png)$/.test(u))
     && cssPics.every((u) => /^(floor\/(radar-sweep-400\.webp|tear-strip\.png)|floor-tile-256\.png)$/.test(u)),
   [...floorPics, ...cssPics].filter((u) => !/assets\/(floor|sprites)\/|favicon|^floor|floor-tile/.test(u)).join(", ") || `${floorPics.length + cssPics.length} pictures`);
@@ -594,6 +657,54 @@ const floorLoads = new Set(["floor/index.html", "assets/home.css", "assets/floor
   ...floorPics.map((u) => u.replace(/^\.\.\//, "")), ...cssPics.map((u) => "assets/" + u), "assets/favicon-32.png", "assets/apple-touch-180.png"]);
 const floorBytes = [...floorLoads].reduce((n, f) => n + fs.statSync(path.join(SITE, f)).size, 0);
 ok("the floor page weighs under 2.5 MB with everything it can load", floorBytes < 2.5 * 1024 * 1024, `${(floorBytes / 1024 / 1024).toFixed(2)} MB over ${floorLoads.size} files`);
+
+section("THE SEVEN-CAT KIT");
+/* The art the site is built from, pinned: CoinMarketCat is the hoodie tabby (its own sprite,
+   agent pair, console screen and the extension's icons), Snipurr is the old CoinMarketCat art
+   under its own name, the floor has seven desks, the roster seven kittens. Change a file here
+   on purpose, and its pin with it. */
+/* sha256 prefixes. The four snipurr files are CoinMarketCat's old sprite, agent pair and sniper
+   screen, byte for byte, under Snipurr's name. */
+const KIT = {
+  "brand/sprites/coinmarketcat.png": ["1e6342be07c91082", 175, 209], "brand/sprites/snipurr.png": ["4e29deea08dd7594", 146, 207],
+  "brand/agents/coinmarketcat-1024.png": ["8b39e84ec94b767f", 1024, 1024], "brand/agents/coinmarketcat-avatar-400.png": ["4fcdf4a023094adf", 400, 400],
+  "brand/agents/snipurr-1024.png": ["eeb7486f59b934c3", 1024, 1024], "brand/agents/snipurr-avatar-400.png": ["d91a259f9f1e9ffa", 400, 400],
+  "brand/floor/workfloor.png": ["44ca49846a9ff430", 2688, 1520], "brand/floor/screen-coinmarketcat.png": ["7062354d73fe3960", 1168, 880],
+  "brand/floor/screen-snipurr.png": ["37b93ddc105e5269", 1168, 880],
+  "brand/source/pixel-roster-2688x1152.png": ["8c4058b0518ff8e1", 2688, 1152], "brand/source/pixel-coinmarketcat-alt-1024.png": ["29cf77da23b786e6", 1024, 1024],
+  "icons/coinmarketcat-32.png": ["65f329ec4cd372ea", 32, 32], "icons/coinmarketcat-128.png": ["3ed3f3104839059c", 128, 128], "icons/coinmarketcat-512.png": ["d5553c9863b2ed62", 512, 512],
+};
+const pngSize = (f) => { const b = fs.readFileSync(f); return b.toString("latin1", 1, 4) === "PNG" ? [b.readUInt32BE(16), b.readUInt32BE(20)] : null; };
+for (const [f, [hash, w, h]] of Object.entries(KIT)) {
+  const file = path.join(here, f);
+  ok(`${f}: the kit's file, ${w} × ${h}`, fs.existsSync(file) && JSON.stringify(pngSize(file)) === JSON.stringify([w, h]) && sha256(file).startsWith(hash), fs.existsSync(file) ? sha256(file).slice(0, 8) : "missing");
+}
+const same = (a, b) => fs.existsSync(a) && fs.existsSync(b) && sha256(a) === sha256(b);
+ok("the site's link preview and hero pictures are the kit's banners, byte for byte",
+  ["og-1200x630.jpg", "site-hero-1200x514.jpg", "site-hero-2400x1029.jpg"].every((f) => same(path.join(SITE, "assets", f), path.join(here, "brand", "banner", f))));
+ok("the site's CoinMarketCat icons are the extension's, byte for byte", ["32", "128", "512"].every((n) => same(path.join(SITE, "icons", `coinmarketcat-${n}.png`), path.join(here, "icons", `coinmarketcat-${n}.png`))));
+ok("every sprite on the site is its kit sprite at the kit's size", Object.keys(CATS).every((c) => JSON.stringify(pngSize(path.join(SITE, "assets", "sprites", `${c}.png`))) === JSON.stringify(pngSize(path.join(here, "brand", "sprites", `${c}.png`)))));
+ok("the cards and stations draw each sprite at its own size, and CoinMarketCat in its hoodie", Object.entries({ agency: html.agency, floor: html.floor, cat: html.cat }).every(([, p]) =>
+  [...p.matchAll(/src="(?:\.\.\/)?assets\/sprites\/([a-z-]+)\.png" width="(\d+)" height="(\d+)"/g)].every((m) => {
+    const [w, h] = pngSize(path.join(here, "brand", "sprites", `${m[1]}.png`)); const sw = Number(m[2]) / w, sh = Number(m[3]) / h;
+    return Math.abs(sw - sh) < 0.02 && [0.5, 0.75, 1].some((s) => Math.abs(sw - s) < 0.01);
+  })));
+const altsFor = (file) => Object.values(html).flatMap((p) => [...p.matchAll(new RegExp(`<img[^>]*src="[^"]*${file}"[^>]*alt="([^"]*)"`, "g"))].map((m) => m[1])).filter(Boolean);
+ok("no picture of CoinMarketCat is described with its old look (mint, scope, crosshair, sniper)",
+  altsFor("sprites/coinmarketcat\\.png").length >= 2 && altsFor("sprites/coinmarketcat\\.png").every((a) => /orange tabby kitten in a purple hoodie/.test(a) && !/mint|scope|crosshair|sniper/i.test(a))
+    && altsFor("screen-coinmarketcat-800\\.webp").every((a) => !/crosshair|sniper/i.test(a)),
+  altsFor("sprites/coinmarketcat\\.png").join(" | "));
+ok("Snipurr's pictures are described as the mint-green kitten with the scope", altsFor("sprites/snipurr\\.png").length >= 3 && altsFor("sprites/snipurr\\.png").every((a) => /mint-green kitten in a black suit with a crosshair scope/.test(a)));
+ok("every link preview says seven kittens, and names CoinMarketCat's hoodie", Object.entries(html).every(([k, p]) => /seven/i.test(meta(p, "property", "og:image:alt") || "") && /purple hoodie/.test(meta(p, "property", "og:image:alt") || "")));
+ok("the console is CoinMarketCat's, with Snipurr as its sniper lane: no page calls CoinMarketCat the sniper cat",
+  has("console", "Snipurr, its sniper lane") && has("console", "CoinMarketCat is not affiliated with CoinMarketCap.")
+    && !/sniper cat's console|CoinMarketCat, the sniper cat|where the sniper cat/i.test(Object.values(html).join(" ")));
+ok("the kit's words list seven cats: the README's agents table, the brand index and the copy's dossiers",
+  ["| **Snipurr** |", "| **CashCat** |", "| **Popcat** |"].every((r) => fs.readFileSync(path.join(here, "README.md"), "utf8").includes(r))
+    && /Hoodie purple \| `#8b5cf6` \| CoinMarketCat/.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8"))
+    && ["### AGENT 001: COINMARKETCAT", "### AGENT 004: CASHCAT", "### AGENT 005: POPCAT", "### AGENT 006: SNIPURR"].every((h) => fs.readFileSync(path.join(here, "brand", "COPY.md"), "utf8").includes(h)));
+ok("the brand index credits Higgsfield and names no image or 3D model", /made with Higgsfield/.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8"))
+  && !/gpt[- ]?image|tripo|dall-?e|midjourney|stable diffusion|imagen|flux|hunyuan|meshy/i.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8")));
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

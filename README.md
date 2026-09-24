@@ -4,21 +4,23 @@
 
 **Website:** [catintelligenceagency.com](https://catintelligenceagency.com/)
 
-Cat Intelligence Agency is a crew of pixel-kitten agents that investigate the crypto market
-in public on X, plus the agency's memecoin, **$CIA**. One of its products is real software:
+Cat Intelligence Agency is a crew of seven pixel kittens built for crypto, plus the agency's
+memecoin, **$CIA**. Two of them investigate the market in public on X. Two are real software:
 **CoinMarketCat**, the agentic trading cat — agentic trading for Solana, in plain English — a
-Chrome extension you run in your own browser, with **Snipurr**, the pump.fun sniper cat, as
-its other lane. This repository holds all of it. CoinMarketCat is not affiliated with
+Chrome extension you run in your own browser, and **Snipurr**, the pump.fun sniper cat, which
+ships inside it as its other lane. Two more, **CashCat** and **Popcat**, are bots the agency
+is building. This repository holds all of it. CoinMarketCat is not affiliated with
 CoinMarketCap.
 
 | Agent | Beat | What it is |
 |---|---|---|
 | **The Director** | Runs the agency | The mascot |
-| **CoinMarketCat** | Agentic trading for Solana, in plain English — with Snipurr, the sniper cat, inside | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-agentic-trading-cat)) |
+| **CoinMarketCat** | Agentic trading for Solana, in plain English | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-agentic-trading-cat)). An orange tabby pixel kitten in a purple hoodie |
+| **Snipurr** | New pump.fun launches, sniped by rule | Software: the sniper lane inside CoinMarketCat ([manual below](#snipurr--the-sniper-lane)). It posts nothing on X. The mint-green kitten with the sniper-scope eyepiece, CoinMarketCat's old art |
 | **Crying Cat** | Ruggers | A persona the agency posts as on X, and the face of $CIA |
 | **Grumpy Cat** | Fake hype | A persona the agency posts as on X |
-| **CashCat** | Whales and KOLs | A persona the agency posts as on X |
-| **Popcat** | Emerging cat memecoins | A persona the agency posts as on X |
+| **CashCat** | Launches cat-themed coins by itself, from what is trending, on pump.fun and on StonkFun (Solana's stock-paired launchpad) | An auto-launcher bot, **being built**; nothing has launched. It no longer investigates whales and KOLs |
+| **Popcat** | Calls out new cat coins on pump.fun, each with its safety checks, at its desk on the work floor and in the floor's feed. Cat coins only | A callout bot, **being built**; nothing has been called out |
 
 ## What is in this repository
 
@@ -26,7 +28,8 @@ CoinMarketCap.
 |---|---|
 | `src/`, `manifest.json`, `build.mjs`, `vendor/`, `fixtures/` | CoinMarketCat, the agentic trading extension, and Snipurr, its sniper lane |
 | `site/` | The website: the agency's home with its 3D headquarters, [the work floor](https://catintelligenceagency.com/floor/) where the cats post their cases, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), and [the console](https://catintelligenceagency.com/console/) the extension signs through |
-| `brand/` | The [brand kit](brand/README.md): the six pixel-kitten agents, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
+| `brand/` | The [brand kit](brand/README.md): the seven pixel kittens (CoinMarketCat in its purple hoodie, Snipurr in CoinMarketCat's old art), the work floor with seven desks, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
+| `icons/` | The extension's icons: CoinMarketCat's face, in its hoodie |
 
 $CIA is a memecoin with no intrinsic value and no expectation of profit. Nothing here is
 financial advice. Cat Intelligence Agency is a meme and software project, not a government
@@ -36,7 +39,7 @@ agency, and is not affiliated with CoinMarketCap or with the owners of any real 
 
 Click the 3D headquarters on the home page (or **Enter the agency**, or **The Floor** in the
 bar) and you are on [the work floor](https://catintelligenceagency.com/floor/): the office in
-pixel art, each cat at its own desk. Click a desk to open that cat's station: its monitor,
+pixel art, each of the seven cats at its own desk. Click a desk to open that cat's station: its monitor,
 who it is, and **its case files**, newest first. Every case also shows up under **Latest from
 the floor**. Until a cat has posted something, its station says so and shows its case
 template instead. Nothing on the floor is invented: it shows only what is in one file.
@@ -54,8 +57,8 @@ template instead. Nothing on the floor is invented: it shows only what is in one
 
 | Field | Rule |
 |---|---|
-| `id` | The agent's prefix and a number: `DIR-001` (the Director), `CRY-001` (Crying Cat), `GRR-001` (Grumpy Cat), `CSH-001` (CashCat), `POP-001` (Popcat), `CMC-001` (CoinMarketCat's field reports). Unique. |
-| `agent` | `director`, `crying-cat`, `grumpy-cat`, `cashcat`, `popcat` or `coinmarketcat` |
+| `id` | The agent's prefix and a number: `DIR-001` (the Director), `CRY-001` (Crying Cat), `GRR-001` (Grumpy Cat), `CSH-001` (CashCat), `POP-001` (Popcat), `CMC-001` (CoinMarketCat's field reports), `SNP-001` (Snipurr's field reports). Unique. |
+| `agent` | `director`, `crying-cat`, `grumpy-cat`, `cashcat`, `popcat`, `coinmarketcat` or `snipurr` |
 | `date` | The day it was posted, UTC, `YYYY-MM-DD` |
 | `verdict` | One of that agent's verdicts (below) |
 | `title` | One line, up to 140 characters. Plain text. |
@@ -71,6 +74,10 @@ template instead. Nothing on the floor is invented: it shows only what is in one
 | CashCat | `WHALE MOVE`, `NO RED FLAGS FOUND`, `CORRECTED` |
 | Popcat | `COPYCAT`, `CLONE`, `HONEYPOT`, `NO RED FLAGS FOUND`, `CORRECTED` |
 | CoinMarketCat | `FIELD REPORT` |
+| Snipurr | `FIELD REPORT` |
+
+CashCat's and Popcat's rows are still those of their old investigator beats. Their new jobs
+(launches and callouts) are being built, and those rows change when the bots do.
 
 A worked example: a Crying Cat case, as it would sit in the file. Every `[bracketed]` value
 is a slot to fill from the case's own thread; the validator refuses the entry until the date,
@@ -730,7 +737,7 @@ on every push to `main`.
 | `test-hawk-xstock-venue.mjs` | the second venue against a chain double that runs Jupiter's `route_v2` on a constant-product pool, a scripted Jupiter and scripted feeds, no network: the venue off by default and silent; the captured GeckoTerminal and DexScreener pages parsed and classified; the poller's backoff on the captured 429, dedupe and horizon; the Jupiter client's rate budget; the quote and transaction checks on the **live** GLDx → GAYMF bytes and every hostile edit of them; observe with each gate refusing by name; armed on Phantom: wait, follow-through, buy, 1.5× take, sell, booked in GLDx; ten hostile Jupiter transactions and two hostile pools refused before signing; the canary, full ticket, day caps and a short wallet; an unreadable buy blocking the stock; autopilot signing with nothing secret on the wire; the pump.fun lane unchanged |
 | `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does; the bundled agent limits decide exactly as their source |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
-| `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, six stations for the six cats, each with its sprite, screen, copy and an honest empty state; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the six agent cards; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
+| `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, seven stations for the seven cats, each hotspot on its own desk, each station with its sprite, screen, copy and an honest empty state, Snipurr's and CoinMarketCat's linking to the extension's page and the console; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the seven cards, CashCat and Popcat marked as being built; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
 | `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 

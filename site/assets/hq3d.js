@@ -1,6 +1,6 @@
 /* THE AGENCY IN 3D.
    The headquarters (a textured low-poly model) stands on a pixel floor under a night sky,
-   and the six pixel kittens (the Director and the five agents) stand on that floor in front
+   and the seven pixel kittens (the Director and the six agents) stand on that floor in front
    of it as 2D sprites: always facing the camera, upright, nearest-neighbour sharp, each
    with a flat pixel shadow. They bob, wander short paths on the plaza, and never walk
    through the building. Hover or tap one for its name tag; click to open its file.
@@ -40,15 +40,17 @@ const PX = KITTEN_H / 211;                                // world units per spr
 const ART_PX = PX * 4;                                    // the sprites' art grid is 4 px
 const TILE = 3.6;                                         // one floor tile (4 × 4 slabs) in world units
 
-/* The six, in the order the page lists them. Home spots form a loose arc in front of the
-   door; each wanders inside its own small circle, so paths never cross the building. */
+/* The seven, left to right as the roster picture stands them, with the Director in the
+   middle. Home spots form a loose arc in front of the door, a step and a half apart; each
+   wanders inside its own small circle, so paths never cross the building. */
 const ROSTER = [
-  { cat: "popcat",        t: -4.1 },
-  { cat: "crying-cat",    t: -2.46 },
-  { cat: "director",      t: -0.8 },
-  { cat: "coinmarketcat", t: 0.84 },
-  { cat: "cashcat",       t: 2.48 },
-  { cat: "grumpy-cat",    t: 4.1 },
+  { cat: "popcat",        t: -4.5 },
+  { cat: "crying-cat",    t: -3 },
+  { cat: "grumpy-cat",    t: -1.5 },
+  { cat: "director",      t: 0 },
+  { cat: "cashcat",       t: 1.5 },
+  { cat: "snipurr",       t: 3 },
+  { cat: "coinmarketcat", t: 4.5 },
 ];
 /* They line up across the three-quarter view, in front of the door, with a slight bow. */
 {
@@ -56,7 +58,7 @@ const ROSTER = [
   const toward = [along[1] * -1, along[0]];   // towards the camera, flat on the floor
   const centre = [2.05, 5.3];
   for (const k of ROSTER) {
-    const bow = 0.5 * (1 - (k.t / 4.3) ** 2);
+    const bow = 0.5 * (1 - (k.t / 4.8) ** 2);
     k.home = [centre[0] + along[0] * k.t + toward[0] * bow, centre[1] + along[1] * k.t + toward[1] * bow];
     k.along = along; k.toward = toward;
   }

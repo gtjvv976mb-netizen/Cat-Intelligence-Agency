@@ -4,7 +4,7 @@
 
      { "cases": [ {
          "id":       "CRY-001"            the agent's prefix and a number (see AGENTS below)
-         "agent":    "crying-cat"         director | crying-cat | grumpy-cat | cashcat | popcat | coinmarketcat
+         "agent":    "crying-cat"         director | crying-cat | grumpy-cat | cashcat | popcat | coinmarketcat | snipurr
          "date":     "YYYY-MM-DD"         the day it was posted, UTC
          "verdict":  "RUGGED"             one of that agent's verdicts (see AGENTS below)
          "title":    "..."                one line, up to 140 characters
@@ -31,6 +31,7 @@ export const AGENTS = {
   cashcat:       { name: "CashCat",       prefix: "CSH", verdicts: ["WHALE MOVE", "NO RED FLAGS FOUND", "CORRECTED"], evidence: true },
   popcat:        { name: "Popcat",        prefix: "POP", verdicts: ["COPYCAT", "CLONE", "HONEYPOT", "NO RED FLAGS FOUND", "CORRECTED"], evidence: true },
   coinmarketcat: { name: "CoinMarketCat", prefix: "CMC", verdicts: ["FIELD REPORT"], evidence: true },
+  snipurr:       { name: "Snipurr",       prefix: "SNP", verdicts: ["FIELD REPORT"], evidence: true },
 };
 
 export const EXPLORER = { tx: "https://solscan.io/tx/", address: "https://solscan.io/account/" };

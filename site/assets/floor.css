@@ -47,7 +47,11 @@
 .crt-cry{--l:48.5%;--t:25.6%;--w:5%;--h:11.6%;--p:0 0,100% 42.2%,100% 100%,0 65.5%;--glow:#ff6b5a;--d:-3.7s}
 .crt-grr{--l:68.6%;--t:39.5%;--w:7.4%;--h:12.8%;--p:0 31.25%,100% 0,100% 72.7%,4% 100%;--glow:#5ef0b4;--d:-5.2s}
 .crt-csh{--l:90.2%;--t:41.5%;--w:8.1%;--h:17%;--p:0 0,100% 35.3%,93.8% 100%,0 64.7%;--glow:#5ab8ff;--d:-2.4s}
-.crt-cmc{--l:68%;--t:67.1%;--w:7.8%;--h:17.2%;--p:2.6% 0,100% 35.5%,97.4% 100%,0 68%;--glow:#14f195;--d:-4.4s}
+.crt-snp{--l:68%;--t:67.1%;--w:7.8%;--h:17.2%;--p:2.6% 0,100% 35.5%,97.4% 100%,0 68%;--glow:#14f195;--d:-4.4s}
+/* CoinMarketCat's two monitors in the front corner, each glass measured on the 2688 × 1520 art:
+   the chart (508,1118)–(644,1320) and the checklist (672,1210)–(772,1368). */
+.crt-cmc-a{--l:18.9%;--t:73.55%;--w:5.06%;--h:13.29%;--p:0 0,100% 34.65%,100% 100%,0 65.35%;--glow:#8b5cf6;--d:-3.1s}
+.crt-cmc-b{--l:25%;--t:79.6%;--w:3.72%;--h:10.4%;--p:0 0,100% 31%,100% 100%,0 69.6%;--glow:#8b5cf6;--d:-5.8s}
 .crt-pop{--l:34.2%;--t:66.5%;--w:6%;--h:10.6%;--p:50% 0,85% 15%,100% 50%,85% 85%,50% 100%,15% 85%,0 50%,15% 15%;--glow:#ff4fd8;--d:-.6s;border-radius:50%}
 @keyframes crt-flick{0%{opacity:.7}9%{opacity:.95}10%{opacity:.45}11%{opacity:.8}46%{opacity:.62}47%{opacity:.9}48%{opacity:.66}78%{opacity:.74}79%{opacity:.5}80%{opacity:.78}}
 @keyframes crt-roll{from{background-position:0 100%,0 0,0 0}to{background-position:0 -50%,0 0,0 0}}
@@ -56,7 +60,8 @@
 .floor:has(.spot[data-cat="crying-cat"]:is(:hover,:focus-visible,.tour)) .crt-cry,
 .floor:has(.spot[data-cat="grumpy-cat"]:is(:hover,:focus-visible,.tour)) .crt-grr,
 .floor:has(.spot[data-cat="cashcat"]:is(:hover,:focus-visible,.tour)) .crt-csh,
-.floor:has(.spot[data-cat="coinmarketcat"]:is(:hover,:focus-visible,.tour)) .crt-cmc,
+.floor:has(.spot[data-cat="snipurr"]:is(:hover,:focus-visible,.tour)) .crt-snp,
+.floor:has(.spot[data-cat="coinmarketcat"]:is(:hover,:focus-visible,.tour)) :is(.crt-cmc-a,.crt-cmc-b),
 .floor:has(.spot[data-cat="popcat"]:is(:hover,:focus-visible,.tour)) .crt-pop{filter:brightness(1.7) saturate(1.2)}
 
 /* Popcat's radar: the sweep is cut from its own screen (floor/radar-sweep-400.webp), masked to
@@ -139,9 +144,9 @@
 .roster-sec{padding:64px 0 70px;background:linear-gradient(180deg,rgba(153,69,255,.09),transparent 340px),var(--bg)}
 .sec-head{margin-bottom:26px}
 .sec-head h2{margin-bottom:0}
-.roster{list-style:none;margin:0;padding:0;display:grid;gap:18px;grid-template-columns:repeat(6,minmax(0,1fr))}
+.roster{list-style:none;margin:0;padding:0;display:grid;gap:12px;grid-template-columns:repeat(7,minmax(0,1fr))}
 .roster li{--accent:var(--mint);--accent-text:var(--accent);margin:3px;scroll-margin-top:90px}
-.roster-btn{width:100%;height:100%;display:grid;grid-template-rows:auto auto auto 1fr;justify-items:center;align-content:start;gap:6px;padding:18px 8px 16px;
+.roster-btn{width:100%;height:100%;display:grid;grid-template-rows:auto auto auto 1fr;justify-items:center;align-content:start;gap:6px;padding:18px 4px 16px;
   font:inherit;color:var(--text);text-align:center;cursor:pointer;border:0;background:var(--card);
   box-shadow:0 0 0 3px var(--line-2),6px 6px 0 3px var(--shadow-ink);transition:transform .08s steps(2)}
 .roster-btn:hover,.roster-btn:focus-visible{box-shadow:0 0 0 3px var(--accent),6px 6px 0 3px var(--shadow-ink);transform:translateY(-2px)}
@@ -150,12 +155,14 @@
 .roster-btn img{max-width:100%;height:auto;image-rendering:pixelated;margin-bottom:6px}
 .roster-btn:hover img{animation:hop .5s steps(1) infinite}
 .r-no{font:400 8px/1.3 var(--pixel);text-transform:uppercase;color:var(--text-faint)}
-.r-name{font-family:var(--display);font-size:24px;line-height:1;text-transform:uppercase;color:var(--text)}
+.r-name{font-family:var(--display);font-size:21px;line-height:1;text-transform:uppercase;color:var(--text)}
 .r-count{font:400 8px/1.4 var(--pixel);text-transform:uppercase;color:var(--accent-text);align-self:end;margin-top:4px}
 :root[data-theme="light"] .r-count{color:var(--text-soft)}
 .r-count.has{color:#0b0716;background:var(--accent);padding:4px 5px 3px}
-@media (max-width:1080px){.roster{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:520px){.roster{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.roster-sec{padding:48px 0 54px}.r-name{font-size:21px}}
+/* Seven across on a wide screen, four and three below that, two by two on a phone. */
+@media (max-width:1080px){.roster{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}.roster-btn{padding:18px 8px 16px}}
+@media (max-width:640px){.roster{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}}
+@media (max-width:520px){.roster-sec{padding:48px 0 54px}}
 
 /* ── the latest from the floor ─────────────────────────────────────────── */
 .feed{padding:80px 0 84px;background:var(--bg-2);border-top:3px solid var(--line);border-bottom:3px solid var(--line)}
@@ -303,6 +310,9 @@
   /* Popcat holds its radar out to the side, so it stands further into its monitor. */
   .st[data-cat="popcat"] .st-kitten{margin-right:-64px}
   .st[data-cat="popcat"] .st-monitor{--mw:58%}
+  /* So does CoinMarketCat, waving its phone out to one side and its paw to the other. */
+  .st[data-cat="coinmarketcat"] .st-kitten{margin-right:-48px}
+  .st[data-cat="coinmarketcat"] .st-monitor{--mw:58%}
   .st-id{padding:20px 18px 24px}
   .st-name{font-size:38px}
   .st-files{padding:22px 16px 26px}

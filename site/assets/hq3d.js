@@ -5,6 +5,11 @@
    with a flat pixel shadow. They bob, wander short paths on the plaza, and never walk
    through the building. Hover or tap one for its name tag; click to open its file.
 
+   The building is the way in. Pointing at it shows the ENTER marker over its door; a click
+   (or a second tap, or Enter with no kitten picked) pushes the camera to the door and opens
+   the work floor, ./floor/. A kitten in front of the building always wins the click, so
+   opening a file never also walks you inside. With reduced motion there is no push.
+
    Loaded by the home page after first paint. If anything here throws (no WebGL, no
    module support, no model), the page keeps the pixel roster picture it already shows. */
 import * as THREE from "three";
@@ -19,6 +24,8 @@ const tag = document.getElementById("nametag");
 const tagCode = tag.querySelector(".nt-code");
 const tagBeat = tag.querySelector(".nt-beat");
 const tagOpen = tag.querySelector(".nt-open");
+const enterTag = document.getElementById("entertag");
+const FLOOR_URL = "./floor/";
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const fail = (why) => { hero.dataset.scene = "fallback"; console.warn("3D agency unavailable:", why); };
 
@@ -301,6 +308,8 @@ function pickTarget(k) {
 }
 
 /* ── the building ──────────────────────────────────────────────────────── */
+const hqMeshes = [];
+const door = new THREE.Vector3(0, 0, FOOT.z);
 const hqReady = new Promise((resolve, reject) => {
   new GLTFLoader().load("assets/agency-hq.glb", (gltf) => {
     const model = gltf.scene;
@@ -314,6 +323,12 @@ const hqReady = new Promise((resolve, reject) => {
       if (m.emissiveMap) { m.emissive = new THREE.Color("#ffffff"); m.emissiveIntensity = 1.35; glass.push(m); }
     });
     scene.add(model);
+    // The building answers the pointer: every mesh of it is a way in. Its door is on the
+    // face towards the plaza (+z), at the foot of the model, in the middle.
+    model.updateMatrixWorld(true);
+    model.traverse((o) => { if (o.isMesh) hqMeshes.push(o); });
+    const box = new THREE.Box3().setFromObject(model);
+    door.set((box.min.x + box.max.x) / 2, 0, box.max.z);
     // A mint beacon blinks on the tip of the antenna (the model's highest point).
     model.updateMatrixWorld(true);
     const tip = new THREE.Vector3(0, -Infinity, 0), v = new THREE.Vector3();
@@ -403,10 +418,13 @@ const pointer = new THREE.Vector2();
 let hovered = -1, pinned = -1, cycling = -1, pinnedByKey = false;
 let lastUserAt = -1e9;
 
-function hitTest(clientX, clientY) {
+function aim(clientX, clientY) {
   const r = canvas.getBoundingClientRect();
   pointer.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
+}
+function hitTest(clientX, clientY) {
+  aim(clientX, clientY);
   const hits = raycaster.intersectObjects(kittens.filter(Boolean).map((k) => k.sprite), false);
   for (const h of hits) {
     const k = kittens[h.object.userData.kitten];
@@ -420,6 +438,12 @@ function hitTest(clientX, clientY) {
     }
   }
   return -1;
+}
+/* The building, asked only after the kittens: a kitten standing in front of it wins. */
+function hitBuilding(clientX, clientY) {
+  if (!hqMeshes.length) return false;
+  aim(clientX, clientY);
+  return raycaster.intersectObjects(hqMeshes, false).length > 0;
 }
 
 function showTag(i, withButton) {
@@ -451,54 +475,131 @@ const openFile = (i) => {
   document.dispatchEvent(new CustomEvent("cia:dossier", { detail: { cat: kittens[i].cat } }));
 };
 
+/* ── the way in ───────────────────────────────────────────────────────── */
+let overHQ = false, pinnedHQ = false, entering = null;
+const doorAt = new THREE.Vector3();
+function showEnter(show, withButton = false) {
+  if (!enterTag) return;
+  enterTag.hidden = !show;
+  enterTag.classList.toggle("pinned", show && withButton);
+  if (show) placeEnter();
+}
+/* The marker floats on the facade over the door, just above the kittens' heads, so it never
+   covers the kitten standing in front of the door. */
+function placeEnter() {
+  if (!enterTag || enterTag.hidden) return;
+  doorAt.copy(door).setY(KITTEN_H * 1.12).project(camera);
+  const cw = sceneBox.clientWidth, ch = sceneBox.clientHeight;
+  const x = (doorAt.x + 1) / 2 * cw, y = (1 - doorAt.y) / 2 * ch;
+  const w = enterTag.offsetWidth, h = enterTag.offsetHeight;
+  const pin = enterTag.classList.contains("pinned") ? enterTag.querySelector(".et-go").offsetHeight + 6 : 0;
+  const left = Math.max(8, Math.min(cw - w - 8, x - w / 2));
+  enterTag.style.transform = `translate(${Math.round(left)}px, ${Math.round(y - h + pin)}px)`;
+}
+function setOverHQ(on) {
+  if (on === overHQ) return;
+  overHQ = on;
+  if (pinnedHQ) return;
+  if (on) { cycling = -1; if (pinned < 0) showTag(-1); }
+  showEnter(on, false);
+}
+function enterAgency() {
+  if (entering) return;
+  pinned = -1; hovered = -1; cycling = -1; pinnedHQ = false;
+  showTag(-1);
+  showEnter(false);
+  if (reduceMotion.matches) { location.assign(FLOOR_URL); return; }
+  // Push in: from where the camera is to a spot just outside the door, turning to face it.
+  const from = camera.position.clone();
+  const lookFrom = controls.target.clone();
+  const toDoor = door.clone().add(new THREE.Vector3(0, HQ * 0.12, 0));
+  const to = toDoor.clone().add(from.clone().sub(toDoor).normalize().multiplyScalar(HQ * 0.42));
+  entering = { t0: performance.now(), from, to, lookFrom, toDoor, gone: false };
+  hero.classList.add("entering");
+  controls.enabled = false;
+}
+const look = new THREE.Vector3();
+function pushIn() {
+  const p = Math.min(1, (performance.now() - entering.t0) / 900);
+  const e = p * p * p;   // slow at first, then through the door
+  camera.position.lerpVectors(entering.from, entering.to, e);
+  look.lerpVectors(entering.lookFrom, entering.toDoor, Math.min(1, p * 1.6));
+  camera.lookAt(look);
+  renderer.render(scene, camera);
+  if (p >= 1 && !entering.gone) { entering.gone = true; location.assign(FLOOR_URL); }
+}
+// Back from the floor (the page restored from the back/forward cache): the scene as it was.
+addEventListener("pageshow", (e) => {
+  if (!e.persisted || !entering) return;
+  entering = null;
+  hero.classList.remove("entering");
+  controls.enabled = true;
+  placeCamera(currentAz ?? AZ_CENTER, currentPolar ?? POLAR);
+  controls.update();
+  dirty = true;
+});
+
 let down = null;
 canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), type: e.pointerType }; lastUserAt = performance.now(); hero.classList.add("touched"); });
 canvas.addEventListener("pointermove", (e) => {
-  if (e.pointerType !== "mouse") return;
+  if (e.pointerType !== "mouse" || entering) return;
   const i = down ? -1 : hitTest(e.clientX, e.clientY);
   if (i !== hovered) {
     hovered = i;
     cycling = -1;
     if (pinned < 0) showTag(hovered, false);
   }
-  canvas.classList.toggle("point", i >= 0);
-  if (i >= 0) lastUserAt = performance.now();
+  const onHQ = !down && i < 0 && hitBuilding(e.clientX, e.clientY);
+  setOverHQ(onHQ);
+  canvas.classList.toggle("point", i >= 0 || onHQ);
+  if (i >= 0 || onHQ) lastUserAt = performance.now();
 });
-canvas.addEventListener("pointerleave", () => { hovered = -1; canvas.classList.remove("point"); if (pinned < 0) showTag(-1); });
+canvas.addEventListener("pointerleave", () => { hovered = -1; canvas.classList.remove("point"); setOverHQ(false); if (pinned < 0) showTag(-1); });
 canvas.addEventListener("pointerup", (e) => {
-  if (!down) return;
+  if (!down || entering) return;
   const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
   const type = down.type;
   down = null;
   lastUserAt = performance.now();
   if (moved > 8) return;
   const i = hitTest(e.clientX, e.clientY);
+  const onHQ = i < 0 && hitBuilding(e.clientX, e.clientY);
   if (type === "mouse") {
     if (i >= 0) openFile(i);
+    else if (onHQ) enterAgency();
     else { pinned = -1; showTag(-1); }
-  } else {
+  } else if (i >= 0) {
     // Touch and pen: the first tap shows the tag with its button, a second tap opens the file.
-    if (i >= 0 && pinned === i) openFile(i);
-    else { pinned = i; pinnedByKey = false; cycling = -1; showTag(i, true); }
+    if (pinned === i) openFile(i);
+    else { pinned = i; pinnedByKey = false; cycling = -1; pinnedHQ = false; showEnter(false); showTag(i, true); }
+  } else if (onHQ) {
+    // The building works the same way: the first tap shows the way in, the second goes in.
+    if (pinnedHQ) enterAgency();
+    else { pinned = -1; cycling = -1; showTag(-1); pinnedHQ = true; showEnter(true, true); }
+  } else {
+    pinned = -1; pinnedHQ = false; showTag(-1); showEnter(false);
   }
 });
 canvas.addEventListener("pointercancel", () => { down = null; });
 tagOpen.addEventListener("click", () => openFile(pinned >= 0 ? pinned : hovered >= 0 ? hovered : cycling));
 canvas.addEventListener("keydown", (e) => {
   const n = kittens.length;
+  if (entering) return;
   if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
     e.preventDefault();
     const cur = pinned >= 0 ? pinned : -1;
     pinned = e.key === "ArrowRight" ? (cur + 1) % n : (cur - 1 + n) % n;
     pinnedByKey = true;
     cycling = -1;
+    pinnedHQ = false; showEnter(false);
     showTag(pinned, true);
     lastUserAt = performance.now();
-  } else if (e.key === "Enter" && pinned >= 0) {
+  } else if (e.key === "Enter") {
     e.preventDefault();
-    openFile(pinned);
+    if (pinned >= 0) openFile(pinned);
+    else enterAgency();
   } else if (e.key === "Escape") {
-    pinned = -1; showTag(-1);
+    pinned = -1; pinnedHQ = false; showTag(-1); showEnter(false);
   }
 });
 // A tag picked with the keyboard goes when focus leaves the scene (unless it moves onto the tag).
@@ -515,6 +616,7 @@ const dossier = document.getElementById("dossier");
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.1);
   if (dossier && dossier.open) return;   // an agent's file covers the scene: nothing to draw
+  if (entering) { pushIn(); return; }    // going in: the camera belongs to the push
   const still = reduceMotion.matches;
   t += dt;
   const now = performance.now();
@@ -577,7 +679,7 @@ function tick() {
   if (beacon) beacon.visible = still || Math.floor(t * 1.6) % 2 === 0;
 
   // When nobody is pointing at anything, the name tags take turns.
-  if (!still && hovered < 0 && pinned < 0 && idle && kittens.length) {
+  if (!still && hovered < 0 && pinned < 0 && !overHQ && !pinnedHQ && idle && kittens.length) {
     cycleClock += dt;
     const on = cycleClock % 4.2 < 2.9;
     const i = Math.floor(cycleClock / 4.2) % kittens.length;
@@ -591,6 +693,7 @@ function tick() {
   dirty = false;
   renderer.render(scene, camera);
   placeTag();
+  placeEnter();
 }
 
 function setRunning() {
@@ -612,5 +715,5 @@ Promise.all([hqReady, kittenReady, floorReady]).then(() => {
   hero.dataset.scene = "ready";
   canvas.tabIndex = 0;
   setRunning();
-  if (new URLSearchParams(location.search).has("debug")) window.__hq = { camera, kittens, controls };
+  if (new URLSearchParams(location.search).has("debug")) window.__hq = { camera, kittens, controls, door, hqMeshes };
 }).catch((e) => fail(e && e.message ? e.message : e));

@@ -50,6 +50,7 @@
     <span class="name">Cat <em>Intelligence</em> Agency</span>
   </a>
   <nav class="navlinks" aria-label="Site">
+    <a class="floorlink" href="./floor/"><span class="long">The </span>Floor</a>
     <a class="opt" href="#agents">Agents</a>
     <a class="opt" href="#on-x">On X</a>
     <a class="opt" href="#cia">$CIA</a>
@@ -61,12 +62,17 @@
 <main id="main">
 <section class="hero" id="hero" aria-labelledby="hero-title" data-scene="poster">
   <div class="hero-scene">
-    <canvas id="hq" role="img" aria-label="The agency headquarters in 3D at night: a building with cat ears on its roof and mint windows, with six pixel kittens standing on the plaza in front of it. Use the left and right arrow keys to pick a kitten and Enter to open its file."></canvas>
+    <canvas id="hq" role="img" aria-label="The agency headquarters in 3D at night: a building with cat ears on its roof and mint windows, with six pixel kittens standing on the plaza in front of it. Use the left and right arrow keys to pick a kitten and Enter to open its file; press Enter with no kitten picked to go inside, to the work floor."></canvas>
   </div>
   <div class="nametag" id="nametag" hidden>
     <span class="nt-code"></span>
     <span class="nt-beat"></span>
     <button class="nt-open" type="button">Open file</button>
+  </div>
+  <div class="entertag" id="entertag" hidden>
+    <span class="et-label">Enter the agency</span>
+    <img class="et-portal" src="assets/floor/enter-portal-192.png" width="84" height="96" alt="">
+    <a class="et-go" href="./floor/">Go in <span aria-hidden="true">→</span></a>
   </div>
   <div class="wrap hero-grid">
     <div class="hero-top">
@@ -76,13 +82,14 @@
     </div>
     <div class="stage">
       <img class="hero-poster" src="assets/site-hero-1200x514.jpg" srcset="assets/site-hero-1200x514.jpg 1200w, assets/site-hero-2400x1029.jpg 2400w" sizes="(max-width: 900px) 140vw, 62vw" width="1200" height="514" alt="The agency's six pixel kittens in black suits on a pixel floor under a night skyline: Crying Cat sobs over a case file stamped RUGGED while the Director pats its head" fetchpriority="high">
-      <p class="hint" aria-hidden="true"><span class="pc">Drag to look around · click a kitten</span><span class="touch">Swipe sideways · tap a kitten</span></p>
+      <p class="hint" aria-hidden="true"><span class="pc">Drag to look around · click a kitten or the building</span><span class="touch">Swipe · tap a kitten or the building</span></p>
     </div>
     <div class="hero-bottom">
       <p class="lead">Cat Intelligence Agency is a crew of cats built for crypto. On X, they investigate rugs, fake hype, whales and copycat cat coins in public, and every case links its on-chain evidence. Agent 001 is software you can run yourself.</p>
       <div class="cta">
-        <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>soon</small></button>
+        <a class="btn enter" href="./floor/">Enter the agency <span class="arr" aria-hidden="true">→</span></a>
         <a class="btn mint" href="./coinmarketcat/">Get CoinMarketCat <span class="arr" aria-hidden="true">→</span></a>
+        <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>soon</small></button>
         <a class="btn gold" href="#cia">$CIA</a>
       </div>
     </div>
@@ -116,6 +123,7 @@ We got it wrong. The original stays up, corrected. - The Director</pre>
             <p class="fine">Posted from the same account, quote-posting the original case. If the case was pinned, the correction is pinned.</p>
           </div>
         </details>
+        <div class="agent-links"><a href="./floor/#director">The Director's desk</a></div>
       </div>
     </article>
 
@@ -139,7 +147,7 @@ We got it wrong. The original stays up, corrected. - The Director</pre>
               <dt>Track record</dt><dd>Unmeasured in this lane. The desk lane it learned from lost money, and its file says so.</dd>
             </dl>
           </details>
-          <div class="agent-links"><a href="coinmarketcat/">Open the file</a><a href="console/">Console</a><a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">Source</a></div>
+          <div class="agent-links"><a href="coinmarketcat/">Open the file</a><a href="./floor/#coinmarketcat">Its desk</a><a href="console/">Console</a><a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">Source</a></div>
         </div>
       </article>
 
@@ -158,7 +166,7 @@ We got it wrong. The original stays up, corrected. - The Director</pre>
               <dt>Method</dt><dd>Lays out the transactions, the wallets and the timestamps behind a rug, with a link for every one.</dd>
             </dl>
           </details>
-          <div class="agent-links"><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
+          <div class="agent-links"><a href="./floor/#crying-cat">Its desk</a><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
         </div>
       </article>
 
@@ -177,7 +185,7 @@ We got it wrong. The original stays up, corrected. - The Director</pre>
               <dt>Method</dt><dd>Checks whether the buyers, the volume and the followers are real, and links what it finds.</dd>
             </dl>
           </details>
-          <div class="agent-links"><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
+          <div class="agent-links"><a href="./floor/#grumpy-cat">Its desk</a><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
         </div>
       </article>
 
@@ -196,7 +204,7 @@ We got it wrong. The original stays up, corrected. - The Director</pre>
               <dt>Method</dt><dd>Puts the buys, the call and the sells side by side, timestamps and all. A wallet is tied to an account only when there is a public source for it.</dd>
             </dl>
           </details>
-          <div class="agent-links"><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
+          <div class="agent-links"><a href="./floor/#cashcat">Its desk</a><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
         </div>
       </article>
 
@@ -217,7 +225,7 @@ We got it wrong. The original stays up, corrected. - The Director</pre>
               <dt>Verdicts</dt><dd>Copycat (an older coin's name, ticker or art), clone (its site, roadmap or socials), honeypot (people can buy but not sell), or no red flags found.</dd>
             </dl>
           </details>
-          <div class="agent-links"><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
+          <div class="agent-links"><a href="./floor/#popcat">Its desk</a><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
         </div>
       </article>
     </div>
@@ -368,6 +376,7 @@ This is our opinion on public on-chain data, not an accusation of a crime. Wrong
         <span class="name">Cat <em>Intelligence</em> Agency</span>
       </a>
       <nav class="foot-links" aria-label="Footer">
+        <a href="./floor/">The Floor</a>
         <a href="#agents">Agents</a>
         <a href="#on-x">House rules</a>
         <a href="#cia">$CIA</a>

@@ -2,7 +2,7 @@
 
 Copy for the X page, the launch, the agents, the memecoin and the site. Paste-ready text sits in the grey blocks; anything in `[square brackets]` is a slot to fill.
 
-- **Website.** `https://catintelligenceagency.com`. CoinMarketCat's page is at `/coinmarketcat/` and its console at `/console/`.
+- **Website.** `https://catintelligenceagency.com`. The work floor, where every case is pinned at its cat's desk, is at `/floor/`. CoinMarketCat's page is at `/coinmarketcat/` and its console at `/console/`.
 - **Ticker.** `$CIA` is a working placeholder. The owner may change it; if so, replace it everywhere in this file.
 - **OWNER TO CONFIRM** marks a decision that has not been made yet. Do not publish those lines until it has.
 - **Names to check.** "Grumpy Cat" is a registered trademark, and "Popcat" is also the name of an existing memecoin. Read section 7 before either name goes public. The owner's names stay the defaults throughout.
@@ -653,5 +653,13 @@ POPCAT is also the name of an existing Solana memecoin ($POPCAT), and the open-m
 - **Agents in training.** The test expects them to be silhouettes. The four investigator cards replace them.
 - **Rules already met.** The CoinMarketCat card keeps "Unmeasured in this lane", which the test requires. None of the test's hype words, user counts or quoted returns appear anywhere in this copy.
 - **No licence.** The repository has no LICENSE file, so this copy says "source on GitHub", never "open source".
+
+**The work floor and its case file.** Every case the agency posts on X also goes on the work floor (`https://catintelligenceagency.com/floor/`), at its cat's desk and in "Latest from the floor". The floor reads one file, `site/assets/cases.json`; the README's "The work floor, and how to post a case" has the fields and a worked example. Keep the two in step:
+
+- **Case numbers.** The templates above number cases `CRY-`, `GRR-`, `CSH-` and `POP-`. On the floor, the Director's announcements and corrections are `DIR-` and CoinMarketCat's field reports are `CMC-`. Use the same number on X and in the file.
+- **Verdicts.** Crying Cat: RUGGED. Grumpy Cat: NOT IMPRESSED. CashCat: WHALE MOVE. Popcat: COPYCAT, CLONE or HONEYPOT. Any of those four: NO RED FLAGS FOUND, never "safe" or "buy". The Director: ANNOUNCEMENT or CORRECTION. CoinMarketCat: FIELD REPORT. A corrected case keeps its place with the verdict CORRECTED.
+- **Evidence.** The file takes the same links the thread carries: transaction signatures and wallet addresses (the floor links them on Solscan) and archived pages. A case with no evidence link is refused, as the house rules say.
+- **Nothing ahead of X.** Post the thread first, then add the entry with the post's link in `"x"`. Never add a case to the file that is not on X, and never an example: until a cat has posted, its desk shows its template, marked TEMPLATE.
+- **The test counts.** `test-site.mjs` pins how many cases the file holds (`POSTED_CASES`), so raise it by one in the same commit.
 
 **Console links and DNS.** The extension's manifest lets it into the console at `https://catintelligenceagency.com/console/`. It still also allows the github.io console (`https://gtjvv976mb-netizen.github.io/Cat-Intelligence-Agency/console/`) until the domain's DNS points at the site. If the domain isn't live yet when this copy ships, point `Console` links at the github.io address; never at any other page.

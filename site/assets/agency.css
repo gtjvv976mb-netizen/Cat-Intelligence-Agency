@@ -88,6 +88,7 @@ pre .c{color:var(--ink-faint)}
 }
 @media (max-width:420px){
   .navlinks .narrow-hide{display:none}
+  .navlinks .floorlink .long{display:none}
   .bar .brand .name{font-size:17px;line-height:.98}
   .bar .brand .name.stack em{display:block}
 }

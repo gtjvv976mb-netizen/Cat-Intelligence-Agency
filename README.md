@@ -23,12 +23,90 @@ it.
 | Path | What |
 |---|---|
 | `src/`, `manifest.json`, `build.mjs`, `vendor/` | CoinMarketCat, the sniper-bot extension |
-| `site/` | The website: the agency's home with its 3D headquarters, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), and [the console](https://catintelligenceagency.com/console/) the extension signs through |
+| `site/` | The website: the agency's home with its 3D headquarters, [the work floor](https://catintelligenceagency.com/floor/) where the cats post their cases, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), and [the console](https://catintelligenceagency.com/console/) the extension signs through |
 | `brand/` | The [brand kit](brand/README.md): the six pixel-kitten agents, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
 
 $CIA is a memecoin with no intrinsic value and no expectation of profit. Nothing here is
 financial advice. Cat Intelligence Agency is a meme and software project, not a government
 agency, and is not affiliated with CoinMarketCap or with the owners of any real cat or meme.
+
+## The work floor, and how to post a case
+
+Click the 3D headquarters on the home page (or **Enter the agency**, or **The Floor** in the
+bar) and you are on [the work floor](https://catintelligenceagency.com/floor/): the office in
+pixel art, each cat at its own desk. Click a desk to open that cat's station: its monitor,
+who it is, and **its case files**, newest first. Every case also shows up under **Latest from
+the floor**. Until a cat has posted something, its station says so and shows its case
+template instead. Nothing on the floor is invented: it shows only what is in one file.
+
+**Posting a case** (after the thread is up on X, written from the templates in
+[brand/COPY.md](brand/COPY.md)):
+
+1. Open `site/assets/cases.json` and add one entry at the end of `"cases"`.
+2. In `test-site.mjs`, raise `POSTED_CASES` by one. The test pins the count, so a case can
+   only reach the site on purpose.
+3. Run `node test-site.mjs`. It runs the same check the page runs and names any entry it
+   would refuse.
+4. Commit and push to `main`. Pages redeploys, and the case is on its cat's desk, at the top
+   of the feed, and linkable as `https://catintelligenceagency.com/floor/#CRY-001`.
+
+| Field | Rule |
+|---|---|
+| `id` | The agent's prefix and a number: `DIR-001` (the Director), `CRY-001` (Crying Cat), `GRR-001` (Grumpy Cat), `CSH-001` (CashCat), `POP-001` (Popcat), `CMC-001` (CoinMarketCat's field reports). Unique. |
+| `agent` | `director`, `crying-cat`, `grumpy-cat`, `cashcat`, `popcat` or `coinmarketcat` |
+| `date` | The day it was posted, UTC, `YYYY-MM-DD` |
+| `verdict` | One of that agent's verdicts (below) |
+| `title` | One line, up to 140 characters. Plain text. |
+| `summary` | A few sentences, up to 700 characters. Plain text. |
+| `evidence` | A list of links, each `{ "label": "...", ... }` with exactly one of `"tx"` (a transaction signature, linked on Solscan), `"address"` (a wallet or mint, linked on Solscan) or `"url"` (any `https://` page; an archived copy for anything off-chain). At least one, except for the Director's announcements: no link, no case. Up to 12. |
+| `x` | Optional: the post on X, `https://x.com/<handle>/status/<id>`. It shows as **Read on X**. |
+
+| Agent | Verdicts |
+|---|---|
+| The Director | `ANNOUNCEMENT`, `CORRECTION` |
+| Crying Cat | `RUGGED`, `NO RED FLAGS FOUND`, `CORRECTED` |
+| Grumpy Cat | `NOT IMPRESSED`, `NO RED FLAGS FOUND`, `CORRECTED` |
+| CashCat | `WHALE MOVE`, `NO RED FLAGS FOUND`, `CORRECTED` |
+| Popcat | `COPYCAT`, `CLONE`, `HONEYPOT`, `NO RED FLAGS FOUND`, `CORRECTED` |
+| CoinMarketCat | `FIELD REPORT` |
+
+A worked example: a Crying Cat case, as it would sit in the file. Every `[bracketed]` value
+is a slot to fill from the case's own thread; the validator refuses the entry until the date,
+the signatures and the addresses are real, so a half-filled copy can never reach the page.
+
+```json
+{
+  "cases": [
+    {
+      "id": "CRY-001",
+      "agent": "crying-cat",
+      "date": "[YYYY-MM-DD]",
+      "verdict": "RUGGED",
+      "title": "[Token name] ($[TICKER]): the pool's creator pulled the liquidity [n] minutes in",
+      "summary": "[One or two sentences: what the wallets did, in order, in plain words.] Our opinion on public on-chain data, not an accusation of a crime.",
+      "evidence": [
+        { "label": "Launch", "tx": "[transaction signature]" },
+        { "label": "Liquidity removed", "tx": "[transaction signature]" },
+        { "label": "Deployer", "address": "[wallet address]" },
+        { "label": "Funds went to", "address": "[wallet address]" },
+        { "label": "Archived token page", "url": "https://web.archive.org/web/[...]" }
+      ],
+      "x": "https://x.com/[handle]/status/[post id]"
+    }
+  ]
+}
+```
+
+**A correction** goes out as loud as the case: add a `DIR-` entry with the verdict
+`CORRECTION` that names the case in its title, and set the original case's verdict to
+`CORRECTED`, saying in its summary what changed. The original stays up.
+
+**If something is wrong in the file**, the floor never breaks: an entry that fails a rule
+(an unknown agent, a date that is not a real day, a link that is not `http(s)`, anything that
+looks like HTML, a misspelt field) is skipped and named in the browser console, and a file
+that is not valid JSON leaves every station working with a note that the case files could
+not be read. `node test-site.mjs` catches both before they ship. The rules live in
+`site/assets/cases.js`, which the page and the test share.
 
 ## CoinMarketCat — the sniper bot
 
@@ -452,7 +530,7 @@ on every push to `main`.
 | `test-hawk-xstock-venue.mjs` | the second venue against a chain double that runs Jupiter's `route_v2` on a constant-product pool, a scripted Jupiter and scripted feeds, no network: the venue off by default and silent; the captured GeckoTerminal and DexScreener pages parsed and classified; the poller's backoff on the captured 429, dedupe and horizon; the Jupiter client's rate budget; the quote and transaction checks on the **live** GLDx → GAYMF bytes and every hostile edit of them; observe with each gate refusing by name; armed on Phantom: wait, follow-through, buy, 1.5× take, sell, booked in GLDx; ten hostile Jupiter transactions and two hostile pools refused before signing; the canary, full ticket, day caps and a short wallet; an unreadable buy blocking the stock; autopilot signing with nothing secret on the wire; the pump.fun lane unchanged |
 | `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
-| `test-site.mjs` | the website: every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the six agent cards; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
+| `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, six stations for the six cats, each with its sprite, screen, copy and an honest empty state; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the six agent cards; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
 | `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 

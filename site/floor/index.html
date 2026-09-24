@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Work Floor — Cat Intelligence Agency</title>
+<meta name="description" content="Inside the agency: six pixel kittens at their desks. Open a cat's station to read the cases it has posted, each one with its on-chain evidence linked.">
+<meta name="theme-color" content="#0b0716">
+<link rel="canonical" href="https://catintelligenceagency.com/floor/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cat Intelligence Agency">
+<meta property="og:title" content="The Work Floor — Cat Intelligence Agency">
+<meta property="og:description" content="Six pixel kittens, six desks, one case board. Open a cat's station to read what it found, with every transaction and wallet linked.">
+<meta property="og:url" content="https://catintelligenceagency.com/floor/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-floor-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The agency's work floor at night in isometric pixel art: six kittens in black suits at their desks, with Crying Cat behind a pile of case files stamped RUGGED and Popcat at a hot-pink radar">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="../assets/apple-touch-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<script>
+(function () {
+  let t = null;
+  try { t = localStorage.getItem("cc_theme"); } catch {}
+  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+})();
+</script>
+<link rel="stylesheet" href="../assets/home.css">
+<link rel="stylesheet" href="../assets/floor.css">
+<link rel="preload" as="image" href="../assets/floor/workfloor-1600.webp" imagesrcset="../assets/floor/workfloor-1600.webp 1600w, ../assets/floor/workfloor-2688.webp 2688w" imagesizes="(max-width: 700px) 890px, (min-width: 1448px) 1400px, 100vw">
+</head>
+<body class="floor-page">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar"><div class="wrap">
+  <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+    <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+    <span class="name">Cat <em>Intelligence</em> Agency</span>
+  </a>
+  <nav class="navlinks" aria-label="Site">
+    <a class="floorlink" href="./" aria-current="page"><span class="long">The </span>Floor</a>
+    <a class="opt" href="../#agents">Agents</a>
+    <a class="opt" href="../#on-x">On X</a>
+    <a class="opt" href="../#cia">$CIA</a>
+    <a class="box" href="../coinmarketcat/">CoinMarketCat</a>
+    <button class="shift" id="shiftbtn" type="button" aria-label="Switch between night and day theme">&#9790;</button>
+  </nav>
+</div></header>
+
+<main id="main">
+<section class="floor-top" aria-labelledby="floor-title">
+  <div class="wrap floor-head">
+    <div class="floor-titles">
+      <a class="crumb" href="../"><span aria-hidden="true">&lt;</span> The agency</a>
+      <h1 id="floor-title">The <em>work floor</em></h1>
+    </div>
+    <div class="floor-lede">
+      <p>Six desks, six cats, one case board. Open a station to see what that cat works on and every case it has posted, each with its evidence linked.</p>
+      <p class="tally" role="status"><span class="tally-n" id="tally">Opening the case files…</span></p>
+    </div>
+  </div>
+
+  <div class="floor-frame" id="floorframe">
+    <div class="floor" id="floor">
+      <img class="floor-art" src="../assets/floor/workfloor-1600.webp" srcset="../assets/floor/workfloor-1600.webp 1600w, ../assets/floor/workfloor-2688.webp 2688w" sizes="(max-width: 700px) 890px, (min-width: 1448px) 1400px, 100vw" width="2688" height="1520" fetchpriority="high" alt="The agency's work floor at night, in isometric pixel art. The Director sits at the big corner desk under a wall-sized world map. Crying Cat weeps behind piles of case files stamped RUGGED, beside a falling chart. Grumpy Cat sits arms crossed at a screen full of bot faces. CashCat, in gold sunglasses, watches a whale on the screen by the window. Popcat gasps at a hot-pink radar console. CoinMarketCat, a scope over one eye, watches a candle chart under a crosshair. A cork case board, a clock, a coffee machine and a cat tree line the back wall, and the city glows through the window.">
+      <div class="fx" aria-hidden="true">
+        <span class="crt crt-map"></span>
+        <span class="crt crt-cry"></span>
+        <span class="crt crt-grr"></span>
+        <span class="crt crt-csh"></span>
+        <span class="crt crt-cmc"></span>
+        <span class="crt crt-pop"></span>
+        <span class="sweep"></span>
+        <span class="tear" style="--x:42.2%;--y:35.3%;--fall:2.5cqw;--d:0s"></span>
+        <span class="tear" style="--x:45.4%;--y:34.9%;--fall:2.4cqw;--d:-1.3s"></span>
+        <span class="tear" style="--x:42.3%;--y:35.3%;--fall:2.6cqw;--d:-2.35s"></span>
+      </div>
+      <div class="spots">
+        <button class="spot" type="button" data-cat="director" aria-haspopup="dialog" style="--x:9%;--y:22%;--w:22%;--h:28%;--tx:34%;--accent:#9945ff;--accent-text:#b994ff">
+          <span class="spot-ring"></span>
+          <span class="spot-tag"><span class="tag-name">The Director</span><span class="tag-beat">Head of the agency</span><span class="tag-count" data-count="director">Announcements</span></span>
+        </button>
+        <button class="spot" type="button" data-cat="crying-cat" aria-haspopup="dialog" style="--x:35%;--y:23%;--w:19%;--h:26%;--tx:39.5%;--accent:#5ab8ff;--accent-text:#8ccfff">
+          <span class="spot-ring"></span>
+          <span class="spot-tag"><span class="tag-name">Crying Cat</span><span class="tag-beat">Ruggers</span><span class="tag-count" data-count="crying-cat">Case files</span></span>
+        </button>
+        <button class="spot" type="button" data-cat="grumpy-cat" aria-haspopup="dialog" style="--x:59%;--y:31%;--w:18%;--h:22%;--tx:36%;--accent:#e8742c;--accent-text:#ff9a57">
+          <span class="spot-ring"></span>
+          <span class="spot-tag"><span class="tag-name">Grumpy Cat</span><span class="tag-beat">Fake hype</span><span class="tag-count" data-count="grumpy-cat">Case files</span></span>
+        </button>
+        <button class="spot" type="button" data-cat="cashcat" aria-haspopup="dialog" style="--x:79%;--y:40%;--w:20%;--h:25%;--tx:22.5%;--accent:#f5c542;--accent-text:#f5c542">
+          <span class="spot-ring"></span>
+          <span class="spot-tag"><span class="tag-name">CashCat</span><span class="tag-beat">Whales and KOLs</span><span class="tag-count" data-count="cashcat">Case files</span></span>
+        </button>
+        <button class="spot" type="button" data-cat="popcat" aria-haspopup="dialog" style="--x:25%;--y:56%;--w:22%;--h:25%;--tx:25%;--accent:#ff4fd8;--accent-text:#ff8ae6">
+          <span class="spot-ring"></span>
+          <span class="spot-tag"><span class="tag-name">Popcat</span><span class="tag-beat">New cat coins</span><span class="tag-count" data-count="popcat">Case files</span></span>
+        </button>
+        <button class="spot" type="button" data-cat="coinmarketcat" aria-haspopup="dialog" style="--x:55%;--y:61%;--w:24%;--h:25%;--tx:26%;--accent:#14f195;--accent-text:#5ef0b4">
+          <span class="spot-ring"></span>
+          <span class="spot-tag"><span class="tag-name">CoinMarketCat</span><span class="tag-beat">The sniper · software</span><span class="tag-count" data-count="coinmarketcat">Field reports</span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <p class="floor-hint" aria-hidden="true"><span class="pc">Click a desk to open its station · the stations are also listed below</span><span class="touch">Swipe to look around the floor · tap a desk</span></p>
+</section>
+
+<section class="roster-sec" id="stations" aria-labelledby="stations-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">The stations</p>
+      <h2 id="stations-title">Every desk, <em>one tap away.</em></h2>
+    </div>
+    <ul class="roster">
+      <li id="director" style="--accent:#9945ff;--accent-text:#b994ff"><button class="roster-btn" type="button" data-cat="director" aria-haspopup="dialog">
+        <img class="kitten" src="../assets/sprites/director.png" width="112" height="158" alt="" loading="lazy">
+        <span class="r-no">Head of the agency</span><span class="r-name">The Director</span><span class="r-count" data-count="director">Announcements</span>
+      </button></li>
+      <li id="coinmarketcat" style="--accent:#14f195;--accent-text:#5ef0b4"><button class="roster-btn" type="button" data-cat="coinmarketcat" aria-haspopup="dialog">
+        <img class="kitten" src="../assets/sprites/coinmarketcat.png" width="110" height="155" alt="" loading="lazy">
+        <span class="r-no">Agent 001</span><span class="r-name">CoinMarketCat</span><span class="r-count" data-count="coinmarketcat">Field reports</span>
+      </button></li>
+      <li id="crying-cat" style="--accent:#5ab8ff;--accent-text:#8ccfff"><button class="roster-btn" type="button" data-cat="crying-cat" aria-haspopup="dialog">
+        <img class="kitten" src="../assets/sprites/crying-cat.png" width="108" height="154" alt="" loading="lazy">
+        <span class="r-no">Agent 002</span><span class="r-name">Crying Cat</span><span class="r-count" data-count="crying-cat">Case files</span>
+      </button></li>
+      <li id="grumpy-cat" style="--accent:#e8742c;--accent-text:#ff9a57"><button class="roster-btn" type="button" data-cat="grumpy-cat" aria-haspopup="dialog">
+        <img class="kitten" src="../assets/sprites/grumpy-cat.png" width="108" height="152" alt="" loading="lazy">
+        <span class="r-no">Agent 003</span><span class="r-name">Grumpy Cat</span><span class="r-count" data-count="grumpy-cat">Case files</span>
+      </button></li>
+      <li id="cashcat" style="--accent:#f5c542;--accent-text:#f5c542"><button class="roster-btn" type="button" data-cat="cashcat" aria-haspopup="dialog">
+        <img class="kitten" src="../assets/sprites/cashcat.png" width="107" height="156" alt="" loading="lazy">
+        <span class="r-no">Agent 004</span><span class="r-name">CashCat</span><span class="r-count" data-count="cashcat">Case files</span>
+      </button></li>
+      <li id="popcat" style="--accent:#ff4fd8;--accent-text:#ff8ae6"><button class="roster-btn" type="button" data-cat="popcat" aria-haspopup="dialog">
+        <img class="kitten" src="../assets/sprites/popcat.png" width="148" height="158" alt="" loading="lazy">
+        <span class="r-no">Agent 005</span><span class="r-name">Popcat</span><span class="r-count" data-count="popcat">Case files</span>
+      </button></li>
+    </ul>
+  </div>
+</section>
+
+<section class="feed" id="latest" aria-labelledby="latest-title">
+  <div class="wrap feed-grid">
+    <div class="feed-side">
+      <p class="kicker">The case board</p>
+      <h2 id="latest-title">Latest from <em>the floor.</em></h2>
+      <p class="sub">Every case any cat posts, newest first. Each one links its evidence: transactions and wallets on a public explorer, and an archived copy of anything off-chain. No link, no case.</p>
+      <figure class="board">
+        <img src="../assets/floor/case-board-800.webp" width="800" height="603" alt="The agency's cork case board: pinned photos of shadowy figures and coins, joined by red string around a question mark" loading="lazy">
+      </figure>
+    </div>
+    <div class="feed-main">
+      <p class="feed-state" id="feed-state">Opening the case files…</p>
+      <noscript><p class="feed-state">The case files open with JavaScript. Every case is also posted on the agency's X account.</p></noscript>
+      <ol class="feed-list" id="feed-list" hidden></ol>
+      <div class="empty feed-empty" id="feed-empty" hidden>
+        <img class="empty-icon" src="../assets/floor/case-file-112.png" width="64" height="64" alt="" loading="lazy">
+        <div>
+          <p class="empty-title">No cases posted yet.</p>
+          <p>No cat has posted a case yet. When one does, it goes up here, at that cat's desk and on the agency's X account, with every transaction, wallet and page linked.</p>
+          <div class="cta">
+            <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+            <a class="btn ghost" href="../#on-x">Read the house rules</a>
+          </div>
+        </div>
+      </div>
+      <div class="carries" id="carries">
+        <p class="carries-title">What every case will carry</p>
+        <ol>
+          <li><b>A case number and the day it was posted.</b> CRY for Crying Cat, GRR for Grumpy Cat, CSH for CashCat, POP for Popcat; the sniper's field reports are CMC.</li>
+          <li><b>A verdict.</b> Rugged, not impressed, whale move, copycat, clone or honeypot, or “no red flags found”, which is not an endorsement.</li>
+          <li><b>Its evidence, linked.</b> Every transaction and wallet on a public explorer, and an archived copy of anything off-chain. No link, no case.</li>
+          <li><b>The post on X,</b> where you can reply with a tx if the agency got it wrong. Corrections go out as loud as the case.</li>
+        </ol>
+      </div>
+      <p class="feed-fail" id="feed-fail" hidden>The case files could not be opened here just now. Every case is also posted on the agency's X account.</p>
+    </div>
+  </div>
+</section>
+
+<section class="exit" aria-label="Leave the floor">
+  <div class="wrap exit-inner">
+    <p><b>That's the floor.</b> The agency, its house rules and $CIA are one floor down.</p>
+    <div class="cta">
+      <a class="btn ghost" href="../"><span class="arr" aria-hidden="true">←</span> Back to the agency</a>
+      <a class="btn gold" href="../#cia">$CIA, the memecoin</a>
+      <a class="btn mint" href="../coinmarketcat/">Get CoinMarketCat <span class="arr" aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+        <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+        <span class="name">Cat <em>Intelligence</em> Agency</span>
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="../">The agency</a>
+        <a href="./">The Floor</a>
+        <a href="../#on-x">House rules</a>
+        <a href="../#cia">$CIA</a>
+        <a href="../coinmarketcat/">CoinMarketCat</a>
+        <a href="../console/">Console</a>
+        <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+    <div class="legal">
+      <p>Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.</p>
+      <p>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
+    </div>
+  </div>
+</footer>
+
+<dialog class="station" id="station" aria-label="A cat's station">
+  <button class="st-close" type="button" aria-label="Close the station">✕</button>
+  <div class="st-slot"></div>
+</dialog>
+
+<!-- THE STATIONS. Each template is one cat's panel: its desk (monitor and sprite), who it is,
+     and its case files. floor.js fills [data-slot="cases"] from assets/cases.json and shows
+     the empty state and the template while that cat has posted nothing. -->
+<template id="tpl-director">
+  <div class="st" data-cat="director" style="--accent:#9945ff;--accent-text:#b994ff">
+    <div class="st-desk wide">
+      <div class="st-monitor"><img class="st-screen" src="../assets/floor/screen-director-800.webp" width="800" height="448" alt="The Director's wall screen: a world map lit with case markers, beside charts, a whale, a crying cat and a small radar"><span class="st-crt" aria-hidden="true"></span></div>
+      <img class="st-kitten kitten" src="../assets/sprites/director.png" width="150" height="211" style="--w:150;--h:211" alt="The Director: a grey kitten in a black suit and sunglasses, with a coiled earpiece">
+    </div>
+    <div class="st-id">
+      <p class="agent-no">Head of the agency <span class="status">On X</span></p>
+      <h2 class="st-name">The Director</h2>
+      <p class="beat"><b>Beat</b> Runs the agency, speaks for the main account and signs every correction. The mascot; Crying Cat is the face of $CIA.</p>
+      <p class="catch">“The chain remembers.”</p>
+      <p class="bio">A secret-agent pixel kitten in a black suit and sunglasses, with an earpiece. When the agency gets a case wrong, the correction goes out under the Director's name, quoting the original. Its other lines: “Case open.” and “Case closed.”</p>
+    </div>
+    <section class="st-files">
+      <h3 class="st-files-title">Agency announcements <span class="st-count" data-slot="count"></span></h3>
+      <div class="st-list" data-slot="cases"></div>
+      <div class="empty" data-slot="none" hidden>
+        <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
+        <div>
+          <p class="empty-title">No announcements posted yet.</p>
+          <p>When the Director posts one, it goes up here and on the agency's X account. Corrections go out under the Director's name, as loud as the case they correct.</p>
+          <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+        </div>
+      </div>
+      <details class="st-tpl" data-slot="tpl">
+        <summary>How a correction reads <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">A template with placeholder fields, not a real post. Posted from the same account, quote-posting the original case; if the case was pinned, the correction is pinned.</p>
+<pre class="post">CORRECTION | CASE <span class="slot">[ID]</span>
+
+We said: <span class="slot">[what the case claimed]</span>
+The chain shows: <span class="slot">[what is true]</span> <span class="slot">[tx link]</span>
+
+We got it wrong. The original stays up, corrected. - The Director</pre>
+      </details>
+    </section>
+  </div>
+</template>
+
+<template id="tpl-crying-cat">
+  <div class="st" data-cat="crying-cat" style="--accent:#5ab8ff;--accent-text:#8ccfff">
+    <div class="st-desk">
+      <div class="st-monitor"><img class="st-screen" src="../assets/floor/screen-crying-cat-800.webp" width="800" height="603" alt="Crying Cat's monitor: a chart falling off a cliff, stamped RUGGED, over a pixel skull"><span class="st-crt" aria-hidden="true"></span></div>
+      <img class="st-kitten kitten" src="../assets/sprites/crying-cat.png" width="144" height="206" style="--w:144;--h:206" alt="Crying Cat: a cream kitten in a black suit, in tears, holding a case file stamped RUGGED">
+    </div>
+    <div class="st-id">
+      <p class="agent-no">Agent 002 <span class="status">On X</span></p>
+      <h2 class="st-name">Crying Cat</h2>
+      <p class="beat"><b>Beat</b> Ruggers: liquidity pulled, devs who dump on their holders, and mint or freeze authority used against holders.</p>
+      <p class="catch">“It cries so you don't have to.”</p>
+      <p class="bio">Crying Cat shows up after a chart goes vertical the wrong way and lays out who pulled what, when, and into which wallet. It names wallets, not people, and it cries so you don't have to.</p>
+    </div>
+    <section class="st-files">
+      <h3 class="st-files-title">Case files <span class="st-count" data-slot="count"></span></h3>
+      <div class="st-list" data-slot="cases"></div>
+      <div class="empty" data-slot="none" hidden>
+        <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
+        <div>
+          <p class="empty-title">No cases posted yet.</p>
+          <p>Crying Cat has not posted a case. When it does, the case appears here and on the agency's X account, with every transaction and wallet linked.</p>
+          <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+        </div>
+      </div>
+      <details class="st-tpl" data-slot="tpl">
+        <summary>How a Crying Cat case reads <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">A template with placeholder fields, not a real case. Every <span class="slot">[slot]</span> is filled from public data before it is posted: a thread of three posts, every timestamp in UTC.</p>
+<pre class="post">CRYING CAT | CASE CRY-<span class="slot">[001]</span> | RUG REPORT
+
+Token: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>)
+Mint: <span class="slot">[explorer link]</span>
+What we see: <span class="slot">[one line, e.g. "LP pulled by the pool's creator, [n] min in"]</span>
+Status: <span class="slot">[OPEN / CLOSED / CORRECTED]</span>
+
+It cries so you don't have to. (1/3)</pre>
+<pre class="post">Evidence (UTC):
+<span class="slot">[YYYY-MM-DD HH:MM:SS]</span> launch <span class="slot">[tx link]</span>
+<span class="slot">[YYYY-MM-DD HH:MM:SS]</span> <span class="slot">[LP removed / dev sold [x]% of supply / mint authority used]</span> <span class="slot">[tx link]</span>
+Deployer: <span class="slot">[wallet link]</span>
+Funds went to: <span class="slot">[wallet link]</span>
+Archived page: <span class="slot">[archive link]</span> (2/3)</pre>
+<pre class="post">Our read: <span class="slot">[one or two sentences]</span>
+
+This is our opinion on public on-chain data, not an accusation of a crime. Wrong? Reply with a tx. Corrections go out as loud as this. (3/3)</pre>
+      </details>
+    </section>
+  </div>
+</template>
+
+<template id="tpl-grumpy-cat">
+  <div class="st" data-cat="grumpy-cat" style="--accent:#e8742c;--accent-text:#ff9a57">
+    <div class="st-desk">
+      <div class="st-monitor"><img class="st-screen" src="../assets/floor/screen-grumpy-cat-800.webp" width="800" height="603" alt="Grumpy Cat's monitor: a swarm of look-alike bot faces all wired to one wallet, beside a column of identical accounts"><span class="st-crt" aria-hidden="true"></span></div>
+      <img class="st-kitten kitten" src="../assets/sprites/grumpy-cat.png" width="144" height="202" style="--w:144;--h:202" alt="Grumpy Cat: a scowling cream-and-brown kitten in a black suit, arms crossed">
+    </div>
+    <div class="st-id">
+      <p class="agent-no">Agent 003 <span class="status">On X</span></p>
+      <h2 class="st-name">Grumpy Cat</h2>
+      <p class="beat"><b>Beat</b> Fake hype: bundled launches, wash-traded volume, bot swarms, bought followers and recycled roadmaps.</p>
+      <p class="catch">“Not impressed.”</p>
+      <p class="bio">Grumpy Cat looks at the chart everyone is shilling and checks whether the buyers, the volume and the followers are real. It has seen this roadmap before, it has the link to prove it, and it is not impressed.</p>
+    </div>
+    <section class="st-files">
+      <h3 class="st-files-title">Case files <span class="st-count" data-slot="count"></span></h3>
+      <div class="st-list" data-slot="cases"></div>
+      <div class="empty" data-slot="none" hidden>
+        <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
+        <div>
+          <p class="empty-title">No cases posted yet.</p>
+          <p>Grumpy Cat has not posted a case. When it does, the case appears here and on the agency's X account, with every transaction, wallet and archived page linked.</p>
+          <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+        </div>
+      </div>
+      <details class="st-tpl" data-slot="tpl">
+        <summary>How a Grumpy Cat case reads <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">A template with placeholder fields, not a real case. Every <span class="slot">[slot]</span> is filled from public data before it is posted: a thread of three posts, every timestamp in UTC.</p>
+<pre class="post">GRUMPY CAT | CASE GRR-<span class="slot">[001]</span> | HYPE CHECK
+
+Token: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>)
+Mint: <span class="slot">[explorer link]</span>
+The pitch: <span class="slot">[what the hype claims, e.g. "organic volume"]</span>
+What we see: <span class="slot">[bundled launch / wash volume / bot replies / bought followers / recycled roadmap]</span>
+
+Not impressed. (1/3)</pre>
+<pre class="post">Evidence (UTC):
+Bundle: <span class="slot">[n]</span> wallets in slot <span class="slot">[slot]</span>, one funder <span class="slot">[wallet link]</span> <span class="slot">[tx link]</span>
+Wash: <span class="slot">[wallet link]</span> &lt;&gt; <span class="slot">[wallet link]</span>, <span class="slot">[n]</span> round trips <span class="slot">[tx link]</span>
+Roadmap: <span class="slot">[archive link]</span> copies <span class="slot">[archive link]</span> (2/3)</pre>
+<pre class="post">Our read: <span class="slot">[one or two sentences]</span>
+
+This is our opinion on public data, not an accusation of a crime. Wrong? Reply with a tx or a link. Corrections go out as loud as this. (3/3)</pre>
+      </details>
+    </section>
+  </div>
+</template>
+
+<template id="tpl-cashcat">
+  <div class="st" data-cat="cashcat" style="--accent:#f5c542;--accent-text:#f5c542">
+    <div class="st-desk">
+      <div class="st-monitor"><img class="st-screen" src="../assets/floor/screen-cashcat-800.webp" width="800" height="603" alt="CashCat's monitor: a blue whale swimming through a loop of gold coins moving between wallets"><span class="st-crt" aria-hidden="true"></span></div>
+      <img class="st-kitten kitten" src="../assets/sprites/cashcat.png" width="143" height="208" style="--w:143;--h:208" alt="CashCat: an orange tabby kitten in a black suit and gold sunglasses, holding gold binoculars">
+    </div>
+    <div class="st-id">
+      <p class="agent-no">Agent 004 <span class="status">On X</span></p>
+      <h2 class="st-name">CashCat</h2>
+      <p class="beat"><b>Beat</b> Whales and KOLs: big wallets, who bought before the call, paid promos, and influencers who dump on their followers.</p>
+      <p class="catch">“Follow the wallet.”</p>
+      <p class="bio">CashCat watches the big wallets and lines up their buys and sells against the public posts that moved the price. If a wallet bought before the call and sold into it, CashCat puts the timestamps side by side and lets you do the math.</p>
+    </div>
+    <section class="st-files">
+      <h3 class="st-files-title">Case files <span class="st-count" data-slot="count"></span></h3>
+      <div class="st-list" data-slot="cases"></div>
+      <div class="empty" data-slot="none" hidden>
+        <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
+        <div>
+          <p class="empty-title">No cases posted yet.</p>
+          <p>CashCat has not posted a case. When it does, the case appears here and on the agency's X account, with every transaction and wallet linked. A wallet is tied to an account only when there is a public source for it.</p>
+          <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+        </div>
+      </div>
+      <details class="st-tpl" data-slot="tpl">
+        <summary>How a CashCat case reads <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">A template with placeholder fields, not a real case. Every <span class="slot">[slot]</span> is filled from public data before it is posted. With no public source tying the wallet to an account, the case is about the wallet alone and names no account.</p>
+<pre class="post">CASHCAT | CASE CSH-<span class="slot">[001]</span> | WALLET WATCH
+
+Token: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>)
+Mint: <span class="slot">[explorer link]</span>
+Account: <span class="slot">[@public handle]</span>
+Wallet: <span class="slot">[wallet link]</span>
+Why we say it's theirs: <span class="slot">[public source link]</span>
+
+Follow the wallet. (1/3)</pre>
+<pre class="post">Timeline (UTC):
+<span class="slot">[HH:MM:SS]</span> wallet buys <span class="slot">[amount]</span> <span class="slot">[tx link]</span>
+<span class="slot">[HH:MM]</span> the call goes out <span class="slot">[archive link]</span>
+<span class="slot">[HH:MM:SS]</span> wallet sells <span class="slot">[amount]</span> <span class="slot">[tx link]</span>
+Paid promo disclosed in the call? <span class="slot">[yes / no / not stated]</span> (2/3)</pre>
+<pre class="post">Our read: <span class="slot">[one or two sentences]</span>
+
+This is our opinion on public data, not an accusation of a crime. Wrong? Reply with a tx. Corrections go out as loud as this. (3/3)</pre>
+      </details>
+    </section>
+  </div>
+</template>
+
+<template id="tpl-popcat">
+  <div class="st" data-cat="popcat" style="--accent:#ff4fd8;--accent-text:#ff8ae6">
+    <div class="st-desk">
+      <div class="st-monitor radar"><img class="st-screen" src="../assets/floor/screen-popcat-800.webp" width="800" height="603" alt="Popcat's monitor: a hot-pink radar with cat-coin blips, one of them glowing"><span class="st-sweep" aria-hidden="true"></span><span class="st-crt" aria-hidden="true"></span></div>
+      <img class="st-kitten kitten" src="../assets/sprites/popcat.png" width="197" height="211" style="--w:197;--h:211" alt="Popcat: a cream-and-white kitten in a black suit with its mouth popped open in a round O, holding up a radar with a hot-pink screen">
+    </div>
+    <div class="st-id">
+      <p class="agent-no">Agent 005 <span class="status">On X</span></p>
+      <h2 class="st-name">Popcat</h2>
+      <p class="beat"><b>Beat</b> New cat coins: cat-themed tokens as they launch, the copycats, clones and honeypots, and the ones that look like real communities.</p>
+      <p class="catch">“Real cat or copycat?”</p>
+      <p class="bio">Popcat checks the new cat coins as they launch and asks every one of them the same question: real cat or copycat? It lays out who deployed each coin, what it copies and whether anyone can sell it, and when it finds nothing wrong it says “no red flags found”, never “buy”.</p>
+      <p class="aside">The radar is a prop, not a scanner. The agency's Popcat character is not affiliated with the $POPCAT memecoin, and $CIA is not related to it.</p>
+    </div>
+    <section class="st-files">
+      <h3 class="st-files-title">Case files <span class="st-count" data-slot="count"></span></h3>
+      <div class="st-list" data-slot="cases"></div>
+      <div class="empty" data-slot="none" hidden>
+        <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
+        <div>
+          <p class="empty-title">No cases posted yet.</p>
+          <p>Popcat has not posted a case. When it does, the case appears here and on the agency's X account, with every transaction, wallet and archived page linked.</p>
+          <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+        </div>
+      </div>
+      <details class="st-tpl" data-slot="tpl">
+        <summary>How a Popcat case reads <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">A template with placeholder fields, not a real case. The verdict is one of copycat (an older coin's name, ticker or art), clone (its site, roadmap or socials), honeypot (people can buy but not sell) or no red flags found, which is not an endorsement.</p>
+<pre class="post">POPCAT | CASE POP-<span class="slot">[001]</span> | CAT CHECK
+
+Token: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>)
+Mint: <span class="slot">[explorer link]</span>
+Launched: <span class="slot">[YYYY-MM-DD HH:MM]</span> UTC
+Verdict: <span class="slot">[COPYCAT / CLONE / HONEYPOT / NO RED FLAGS FOUND]</span>
+
+Real cat or copycat? (1/3)</pre>
+<pre class="post">Evidence (UTC):
+Original: <span class="slot">[explorer link]</span>, launched <span class="slot">[YYYY-MM-DD]</span>
+Same name/art: <span class="slot">[archive link]</span>
+Failed sells: <span class="slot">[tx link]</span>
+Mint authority: <span class="slot">[revoked / live]</span> | Freeze: <span class="slot">[revoked / live]</span>
+Token-2022 extras: <span class="slot">[none / transfer fee / transfer hook / permanent delegate / pausable]</span>
+Deployer: <span class="slot">[wallet link]</span> (2/3)</pre>
+<pre class="post">Our read: <span class="slot">[one or two sentences]</span>
+
+"No red flags found" is not an endorsement or a buy signal. Opinion on public data, not an accusation of a crime. Wrong? Reply with a tx. (3/3)</pre>
+      </details>
+    </section>
+  </div>
+</template>
+
+<template id="tpl-coinmarketcat">
+  <div class="st" data-cat="coinmarketcat" style="--accent:#14f195;--accent-text:#5ef0b4">
+    <div class="st-desk">
+      <div class="st-monitor"><img class="st-screen" src="../assets/floor/screen-coinmarketcat-800.webp" width="800" height="603" alt="CoinMarketCat's monitor: a green candle chart under a sniper crosshair, with a lock"><span class="st-crt" aria-hidden="true"></span></div>
+      <img class="st-kitten kitten" src="../assets/sprites/coinmarketcat.png" width="146" height="207" style="--w:146;--h:207" alt="CoinMarketCat: a mint-green kitten in a black suit with a crosshair scope over one eye">
+    </div>
+    <div class="st-id">
+      <p class="agent-no">Agent 001 <span class="status soft">Software · download it</span></p>
+      <h2 class="st-name">CoinMarketCat</h2>
+      <p class="beat"><b>Beat</b> New Solana launches on pump.fun, including launches priced in tokenised stocks.</p>
+      <p class="catch">“Ten seconds. Then maybe.”</p>
+      <p class="bio">CoinMarketCat watches new Solana launches and, once you arm it, buys only the ones still at or above entry ten seconds later, from your Phantom wallet or an autopilot wallet you fund, inside the take-profit, ticket and daily budget you set. It learned that rule from a trading lane that lost money, starts in Observe, and prints that losing record beside the switch that arms it.</p>
+      <div class="agent-links"><a href="../coinmarketcat/">Open its file</a><a href="../console/">Console</a></div>
+    </div>
+    <section class="st-files">
+      <h3 class="st-files-title">Field reports <span class="st-count" data-slot="count"></span></h3>
+      <div class="st-list" data-slot="cases"></div>
+      <div class="empty" data-slot="none" hidden>
+        <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
+        <div>
+          <p class="empty-title">No field reports posted yet.</p>
+          <p>The agency has not posted a field report. When it does, the report appears here and on the agency's X account, with every buy and sell linked. The extension itself posts nothing: each report is written from the agency's own copy of it.</p>
+          <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+        </div>
+      </div>
+      <details class="st-tpl" data-slot="tpl">
+        <summary>How a field report reads <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">A template with placeholder fields, not a real report. It is written from the shadow-book export of the agency's own copy. In Observe, post 2 is left out and the report says "Observe: nothing bought".</p>
+<pre class="post">FIELD REPORT | AGENT 001 | <span class="slot">[YYYY-MM-DD]</span>
+
+Mode: <span class="slot">[Observe / Execute, Phantom / Execute, Autopilot]</span>
+Window: <span class="slot">[HH:MM]</span>-<span class="slot">[HH:MM]</span> UTC
+Limits: take <span class="slot">[1.5]</span>x | ticket <span class="slot">[0.005]</span> SOL | day cap <span class="slot">[0.01]</span> SOL
+Would-have positions: <span class="slot">[n]</span> | bought: <span class="slot">[n]</span> | closed: <span class="slot">[n]</span>
+Up <span class="slot">[n]</span> / Down <span class="slot">[n]</span> | Net <span class="slot">[+/-0.000]</span> SOL (1/3)</pre>
+<pre class="post">Receipts (UTC):
+<span class="slot">[HH:MM:SS]</span> buy <span class="slot">[token]</span> <span class="slot">[tx link]</span>
+<span class="slot">[HH:MM:SS]</span> sell <span class="slot">[token]</span>, exit: <span class="slot">[1.5x take / stop / creator exit / 90s stall / 180s clock]</span> <span class="slot">[tx link]</span>
+Signer: <span class="slot">[wallet link]</span>
+Shadow book (JSONL): <span class="slot">[link]</span> (2/3)</pre>
+<pre class="post">One window is not a track record. This lane is unmeasured; the lane it learned from lost money. Not advice.
+
+Ten seconds. Then maybe.
+https://catintelligenceagency.com/coinmarketcat/ (3/3)</pre>
+      </details>
+    </section>
+  </div>
+</template>
+
+<script src="../assets/config.js"></script>
+<script type="module" src="../assets/floor.js"></script>
+<script>
+(function shiftSwitch() {
+  const btn = document.getElementById("shiftbtn");
+  if (!btn) return;
+  const label = () => {
+    const day = document.documentElement.dataset.theme === "light";
+    btn.textContent = day ? "☀" : "☾";
+    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
+  };
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("cc_theme", next); } catch {}
+    label();
+  });
+  label();
+})();
+</script>
+</body>
+</html>

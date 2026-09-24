@@ -1,10 +1,10 @@
 /**
  * THE WEBSITE SAYS WHAT THE CODE DOES, AND THE CONSOLE STAYS A BRIDGE.
  *
- * site/ is published to GitHub Pages at catintelligenceagency.com as three pages: the
- * agency (site/index.html), the cat's own page (site/coinmarketcat/index.html) and the
- * console the extension's content script attaches to (site/console/index.html). This file
- * pins what those pages may and may not be:
+ * site/ is published to GitHub Pages at catintelligenceagency.com as four pages: the
+ * agency (site/index.html), its work floor (site/floor/index.html), the cat's own page
+ * (site/coinmarketcat/index.html) and the console the extension's content script attaches
+ * to (site/console/index.html). This file pins what those pages may and may not be:
  *
  *   · THE NUMBERS ARE THE CODE'S. Every dial the pages quote — the ten-second crouch, the
  *     1.0x follow-through, the 1.5x take, the 90 s stall, the 180 s clock, the 20% stop,
@@ -29,8 +29,12 @@
  *     imagery; the six agents are the six cats, and every placeholder (the X link, the
  *     contract address, the buy link) comes from one config and renders as empty.
  *   · IT HANGS TOGETHER. Each page has a title, a description, a viewport, og tags and the
- *     kit's favicons; the three link to each other and to the repository, never to a
+ *     kit's favicons; the pages link to each other and to the repository, never to a
  *     github.io address; every local link, asset and #fragment resolves.
+ *   · THE FLOOR IS HONEST. The 3D building and the hero lead to the work floor; its six
+ *     stations are the six cats; the case file ships empty, and every entry the floor will
+ *     ever show passes the validator, which refuses unknown agents, impossible dates, any
+ *     link that is not http(s) and any HTML; the floor's pictures are the brand kit's.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -58,6 +62,7 @@ const REPO = "https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency";
 const PAGES_ORIGIN = "https://catintelligenceagency.com/";
 const PAGES = {
   agency: "index.html",
+  floor: path.join("floor", "index.html"),
   cat: path.join("coinmarketcat", "index.html"),
   console: path.join("console", "index.html"),
 };
@@ -89,7 +94,8 @@ for (const [key, page] of Object.entries(html)) {
   ok(`${key}: a meta description`, description && description.length >= 80 && description.length <= 400, `${description?.length ?? 0} chars`);
   for (const og of ["og:title", "og:description", "og:type", "og:site_name"])
     ok(`${key}: ${og}`, Boolean(meta(page, "property", og)));
-  ok(`${key}: og:image is the link preview, absolute, on the domain`, meta(page, "property", "og:image") === `${PAGES_ORIGIN}assets/og-1200x630.jpg`);
+  const preview = key === "floor" ? "og-floor-1200x630.jpg" : "og-1200x630.jpg";
+  ok(`${key}: og:image is the link preview, absolute, on the domain`, meta(page, "property", "og:image") === `${PAGES_ORIGIN}assets/${preview}`);
   const ogUrl = meta(page, "property", "og:url");
   ok(`${key}: og:url is this page on the domain`, ogUrl === PAGES_ORIGIN + PAGES[key].replace(/index\.html$/, "").split(path.sep).join("/"), ogUrl);
   ok(`${key}: the canonical link is og:url`, page.includes(`<link rel="canonical" href="${ogUrl}">`));
@@ -113,9 +119,16 @@ ok("the agency's stylesheet carries the palette, night first, with a day shift",
 
 section("THE PAGES LINK TO EACH OTHER, AND EVERY LOCAL LINK RESOLVES");
 const hrefs = (page) => [...page.matchAll(/\s(?:href|src)="([^"]+)"/g)].map((m) => decode(m[1]));
-ok("agency → the cat, the console, the repository", ["coinmarketcat/", "console/", REPO].every((h) => hrefs(html.agency).includes(h)));
-ok("the cat → the agency, the console, the repository", ["../", "../console/", REPO].every((h) => hrefs(html.cat).includes(h)));
-ok("the console → the agency, the cat, the repository", ["../", "../coinmarketcat/", REPO].every((h) => hrefs(html.console).includes(h)));
+ok("agency → the floor, the cat, the console, the repository", ["./floor/", "coinmarketcat/", "console/", REPO].every((h) => hrefs(html.agency).includes(h)));
+ok("the floor → back to the agency, $CIA, the cat, the console, the repository", ["../", "../#cia", "../coinmarketcat/", "../console/", REPO].every((h) => hrefs(html.floor).includes(h)));
+ok("the cat → the agency, the floor, the console, the repository", ["../", "../floor/", "../console/", REPO].every((h) => hrefs(html.cat).includes(h)));
+ok("the console → the agency, the floor, the cat, the repository", ["../", "../floor/", "../coinmarketcat/", REPO].every((h) => hrefs(html.console).includes(h)));
+/* "The Floor" sits in the bar itself (not only in a footer) on every page but the console's
+   own compact bar, where it is a plain link beside the agency's. */
+const barOf = (page) => (page.match(/<header class="bar">[\s\S]*?<\/header>|<nav><div class="wrap">[\s\S]*?<\/nav>/) || [""])[0];
+ok("\"The Floor\" is in the site bar of the agency, the floor, the cat's page and the console",
+  /<a class="floorlink" href="\.\/floor\/">/.test(barOf(html.agency)) && /<a class="floorlink" href="\.\/" aria-current="page">/.test(barOf(html.floor))
+    && /<a class="floorlink" href="\.\.\/floor\/">/.test(barOf(html.cat)) && /<a class="floor" href="\.\.\/floor\/">The Floor<\/a>/.test(barOf(html.console)));
 const idsIn = (page) => new Set([...page.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
 const missing = [];
 for (const [key, rel] of Object.entries(PAGES)) {
@@ -379,13 +392,151 @@ ok("the scene caps the pixel ratio at 2, sleeps off screen and in a hidden tab, 
 const homeLoads = new Set(["index.html", "assets/home.css", "assets/config.js", "assets/home.js", "assets/hq3d.js",
   ...Object.keys(THREE_FILES).filter((f) => f.endsWith(".js")).map((f) => "assets/vendor/three/" + f), ...sceneAssets,
   ...Object.keys(CATS).map((c) => `assets/sprites/${c}.png`),
-  ...hrefs(html.agency).filter((h) => !/^(https?:|#)/.test(h) && !h.endsWith("/")).map((h) => h.split("#")[0])]);
+  ...hrefs(html.agency).filter((h) => !/^https?:/.test(h)).map((h) => h.split("#")[0]).filter((h) => h && !h.endsWith("/"))]);
 for (const srcset of html.agency.matchAll(/srcset="([^"]+)"/g)) for (const part of srcset[1].split(",")) homeLoads.add(part.trim().split(/\s+/)[0]);
 const homeBytes = [...homeLoads].reduce((n, f) => n + fs.statSync(path.join(SITE, f)).size, 0);
 ok("the home page weighs under 3.5 MB with everything it can load", homeBytes < 3.5 * 1024 * 1024, `${(homeBytes / 1024 / 1024).toFixed(2)} MB over ${homeLoads.size} files`);
 const noToolNames = walk(SITE).filter((f) => !f.startsWith(THREE_DIR + path.sep) && /\.(html|css|js|txt|json)$/.test(f))
   .filter((f) => /gpt[- ]?image|tripo|claude-(opus|sonnet|haiku)|\bdall-?e\b|midjourney|stable diffusion/i.test(fs.readFileSync(f, "utf8")));
 ok("no model names or model identifiers in site/", noToolNames.length === 0, noToolNames.map((f) => path.relative(here, f)).join(", "));
+
+section("THE WORK FLOOR");
+/* The building leads in. The hero has a plain link (for keyboards, phones and no WebGL); the
+   3D scene navigates to the same place, and asks the building only after the kittens, so a
+   click on a kitten opens its file and never also walks you in. */
+ok("the hero links to ./floor/, with a button and the ENTER marker's own link",
+  /<a class="btn enter" href="\.\/floor\/">Enter the agency/.test(html.agency) && /<div class="entertag" id="entertag" hidden>[\s\S]*?<a class="et-go" href="\.\/floor\/">/.test(html.agency)
+    && /<img class="et-portal" src="assets\/floor\/enter-portal-192\.png"/.test(html.agency));
+ok("the 3D building opens ./floor/, after a push the reduced-motion setting skips",
+  /const FLOOR_URL = "\.\/floor\/";/.test(scene) && /location\.assign\(FLOOR_URL\)/.test(scene)
+    && /if \(reduceMotion\.matches\) \{ location\.assign\(FLOOR_URL\); return; \}/.test(scene) && /intersectObjects\(hqMeshes, false\)/.test(scene));
+const upHandler = (scene.match(/canvas\.addEventListener\("pointerup"[\s\S]*?\n\}\);/) || [""])[0];
+ok("a kitten wins the click: the building is asked only when no kitten was hit",
+  /const i = hitTest\(e\.clientX, e\.clientY\);\s*const onHQ = i < 0 && hitBuilding\(e\.clientX, e\.clientY\);/.test(upHandler)
+    && /if \(i >= 0\) openFile\(i\);\s*else if \(onHQ\) enterAgency\(\);/.test(upHandler));
+ok("every agent card on the home page has a way to its desk", Object.keys(CATS).every((c) => html.agency.includes(`href="./floor/#${c}"`)));
+
+/* Six stations: one hotspot button per cat over the office picture, placed in percentages so
+   they scale with it, one station panel (a template) per cat, one entry in the list below. */
+const floorHtml = html.floor;
+const spots = [...floorHtml.matchAll(/<button class="spot" type="button" data-cat="([a-z-]+)" aria-haspopup="dialog" style="([^"]*)">/g)].map((m) => ({ cat: m[1], style: m[2] }));
+ok("six station hotspots, one per cat, in the order the desks read", JSON.stringify(spots.map((x) => x.cat)) === JSON.stringify(["director", "crying-cat", "grumpy-cat", "cashcat", "popcat", "coinmarketcat"]),
+  spots.map((x) => x.cat).join(", "));
+ok("each hotspot is placed in percentages and carries its cat's accent",
+  spots.length === 6 && spots.every((x) => /--x:[\d.]+%;--y:[\d.]+%;--w:[\d.]+%;--h:[\d.]+%/.test(x.style) && x.style.includes(`--accent:${CATS[x.cat].accent}`)));
+const floorCss = fs.readFileSync(path.join(SITE, "assets", "floor.css"), "utf8");
+ok("hotspots are at least 44 px to tap, and on a phone the floor pans in its frame",
+  /\.spot\{[^}]*min-width:44px;min-height:44px/.test(floorCss) && /@media \(max-width:700px\)\{[\s\S]*?\.floor-frame\{[^}]*overflow-x:auto/.test(floorCss));
+const roster = [...floorHtml.matchAll(/<li id="([a-z-]+)"[^>]*><button class="roster-btn" type="button" data-cat="([a-z-]+)"/g)];
+ok("the station list below repeats all six as buttons, and each is a link target (/floor/#<cat>)",
+  roster.length === 6 && roster.every((m) => m[1] === m[2] && CATS[m[1]]) && new Set(roster.map((m) => m[1])).size === 6);
+const tpl = Object.fromEntries(Object.keys(CATS).map((c) => [c, (floorHtml.match(new RegExp(`<template id="tpl-${c}">([\\s\\S]*?)</template>`)) || ["", ""])[1]]));
+for (const [cat, want] of Object.entries(CATS)) {
+  const t = tpl[cat], card = cards[cat]?.body || "";
+  const same = (cls) => { const a = (t.match(new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`)) || [])[1], b = (card.match(new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`)) || [])[1]; return a && b && textOf(a).trim() === textOf(b).trim(); };
+  ok(`${want.name}'s station: its sprite, codename, catchphrase and bio (as on its card), its own screen, and an honest empty state with its template`,
+    t.includes(`src="../assets/sprites/${cat}.png"`) && textOf(t).includes(want.name) && same("catch") && same("bio")
+      && t.includes(`src="../assets/floor/screen-${cat}-800.webp"`) && fs.existsSync(path.join(SITE, "assets", "floor", `screen-${cat}-800.webp`))
+      && /data-slot="cases"/.test(t) && /data-slot="none" hidden/.test(t) && /posted yet\./.test(textOf(t)) && /appears here and on the agency's X account|goes up here and on the agency's X account/.test(textOf(t))
+      && /<span class="tpl-stamp">Template<\/span>/.test(t) && (t.match(/class="slot"/g) || []).length >= 4);
+}
+ok("CoinMarketCat's station links to its page and the console; the Director's holds the announcements",
+  /href="\.\.\/coinmarketcat\/"/.test(tpl.coinmarketcat) && /href="\.\.\/console\/"/.test(tpl.coinmarketcat) && /Agency announcements/.test(tpl.director));
+ok("the floor has a \"Latest from the floor\" feed, with the same empty state", /id="latest"/.test(floorHtml) && has("floor", "Latest from the floor.") && /id="feed-empty" hidden/.test(floorHtml) && /id="feed-list" hidden/.test(floorHtml));
+
+/* The case file: one JSON file, a small schema, shipped empty. POSTED_CASES is how many real
+   cases the file holds; raise it in the same commit that posts one (see the README). */
+const POSTED_CASES = 0;
+let caseFile = null;
+try { caseFile = JSON.parse(fs.readFileSync(path.join(SITE, "assets", "cases.json"), "utf8")); } catch (e) { caseFile = null; }
+ok("cases.json parses and is { \"cases\": [...] } and nothing else", caseFile && JSON.stringify(Object.keys(caseFile)) === '["cases"]' && Array.isArray(caseFile.cases));
+ok(`cases.json holds ${POSTED_CASES} cases: nothing invented, nothing posted yet`, caseFile?.cases.length === POSTED_CASES, `${caseFile?.cases.length} in the file`);
+const { validateCases, AGENTS, EXPLORER } = await import("./site/assets/cases.js");
+const shipped = validateCases(caseFile);
+ok("every entry in cases.json passes the validator", shipped.problems.length === 0 && shipped.cases.length === (caseFile?.cases.length ?? -1), shipped.problems.join(" | "));
+ok("the validator knows the six agents, each with the verdicts of its case template",
+  JSON.stringify(Object.keys(AGENTS).sort()) === JSON.stringify(Object.keys(CATS).sort())
+    && AGENTS["crying-cat"].verdicts.includes("RUGGED") && AGENTS["grumpy-cat"].verdicts.includes("NOT IMPRESSED") && AGENTS.cashcat.verdicts.includes("WHALE MOVE")
+    && ["COPYCAT", "CLONE", "HONEYPOT", "NO RED FLAGS FOUND"].every((v) => AGENTS.popcat.verdicts.includes(v)) && AGENTS.coinmarketcat.verdicts.includes("FIELD REPORT")
+    && AGENTS.director.verdicts.includes("ANNOUNCEMENT") && !Object.values(AGENTS).some((a) => a.verdicts.some((v) => /SAFE|BUY|LEGIT/.test(v))));
+/* A fixture, never shipped: one good entry, and one entry per way a typo could go wrong. */
+const good = { id: "CRY-001", agent: "crying-cat", date: "2026-10-01", verdict: "RUGGED", title: "Fixture: a well-formed case", summary: "A test fixture, not a case.",
+  evidence: [{ label: "A transaction", tx: "1".repeat(88) }, { label: "A wallet", address: "11111111111111111111111111111111" }, { label: "An archived page", url: "https://example.com/archived" }],
+  x: "https://x.com/example/status/1" };
+const fixture = { cases: [
+  good,
+  { ...good, id: "CRY-002", agent: "crying-kat" },
+  { ...good, id: "CRY-003", date: "2026-02-30" },
+  { ...good, id: "CRY-004", date: "10/01/2026" },
+  { ...good, id: "CRY-005", evidence: [{ label: "click me", url: "javascript:alert(1)" }] },
+  { ...good, id: "CRY-006", evidence: [{ label: "data", url: "data:text/html,<b>x</b>" }] },
+  { ...good, id: "CRY-007", title: "<img src=x onerror=alert(1)>" },
+  { ...good, id: "CRY-008", summary: "fine words <script>alert(1)</script>" },
+  { ...good, id: "CRY-009", verdict: "SAFE" },
+  { ...good, id: "CRY-010", evidence: [] },
+  { ...good, id: "CRY-011", sumary: "a typo in a field name" },
+  { ...good, id: "GRR-012" },
+  { ...good, id: "CRY-013", x: "javascript:alert(1)" },
+  { ...good, id: "CRY-001", title: "the same id again" },
+  { ...good, id: "CRY-014", date: "2026-10-02", title: "Newer, and a < b is not HTML" },
+  "not an object",
+] };
+const checked = validateCases(fixture);
+const skipped = (id, why) => checked.problems.some((p) => p.startsWith(id) && why.test(p));
+ok("the validator keeps well-formed entries, newest first", JSON.stringify(checked.cases.map((c) => c.id)) === '["CRY-014","CRY-001"]', checked.cases.map((c) => c.id).join(", "));
+ok("it rejects an unknown agent", skipped("CRY-002", /"agent" must be one of/));
+ok("it rejects a date that is not a real YYYY-MM-DD day", skipped("CRY-003", /not a real day/) && skipped("CRY-004", /YYYY-MM-DD/));
+ok("it rejects a javascript: or data: link, in evidence or as the X post", skipped("CRY-005", /http\(s\)/) && skipped("CRY-006", /http\(s\)/) && skipped("CRY-013", /"x" must be a post link/));
+ok("it rejects HTML in a title or a summary", skipped("CRY-007", /"title" contains HTML/) && skipped("CRY-008", /"summary" contains HTML/));
+ok("it rejects a verdict the agent does not give, a case with no evidence, a misspelt field, a wrong prefix and a repeated id",
+  skipped("CRY-009", /"verdict"/) && skipped("CRY-010", /no link, no case/) && skipped("CRY-011", /unknown field "sumary"/) && skipped("GRR-012", /"id" must look like CRY-001/)
+    && skipped("CRY-001", /used twice/) && checked.problems.some((p) => /entry 16 skipped/.test(p)));
+ok("a bad file is empty, not an error", validateCases(null).cases.length === 0 && validateCases({ cases: "x" }).cases.length === 0 && validateCases([]).problems.length === 1);
+const ev = checked.cases.find((c) => c.id === "CRY-001")?.evidence ?? [];
+ok("evidence becomes explorer links: a signature on Solscan's tx page, an address on its account page, a URL as given",
+  ev[0]?.href === EXPLORER.tx + "1".repeat(88) && ev[1]?.href === EXPLORER.address + "11111111111111111111111111111111" && ev[2]?.href === "https://example.com/archived"
+    && EXPLORER.tx === "https://solscan.io/tx/" && EXPLORER.address === "https://solscan.io/account/");
+
+/* The floor draws the cases as text, never as markup, and reads the file as a JSON module
+   (no fetch), through a module of its own so a bad file cannot take the stations down. */
+const floorJs = fs.readFileSync(path.join(SITE, "assets", "floor.js"), "utf8");
+const casesData = fs.readFileSync(path.join(SITE, "assets", "cases-data.js"), "utf8");
+ok("the floor page loads config.js, then floor.js as a module", /<script src="\.\.\/assets\/config\.js"><\/script>\s*<script type="module" src="\.\.\/assets\/floor\.js"><\/script>/.test(floorHtml));
+ok("floor.js validates with cases.js and reads cases.json only through cases-data.js, catching a failure",
+  /import \{ AGENTS, validateCases \} from "\.\/cases\.js";/.test(floorJs) && /import\("\.\/cases-data\.js"\)[\s\S]*?\.catch\(/.test(floorJs)
+    && /import cases from "\.\/cases\.json" with \{ type: "json" \};/.test(casesData) && /validateCases\(mod\.default\)/.test(floorJs) && /console\.warn\("cases\.json:", p\)/.test(floorJs));
+ok("the floor's scripts write text only: no innerHTML, outerHTML, insertAdjacentHTML, document.write or eval",
+  ![floorJs, casesData, fs.readFileSync(path.join(SITE, "assets", "cases.js"), "utf8")].some((src) => /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/.test(src)));
+ok("evidence and X links open with noopener", /a\.rel = "noopener noreferrer";/.test(floorJs));
+ok("with reduced motion the floor holds still: no tilt, no tour, no tears or sweep",
+  /reduce\.matches\) return;/.test(floorJs) && /!reduce\.matches && onScreen/.test(floorJs) && /@media \(prefers-reduced-motion:reduce\)\{[\s\S]*?\.floor\{transform:none!important\}[\s\S]*?\.tear,\.sweep\{display:none\}/.test(floorCss));
+
+/* Every picture on the floor comes from the brand kit (brand/, made with Higgsfield): the
+   office, the screens, the sprites, the tear, the case file, the ENTER marker. No drawn art. */
+const FLOOR_ASSETS = {
+  "workfloor-1600.webp": "workfloor.png", "workfloor-2688.webp": "workfloor.png", "case-board-800.webp": "case-board.png",
+  "radar-sweep-400.webp": "screen-popcat.png", "tear-strip.png": "tear-sheet.png", "case-file-112.png": "case-file.png", "enter-portal-192.png": "enter-portal.png",
+  ...Object.fromEntries(Object.keys(CATS).map((c) => [`screen-${c}-800.webp`, `screen-${c}.png`])),
+};
+const shippedFloor = fs.readdirSync(path.join(SITE, "assets", "floor")).sort();
+ok("site/assets/floor/ holds web-sized copies of brand/floor/ and nothing else",
+  JSON.stringify(shippedFloor) === JSON.stringify(Object.keys(FLOOR_ASSETS).sort()) && Object.values(FLOOR_ASSETS).every((f) => fs.existsSync(path.join(here, "brand", "floor", f))),
+  shippedFloor.join(", "));
+const floorPics = [...new Set([...floorHtml.matchAll(/\s(?:src|srcset|imagesrcset)="([^"]+)"/g)].flatMap((m) => m[1].split(",").map((x) => x.trim().split(/\s+/)[0]))
+  .filter((u) => /\.(png|jpe?g|webp|gif|svg)$/.test(u)))];
+const cssPics = [...floorCss.matchAll(/url\(([^)]+)\)/g)].map((m) => m[1]);
+ok("every picture the floor shows is the kit's: the office and its screens, the six sprites, the icons, the floor tile",
+  floorPics.length >= 12 && floorPics.every((u) => /^\.\.\/assets\/(floor\/[a-z0-9-]+\.(webp|png)|sprites\/[a-z-]+\.png|favicon-64\.png)$/.test(u))
+    && cssPics.every((u) => /^(floor\/(radar-sweep-400\.webp|tear-strip\.png)|floor-tile-256\.png)$/.test(u)),
+  [...floorPics, ...cssPics].filter((u) => !/assets\/(floor|sprites)\/|favicon|^floor|floor-tile/.test(u)).join(", ") || `${floorPics.length + cssPics.length} pictures`);
+ok("no drawn stand-ins: no SVG or canvas on the floor page or in its scripts", !/<svg|<canvas/i.test(floorHtml) && !/createElement\("(canvas|svg)"\)|createElementNS/.test(floorJs));
+const jpegSize = (file) => { const b = fs.readFileSync(file); for (let i = 2; i < b.length;) { const m = b[i + 1], len = b.readUInt16BE(i + 2); if (m >= 0xc0 && m <= 0xc3) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)]; i += 2 + len; } return null; };
+ok("the floor's link preview is 1200 × 630, cropped from the work floor", JSON.stringify(jpegSize(path.join(SITE, "assets", "og-floor-1200x630.jpg"))) === "[1200,630]");
+/* Everything the floor page can load, both sizes of the office picture included. */
+const floorLoads = new Set(["floor/index.html", "assets/home.css", "assets/floor.css", "assets/config.js", "assets/floor.js", "assets/cases.js", "assets/cases-data.js", "assets/cases.json",
+  ...floorPics.map((u) => u.replace(/^\.\.\//, "")), ...cssPics.map((u) => "assets/" + u), "assets/favicon-32.png", "assets/apple-touch-180.png"]);
+const floorBytes = [...floorLoads].reduce((n, f) => n + fs.statSync(path.join(SITE, f)).size, 0);
+ok("the floor page weighs under 2.5 MB with everything it can load", floorBytes < 2.5 * 1024 * 1024, `${(floorBytes / 1024 / 1024).toFixed(2)} MB over ${floorLoads.size} files`);
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

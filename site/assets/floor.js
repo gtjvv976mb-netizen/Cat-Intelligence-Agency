@@ -194,6 +194,9 @@ function openStation(cat, caseId = "") {
 dialog.querySelector(".st-close").addEventListener("click", () => dialog.close());
 dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
 dialog.addEventListener("close", () => {
+  // The close event arrives a task later. If a station was opened again in between (a link
+  // to a case, a quick second click), it is that station's panel now: leave it alone.
+  if (dialog.open) return;
   slot.replaceChildren();
   current = null;
   history.replaceState(null, "", location.pathname + location.search);
@@ -204,7 +207,9 @@ for (const b of $$(".spot, .roster-btn")) b.addEventListener("click", () => open
 
 /* A link to a station (#crying-cat) or to a case (#CRY-001) opens it. */
 function route() {
-  const h = decodeURIComponent(location.hash.slice(1));
+  let h = "";
+  try { h = decodeURIComponent(location.hash.slice(1)); } catch { return false; }   // a malformed #%E0 is no station
+  if (!h) return false;
   if (Object.prototype.hasOwnProperty.call(AGENTS, h)) { openStation(h); return true; }
   if (CASE_ID.test(h)) {
     const c = cases.find((x) => x.id === h);

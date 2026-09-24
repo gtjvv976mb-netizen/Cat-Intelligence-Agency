@@ -427,6 +427,10 @@ ok("each hotspot is placed in percentages and carries its cat's accent",
 const floorCss = fs.readFileSync(path.join(SITE, "assets", "floor.css"), "utf8");
 ok("hotspots are at least 44 px to tap, and on a phone the floor pans in its frame",
   /\.spot\{[^}]*min-width:44px;min-height:44px/.test(floorCss) && /@media \(max-width:700px\)\{[\s\S]*?\.floor-frame\{[^}]*overflow-x:auto/.test(floorCss));
+ok("the ENTER marker's \"Go in\" (a phone's way in) is at least 44 px to tap", /\.et-go\{[^}]*min-height:44px/.test(homeCss));
+/* The title's glyphs overflow its line box (line-height under 1); without the lift, the lower
+   half of the back link clicked the heading instead of going back. */
+ok("the floor's back link sits above the title, so all of it clicks", /\.crumb\{position:relative;z-index:1;/.test(floorCss) && /<a class="crumb" href="\.\.\/">/.test(floorHtml));
 const roster = [...floorHtml.matchAll(/<li id="([a-z-]+)"[^>]*><button class="roster-btn" type="button" data-cat="([a-z-]+)"/g)];
 ok("the station list below repeats all six as buttons, and each is a link target (/floor/#<cat>)",
   roster.length === 6 && roster.every((m) => m[1] === m[2] && CATS[m[1]]) && new Set(roster.map((m) => m[1])).size === 6);
@@ -508,6 +512,9 @@ ok("floor.js validates with cases.js and reads cases.json only through cases-dat
 ok("the floor's scripts write text only: no innerHTML, outerHTML, insertAdjacentHTML, document.write or eval",
   ![floorJs, casesData, fs.readFileSync(path.join(SITE, "assets", "cases.js"), "utf8")].some((src) => /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/.test(src)));
 ok("evidence and X links open with noopener", /a\.rel = "noopener noreferrer";/.test(floorJs));
+ok("a malformed link (/floor/#%E0) opens nothing instead of throwing, and a late close never empties a reopened station",
+  /try \{ h = decodeURIComponent\(location\.hash\.slice\(1\)\); \} catch \{ return false; \}/.test(floorJs)
+    && /dialog\.addEventListener\("close", \(\) => \{[^}]*?if \(dialog\.open\) return;/.test(floorJs));
 ok("with reduced motion the floor holds still: no tilt, no tour, no tears or sweep",
   /reduce\.matches\) return;/.test(floorJs) && /!reduce\.matches && onScreen/.test(floorJs) && /@media \(prefers-reduced-motion:reduce\)\{[\s\S]*?\.floor\{transform:none!important\}[\s\S]*?\.tear,\.sweep\{display:none\}/.test(floorCss));
 

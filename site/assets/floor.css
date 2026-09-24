@@ -12,7 +12,9 @@
   background:radial-gradient(70% 90% at 50% 0%,rgba(153,69,255,.2),transparent 70%),radial-gradient(60% 60% at 50% 100%,rgba(20,241,149,.08),transparent 70%),#0b0716;
   --text:#f2edff;--text-soft:#d4cbef;--text-faint:#a79dca;--line-2:#5a4a86;--mint-text:#5ef0b4}
 .floor-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 40px;width:var(--fw);max-width:none;margin:0 auto 16px;padding:0}
-.crumb{display:inline-flex;align-items:center;gap:8px;font:400 9px/1 var(--pixel);text-transform:uppercase;color:#c0b5dc;text-decoration:none;padding:6px 0}
+/* The crumb sits over the title's glyph overflow (its line-height is under 1), so it is lifted
+   above it: otherwise the lower half of the link clicks the heading instead. */
+.crumb{position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;font:400 9px/1 var(--pixel);text-transform:uppercase;color:#c0b5dc;text-decoration:none;padding:10px 0;margin:-4px 0}
 .crumb:hover{color:var(--mint)}
 .floor-top h1{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:clamp(40px,4.4vw,60px);line-height:.92;letter-spacing:.01em;margin:6px 0 0;color:#fff;text-shadow:4px 4px 0 #2a1650}
 .floor-top h1 em{font-style:normal;color:var(--mint);text-shadow:4px 4px 0 #0a4a33}

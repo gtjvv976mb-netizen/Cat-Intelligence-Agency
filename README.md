@@ -174,7 +174,7 @@ nothing the model returns can write. Every clause is walked in `test-agent-risk.
 | Most of the vault in tokens | 60% | 1–100% | pending buys count too (`exposure_cap`) |
 | Stop loss | 8% under entry | 0.5–50% | the whole position is sold, every half minute (`stop_loss`) |
 | Take profit | 15% over entry | 0.5–1000% | the whole position is sold, every half minute (`take_profit`) |
-| Daily drawdown | 5% | 0.5–50% | measured from the vault's value at the start of the UTC day; at the limit the breaker trips until UTC midnight and either stops new buys or sells everything (`drawdown_breaker`, `drawdown_liquidate`) |
+| Daily drawdown | 5% | 0.5–50% | measured from the vault's value at the start of the UTC day, which a deposit or a withdrawal moves with it (a flow is not a loss); at the limit the breaker trips until UTC midnight and either stops new buys or sells everything (`drawdown_breaker`, `drawdown_liquidate`) |
 | Trades a day | 6 | 1–96 | the model's buys and sells per UTC day; a stop or take never counts and is never refused (`trades_per_day`) |
 | Slippage | 100 bps | 10–300 bps | written into every Jupiter instruction; a quote or transaction that says otherwise is refused |
 | Minimum trade | $10 | fixed | a smaller buy, or a partial sell worth less, is refused (`below_min_trade`); a whole position may always be sold |
@@ -262,13 +262,22 @@ remembers that for it.
 In the popup's **Agent** tab: **Start** (on paper, or live with the typed sentence),
 **Pause** (the model is not asked; the protections keep running), **Decide now** (ask the
 model at the next tick), **Liquidate all** (every position sold back to the settlement token
-through the same checks, then paused), **Withdraw**, and **Stop** (what is still held keeps
-its protections). **Withdraw** is yours alone: it pauses the agent and runs the existing
-sweep of the autopilot wallet — every token, then the SOL above the rent floor — to your
-connected Phantom address, then closes the agent's rows for what left as withdrawn. The
-model cannot name it (only `buy`, `sell` and `hold` exist), and the runner has no code path
-from a decision to a sweep. While the agent holds live positions the autopilot card's plain
-*Sweep* refuses and points to Withdraw.
+through the same checks, then paused; what does not sell at once is tried again every tick
+until it does, or until you resume), **Withdraw**, and **Stop** (what is still held keeps
+its protections). Pause, Stop, Liquidate all and Withdraw stop new buys from the moment you
+press them, even from a decision the model is still making. **Withdraw** is yours alone: it
+pauses the agent and runs the existing sweep of the autopilot wallet — every token, then the
+SOL above the rent floor — to your connected Phantom address, then closes the agent's rows
+for what left as withdrawn; while the sweep runs, the agent's ticks stand aside. The model
+cannot name it (only `buy`, `sell` and `hold` exist), and the runner has no code path from a
+decision to a sweep. While the agent holds live positions the autopilot card's plain *Sweep*
+refuses and points to Withdraw.
+
+If Chrome closes or the worker is ended mid-trade, what was booked is already stored: the
+book is written after every fill and before each model call. A live buy that was sent and
+whose outcome cannot be read — or that was being signed when the worker stopped — **pauses
+the agent**: it may have landed as tokens the book does not hold, which no stop loss
+watches. The journal and a notification say so; check the wallet before resuming.
 
 ### What is not measured, and what it is not
 
@@ -719,7 +728,7 @@ on every push to `main`.
 | `test-agent-market.mjs` | the snapshot replayed from the recorded DexScreener, GeckoTerminal and Jupiter answers: the parsers, missing stays missing, the indicators worked by hand and cross-checked on the live candles, one request per tick, candles only when asked and 2.1 s apart, a 429 resting the host and doubling, Jupiter pricing only what DexScreener did not |
 | `test-agent-brain.mjs` | the brain against a scripted Anthropic API with invented model ids: the request and its headers, the model list and the default, the decision format held exactly, 401/403/429/500/529/400, a refusal, a truncated answer, no tool call, the retry when a forced tool choice is refused, usage, and the key in one header to one origin |
 | `test-agent-risk.mjs` | the hard limits clause by clause: the UTC day, valuation with stale and unpriced marks, the stop and take at their edges, the breaker tripping, holding and resetting at UTC midnight, liquidate, every clamp in order, every refusal clause produced, and no limit the model can move |
-| `test-agent-runner.mjs` | the agent end to end: paper against scripted feeds, Jupiter and the model — decisions, clamps, fills, the take and stop between turns, the model failing, the breaker, pause, liquidate, stop, the journal cap, a restart; then live on a chain double with the real engine's fences and the real autopilot wallet — arming, a checked and signed buy read back from the chain, five hostile transactions refused before signing, a live take profit, a locked wallet; and the pair allowlist on Jupiter's recorded live transaction |
+| `test-agent-runner.mjs` | the agent end to end: paper against scripted feeds, Jupiter and the model — decisions, clamps, fills, the take and stop between turns, the model failing, the breaker, pause, liquidate, stop, the journal cap, a restart; then live on a chain double with the real engine's fences and the real autopilot wallet — arming, a checked and signed buy read back from the chain, five hostile transactions refused before signing, a live take profit, a locked wallet; and the pair allowlist on Jupiter's recorded live transaction; then the money paths under failure — Liquidate all retrying what it could not sell, a live buy with no readable outcome pausing the agent, a worker dying mid-tick or mid-swap, a withdrawal and a deposit moving the breaker's base, and Pause pressed while the model decides |
 | `test-agent-no-leak.mjs` | the API key: the AGENT messages, where the key is read, the password field that is cleared, the running worker (the key only ever to api.anthropic.com, never stored elsewhere, logged or answered), the bundles, the site; and no model identifier in any file or commit message |
 | `test-hawk-engine.mjs` | Snipurr's lane end to end against a scripted chain that executes the venue's own `buy_v2`/`sell_v2` and a scripted Phantom: notice → shadow row → the wait → re-read → sign → fill → 1.5× take → declined sell re-asked → approved sell closes with the chain's SOL; a launch nobody followed is never bought; a declined or unanswered buy; a tampered signature refused; the day cap; the hard stop; the JSONL export read back and scored. Then a GLDx-quoted curve built from the live fixture bytes: refused when GLDx is not listed; read on the same call and filed in GLDx when it is; the canary buy with the GLDx account created under Token-2022, simulated on the GLDx delta, read back in eight decimals; the sell for GLDx; the full ticket once proven; the per-stock day cap and the SOL day; a short wallet, a paused stock, a buy that cannot be read back; SOL and GLDx graded apart; the stock list's validation and the arm sentence; the fill reader alone |
 | `test-hawk-engine.mjs` §18 | autopilot with the real session wallet (a keystore over Maps, `createSessionSigner`): locked it does not arm; unlocked and funded it arms on the autopilot sentence; the buy and the sell reaching the chain carry ed25519 signatures by the autopilot key and Phantom is asked nothing; the key reaches no log, notification or store; a wallet short of one buy does not arm, and one that fell short since the last read is refused at `autopilot_balance_short`; switching to Phantom never strands a position; locked, a sell waits and says so; an unlock that runs out disarms |

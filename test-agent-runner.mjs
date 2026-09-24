@@ -40,6 +40,17 @@
  *       and says so;
  *   13. the pair allowlist, on the LIVE recorded USDC → JUP transaction: allowed when JUP is in
  *       the universe, refused at pair_not_allowed when it is not.
+ *   REGRESSIONS (the money paths under failure)
+ *   14. liquidate all sells, tick after tick, what it could not sell at once, until nothing is
+ *       held or the owner resumes;
+ *   15. a live buy sent with no readable outcome — landed, in fact — pauses the agent and says
+ *       the tokens may be in the wallet with no stop loss;
+ *   16. a worker that dies mid-tick loses neither a fill nor the model's turn, and one that
+ *       dies with a live buy in flight is found out by the next;
+ *   17. withdraw: the ticks stand aside during the sweep, and neither the breaker nor the max
+ *       drawdown counts the money taken out;
+ *   18. a deposit moves the day's base, so it does not blunt the breaker;
+ *   19. Pause pressed while the model decides: that decision buys nothing.
  */
 import fs from "node:fs";
 import {
@@ -667,6 +678,186 @@ section("13. THE PAIR ALLOWLIST, ON THE LIVE RECORDED USDC → JUP TRANSACTION")
   ok("with JUP in the universe, Jupiter's live transaction passes the check (route_v2, one account create)", clause(normalizeAgentSpec({ universe: [JUP] })) === "passed");
   ok("with JUP not in the universe, the same bytes are refused at pair_not_allowed", clause(normalizeAgentSpec({ universe: [JTO, PYTH] })) === "pair_not_allowed");
   ok("…and a swap between two listed tokens is never a pair (JUP → JTO)", (() => { try { checkSwapTransaction({ ...args(normalizeAgentSpec({ universe: [JUP, JTO] })), inputMint: JUP, outputMint: JTO }); return false; } catch (e) { return e.clause === "pair_not_allowed"; } })());
+}
+
+/* ═══ REGRESSIONS: THE MONEY PATHS UNDER FAILURE ═══════════════════════════════════════════ */
+/** A fresh live agent on its own chain double, engine and unlocked autopilot wallet, started. */
+async function liveRig({ usdcRaw = 100_000_000n, spec = {} } = {}) {
+  const w = createWorld();
+  const ks = createKeystore({ storage: mapStore(), session: mapStore(), clock: w.clock });
+  const { publicKey } = await ks.create({ passphrase: PASS });
+  const sg = createSessionSigner({ keystore: ks, clock: w.clock });
+  w.chain = createChain(w, { wallet: publicKey, usdcRaw });
+  const eng = createHawkEngine({ rpc: w.chain.rpc, bridge: phantom, sessionSigner: sg, store: memoryStore(), clock: w.clock, timers: w.engineTimers, fetchImpl: w.fetchImpl, config: { rpcUrl: "https://chain.double" } });
+  await ks.unlock({ passphrase: PASS, ttlMs: 24 * 3_600_000 });
+  await sg.refresh();
+  const fences = () => eng.agentFences();
+  const r = w.makeRunner(fences);
+  await r.saveSpec({ ...SPEC, name: "Rig cat", universe: [JUP, JTO], mode: "live", ...spec });
+  await r.start({ liveAck: agentArmSentence(r.spec(), publicKey) });
+  const held = (mint) => w.chain.st.tokens.get(w.chain.ataOf(publicKey, mint))?.amount ?? 0n;
+  const setHeld = (mint, amount) => { w.chain.st.tokens.get(w.chain.ataOf(publicKey, mint)).amount = amount; };
+  return { w, r, AUTO: publicKey, fences, held, setHeld };
+}
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+section("14. LIQUIDATE ALL KEEPS SELLING WHAT IT COULD NOT SELL AT ONCE");
+{
+  /* Regression: a sell Liquidate all could not make was never tried again — the popup and
+     the journal said "the rest are retried every tick", and nothing retried it. */
+  const w = createWorld();
+  const r = w.makeRunner();
+  await r.saveSpec({ ...SPEC, name: "Stubborn cat" });
+  await r.start();
+  w.decisions.push({ rationale: "Buy two.", actions: [buy(JUP, 20), buy(JTO, 20)] });
+  await r.tick();
+  w.prices[JTO] = null;                                          // no route for JTO, and no price
+  const out = await r.liquidateAll();
+  ok("liquidate all with JTO unroutable: JUP sold, JTO not, the agent paused and still liquidating",
+    out.done.find((d) => d.mint === JUP)?.sold === true && out.done.find((d) => d.mint === JTO)?.sold === false && r.status().status === "paused" && r.status().liquidating === true);
+  w.prices[JTO] = 0.50;                                          // inside its stop and its take: no protection would sell it
+  w.advance(30_000);
+  await r.tick();
+  ok("the next tick sells JTO for liquidate all, not for a stop or a take", r.status().positions.length === 0 && journalOf(r, "fill")[0]?.protection === "liquidate_all" && journalOf(r, "fill")[0].symbol === "JTO");
+  ok("…and says it is finished; nothing is left to liquidate", r.status().liquidating === false && journalOf(r, "control")[0]?.action === "liquidated");
+
+  const w2 = createWorld();
+  const r2 = w2.makeRunner();
+  await r2.saveSpec({ ...SPEC, name: "Changed-mind cat" });
+  await r2.start();
+  w2.decisions.push({ rationale: "Buy one.", actions: [buy(JTO, 20)] });
+  await r2.tick();
+  w2.prices[JTO] = null;
+  await r2.liquidateAll();
+  await r2.resume();
+  w2.prices[JTO] = 0.50;
+  w2.advance(30_000);
+  await r2.tick();
+  ok("resuming ends the liquidation: what is held is the model's again", r2.status().liquidating === false && r2.status().positions.length === 1);
+}
+
+section("15. A LIVE BUY SENT WITHOUT A READABLE OUTCOME PAUSES THE AGENT");
+{
+  /* Regression: a live buy whose confirmation timed out ("ambiguous") was journaled as failed
+     and the agent kept running — while the buy had landed, as JUP no stop loss watched. */
+  const { w, r, held } = await liveRig();
+  const status = w.chain.rpc.getSignatureStatus;
+  w.chain.rpc.getSignatureStatus = async () => null;            // the RPC never reports it
+  w.decisions.push({ rationale: "Buy JUP.", actions: [buy(JUP, 20)] });
+  await r.tick();
+  w.chain.rpc.getSignatureStatus = status;
+  ok("the buy landed on chain, and the book could not know it", held(JUP) > 0n && r.status().positions.length === 0 && journalOf(r, "refusal")[0]?.clause === "ambiguous");
+  const halt = journalOf(r, "control")[0];
+  ok("the agent is PAUSED, saying the tokens may be in the wallet with no stop loss", r.status().status === "paused" && halt?.action === "paused" && /no stop loss or take profit watches it/.test(halt.message));
+  ok("…and the owner is told", w.notes.some((n) => n.kind === "attention" && /sell JUP by hand/.test(n.body)));
+  ok("…and the pause is already in storage", w.store.get(AGENT_STATE_STORAGE_KEY).status === "paused");
+}
+
+section("16. THE BOOK IS WRITTEN AS IT CHANGES, NOT ONLY WHEN A TICK ENDS");
+{
+  /* Regression: the state was stored once, at the end of a tick. A worker ended mid-tick
+     (Chrome closed, the machine asleep) forgot a fill it had made and the model's turn it had
+     taken — and on waking asked again and bought again, over a cap that could not see it. */
+  const w = createWorld();
+  await w.makeRunner().saveSpec({ ...SPEC, name: "Mortal cat" });
+  let quotes = 0;
+  const hanging = async (url, init) => (new URL(url).pathname === "/swap/v1/quote" && ++quotes === 2 ? new Promise(() => {}) : w.fetchImpl(url, init));
+  const jupiter = createJupiterClient({ fetchImpl: hanging, clock: w.clock, sleep: w.sleep, timers: w.timers });
+  const dying = createAgentRunner({ clock: w.clock, storage: w.storage, market: w.market, brain: w.brain, jupiter, hasApiKey: async () => true });
+  await dying.start();
+  w.decisions.push({ rationale: "Buy two.", actions: [buy(JUP, 20), buy(JTO, 20)] });
+  dying.tick();                                                  // the second quote never answers: the worker "dies" there
+  for (let i = 0; i < 200 && !dying.state().positions[JUP]; i++) await settle();
+  const asked = w.anthropic.length;
+  const woken = w.makeRunner();
+  await woken.load();
+  ok("a new worker finds the JUP fill made before the old one died", woken.state().positions[JUP]?.qtyRaw === dying.state().positions[JUP]?.qtyRaw && woken.status().vault.settlementUsd === 80);
+  ok("…and the model's turn it had taken", woken.state().nextBrainAt === dying.state().nextBrainAt && woken.state().nextBrainAt > w.clock());
+  await woken.tick();
+  ok("…so it does not ask the model again, or buy again, on waking", w.anthropic.length === asked && journalOf(woken, "fill").length === 1);
+
+  /* The live half: a worker that dies between the key signing and the fill being booked. */
+  const L2 = await liveRig();
+  const send = L2.w.chain.rpc.sendTransaction;
+  L2.w.chain.rpc.sendTransaction = async (tx) => { await send(tx); return new Promise(() => {}); };   // lands, then the worker dies
+  L2.w.decisions.push({ rationale: "Buy JUP.", actions: [buy(JUP, 20)] });
+  L2.r.tick();
+  for (let i = 0; i < 400 && L2.held(JUP) === 0n; i++) await settle();
+  ok("(the buy landed while the old worker waited)", L2.held(JUP) > 0n && L2.w.store.get(AGENT_STATE_STORAGE_KEY).inflight?.side === "buy");
+  const next = L2.w.makeRunner(L2.fences);
+  await next.load();
+  const said = journalOf(next, "control")[0];
+  ok("a new worker that finds a live buy in flight pauses the agent and says why", next.status().status === "paused" && said?.action === "paused" && /stopped while a live buy of JUP/.test(said.message) && next.state().inflight === null);
+  ok("…and tells the owner to check the wallet", L2.w.notes.some((n) => n.kind === "attention" && /may have landed unbooked/.test(n.title)));
+}
+
+section("17. WITHDRAW: THE TICKS STAND ASIDE, AND THE BREAKER JUDGES TRADING, NOT THE WITHDRAWAL");
+{
+  /* Regression: a tick during the sweep saw the USDC gone, tripped the breaker and, set to
+     liquidate, sold the JUP the sweep was about to move; and a clean withdrawal tripped the
+     breaker at 100% the tick after, notified the owner, and wrote a 100% max drawdown. */
+  const { w, r, held, setHeld } = await liveRig({ spec: { drawdownAction: "liquidate" } });
+  w.decisions.push({ rationale: "Buy JUP.", actions: [buy(JUP, 20)] });
+  await r.tick();
+  const jup = held(JUP);
+  ok("(a live JUP position, $80 of USDC beside it)", r.status().positions.length === 1 && jup > 0n && held(USDC) === 80_000_000n);
+  await r.pauseForWithdraw();
+  setHeld(USDC, 0n);                                             // the sweep has moved the USDC…
+  const sends = w.chain.st.sent.size;
+  w.advance(30_000);
+  const mid = await r.tick();                                    // …and the alarm fires mid-sweep
+  ok("a tick during the sweep stands aside: no breaker, nothing sold", mid.skipped === "withdrawing" && w.chain.st.sent.size === sends && journalOf(r, "breaker").length === 0 && held(JUP) === jup);
+  setHeld(JUP, 0n);                                              // …then the JUP
+  await r.markWithdrawn({ to: "PhantomOwner1111111111111111111111111111111", tokens: [{ mint: USDC, symbol: "USDC", ui: "80" }, { mint: JUP, symbol: "JUP", ui: "66" }], sol: null });
+  w.advance(30_000);
+  await r.tick();
+  ok("after it, the ticks run again; the JUP row is closed as withdrawn, not sold", r.status().positions.length === 0 && r.status().pnl.closed[0]?.reason.startsWith("withdrawn to") && r.status().pnl.closed[0].pnlUsd === null);
+  ok("…and the breaker does not trip on money the owner took out", journalOf(r, "breaker").length === 0 && r.status().day.tripped === false && r.status().day.drawdownPct < 1 && !w.notes.some((n) => /breaker tripped/.test(n.title)), `drawdown ${r.status().day.drawdownPct}%`);
+  ok("…nor does it write a max drawdown the trading never had", r.status().pnl.maxDrawdownPct < 1, `${r.status().pnl.maxDrawdownPct}%`);
+  ok("…and the journal says what left, as flows, not trades", journalOf(r, "flow").length === 2 && journalOf(r, "flow").every((f) => f.usd < 0));
+  await r.pauseForWithdraw();
+  await r.markWithdrawn(null);
+  w.advance(30_000);
+  ok("a withdrawal that failed still hands the wallet back to the ticks", (await r.tick()).ticked === true && journalOf(r, "control").some((c) => c.action === "withdraw_failed"));
+}
+
+section("18. A DEPOSIT MOVES THE DAY'S BASE: THE BREAKER IS NOT BLUNTED");
+{
+  /* Regression: the breaker judged the vault against its value at the start of the UTC day,
+     deposits included — so $1,000 added to a $100 vault put a 5% breaker $1,005 away. */
+  const { w, r, held, setHeld } = await liveRig({ spec: { maxPositionUsd: 500, maxExposurePct: 100, stopLossPct: 30, takeProfitPct: 100 } });
+  await r.tick();
+  ok("(the UTC day starts at the $100 vault)", r.status().day.startEquityUsd === 100);
+  setHeld(USDC, held(USDC) + 1_000_000_000n);                   // the owner funds $1,000 more from Phantom
+  w.decisions.push({ rationale: "Buy JUP big.", actions: [buy(JUP, 400)] });
+  await r.runNow();
+  w.advance(30_000);
+  await r.tick();
+  ok("the deposit is a flow: the day's base is now $1,100, and the $400 buy fills", r.status().day.startEquityUsd === 1_100 && journalOf(r, "flow")[0]?.usd === 1_000 && r.status().positions[0]?.costUsd > 399, `${r.status().day.startEquityUsd}`);
+  w.prices[JUP] = 0.30 * 0.84;                                   // −16% on $400: about 5.9% of $1,100
+  w.advance(30_000);
+  await r.tick();
+  ok("a 5.9% loss on the funded vault trips the 5% breaker", r.status().day.tripped === true && journalOf(r, "breaker").length === 1, `${r.status().day.drawdownPct}% of ${r.status().day.startEquityUsd}`);
+}
+
+section("19. PAUSE PRESSED WHILE THE MODEL IS DECIDING: NO BUY FROM THAT DECISION");
+{
+  /* Regression: Pause waited its turn behind a tick that was waiting on the model, and the
+     buys that decision named were made before the pause took hold. */
+  const w = createWorld();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const slowBrain = createBrain({ fetchImpl: async (url, init) => { if (new URL(url).pathname === "/v1/messages") await gate; return w.fetchImpl(url, init); }, apiKey: async () => w.key, timers: w.timers });
+  const r = createAgentRunner({ clock: w.clock, storage: w.storage, market: w.market, brain: slowBrain, jupiter: w.jupiter, hasApiKey: async () => true });
+  await r.saveSpec({ ...SPEC, name: "Slow cat" });
+  await r.start();
+  w.decisions.push({ rationale: "Buy JUP.", actions: [buy(JUP, 20)] });
+  const t = r.tick();
+  for (let i = 0; i < 50; i++) await settle();
+  const paused = r.pause();                                      // the owner presses Pause while the model thinks
+  release();
+  await t; await paused;
+  ok("the decision arrives after Pause was pressed: its buy is refused (paused), nothing bought", r.status().positions.length === 0 && journalOf(r, "refusal")[0]?.clause === "paused" && r.status().status === "paused");
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

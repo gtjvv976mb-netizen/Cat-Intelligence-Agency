@@ -40,36 +40,33 @@ Count: 30 / 50. Use this one only after the ticker is final.
 
 **Option 1 (recommended)**
 ```text
-Every agent is a cat built for crypto. We read the chain so you don't get played: rugs, fake hype, whales, copycat cat coins. Not a government agency. NFA.
+Crying Cat opened the file. It said RUGGED. Now the whole agency is on the case: pixel kittens reading the chain so you don't get played. $CIA · NFA
 ```
-Count: 155 / 160
+Count: 148 / 160
 
 **Option 2**
 ```text
-Crying Cat: rugs. Grumpy Cat: fake hype. CashCat: whales. Popcat: new cat coins. Agent 001 is real software. Receipts on-chain. NFA.
+we cry so you don't have to. pixel kittens investigating rugs, fake hype, whales & copycat cats. receipts on-chain. $CIA · not that CIA · NFA
 ```
-Count: 132 / 160
+Count: 141 / 160
 
 **Option 3**
 ```text
-Cats built for crypto, investigating the market in public: rugs, bundles, whales, copycat cat coins. Every case links on-chain evidence. Not that CIA. NFA.
+Every agent is a cat built for crypto. Crying Cat found a file marked RUGGED and hasn't stopped crying since. We read the chain. $CIA · NFA
 ```
-Count: 155 / 160
+Count: 139 / 160
 
-Option 1 is the recommendation. It says what the agency is and has a hook, and it carries both disclaimers without sounding like a lawyer wrote it. Option 2 names Grumpy Cat and Popcat, so it inherits both risks in section 7.
+Option 1 is the recommendation. Crying Cat is the face of the coin, and the RUGGED file is the joke the whole account runs on. Option 2 is the lowercase shitpost voice, with "not that CIA" as a nod.
 
 ### Header image (1500 x 500)
 
-**Scene.** The agents are pixel kittens in black suits, standing in a row on a 2D pixel floor at night. The Director stands in the middle, in sunglasses. Around it:
-- CoinMarketCat with a crosshair glinting in one eye.
-- Crying Cat, tears on a case file stamped `RUGGED`.
-- Grumpy Cat pushing a file stamped `NOT IMPRESSED` off the edge of the frame, because cats.
-- CashCat holding a magnifying glass over a wallet address.
-- Popcat with its mouth popped wide open in a round O, holding up a radar whose screen is the only hot pink (`#ff4fd8`) in the frame.
+`brand/banner/x-header-1500x500.jpg`, made with Higgsfield. **The scene:** a pixel night skyline and a neon pixel floor. In the middle, Crying Cat wails over a case file stamped `RUGGED`, and its tears form a puddle. The Director stands behind it in sunglasses, patting its head. Around them:
+- Popcat gasps with its mouth in a round O and points its hot-pink radar.
+- Grumpy Cat crosses its arms, unimpressed.
+- CashCat stares at the file through gold binoculars.
+- CoinMarketCat leans in with its scope glowing.
 
-Behind them hangs a cork board of wallet addresses joined by red string.
-
-**Text on the image:** `CAT INTELLIGENCE AGENCY — WE READ THE CHAIN.`
+The left side reads `$CIA` / CAT INTELLIGENCE AGENCY / cats built for crypto, clear of the spot where X lays the profile photo over the header.
 
 **Art rules.**
 - Original artwork only.
@@ -438,17 +435,25 @@ Rule 6 matters more than it looks. CashCat investigates paid promos, and Popcat'
 
 **Recommended.** Use it only if the fair-launch terms are confirmed; otherwise use the alternate below.
 ```text
-Cat Intelligence Agency: every agent is a cat built for crypto. On X, it investigates the market in public (rugs, fake hype, whales, copycat cat coins), every case with on-chain evidence. Agent 001, CoinMarketCat, is a real Chrome extension. $CIA is the agency's memecoin: a meme with no intrinsic value and no expectation of profit. Fair launch, no presale, no team allocation. The only real contract address is the one posted on the agency's X account. We will never DM you. Not financial advice.
+Crying Cat opened the case file. It said RUGGED. Crying Cat cried. Then Crying Cat got to work.
+
+$CIA is the memecoin of Cat Intelligence Agency, a crew of pixel kittens investigating crypto in public on X: ruggers, fake hype, whales, KOLs and copycat cat coins, receipts on-chain. Agent 001, CoinMarketCat, is a real sniper-bot extension.
+
+Fair launch. No presale. No team allocation. Only trust the CA posted on our X. We never DM. Pure meme, no promises, NFA.
 ```
-Count: 498 / 500
+Count: 462 / 500
 
 **Alternate, without the launch terms**
 ```text
-Cat Intelligence Agency: every agent is a cat built for crypto. On X, it investigates the market in public (rugs, fake hype, whales, copycat cat coins), every case with on-chain evidence. Agent 001, CoinMarketCat, is a real Chrome extension. $CIA is the agency's memecoin: a meme with no intrinsic value and no expectation of profit. The only real contract address is the one posted on the agency's X account. We will never DM you. Not financial advice.
-```
-Count: 453 / 500
+Crying Cat opened the case file. It said RUGGED. Crying Cat cried. Then Crying Cat got to work.
 
-Neither version names the individual cats. That keeps "Grumpy Cat" and "Popcat" off the coin listing, which is where section 7's risks are sharpest.
+$CIA is the memecoin of Cat Intelligence Agency, a crew of pixel kittens investigating crypto in public on X: ruggers, fake hype, whales, KOLs and copycat cat coins, receipts on-chain. Agent 001, CoinMarketCat, is a real sniper-bot extension.
+
+Only trust the CA posted on our X. We never DM. Pure meme, no promises, NFA.
+```
+Count: 417 / 500
+
+Both open on Crying Cat, the face of the coin. Neither names Grumpy Cat or Popcat (see section 7).
 
 ### Social fields on pump.fun
 

@@ -25,6 +25,7 @@ house rules, the pump.fun description, and the site copy.
 | `agents/<cat>-1024.png` | 1024×1024 | Each kitten as generated, transparent, for posts and reaction images |
 | `3d/agency-hq.glb` | 1.4 MB | The agency headquarters, a textured 3D model (about 11,000 vertices, one 1024 JPEG texture), unit-sized and centred |
 | `floor/workfloor.png` | 2688×1520 | **The work floor**: the agency's office in isometric pixel art, with each kitten at its station (the Director by the world-map screen, Crying Cat behind a pile of RUGGED files, Grumpy Cat, CashCat by the window, Popcat at the radar, CoinMarketCat at the sniper screen). `workfloor-alt.png` is the other take |
+| `floor/tear-sheet.png`, `floor/case-file.png`, `floor/enter-portal.png` | 1024×1024, transparent | Floor sprites: a 4-frame falling-tear strip (left to right), the case-file icon for posted cases, and the glowing ENTER portal marker for the building |
 | `floor/screen-<cat>.png`, `floor/case-board.png` | 4:3 / 16:9 | Each cat's monitor screen and the cork case board, for the stations on the site |
 | `source/` | | The coin logo at 2160 px (and the two earlier versions: the Director, and Crying Cat with a thumbs up), the roster scene, the Director portrait, the seamless pixel floor tile, and the building concept image, as generated |
 

@@ -26,7 +26,7 @@ house rules, the pump.fun description, and the site copy.
 | `3d/agency-hq.glb` | 1.4 MB | The agency headquarters, a textured 3D model (about 11,000 vertices, one 1024 JPEG texture), unit-sized and centred |
 | `source/` | | The coin logo at 2160 px (and the two earlier versions: the Director, and Crying Cat with a thumbs up), the roster scene, the Director portrait, the seamless pixel floor tile, and the building concept image, as generated |
 
-The cats: `director` (the logo), `coinmarketcat` (the sniper; the extension's icons are made
+The cats: `director` (the mascot; the coin's face is Crying Cat), `coinmarketcat` (the sniper; the extension's icons are made
 from this one), `crying-cat` (ruggers), `grumpy-cat` (fake hype), `cashcat` (whales and KOLs), `popcat` (emerging cat memecoins).
 
 ## Palette

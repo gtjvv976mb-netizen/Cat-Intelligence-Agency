@@ -11,9 +11,9 @@ it.
 
 | Agent | Beat | What it is |
 |---|---|---|
-| **The Director** | Runs the agency | The logo and mascot |
+| **The Director** | Runs the agency | The mascot |
 | **CoinMarketCat** | Sniping new launches | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-sniper-bot)) |
-| **Crying Cat** | Ruggers | A persona the agency posts as on X |
+| **Crying Cat** | Ruggers | A persona the agency posts as on X, and the face of $CIA |
 | **Grumpy Cat** | Fake hype | A persona the agency posts as on X |
 | **CashCat** | Whales and KOLs | A persona the agency posts as on X |
 | **Popcat** | Emerging cat memecoins | A persona the agency posts as on X |

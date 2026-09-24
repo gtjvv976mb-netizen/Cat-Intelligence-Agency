@@ -210,9 +210,9 @@ Count: 277 / 280
 
 All timestamps are UTC. Keep only the evidence lines that apply to the case, and keep each free-text slot under about 60 characters. If the evidence still runs past 280, add a post. Never drop a link to make room.
 
-### THE DIRECTOR (mascot and logo)
+### THE DIRECTOR (mascot)
 
-- **Role:** runs the agency, speaks for the main account and signs every correction. The logo.
+- **Role:** runs the agency, speaks for the main account and signs every correction. The mascot; Crying Cat is the face of the coin.
 - **Look:** a secret-agent pixel kitten in a black suit and sunglasses, with an earpiece. Original art, with no seals, eagles, shields or badges.
 - **Lines:** "Case open." / "Case closed." / "The chain remembers."
 

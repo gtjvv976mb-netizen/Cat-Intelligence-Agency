@@ -144,18 +144,19 @@ export function validateDecision(input, { universeMints }) {
     if (extraKeys.length) return no("unexpected_field", `action ${i} carries ${extraKeys.join(", ")}, which the format does not have`);
     if (!BRAIN_ACTIONS.includes(a.action)) return no("action_unknown", `action ${i} is "${String(a.action)}"; only ${BRAIN_ACTIONS.join(", ")} exist`);
     if (typeof a.mint !== "string" || !universe.has(a.mint)) return no("not_in_universe", `action ${i} names ${JSON.stringify(a.mint)}, which is not in the universe`);
-    const confidence = Number(a.confidence);
-    if (!(Number.isFinite(confidence) && confidence >= 0 && confidence <= 1)) return no("confidence_invalid", `action ${i}: confidence must be 0 to 1`);
+    /* A number is a JSON number: "25", [25] or true is not coerced into one. */
+    const confidence = typeof a.confidence === "number" ? a.confidence : NaN;
+    if (!(Number.isFinite(confidence) && confidence >= 0 && confidence <= 1)) return no("confidence_invalid", `action ${i}: confidence must be a number from 0 to 1`);
     if (typeof a.reason !== "string" || !a.reason.trim()) return no("reason_missing", `action ${i} gives no reason`);
     const out = { action: a.action, mint: a.mint, confidence, reason: trimText(a.reason, REASON_MAX) };
     if (a.action === "buy") {
-      const usd = Number(a.usd);
-      if (!(Number.isFinite(usd) && usd > 0)) return no("size_invalid", `action ${i}: a buy needs a positive "usd"`);
+      const usd = typeof a.usd === "number" ? a.usd : NaN;
+      if (!(Number.isFinite(usd) && usd > 0)) return no("size_invalid", `action ${i}: a buy needs a positive number "usd"`);
       if (a.fraction !== undefined) return no("size_invalid", `action ${i}: a buy is sized in "usd", not "fraction"`);
       out.usd = usd;
     } else if (a.action === "sell") {
-      const fraction = Number(a.fraction);
-      if (!(Number.isFinite(fraction) && fraction > 0 && fraction <= 1)) return no("size_invalid", `action ${i}: a sell needs a "fraction" above 0 and at most 1`);
+      const fraction = typeof a.fraction === "number" ? a.fraction : NaN;
+      if (!(Number.isFinite(fraction) && fraction > 0 && fraction <= 1)) return no("size_invalid", `action ${i}: a sell needs a number "fraction" above 0 and at most 1`);
       if (a.usd !== undefined) return no("size_invalid", `action ${i}: a sell is sized as a "fraction" of the position, not in "usd"`);
       out.fraction = fraction;
     }
@@ -274,8 +275,12 @@ export function createBrain({
       const usage = usageOf(body);
       const stopReason = typeof body.stop_reason === "string" ? body.stop_reason : null;
       if (stopReason === "refusal") throw new BrainError("refused", "the model declined to answer", { usage });
+      /* An answer cut off at max_tokens is refused whole, even with a tool call in it: the
+         call may be missing the actions after the cut (a sell, say), and half a decision is
+         not the decision. */
+      if (stopReason === "max_tokens") throw new BrainError("truncated", "the answer ran out of room before the decision was complete", { usage });
       const calls = (Array.isArray(body.content) ? body.content : []).filter((b) => isPlainObject(b) && b.type === "tool_use" && b.name === DECISION_TOOL_NAME);
-      if (!calls.length) throw new BrainError(stopReason === "max_tokens" ? "truncated" : "no_tool_call", stopReason === "max_tokens" ? "the answer ran out of room before the decision" : `the model did not call ${DECISION_TOOL_NAME}`, { usage });
+      if (!calls.length) throw new BrainError("no_tool_call", `the model did not call ${DECISION_TOOL_NAME}`, { usage });
       if (calls.length > 1) throw new BrainError("malformed_output", `the model called ${DECISION_TOOL_NAME} ${calls.length} times`, { usage });
       let decision;
       try { decision = validateDecision(calls[0].input, { universeMints }); }

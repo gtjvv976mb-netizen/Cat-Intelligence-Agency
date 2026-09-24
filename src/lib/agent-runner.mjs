@@ -28,6 +28,20 @@
  *      (with its signature when live), the breaker, the controls and the token usage, capped
  *      at JOURNAL_MAX entries in chrome.storage.local.
  *
+ * WHEN THE WORKER DIES MID-TICK (Chrome closed, the machine asleep). The book is written after
+ * every fill and the model's turn before it is asked, not only at the end of a tick; a live
+ * swap is written down as in flight before the key signs it, and a worker that wakes to find
+ * a buy in flight pauses the agent and says so. A live buy that was sent and whose outcome
+ * cannot be read pauses it too: it may have landed as tokens this book does not hold.
+ *
+ * THE OWNER'S MONEY IN AND OUT is not a gain or a loss: a deposit or a withdrawal of the
+ * settlement token (a read no fill explains) and a position withdrawn or moved by hand move
+ * the UTC day's starting value and the peak with them (`settledAt`, `externalFlow`), so the
+ * breaker judges trading only. While the owner's withdrawal sweeps the wallet the ticks stand
+ * aside. Pause, stop, liquidate and withdraw stop new buys from the moment they are asked,
+ * even by a tick already waiting on the model; Liquidate all keeps selling, tick after tick,
+ * what it could not sell at once.
+ *
  * WHAT THE MODEL CANNOT REACH. It proposes buy, sell or hold for a listed token; nothing it
  * returns is read as a limit, and nothing here writes the spec but `saveSpec`, which only
  * the owner's pages call. The WITHDRAWAL is not in this file at all: the worker sweeps the
@@ -61,6 +75,8 @@ export const CLOSED_MAX = 200;
 /** How often a held position with no price is said out loud, and a locked wallet's sell. */
 const NOTE_EVERY_MS = 10 * 60_000;
 const ARMABILITY_EVERY_MS = 15_000;
+/** The longest the ticks stand aside for the owner's withdrawal (the worker ends it sooner). */
+const WITHDRAW_HOLD_MS = 15 * 60_000;
 const LAMPORTS = 1_000_000_000;
 
 export class AgentError extends Error {
@@ -82,6 +98,8 @@ export function freshAgentState() {
     usage: { calls: 0, failures: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
     nextBrainAt: 0, lastBrainAt: null, lastTickAt: null, startedAt: null,
     lastView: null, lastSettlementUsd: null, notes: {},
+    liquidating: null,           // { at } while Liquidate all still has something to sell
+    inflight: null,              // { side, mint, symbol, at } while a live swap is being signed and sent
   };
 }
 
@@ -110,6 +128,11 @@ export function createAgentRunner({
   let chain = Promise.resolve();
   let armability = null;              // the last live checklist, and when it was read
   const exclusive = (fn) => { const p = chain.then(() => fn()); chain = p.catch(() => {}); return p; };
+  /* The owner's pause, stop, liquidate and withdraw wait their turn behind a tick that may be
+     waiting on the model; from the moment one is asked, that tick makes no new buy. */
+  let haltsAsked = 0;
+  const halting = (fn) => { haltsAsked++; return fn().finally(() => { haltsAsked--; }); };
+  let withdrawingSince = 0;           // the owner's withdrawal is sweeping the wallet: no tick until it ends
 
   /* ── persistence and the journal ──────────────────────────────────────────────────── */
   async function load() {
@@ -122,6 +145,20 @@ export function createAgentRunner({
       const fresh = freshAgentState();
       S = { ...fresh, ...saved, stats: { paper: { ...freshStats(), ...(saved.stats?.paper ?? {}) }, live: { ...freshStats(), ...(saved.stats?.live ?? {}) } },
         usage: { ...fresh.usage, ...(saved.usage ?? {}) }, notes: isPlainObject(saved.notes) ? saved.notes : {} };
+    }
+    /* THE WORKER STOPPED MID-SWAP (Chrome closed, the machine slept, the worker was ended)
+       between signing a live swap and booking it. A sell is found by the next sell, which
+       reads the wallet first. A buy may have landed as tokens this book does not know, with
+       no stop loss watching them: the agent is paused and the owner told. */
+    if (isPlainObject(S.inflight)) {
+      const f = S.inflight;
+      S.inflight = null;
+      if (f.side === "buy") {
+        if (S.status === "running") S.status = "paused";
+        journal("control", { action: "paused", message: `PAUSED: the extension stopped while a live buy of ${f.symbol} was being signed and sent (${new Date(f.at).toISOString()}). If it landed, the autopilot wallet holds ${f.symbol} this book does not know, and no stop loss or take profit watches it. Check the wallet on an explorer and sell it by hand if it is there, then resume.` });
+        notify({ kind: "attention", mint: f.mint, title: "CoinMarketCat agent paused: a live buy may have landed unbooked", body: `The extension stopped while buying ${f.symbol}. Check the autopilot wallet before resuming.` });
+      } else journal("note", { mint: f.mint, symbol: f.symbol, message: `the extension stopped while a live sell of ${f.symbol} was being sent; the next sell reads the wallet first, and closes the position if it landed` });
+      await persist();
     }
   }
   async function persist() {
@@ -199,10 +236,35 @@ export function createAgentRunner({
     const f = fences();
     const rpc = f?.rpc?.(), wallet = f?.wallet?.();
     if (rpc && wallet) {
-      try { const v = await readSettlementUsd(rpc, wallet); S.lastSettlementUsd = v; return v; }
-      catch (error) { noteOnce("settlement_read", "note", { message: `the ${settlement().symbol} balance could not be read (${error?.message ?? error}); the vault is valued with the last read` }); }
+      try { return settledAt(await readSettlementUsd(rpc, wallet)); }
+      catch (error) { noteOnce("settlement_read", "note", { message: `the ${settlement().symbol} balance could not be read (${error?.message ?? error}); the vault is valued with the last read, less what this agent spent since` }); }
     }
     return S.lastSettlementUsd ?? 0;
+  }
+  /**
+   * THE OWNER'S MONEY IN AND OUT. S.lastSettlementUsd follows every live fill as it books,
+   * so what a fresh read differs by is what no trade of this agent explains: a deposit from
+   * Phantom, a withdrawal, a balance moved by hand. That is not a gain or a loss, so the
+   * UTC day's starting value — the drawdown breaker's base — and the peak move with it: a
+   * withdrawal does not trip the breaker, and a deposit does not blunt it.
+   */
+  function settledAt(v) {
+    const was = S.lastSettlementUsd;
+    S.lastSettlementUsd = v;
+    if (Number.isFinite(was) && Math.abs(v - was) >= 0.01) externalFlow(v - was, `of ${settlement().symbol} ${v > was ? "arrived in" : "left"} the autopilot wallet`);
+    return v;
+  }
+  function externalFlow(usdAmount, why) {
+    if (!Number.isFinite(usdAmount) || usdAmount === 0) return;
+    if (S.day && Number.isFinite(S.day.startEquityUsd)) S.day = Object.freeze({ ...S.day, startEquityUsd: Math.max(0, S.day.startEquityUsd + usdAmount) });
+    const st = stats();
+    if (Number.isFinite(st.peakEquityUsd)) st.peakEquityUsd = Math.max(0, st.peakEquityUsd + usdAmount);
+    journal("flow", { usd: r(usdAmount, 2), message: `${usdAmount > 0 ? "+" : "−"}$${Math.abs(usdAmount).toFixed(2)} ${why} — not a trade: the day's starting value (the drawdown breaker's base) and the peak move with it` });
+  }
+  /** A held position's value at its last price (or its cost, never priced): what vaultView counts. */
+  function heldValueUsd(p) {
+    const qty = unitsOf(p.qtyRaw, p.decimals);
+    return qty * (Number.isFinite(p.lastPriceUsd) && p.lastPriceUsd > 0 ? p.lastPriceUsd : qty > 0 ? p.costUsd / qty : 0);
   }
 
   /* ── one swap: paper or live, between the settlement token and one listed token ──── */
@@ -290,6 +352,10 @@ export function createAgentRunner({
     checkSafeAfter(guard.post?.[1] ?? null, { wallet, mint: entry.mint, label: entry.symbol });
     checkSafeAfter(guard.post?.[2] ?? null, { wallet, mint: s.mint, label: s.symbol });
     const summary = `${side === "buy" ? "BUY" : "SELL"} ${entry.symbol} through Jupiter for the CoinMarketCat agent "${spec.name}" — ${side === "buy" ? `${rawToUnits(amountRaw, s.decimals)} ${s.symbol} in` : `at least ${rawToUnits(q.minOutRaw, s.decimals)} ${s.symbol} out`}`;
+    /* Written down before the key signs: a worker that dies from here until the fill is
+       booked leaves this behind, and load() says so (buy() and sell() clear it). */
+    S.inflight = { side, mint: entry.mint, symbol: entry.symbol, at: clock() };
+    await persist();
     const signed = await f.signSendConfirm({ txBase64, purpose: `agent-${side}`, mint: entry.mint, summary, lastValidBlockHeight: Number(built.lastValidBlockHeight), timeoutMs: 60_000, wallet });
     let fill;
     try { fill = fillFromTransaction(signed.tx, { wallet, mint: entry.mint, side, quoteMint: s.mint, quoteDecimals: s.decimals }); }
@@ -305,15 +371,21 @@ export function createAgentRunner({
     const entry = entryFor(mint);
     const s = settlement();
     const amountRaw = unitsToRaw(usdAmount.toFixed(2), s.decimals, `the ${s.symbol} amount`);
-    const fill = await swap({ side: "buy", entry, amountRaw, priority: "entry" });
+    let fill;
+    try { fill = await swap({ side: "buy", entry, amountRaw, priority: "entry" }); }
+    catch (error) { S.inflight = null; throw error; }
     const spent = Number(rawToUnits(fill.settlementRaw, s.decimals));
     const p = S.positions[mint] ?? { mint, symbol: entry.symbol, decimals: entry.decimals, program: entry.program, qtyRaw: "0", costUsd: 0, boughtUsd: 0, soldUsd: 0, openedAt: now, live: !fill.paper, lastPriceUsd: null, lastPriceAt: null };
     p.qtyRaw = (BigInt(p.qtyRaw) + BigInt(fill.qtyRaw)).toString();
     p.costUsd += spent; p.boughtUsd += spent;
     S.positions[mint] = p;
     if (fill.paper) S.paper.settlementUsd = (S.paper.settlementUsd ?? 0) - spent;
+    else if (Number.isFinite(S.lastSettlementUsd)) S.lastSettlementUsd -= spent;
     const st = stats(); st.fills++; st.feesLamports += fill.feeLamports;
     const e = journal("fill", { side: "buy", mint, symbol: entry.symbol, usd: r(spent, 2), qtyRaw: fill.qtyRaw, decimals: entry.decimals, qty: r(unitsOf(fill.qtyRaw, entry.decimals), 8), priceUsd: r(spent / unitsOf(fill.qtyRaw, entry.decimals), 10), paper: fill.paper, signature: fill.signature, impactPct: r(fill.impactPct, 4), reason: clip(reason, 300) });
+    /* Booked, so written now: not at the end of a tick the worker may not live to finish. */
+    S.inflight = null;
+    await persist();
     say(`${fill.paper ? "paper " : ""}BUY ${entry.symbol} for ${usd(spent)}${fill.signature ? `, sig ${fill.signature}` : ""}`);
     if (!fill.paper) notify({ kind: "agent", mint, title: `CoinMarketCat agent: bought ${entry.symbol}`, body: `${usd(spent)} of ${s.symbol}, signed by the autopilot wallet. ${clip(reason, 120)}` });
     return e;
@@ -332,14 +404,19 @@ export function createAgentRunner({
       if (rpc && wallet) {
         const held = BigInt(await rpc.getTokenAccountBalance(associatedTokenAddress(wallet, mint, p.program)));
         if (held <= 0n) {
+          const gone = heldValueUsd(p);
           closePosition(p, { reason: "gone: the wallet holds none of it — sold or moved by hand", now, unread: true });
           journal("note", { mint, symbol: p.symbol, message: `${p.symbol}: the autopilot wallet holds none of it — closed as sold by hand; its result reads "not read"` });
+          externalFlow(-gone, `of ${p.symbol} (at its last price) left the autopilot wallet other than by this agent's sell`);
+          await persist();
           return null;
         }
         if (held < amount) amount = held;
       }
     }
-    const fill = await swap({ side: "sell", entry, amountRaw: amount, priority: "live" });
+    let fill;
+    try { fill = await swap({ side: "sell", entry, amountRaw: amount, priority: "live" }); }
+    catch (error) { S.inflight = null; throw error; }
     const got = Number(rawToUnits(fill.settlementRaw, s.decimals));
     const sold = BigInt(fill.qtyRaw);
     const before = BigInt(p.qtyRaw);
@@ -349,11 +426,14 @@ export function createAgentRunner({
     p.qtyRaw = (before - sold > 0n ? before - sold : 0n).toString();
     p.costUsd -= costPart; p.soldUsd += got;
     if (fill.paper) S.paper.settlementUsd = (S.paper.settlementUsd ?? 0) + got;
+    else if (Number.isFinite(S.lastSettlementUsd)) S.lastSettlementUsd += got;
     const st = stats(); st.fills++; st.realizedUsd += realized; st.feesLamports += fill.feeLamports;
     const e = journal("fill", { side: "sell", mint, symbol: p.symbol, usd: r(got, 2), qtyRaw: fill.qtyRaw, decimals: p.decimals, qty: r(unitsOf(fill.qtyRaw, p.decimals), 8), priceUsd: r(got / unitsOf(fill.qtyRaw, p.decimals), 10), realizedUsd: r(realized, 2), paper: fill.paper, signature: fill.signature, protection, reason: clip(reason, 300) });
+    if (BigInt(p.qtyRaw) === 0n) closePosition(p, { reason: protection ?? "the model sold it", now });
+    S.inflight = null;
+    await persist();
     say(`${fill.paper ? "paper " : ""}SELL ${p.symbol} for ${usd(got)} (${protection ?? "the model"})${fill.signature ? `, sig ${fill.signature}` : ""}`);
     if (!fill.paper) notify({ kind: "agent", mint, title: `CoinMarketCat agent: sold ${p.symbol}`, body: `${usd(got)} of ${s.symbol} back${protection ? ` — ${protection.replace(/_/g, " ")}` : ""}, signed by the autopilot wallet.` });
-    if (BigInt(p.qtyRaw) === 0n) closePosition(p, { reason: protection ?? "the model sold it", now });
     return e;
   }
 
@@ -375,14 +455,20 @@ export function createAgentRunner({
       const clause = clauseOf(error);
       const e = noteOnce(`exit:${x.mint}:${clause}`, "refusal", { mint: x.mint, symbol: x.symbol, action: "sell", protection: x.reason, clause, message: `${x.reason.replace(/_/g, " ")} says sell ${x.symbol}, and the sell did not happen: ${error?.message ?? error} — tried again next tick` });
       if (e && clause === "autopilot_locked") notify({ kind: "attention", mint: x.mint, title: "CoinMarketCat agent: unlock the autopilot wallet to sell", body: `${x.symbol} should be sold (${x.reason.replace(/_/g, " ")}), and the autopilot wallet is locked.` });
-      if (clause === "fill_unreadable") await haltOnUnreadable(error);
+      if (clause === "fill_unreadable") await haltOnUnreadable(error, { side: "sell", symbol: x.symbol });
       return null;
     }
   }
-  async function haltOnUnreadable(error) {
+  /** A live swap that was SENT and whose outcome this book could not read: it may have
+   *  landed. The agent is paused, and the owner told what that means for each side. */
+  async function haltOnUnreadable(error, { side, symbol }) {
     if (S.status === "running") S.status = "paused";
-    journal("control", { action: "paused", message: `PAUSED: ${error.message}. Check that signature on an explorer before resuming; the protections keep running.` });
-    notify({ kind: "attention", title: "CoinMarketCat agent paused", body: clip(error.message, 200) });
+    const what = side === "buy"
+      ? `If that buy landed, the autopilot wallet holds ${symbol} this book does not know, and no stop loss or take profit watches it: check the signature on an explorer and sell it by hand if it landed, then resume`
+      : `The position stays in the book, and the next sell reads the wallet first and closes it if this one landed: check the signature on an explorer before resuming`;
+    journal("control", { action: "paused", message: `PAUSED: ${error.message}. ${what}. The protections keep running for what the book holds.` });
+    notify({ kind: "attention", title: "CoinMarketCat agent paused", body: clip(`${error.message}. ${side === "buy" ? `If it landed, sell ${symbol} by hand: the book does not hold it.` : ""}`, 240) });
+    await persist();
   }
 
   /* ── the model's turn ─────────────────────────────────────────────────────────────── */
@@ -434,6 +520,9 @@ export function createAgentRunner({
       return;
     }
     const s = settlement();
+    /* The turn is written down before the call: a worker that dies waiting on the model
+       does not ask it again, and buy again, the moment it wakes. */
+    await persist();
     let result;
     try { result = await brain.decide({ spec, settlementSymbol: s.symbol, context: contextFor({ now, snap, view, prices }), universeMints: spec.universe }); }
     catch (error) {
@@ -458,13 +547,20 @@ export function createAgentRunner({
       entry.outcomes.push({ mint: x.mint, symbol: x.mint ? symbolOf(x.mint) : null, action: x.action, outcome: "refused", clause: x.clause });
       journal("refusal", { mint: x.mint, symbol: x.mint ? symbolOf(x.mint) : null, action: x.action, clause: x.clause, message: x.message, from: "format" });
     }
-    const plan = planOrders({ spec, proposals: d.actions, positions: S.positions, prices, settlementUsd: view.settlementUsd, day: S.day, paused: S.status === "paused" });
+    const halted = () => S.status !== "running" || haltsAsked > 0;
+    const plan = planOrders({ spec, proposals: d.actions, positions: S.positions, prices, settlementUsd: view.settlementUsd, day: S.day, paused: halted() });
     for (const x of plan.refusals) {
       entry.outcomes.push({ mint: x.mint, symbol: x.mint ? symbolOf(x.mint) : null, action: x.action, outcome: "refused", clause: x.clause });
       journal("refusal", { mint: x.mint, symbol: x.mint ? symbolOf(x.mint) : null, action: x.action, clause: x.clause, message: x.message, from: "limits" });
     }
     for (const h of plan.holds) entry.outcomes.push({ mint: h.mint, symbol: symbolOf(h.mint), action: "hold", outcome: "held" });
     for (const o of plan.orders) {
+      if (o.side === "buy" && halted()) {
+        /* Paused, stopped, liquidating or withdrawing since the plan was made. */
+        entry.outcomes.push({ mint: o.mint, symbol: symbolOf(o.mint), action: "buy", outcome: "refused", clause: "paused" });
+        journal("refusal", { mint: o.mint, symbol: symbolOf(o.mint), action: "buy", clause: "paused", message: "the owner paused, stopped, liquidated or withdrew while this decision was being carried out: no new buys", from: "limits" });
+        continue;
+      }
       try {
         const fill = o.side === "buy" ? await buy({ mint: o.mint, usdAmount: o.usd, reason: o.reason, now }) : await sell({ mint: o.mint, qtyRaw: o.qtyRaw, reason: o.reason, now });
         S.day = Object.freeze({ ...S.day, trades: S.day.trades + 1 });
@@ -473,7 +569,9 @@ export function createAgentRunner({
         const clause = clauseOf(error);
         entry.outcomes.push({ mint: o.mint, symbol: symbolOf(o.mint), action: o.side, outcome: "failed", clause });
         journal("refusal", { mint: o.mint, symbol: symbolOf(o.mint), action: o.side, clause, message: clip(error?.message ?? error, 400), from: "execution" });
-        if (clause === "fill_unreadable") await haltOnUnreadable(error);
+        /* SENT, OUTCOME UNKNOWN. A buy with no status inside the confirm window may still
+           land, as tokens this book does not hold: paused, like a fill that cannot be read. */
+        if (clause === "fill_unreadable" || (o.side === "buy" && clause === "ambiguous")) await haltOnUnreadable(error, { side: o.side, symbol: symbolOf(o.mint) });
       }
     }
   }
@@ -501,8 +599,12 @@ export function createAgentRunner({
       try {
         await load();
         const now = clock();
+        /* The owner's withdrawal is moving the wallet's tokens: a stop loss or the breaker
+           selling them mid-sweep would fight it, and the balances read now are half-moved. */
+        if (withdrawingSince && now - withdrawingSince < WITHDRAW_HOLD_MS) return { skipped: "withdrawing" };
         for (const [k, at] of Object.entries(S.notes)) if (now - at >= NOTE_EVERY_MS) delete S.notes[k];
         const held = Object.keys(S.positions).length > 0;
+        if (S.liquidating && !held) S.liquidating = null;
         if (S.status === "stopped" && !held) return { skipped: "stopped" };
         const due = S.status === "running" && (force || now >= Number(S.nextBrainAt ?? 0));
         const tokens = tokensToPrice();
@@ -530,6 +632,16 @@ export function createAgentRunner({
         }
         for (const n of prot.notes) if (S.positions[n.mint]) noteOnce(`price:${n.mint}`, "note", { mint: n.mint, message: n.message });
         for (const x of prot.exits) await exit(x, now);
+        /* LIQUIDATE ALL, UNFINISHED: what it could not sell is tried again every tick, priced
+           or not, until nothing is held or the owner resumes. */
+        if (S.liquidating) {
+          const tried = new Set(prot.exits.map((x) => x.mint));
+          for (const p of Object.values({ ...S.positions })) if (!tried.has(p.mint)) await exit({ mint: p.mint, symbol: p.symbol, reason: "liquidate_all" }, now);
+          if (Object.keys(S.positions).length === 0) {
+            S.liquidating = null;
+            journal("control", { action: "liquidated", message: `liquidate all: finished — everything is back in ${settlement().symbol}` });
+          }
+        }
 
         if (due) await think({ now, snap, prices });
         settlementUsd = await settlementUsdNow();
@@ -577,8 +689,11 @@ export function createAgentRunner({
           for (const p of Object.values(S.positions)) closePosition(p, { reason: "paper book closed: the agent went live", now, unread: true });
           S.mode = "live";
           S.day = null;
+          S.lastSettlementUsd = null;
         }
-        S.lastSettlementUsd = arm.settlementUsd;
+        /* A restart on the same UTC day: what was deposited or withdrawn while it was
+           stopped moves the day's base, as it would have while running. */
+        if (arm.settlementUsd !== null) settledAt(arm.settlementUsd);
       } else {
         if (S.mode === "live" && Object.values(S.positions).some((p) => p.live)) throw new AgentError("positions_held", "the agent holds live positions: liquidate them before going back to paper");
         /* A paper start with nothing held is a fresh paper vault at the spec's amount, and a
@@ -591,6 +706,7 @@ export function createAgentRunner({
         S.mode = "paper";
       }
       S.status = "running";
+      S.liquidating = null;
       S.startedAt = now;
       S.nextBrainAt = now;
       journal("control", { action: "started", message: `started in ${S.mode.toUpperCase()}: ${universeEntries(spec).map((u) => u.symbol).join(", ")}, settled in ${settlement().symbol}, the model asked every ${spec.scheduleMinutes} min${S.mode === "paper" ? `, a ${usd(S.paper.settlementUsd)} paper vault` : ""}` });
@@ -600,10 +716,10 @@ export function createAgentRunner({
     });
   }
   async function control(action) {
-    return exclusive(async () => {
+    const run = () => exclusive(async () => {
       await load();
       if (action === "pause" && S.status === "running") S.status = "paused";
-      else if (action === "resume" && S.status === "paused") { S.status = "running"; if (Number(S.nextBrainAt) < clock()) S.nextBrainAt = clock(); }
+      else if (action === "resume" && S.status === "paused") { S.status = "running"; S.liquidating = null; if (Number(S.nextBrainAt) < clock()) S.nextBrainAt = clock(); }
       else if (action === "stop") S.status = "stopped";
       else if (action === "run_now" && S.status === "running") S.nextBrainAt = 0;
       else return status();
@@ -613,42 +729,66 @@ export function createAgentRunner({
       await persist();
       return status();
     });
+    return action === "pause" || action === "stop" ? halting(run) : run();
   }
 
   /** LIQUIDATE ALL: every position back to the settlement token, through the same checks,
-   *  then paused, so the model does not buy straight back in. */
+   *  then paused, so the model does not buy straight back in. What does not sell now is
+   *  tried again on every tick until nothing is held, or until the owner resumes. */
   async function liquidateAll() {
-    return exclusive(async () => {
+    return halting(() => exclusive(async () => {
       await load();
       const now = clock();
+      S.liquidating = { at: now };
       const done = [];
       for (const p of Object.values({ ...S.positions })) {
         const x = { mint: p.mint, symbol: p.symbol, reason: "liquidate_all" };
         const fill = await exit(x, now);
         done.push({ mint: p.mint, symbol: p.symbol, sold: Boolean(fill), signature: fill?.signature ?? null });
       }
+      const left = Object.keys(S.positions).length;
+      if (!left) S.liquidating = null;
       if (S.status === "running") S.status = "paused";
-      journal("control", { action: "liquidate_all", message: `liquidate all: ${done.filter((d) => d.sold).length} of ${done.length} position(s) sold back to ${settlement().symbol}${done.some((d) => !d.sold) ? "; the rest are retried every tick" : ""}; the agent is paused` });
+      journal("control", { action: "liquidate_all", message: `liquidate all: ${done.filter((d) => d.sold).length} of ${done.length} position(s) sold back to ${settlement().symbol}${left ? `; ${left} still held, tried again every tick until sold (resuming stops that)` : ""}; the agent is paused` });
       await persist();
       return { done, status: status() };
-    });
+    }));
   }
 
-  /** Before the owner's withdrawal: pause, and wait for anything in flight to settle. */
+  /** Before the owner's withdrawal: pause, wait for anything in flight to settle, and hold
+   *  the ticks off the wallet until markWithdrawn says the sweep is over. */
   async function pauseForWithdraw() {
-    return exclusive(async () => { await load(); if (S.status === "running") S.status = "paused"; journal("control", { action: "withdraw_started", message: "withdrawal asked by the owner: the agent is paused while the autopilot wallet is swept to Phantom" }); await persist(); });
+    return halting(() => exclusive(async () => {
+      await load();
+      withdrawingSince = clock();
+      if (S.status === "running") S.status = "paused";
+      journal("control", { action: "withdraw_started", message: "withdrawal asked by the owner: the agent is paused while the autopilot wallet is swept to Phantom" });
+      await persist();
+    }));
   }
-  /** After the owner's withdrawal (the worker's sweep): every live position whose token left
-   *  the wallet is closed as withdrawn, its result "not read" — it was moved, not sold. */
+  /** After the owner's withdrawal (the worker's sweep; `result` null when it failed): every
+   *  live position whose token left the wallet is closed as withdrawn, its result "not read"
+   *  — it was moved, not sold — and its value leaves the day's base with it, as the swept
+   *  settlement token does at the next read. The ticks resume. */
   async function markWithdrawn(result) {
     return exclusive(async () => {
       await load();
+      withdrawingSince = 0;
       const now = clock();
-      const moved = new Set((result?.tokens ?? []).map((t) => t.mint));
-      for (const p of Object.values({ ...S.positions })) if (p.live && moved.has(p.mint)) closePosition(p, { reason: `withdrawn to ${short(result.to)} as tokens (not sold)`, now, unread: true });
-      if (liveMode()) S.lastSettlementUsd = 0;
-      journal("withdraw", { to: result?.to ?? null, tokens: (result?.tokens ?? []).map((t) => ({ mint: t.mint, symbol: t.symbol, ui: t.ui, signature: t.signature })), sol: result?.sol ?? null,
-        message: `withdrawn to ${result?.to ?? "?"}: ${(result?.tokens ?? []).length} token(s)${result?.sol ? ` and ${result.sol.sol} SOL` : ""}` });
+      if (!result) {
+        journal("control", { action: "withdraw_failed", message: `the withdrawal did not finish: the agent stays paused. ${settlement().symbol} that left is found at the next balance read; a position whose tokens left is closed at its next sell, which reads the wallet first` });
+        await persist();
+        return status();
+      }
+      const moved = new Set((result.tokens ?? []).map((t) => t.mint));
+      for (const p of Object.values({ ...S.positions })) {
+        if (!(p.live && moved.has(p.mint))) continue;
+        const value = heldValueUsd(p);
+        closePosition(p, { reason: `withdrawn to ${short(result.to)} as tokens (not sold)`, now, unread: true });
+        externalFlow(-value, `of ${p.symbol} (at its last price) withdrawn to ${short(result.to)}`);
+      }
+      journal("withdraw", { to: result.to ?? null, tokens: (result.tokens ?? []).map((t) => ({ mint: t.mint, symbol: t.symbol, ui: t.ui, signature: t.signature })), sol: result.sol ?? null,
+        message: `withdrawn to ${result.to ?? "?"}: ${(result.tokens ?? []).length} token(s)${result.sol ? ` and ${result.sol.sol} SOL` : ""}` });
       await persist();
       return status();
     });
@@ -664,7 +804,7 @@ export function createAgentRunner({
     const s = settlement();
     return {
       spec: { ...spec, liveAck: undefined, liveAckTyped: Boolean(spec.liveAck), settlementSymbol: s.symbol, universeEntries: universeEntries(spec).map((u) => ({ mint: u.mint, symbol: u.symbol, source: u.source })) },
-      status: S.status, mode: S.mode, specMode: spec.mode, armed: armedNow(), problems: agentStartProblems(spec),
+      status: S.status, mode: S.mode, specMode: spec.mode, armed: armedNow(), problems: agentStartProblems(spec), liquidating: Boolean(S.liquidating),
       armability: armability ? { armable: armability.armable, items: armability.items, blocking: armability.blocking, expectedAck: armability.expectedAck, at: armability.at } : null,
       vault: view ? { settlementUsd: view.settlementUsd, positionsUsd: view.positionsUsd, equityUsd: view.equityUsd, exposurePct: view.exposurePct, stale: view.stale, unpriced: view.unpriced, at: view.at }
         : { settlementUsd: S.mode === "paper" ? S.paper.settlementUsd : S.lastSettlementUsd, positionsUsd: null, equityUsd: null, exposurePct: null, stale: [], unpriced: [], at: null },

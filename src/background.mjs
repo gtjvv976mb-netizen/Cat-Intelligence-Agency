@@ -686,8 +686,11 @@ async function agentListModels() {
 async function agentWithdraw(msg) {
   const a = await ensureAgent();
   await a.pauseForWithdraw();
-  const result = await autopilotSweep({ expectTo: msg.expectTo });
-  await a.markWithdrawn(result);
+  /* The runner's ticks stand aside until markWithdrawn, which runs whether or not the sweep
+     finished: a stop loss or the breaker must not sell what the sweep is moving. */
+  let result = null;
+  try { result = await autopilotSweep({ expectTo: msg.expectTo }); }
+  finally { await a.markWithdrawn(result); }
   updateBadge();
   return result;
 }

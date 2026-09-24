@@ -1,21 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head>
-<title>CoinMarketCat console — where the sniper cat meets your Phantom</title>
+<title>CoinMarketCat console — where the extension meets your Phantom</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="The CoinMarketCat console: the page your Phantom wallet lives on while the sniper cat runs. The extension you built attaches here, shows its status, and asks Phantom for every approval from this tab. This page holds no signing code and never sees a key.">
+<meta name="description" content="The CoinMarketCat console: the page your Phantom wallet lives on while CoinMarketCat, the agentic trading cat, and Snipurr, its sniper lane, run. The extension you built attaches here, shows Snipurr's status, and asks Phantom for every approval from this tab. This page holds no signing code and never sees a key.">
 <meta name="theme-color" content="#08050f">
 <link rel="canonical" href="https://catintelligenceagency.com/console/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cat Intelligence Agency">
-<meta property="og:title" content="CoinMarketCat console — where the sniper cat meets your Phantom">
-<meta property="og:description" content="The page Phantom lives on while CoinMarketCat, Agent 001 of Cat Intelligence Agency, runs in your browser. Keep it open while the cat is armed.">
+<meta property="og:title" content="CoinMarketCat console — where the extension meets your Phantom">
+<meta property="og:description" content="The page Phantom lives on while CoinMarketCat, Agent 001 of Cat Intelligence Agency, and Snipurr, its sniper lane, run in your browser. Keep it open while Snipurr is armed.">
 <meta property="og:url" content="https://catintelligenceagency.com/console/">
 <meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Six pixel kittens in black suits on a pixel floor at night, under the title Cat Intelligence Agency: Crying Cat sobs over a case file stamped RUGGED while the Director pats its head">
+<meta property="og:image:alt" content="Seven pixel kittens lined up on a neon pixel floor under a night skyline, beside the title Cat Intelligence Agency: Popcat, Crying Cat, Grumpy Cat, the Director, CashCat and Snipurr in black suits, and CoinMarketCat in a purple hoodie">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="icon" href="../assets/favicon-64.png" type="image/png" sizes="64x64">
@@ -125,7 +125,7 @@ p{color:var(--ink-soft)}
 </head>
 <body>
 <nav><div class="wrap">
-  <a class="brand" href="../coinmarketcat/" aria-label="CoinMarketCat, the sniper cat"><img src="../icons/coinmarketcat-128.png" width="30" height="30" alt=""><span>CoinMarket<em>Cat</em></span></a>
+  <a class="brand" href="../coinmarketcat/" aria-label="CoinMarketCat, the agentic trading cat"><img src="../icons/coinmarketcat-128.png" width="30" height="30" alt=""><span>CoinMarket<em>Cat</em></span></a>
   <a class="agency" href="../"><span class="long">Cat Intelligence Agency</span><span class="short">Agency</span></a>
   <a class="floor" href="../floor/">The Floor</a>
   <a class="back" href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
@@ -133,8 +133,8 @@ p{color:var(--ink-soft)}
 </div></nav>
 <main><div class="wrap">
   <div class="eyebrow">Agent 001 · CoinMarketCat · the console</div>
-  <h1>The sniper cat's console</h1>
-  <p class="lead">CoinMarketCat crouches ten seconds over every new launch and pounces only if it is still at or above its entry price. This page is where it meets your wallet: the extension runs the cat, Phantom lives here, and every approval the cat asks of Phantom comes from this tab. <b>Keep this tab open while the cat is armed.</b> (On Autopilot, the cat's own wallet signs its trades, and this tab is needed only to fund that wallet from Phantom.)</p>
+  <h1>CoinMarketCat's console</h1>
+  <p class="lead">CoinMarketCat, the agentic trading cat, trades Solana spot tokens from a strategy you write in plain English; Snipurr, its sniper lane, crouches ten seconds over every new pump.fun launch and pounces only if it is still at or above its entry price. This page is where the extension meets your wallet: the extension runs both cats, Phantom lives here, and every approval either asks of Phantom comes from this tab — funding the autopilot wallet the agent trades from, and in Phantom mode each of Snipurr's buys and sells. <b>Keep this tab open while Snipurr is armed in Phantom mode.</b> (On Autopilot, the autopilot wallet signs, and this tab is needed only to fund that wallet from Phantom.) The panel below shows Snipurr's lane; the agent's own status, decisions and journal are in the extension's popup.</p>
 
   <section class="console" id="console" aria-live="polite">
     <div class="head">
@@ -160,7 +160,7 @@ p{color:var(--ink-soft)}
     <p><b>No extension yet?</b> It is not in a store. You build it from <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">the repository</a> and load it unpacked — the steps are below and on <a href="../coinmarketcat/#install">CoinMarketCat's page</a>. Until then this page is a description, and the panel above stays quiet.</p>
   </div>
 
-  <h2>What the cat does, and what it does not</h2>
+  <h2>What Snipurr does, and what it does not</h2>
   <p>It listens to pump.fun's own program logs, runs every launch through <b>the same entry contract WALL-ST-E runs</b> — the executor's <code>snipe-entry.mjs</code>, vendored from a named commit of Claude-Company and hashed — and keeps a would-have position for every launch that clears, sampled forward into a shadow book in the executor's own row schema. That book grades the two entry rulers the rug literature names, and you can export it and grade it with the command the repository ships.</p>
   <p>When you arm it, a cleared launch becomes a buy only after it is <b>ten seconds old and still marks at or above its own would-have fill</b> — then the lane re-reads the curve, rebuilds and simulates the exact <code>buy_v2</code> it will sign, and asks Phantom. The position leaves in full at the take, the stop, the creator's exit or the clock, and in Phantom mode each of those is one more Phantom window. <b>A stop that needs a click is a weaker stop than a key's.</b> A sell you decline is asked again eight seconds later, and a window you leave unanswered is abandoned after thirty-two seconds and asked again, for as long as the determiner still says sell; it cannot answer for you.</p>
   <p>In Phantom mode — the default — it never sees a key. On Autopilot it holds exactly one: the key of the separate wallet it created, encrypted under your passphrase, in your browser only (<a href="../coinmarketcat/#signing">the trade-off, plainly</a>). Either way it does not use Phantom's sign-and-send; it sends the bytes you signed through the RPC you chose, with preflight skipped, exactly as the executor does, and it refuses to send anything whose message is not the one it asked you to sign.</p>
@@ -183,13 +183,13 @@ p{color:var(--ink-soft)}
       <pre>git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
 cd Cat-Intelligence-Agency &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
     <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose <code>Cat-Intelligence-Agency/dist</code>.</li>
-    <li>The setup page opens on install: paste an RPC URL — Helius, Triton or QuickNode; the public RPC refuses browsers — set your limits and choose who signs. Saving puts the cat in <b>Observe</b>.</li>
+    <li>The setup page opens on install: paste an RPC URL — Helius, Triton or QuickNode; the public RPC refuses browsers — set Snipurr's limits and choose who signs. Saving puts Snipurr in <b>Observe</b>. The agent itself is set up in Options → Agent, and starts on paper.</li>
     <li>Come back to <b>this page</b>, press <b>Connect Phantom</b>, approve the connection.</li>
     <li>Leave it on <b>Observe</b>. Watch the shadow book fill. Export it and grade it with <code>node vendor/executor/grade-entry-gates.mjs --file &lt;export&gt;</code>.</li>
     <li>Only then: <b>Execute</b>, at the 0.005 SOL canary, with the sentence the lane prints for your wallet typed into the box.</li>
   </ol>
 
-  <p class="fine"><b>What this is.</b> CoinMarketCat is Agent 001 of <a href="../">Cat Intelligence Agency</a>. A user-operated tool that runs in your own browser against your own wallet. No server receives a key, signs, or can reach this lane; this page ships no signing code — the extension you built carries it. Not advice, not a signal service, and nothing here has an edge until you have graded its book over a real sample. <b>In Phantom mode every position it opens can be sold only by a click you make</b>; if you close this tab, the lane cannot ask. On Autopilot a locked wallet signs nothing, sells included.
+  <p class="fine"><b>What this is.</b> CoinMarketCat is Agent 001 of <a href="../">Cat Intelligence Agency</a>, and Snipurr is its sniper lane. CoinMarketCat is not affiliated with CoinMarketCap. A user-operated tool that runs in your own browser against your own wallet. No server receives a key, signs, or can reach this lane; this page ships no signing code — the extension you built carries it. Not advice, not a signal service, and nothing here has an edge until you have graded its book over a real sample. <b>In Phantom mode every position it opens can be sold only by a click you make</b>; if you close this tab, the lane cannot ask. On Autopilot a locked wallet signs nothing, sells included.
 </p>
   <p class="fine">Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.<br>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
 </div></main>

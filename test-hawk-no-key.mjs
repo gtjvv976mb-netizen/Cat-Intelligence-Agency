@@ -261,6 +261,7 @@ console.log("\nTHE AGENT'S NETWORK AND SIGNING\n──────────�
   const bg = fs.readFileSync(path.join(here, KEY_HOST), "utf8");
   const withdraw = bg.match(/async function agentWithdraw\(msg\) \{[\s\S]*?\n\}\n/)?.[0] ?? "";
   ok("the agent's withdrawal is the worker's existing sweep, to the address the owner confirmed", /await autopilotSweep\(\{ expectTo: msg\.expectTo \}\)/.test(withdraw) && /pauseForWithdraw\(\)/.test(withdraw));
+  ok("…and the agent's ticks are handed the wallet back whether or not the sweep finished", /finally \{ await a\.markWithdrawn\(result\); \}/.test(withdraw));
   ok("…reached only from the AGENT.WITHDRAW message, never from the runner", (strip(bg).match(/agentWithdraw\(/g) ?? []).length === 2 && /case AGENT\.WITHDRAW: \{[^\n]*agentWithdraw\(msg\)/.test(bg));
   ok("a plain sweep is refused while the agent holds live positions (its own Withdraw closes those rows)", /case AUTOPILOT\.SWEEP: \{[\s\S]*?liveHeld\(\)[\s\S]*?return await autopilotSweep\(msg\);/.test(bg));
 }

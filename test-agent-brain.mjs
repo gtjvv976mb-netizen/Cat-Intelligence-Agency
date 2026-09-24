@@ -14,7 +14,8 @@
  *      when not; the list read once and kept;
  *   3. the answer held to the decision format: a whole decision refused for a field it does
  *      not have (a limit, say), no rationale, no action list, too many actions; one bad action
- *      refused by name while the rest stand;
+ *      refused by name while the rest stand, a size or confidence that is not a JSON number
+ *      among them;
  *   4. every failure is a BrainError with a clause — 401, 403, 429, 500, 529, 400, a body that
  *      is not JSON, the network, a timeout, a refusal, a truncated answer, no tool call, two;
  *   5. a model that refuses a forced tool_choice is asked once more with "auto", and after
@@ -144,6 +145,17 @@ section("3. THE ANSWER, HELD TO THE FORMAT");
   const s = scripted();
   s.queue.push(response(200, message({ ...goodInput, limits: { stopLossPct: 99 } })));
   ok("through the client too: a decision with a limit in it is a failure, not a trade", await clauseOf(s.decide()) === "unexpected_field");
+  /* Regression: sizes and confidences were coerced with Number(), so [25] bought $25 and
+     true was full confidence. A number in the format is a JSON number. */
+  const loose = validateDecision({ rationale: "loose types", actions: [
+    { action: "buy", mint: JUP, usd: [25], confidence: 0.5, reason: "an array" },
+    { action: "buy", mint: JTO, usd: "25", confidence: 0.5, reason: "a string" },
+    { action: "buy", mint: JITO, usd: 25, confidence: true, reason: "a boolean" },
+    { action: "sell", mint: JUP, fraction: "1", confidence: 0.5, reason: "a string" },
+    { action: "sell", mint: JTO, fraction: [0.5], confidence: "0.9", reason: "both" },
+  ] }, { universeMints: UNIVERSE });
+  ok("a size or confidence that is not a JSON number is refused, never coerced ([25], \"25\", true, \"1\")",
+    loose.actions.length === 0 && loose.rejected.length === 5 && loose.rejected.every((x) => ["size_invalid", "confidence_invalid"].includes(x.clause)), JSON.stringify(loose.actions));
 }
 
 section("4. EVERY FAILURE HAS A CLAUSE");
@@ -159,6 +171,8 @@ section("4. EVERY FAILURE HAS A CLAUSE");
     ["a refusal", response(200, message(goodInput, { stop_reason: "refusal", content: [] })), "refused"],
     ["no tool call", response(200, message(goodInput, { stop_reason: "end_turn", content: [{ type: "text", text: "I would buy JUP." }] })), "no_tool_call"],
     ["an answer that ran out of room", response(200, message(goodInput, { stop_reason: "max_tokens", content: [{ type: "text", text: "Thinking…" }] })), "truncated"],
+    /* Regression: a tool call cut off at max_tokens was executed — the actions after the cut (a sell, say) lost */
+    ["a decision cut off mid-call at max_tokens, its tool call present", response(200, message({ rationale: "Buy JUP, then sell", actions: [goodInput.actions[0]] }, { stop_reason: "max_tokens" })), "truncated"],
     ["two tool calls", response(200, message(goodInput, { content: [{ type: "tool_use", id: "a", name: DECISION_TOOL_NAME, input: goodInput }, { type: "tool_use", id: "b", name: DECISION_TOOL_NAME, input: goodInput }] })), "malformed_output"],
     ["a call to another tool", response(200, message(goodInput, { content: [{ type: "tool_use", id: "a", name: "withdraw", input: {} }] })), "no_tool_call"],
   ];

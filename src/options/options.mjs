@@ -187,7 +187,7 @@ const AGENT_LIMITS = [
   ["maxExposurePct", "Most of the vault in tokens (%)", "The rest stays in the settlement token. Pending buys count against it."],
   ["stopLossPct", "Stop loss (% under entry)", "A position at or under its entry price less this is sold in full. Checked every half minute, whatever the model says, and when it cannot be reached."],
   ["takeProfitPct", "Take profit (% over entry)", "A position at or over its entry price plus this is sold in full. Checked every half minute."],
-  ["maxDailyDrawdownPct", "Daily drawdown (% of the vault)", "Measured against the vault's value when the UTC day began. At the limit the breaker trips until UTC midnight."],
+  ["maxDailyDrawdownPct", "Daily drawdown (% of the vault)", "Measured against the vault's value when the UTC day began; a deposit or a withdrawal moves that value with it, as it is not a loss. At the limit the breaker trips until UTC midnight."],
   ["maxTradesPerDay", "Trades per day", "The model's buys and sells, per UTC day. A stop loss or take profit is never refused for it and does not count."],
   ["slippageBps", "Slippage cap (bps)", `Written into every Jupiter instruction; a quote or transaction that says otherwise is refused. ${AGENT_BOUNDS.slippageBps.min} to ${AGENT_BOUNDS.slippageBps.max}.`],
   ["paperVaultUsd", "Paper vault ($)", `What a paper run starts with, at least the $${AGENT_BOUNDS.minVaultUsd} vault minimum. Starting on paper with nothing held starts a fresh paper vault.`],

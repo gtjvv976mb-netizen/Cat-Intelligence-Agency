@@ -15,8 +15,8 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const reduce = matchMedia("(prefers-reduced-motion: reduce)");
 const mouse = matchMedia("(hover: hover) and (pointer: fine)");
-const CASE_ID = /^(DIR|CRY|GRR|CSH|POP|CMC)-\d{3,4}$/;
-const SPRITE = { director: [150, 211], coinmarketcat: [146, 207], "crying-cat": [144, 206], "grumpy-cat": [144, 202], cashcat: [143, 208], popcat: [197, 211] };
+const CASE_ID = /^(DIR|CRY|GRR|CSH|POP|CMC|SNP)-\d{3,4}$/;
+const SPRITE = { director: [150, 211], coinmarketcat: [175, 209], snipurr: [146, 207], "crying-cat": [144, 206], "grumpy-cat": [144, 202], cashcat: [143, 208], popcat: [197, 211] };
 const ACCENT = Object.fromEntries($$(".roster li").map((li) => [li.id, { accent: li.style.getPropertyValue("--accent"), text: li.style.getPropertyValue("--accent-text") }]));
 
 /* ── the X link, from the one config; empty until the handle exists ───────── */
@@ -52,7 +52,13 @@ function outLink(href, cls, text) {
 }
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const noun = (cat) => (cat === "director" ? ["announcement", "announcements"] : cat === "coinmarketcat" ? ["field report", "field reports"] : ["case", "cases"]);
+/* What each desk posts: the Director, announcements; the two software cats, field reports; the
+   two bots being built, launches and callouts; the investigators, cases. */
+const NOUNS = {
+  director: ["announcement", "announcements"], coinmarketcat: ["field report", "field reports"], snipurr: ["field report", "field reports"],
+  cashcat: ["launch", "launches"], popcat: ["callout", "callouts"],
+};
+const noun = (cat) => NOUNS[cat] || ["case", "cases"];
 
 /* ── the cases ─────────────────────────────────────────────────────────── */
 let cases = [];

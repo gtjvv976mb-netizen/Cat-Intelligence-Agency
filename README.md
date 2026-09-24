@@ -4,21 +4,23 @@
 
 **Website:** [catintelligenceagency.com](https://catintelligenceagency.com/)
 
-Cat Intelligence Agency is a crew of pixel-kitten agents that investigate the crypto market
-in public on X, plus the agency's memecoin, **$CIA**. One of its products is real software:
+Cat Intelligence Agency is a crew of seven pixel kittens built for crypto, plus the agency's
+memecoin, **$CIA**. Two of them investigate the market in public on X. Two are real software:
 **CoinMarketCat**, the agentic trading cat — agentic trading for Solana, in plain English — a
-Chrome extension you run in your own browser, with **Snipurr**, the pump.fun sniper cat, as
-its other lane. This repository holds all of it. CoinMarketCat is not affiliated with
+Chrome extension you run in your own browser, and **Snipurr**, the pump.fun sniper cat, which
+ships inside it as its other lane. Two more, **CashCat** and **Popcat**, are bots the agency
+is building. This repository holds all of it. CoinMarketCat is not affiliated with
 CoinMarketCap.
 
 | Agent | Beat | What it is |
 |---|---|---|
 | **The Director** | Runs the agency | The mascot |
-| **CoinMarketCat** | Agentic trading for Solana, in plain English — with Snipurr, the sniper cat, inside | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-agentic-trading-cat)) |
+| **CoinMarketCat** | Agentic trading for Solana, in plain English | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-agentic-trading-cat)). An orange tabby pixel kitten in a purple hoodie |
+| **Snipurr** | New pump.fun launches, sniped by rule | Software: the sniper lane inside CoinMarketCat ([manual below](#snipurr--the-sniper-lane)). It posts nothing on X. The mint-green kitten with the sniper-scope eyepiece, CoinMarketCat's old art |
 | **Crying Cat** | Ruggers | A persona the agency posts as on X, and the face of $CIA |
 | **Grumpy Cat** | Fake hype | A persona the agency posts as on X |
-| **CashCat** | Whales and KOLs | A persona the agency posts as on X |
-| **Popcat** | Emerging cat memecoins | A persona the agency posts as on X |
+| **CashCat** | Launches cat-themed coins by itself, from what is trending, on pump.fun and on StonkFun (Solana's stock-paired launchpad) | An auto-launcher bot, **being built**; nothing has launched. It no longer investigates whales and KOLs |
+| **Popcat** | Calls out new cat coins on pump.fun, each with its safety checks, at its desk on the work floor and in the floor's feed. Cat coins only | A callout bot, **being built**; nothing has been called out |
 
 ## What is in this repository
 
@@ -26,7 +28,8 @@ CoinMarketCap.
 |---|---|
 | `src/`, `manifest.json`, `build.mjs`, `vendor/`, `fixtures/` | CoinMarketCat, the agentic trading extension, and Snipurr, its sniper lane |
 | `site/` | The website: the agency's home with its 3D headquarters, [the work floor](https://catintelligenceagency.com/floor/) where the cats post their cases, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), and [the console](https://catintelligenceagency.com/console/) the extension signs through |
-| `brand/` | The [brand kit](brand/README.md): the six pixel-kitten agents, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
+| `brand/` | The [brand kit](brand/README.md): the seven pixel kittens (CoinMarketCat in its purple hoodie, Snipurr in CoinMarketCat's old art), the work floor with seven desks, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
+| `icons/` | The extension's icons: CoinMarketCat's face, in its hoodie |
 
 $CIA is a memecoin with no intrinsic value and no expectation of profit. Nothing here is
 financial advice. Cat Intelligence Agency is a meme and software project, not a government
@@ -36,7 +39,7 @@ agency, and is not affiliated with CoinMarketCap or with the owners of any real 
 
 Click the 3D headquarters on the home page (or **Enter the agency**, or **The Floor** in the
 bar) and you are on [the work floor](https://catintelligenceagency.com/floor/): the office in
-pixel art, each cat at its own desk. Click a desk to open that cat's station: its monitor,
+pixel art, each of the seven cats at its own desk. Click a desk to open that cat's station: its monitor,
 who it is, and **its case files**, newest first. Every case also shows up under **Latest from
 the floor**. Until a cat has posted something, its station says so and shows its case
 template instead. Nothing on the floor is invented: it shows only what is in one file.
@@ -54,8 +57,8 @@ template instead. Nothing on the floor is invented: it shows only what is in one
 
 | Field | Rule |
 |---|---|
-| `id` | The agent's prefix and a number: `DIR-001` (the Director), `CRY-001` (Crying Cat), `GRR-001` (Grumpy Cat), `CSH-001` (CashCat), `POP-001` (Popcat), `CMC-001` (CoinMarketCat's field reports). Unique. |
-| `agent` | `director`, `crying-cat`, `grumpy-cat`, `cashcat`, `popcat` or `coinmarketcat` |
+| `id` | The agent's prefix and a number: `DIR-001` (the Director), `CRY-001` (Crying Cat), `GRR-001` (Grumpy Cat), `CSH-001` (CashCat), `POP-001` (Popcat), `CMC-001` (CoinMarketCat's field reports), `SNP-001` (Snipurr's field reports). Unique. |
+| `agent` | `director`, `crying-cat`, `grumpy-cat`, `cashcat`, `popcat`, `coinmarketcat` or `snipurr` |
 | `date` | The day it was posted, UTC, `YYYY-MM-DD` |
 | `verdict` | One of that agent's verdicts (below) |
 | `title` | One line, up to 140 characters. Plain text. |
@@ -71,6 +74,10 @@ template instead. Nothing on the floor is invented: it shows only what is in one
 | CashCat | `WHALE MOVE`, `NO RED FLAGS FOUND`, `CORRECTED` |
 | Popcat | `COPYCAT`, `CLONE`, `HONEYPOT`, `NO RED FLAGS FOUND`, `CORRECTED` |
 | CoinMarketCat | `FIELD REPORT` |
+| Snipurr | `FIELD REPORT` |
+
+CashCat's and Popcat's rows are still those of their old investigator beats. Their new jobs
+(launches and callouts) are being built, and those rows change when the bots do.
 
 A worked example: a Crying Cat case, as it would sit in the file. Every `[bracketed]` value
 is a slot to fill from the case's own thread; the validator refuses the entry until the date,
@@ -174,7 +181,7 @@ nothing the model returns can write. Every clause is walked in `test-agent-risk.
 | Most of the vault in tokens | 60% | 1–100% | pending buys count too (`exposure_cap`) |
 | Stop loss | 8% under entry | 0.5–50% | the whole position is sold, every half minute (`stop_loss`) |
 | Take profit | 15% over entry | 0.5–1000% | the whole position is sold, every half minute (`take_profit`) |
-| Daily drawdown | 5% | 0.5–50% | measured from the vault's value at the start of the UTC day; at the limit the breaker trips until UTC midnight and either stops new buys or sells everything (`drawdown_breaker`, `drawdown_liquidate`) |
+| Daily drawdown | 5% | 0.5–50% | measured from the vault's value at the start of the UTC day, which a deposit or a withdrawal moves with it (a flow is not a loss); at the limit the breaker trips until UTC midnight and either stops new buys or sells everything (`drawdown_breaker`, `drawdown_liquidate`) |
 | Trades a day | 6 | 1–96 | the model's buys and sells per UTC day; a stop or take never counts and is never refused (`trades_per_day`) |
 | Slippage | 100 bps | 10–300 bps | written into every Jupiter instruction; a quote or transaction that says otherwise is refused |
 | Minimum trade | $10 | fixed | a smaller buy, or a partial sell worth less, is refused (`below_min_trade`); a whole position may always be sold |
@@ -262,13 +269,22 @@ remembers that for it.
 In the popup's **Agent** tab: **Start** (on paper, or live with the typed sentence),
 **Pause** (the model is not asked; the protections keep running), **Decide now** (ask the
 model at the next tick), **Liquidate all** (every position sold back to the settlement token
-through the same checks, then paused), **Withdraw**, and **Stop** (what is still held keeps
-its protections). **Withdraw** is yours alone: it pauses the agent and runs the existing
-sweep of the autopilot wallet — every token, then the SOL above the rent floor — to your
-connected Phantom address, then closes the agent's rows for what left as withdrawn. The
-model cannot name it (only `buy`, `sell` and `hold` exist), and the runner has no code path
-from a decision to a sweep. While the agent holds live positions the autopilot card's plain
-*Sweep* refuses and points to Withdraw.
+through the same checks, then paused; what does not sell at once is tried again every tick
+until it does, or until you resume), **Withdraw**, and **Stop** (what is still held keeps
+its protections). Pause, Stop, Liquidate all and Withdraw stop new buys from the moment you
+press them, even from a decision the model is still making. **Withdraw** is yours alone: it
+pauses the agent and runs the existing sweep of the autopilot wallet — every token, then the
+SOL above the rent floor — to your connected Phantom address, then closes the agent's rows
+for what left as withdrawn; while the sweep runs, the agent's ticks stand aside. The model
+cannot name it (only `buy`, `sell` and `hold` exist), and the runner has no code path from a
+decision to a sweep. While the agent holds live positions the autopilot card's plain *Sweep*
+refuses and points to Withdraw.
+
+If Chrome closes or the worker is ended mid-trade, what was booked is already stored: the
+book is written after every fill and before each model call. A live buy that was sent and
+whose outcome cannot be read — or that was being signed when the worker stopped — **pauses
+the agent**: it may have landed as tokens the book does not hold, which no stop loss
+watches. The journal and a notification say so; check the wallet before resuming.
 
 ### What is not measured, and what it is not
 
@@ -719,7 +735,7 @@ on every push to `main`.
 | `test-agent-market.mjs` | the snapshot replayed from the recorded DexScreener, GeckoTerminal and Jupiter answers: the parsers, missing stays missing, the indicators worked by hand and cross-checked on the live candles, one request per tick, candles only when asked and 2.1 s apart, a 429 resting the host and doubling, Jupiter pricing only what DexScreener did not |
 | `test-agent-brain.mjs` | the brain against a scripted Anthropic API with invented model ids: the request and its headers, the model list and the default, the decision format held exactly, 401/403/429/500/529/400, a refusal, a truncated answer, no tool call, the retry when a forced tool choice is refused, usage, and the key in one header to one origin |
 | `test-agent-risk.mjs` | the hard limits clause by clause: the UTC day, valuation with stale and unpriced marks, the stop and take at their edges, the breaker tripping, holding and resetting at UTC midnight, liquidate, every clamp in order, every refusal clause produced, and no limit the model can move |
-| `test-agent-runner.mjs` | the agent end to end: paper against scripted feeds, Jupiter and the model — decisions, clamps, fills, the take and stop between turns, the model failing, the breaker, pause, liquidate, stop, the journal cap, a restart; then live on a chain double with the real engine's fences and the real autopilot wallet — arming, a checked and signed buy read back from the chain, five hostile transactions refused before signing, a live take profit, a locked wallet; and the pair allowlist on Jupiter's recorded live transaction |
+| `test-agent-runner.mjs` | the agent end to end: paper against scripted feeds, Jupiter and the model — decisions, clamps, fills, the take and stop between turns, the model failing, the breaker, pause, liquidate, stop, the journal cap, a restart; then live on a chain double with the real engine's fences and the real autopilot wallet — arming, a checked and signed buy read back from the chain, five hostile transactions refused before signing, a live take profit, a locked wallet; and the pair allowlist on Jupiter's recorded live transaction; then the money paths under failure — Liquidate all retrying what it could not sell, a live buy with no readable outcome pausing the agent, a worker dying mid-tick or mid-swap, a withdrawal and a deposit moving the breaker's base, and Pause pressed while the model decides |
 | `test-agent-no-leak.mjs` | the API key: the AGENT messages, where the key is read, the password field that is cleared, the running worker (the key only ever to api.anthropic.com, never stored elsewhere, logged or answered), the bundles, the site; and no model identifier in any file or commit message |
 | `test-hawk-engine.mjs` | Snipurr's lane end to end against a scripted chain that executes the venue's own `buy_v2`/`sell_v2` and a scripted Phantom: notice → shadow row → the wait → re-read → sign → fill → 1.5× take → declined sell re-asked → approved sell closes with the chain's SOL; a launch nobody followed is never bought; a declined or unanswered buy; a tampered signature refused; the day cap; the hard stop; the JSONL export read back and scored. Then a GLDx-quoted curve built from the live fixture bytes: refused when GLDx is not listed; read on the same call and filed in GLDx when it is; the canary buy with the GLDx account created under Token-2022, simulated on the GLDx delta, read back in eight decimals; the sell for GLDx; the full ticket once proven; the per-stock day cap and the SOL day; a short wallet, a paused stock, a buy that cannot be read back; SOL and GLDx graded apart; the stock list's validation and the arm sentence; the fill reader alone |
 | `test-hawk-engine.mjs` §18 | autopilot with the real session wallet (a keystore over Maps, `createSessionSigner`): locked it does not arm; unlocked and funded it arms on the autopilot sentence; the buy and the sell reaching the chain carry ed25519 signatures by the autopilot key and Phantom is asked nothing; the key reaches no log, notification or store; a wallet short of one buy does not arm, and one that fell short since the last read is refused at `autopilot_balance_short`; switching to Phantom never strands a position; locked, a sell waits and says so; an unlock that runs out disarms |
@@ -730,7 +746,7 @@ on every push to `main`.
 | `test-hawk-xstock-venue.mjs` | the second venue against a chain double that runs Jupiter's `route_v2` on a constant-product pool, a scripted Jupiter and scripted feeds, no network: the venue off by default and silent; the captured GeckoTerminal and DexScreener pages parsed and classified; the poller's backoff on the captured 429, dedupe and horizon; the Jupiter client's rate budget; the quote and transaction checks on the **live** GLDx → GAYMF bytes and every hostile edit of them; observe with each gate refusing by name; armed on Phantom: wait, follow-through, buy, 1.5× take, sell, booked in GLDx; ten hostile Jupiter transactions and two hostile pools refused before signing; the canary, full ticket, day caps and a short wallet; an unreadable buy blocking the stock; autopilot signing with nothing secret on the wire; the pump.fun lane unchanged |
 | `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does; the bundled agent limits decide exactly as their source |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
-| `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, six stations for the six cats, each with its sprite, screen, copy and an honest empty state; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the six agent cards; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
+| `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, seven stations for the seven cats, each hotspot on its own desk, each station with its sprite, screen, copy and an honest empty state, Snipurr's and CoinMarketCat's linking to the extension's page and the console; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the seven cards, CashCat and Popcat marked as being built; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
 | `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 

@@ -86,10 +86,11 @@
     for (const el of copy.querySelectorAll("[id]")) el.removeAttribute("id");
     for (const img of copy.querySelectorAll("img")) img.loading = "eager";
     // On a wide screen the kitten in a file stands at exactly twice its size (Popcat, holding
-    // its radar out, at one and a half), so every art pixel stays square and sharp.
+    // its radar out, and CoinMarketCat, waving its phone, at one and a half), so every art
+    // pixel stays square and sharp and the whole kitten fits its column.
     const kit = copy.querySelector(".agent-floor .kitten");
     if (kit && matchMedia("(min-width:641px) and (min-height:620px)").matches) {
-      const s = cat === "popcat" ? 1.5 : 2;
+      const s = cat === "popcat" || cat === "coinmarketcat" ? 1.5 : 2;
       kit.style.width = Number(kit.getAttribute("width")) * s + "px";
       kit.style.height = Number(kit.getAttribute("height")) * s + "px";
     }

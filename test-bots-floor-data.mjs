@@ -4,7 +4,8 @@
  * Run against local bare git repositories (no network): the branch is started as an orphan
  * when it does not exist; a push commits only the files it is told to; nothing to commit is
  * "changed=false"; two bots pushing at once both land, the second by fetching and rebasing (they
- * write different files). The overlay reads each file through the GitHub API (scripted here):
+ * write different files); a push of Popcat's memory alone is committed but is no change to the
+ * site, so it deploys nothing. The overlay reads each file through the GitHub API (scripted here):
  * a file or branch that does not exist keeps main's copy, anything that does not validate or any
  * other error fails the deploy, and valid data is written over site/assets.
  */
@@ -52,6 +53,9 @@ section("CHECKOUT AND PUSH");
   ok("two bots pushing at once both land: the second fetches, rebases and pushes again", pb.changed && pc.changed && pc.attempts === 2 && filesOn(BRANCH).join() === "README.md,callouts.json,launches.json");
   const log = git(["log", "--format=%s|%an", BRANCH], origin).stdout.trim().split("\n");
   ok("each commit says which bot made it, as the floor bot", log.length === 3 && log.every((l) => /\|cia-floor-bot$/.test(l)));
+  fs.writeFileSync(path.join(c, "popcat-state.json"), '{"seen":{}}\n');
+  const ps = push(c, { files: ["callouts.json", "popcat-state.json"], message: "Popcat: memory", token: "", remote: origin });
+  ok("Popcat's memory alone is committed, but is no change to the site: no deploy", ps.committed === true && ps.changed === false && filesOn(BRANCH).includes("popcat-state.json"));
 }
 
 section("THE REMOTE AND ITS TOKEN");

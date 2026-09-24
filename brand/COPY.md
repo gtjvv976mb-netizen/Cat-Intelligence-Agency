@@ -12,7 +12,7 @@ Copy for the X page, the launch, the agents, the memecoin and the site. Paste-re
 
 1. No price talk, no talk of returns or multiples, no space-travel metaphors, no certainty words. No invented numbers, holders, partners or dates.
 2. Crying Cat and Grumpy Cat are **characters**. Their cases are posts the agency writes from public data. They are not bots, AI or a scanner, so never write "detected", "flagged" or "our tool" about them.
-3. CashCat and Popcat are **bots being built**. CashCat will launch cat-themed coins by itself; Popcat will call out new cat coins with their safety checks. Neither is live: write "being built" or "coming soon", and never describe a launch or a callout that has not happened.
+3. CashCat and Popcat are **bots**. CashCat launches cat-themed coins by itself; Popcat calls out new cat coins with their safety checks. Each posts only at its desk on the work floor (and in its feed), and only once the agency has switched it on: never describe a launch or a callout that is not there. Neither bot posts on X.
 4. CoinMarketCat is **real software**, the agentic trader, and is described exactly as it is: it runs only while Chrome is open, spot only, on the owner's own API key, and nothing about its returns has been measured. Snipurr, its sniper lane, is software too, not an investigator on X, and is described with the losing record it learned from. CoinMarketCat is not affiliated with CoinMarketCap; say so wherever the product is described or offered.
 5. `$CIA` is a meme and nothing more. It unlocks nothing and nobody is promised anything.
 
@@ -150,7 +150,7 @@ Not impressed. 4/9
 ```
 Count: 258 / 280
 
-**5/9** (being built: post it as written, never as live)
+**5/9** (written before the bots were switched on: post it as written only while their desks list nothing, never as live)
 ```text
 Agent 004: CASHCAT. The auto-launcher, being built.
 
@@ -162,7 +162,7 @@ New trend, new cat. 5/9
 ```
 Count: 272 / 280
 
-**6/9** (being built: post it as written, never as live)
+**6/9** (written before the bots were switched on: post it as written only while their desks list nothing, never as live)
 ```text
 Agent 005: POPCAT. Cat-coin callouts, being built.
 
@@ -342,45 +342,46 @@ This is our opinion on public data, not an accusation of a crime. Wrong? Reply w
 ### AGENT 004: CASHCAT
 
 - **Codename:** CASHCAT, "the auto-launcher"
-- **What it is:** a bot the agency is building. It is not live: it has launched nothing, and no post may say it has until it does. It no longer investigates whales and KOLs.
+- **What it is:** a bot, built and dry until the agency switches it on. Every coin it launches is listed at its desk on the work floor; no post may name a launch that is not there. It no longer investigates whales and KOLs.
 - **Beat:** cat-themed coins, launched by itself from what is trending, on pump.fun and on StonkFun, Solana's stock-paired launchpad.
 - **House rule:** Popcat never calls out a coin CashCat launched.
 - **Catchphrase:** "New trend, new cat."
-- **Bio:** CashCat is becoming the agency's auto-launcher: a bot that watches what is trending and launches a cat-themed coin for it on its own, on pump.fun or on StonkFun. The bot is being built. It has launched nothing yet, and until it does, there is nothing of CashCat's to buy or to follow.
+- **Bio:** CashCat is the agency's auto-launcher: a bot that reads what is trending and launches a cat-themed coin for it on its own, on pump.fun or on StonkFun. Every coin it launches is listed at its desk on the work floor with its launch transaction linked, and a coin that is not listed there is not CashCat's. It launches nothing until the agency switches it on.
 
-**Launch template (for when the bot is live).** Every launch says it is the agency's own, so nobody mistakes it for a find.
+**How a launch reads on its desk.** The bot writes it; nobody types it. Every launch says it is the agency's own, so nobody mistakes it for a find, and every coin's own description says the same.
 ```text
-CASHCAT | LAUNCH CSH-[001] | [pump.fun / StonkFun]
+CASHCAT | LAUNCH | [pump.fun / StonkFun]
 
 Coin: [name] ($[TICKER])
-Mint: [explorer link]
-Launched: [YYYY-MM-DD HH:MM] UTC [tx link]
-The trend it follows: [link]
+[CashCat's one line about it]
+Launched: [YYYY-MM-DD HH:MM] UTC, paired with [SOL / a tokenised stock]
+The trend it follows: [trend] on [Google Trends / CoinGecko]
+Dev buy: [none / its size, linked]
+Linked: [its page] [launch tx] [mint] [CashCat's wallet]
 
-New trend, new cat. Launched by the agency's own bot. Not advice.
+Launched automatically by CashCat, the agency's own bot. Not affiliated with its trend. Not financial advice.
 ```
 
 ### AGENT 005: POPCAT
 
 - **Codename:** POPCAT (see section 7: an existing memecoin has the same name)
-- **What it is:** a callout bot the agency is building. It is not live: it has called nothing out, and no post may say it has until it does.
+- **What it is:** a callout bot, built and dry until the agency switches it on. Its callouts are posted at its desk on the work floor and in the floor's feed, nowhere else; no post may name a callout that is not there.
 - **Look:** a pixel kitten with its mouth popped wide open in a round O, holding a radar scanner with a hot-pink screen. Accent colour `#ff4fd8`.
-- **Beat:** new cat coins on pump.fun, called out as they launch, each with its safety checks, at its desk on the work floor and in the floor's feed. Cat coins only.
+- **Beat:** new cat coins on pump.fun, called out in their first day, each with its safety checks, at its desk on the work floor and in the floor's feed. Cat coins only.
 - **House rules:** it never calls out a coin CashCat launched, and the agency never buys a coin before calling it out. A callout that finds no red flags says "no red flags found", never "safe" or "buy".
 - **Catchphrase:** "Real cat or copycat?"
-- **Bio:** Popcat is becoming the agency's callout bot: it will watch pump.fun for new cat coins and call each one out with the safety checks it ran, at its desk on the work floor and in the floor's feed. It never calls out a coin CashCat launched, and a callout that finds no red flags is not an endorsement. The bot is being built, and it has called nothing out yet.
+- **Bio:** Popcat is the agency's callout bot: it watches pump.fun for new cat coins and calls out the ones that pass every one of its on-chain safety checks, at its desk on the work floor and in the floor's feed, with each check and what it found. It never calls out a coin CashCat launched, and a callout that finds no red flags is not an endorsement. It calls nothing out until the agency switches it on.
 
-**Callout template (for when the bot is live).** The checks are the ones the bot ran on that coin, each with what it found.
+**How a callout reads on its desk.** The bot writes it; nobody types it. The checks are the ones the bot ran on that coin, each with what it found. The coin's name and ticker are shown as text, never its picture or its links.
 ```text
-POPCAT | CALLOUT POP-[001] | NEW CAT COIN
+POPCAT | CALLOUT | NO RED FLAGS FOUND
 
-Token: [name] ($[TICKER])
-Mint: [explorer link]
-Launched: [YYYY-MM-DD HH:MM] UTC on pump.fun
-Deployer: [wallet link]
-Safety checks: [each check, and what it found]
+Coin: [name] ($[TICKER]), a cat by its [name / ticker / description]
+Checked: [YYYY-MM-DD HH:MM] UTC
+[each check]: [what it found]
+Linked: [pump.fun page] [mint] [creator]
 
-Real cat or copycat? Not advice, and not a buy signal.
+Real cat or copycat? Checks, not advice, and not a buy signal.
 ```
 
 ### AGENT 006: SNIPURR
@@ -541,7 +542,7 @@ Count: 152 / 160
 
 **Option B**
 - Headline: **Every agent is a cat. Every case has receipts.**
-- Subline: Crying Cat takes the rugs. Grumpy Cat takes the fake hype. CashCat and Popcat, the launcher and the callout bot, are being built. And CoinMarketCat, the agentic trader, is a Chrome extension that trades from your plain-English strategy, only inside the limits you set, with Snipurr, its sniper lane, inside.
+- Subline: Crying Cat takes the rugs. Grumpy Cat takes the fake hype. CashCat and Popcat are the agency's bots, a launcher and a callout bot. And CoinMarketCat, the agentic trader, is a Chrome extension that trades from your plain-English strategy, only inside the limits you set, with Snipurr, its sniper lane, inside.
 
 **Buttons:** `Follow the agency on X` · `Meet Agent 001`
 
@@ -579,17 +580,19 @@ Count: 152 / 160
 - **Catchphrase:** *Not impressed.*
 - **Link:** `Read its cases on X`
 
-**Agent 004 · CashCat** (*auto-launcher · being built*)
-- **Type:** A bot, being built. Nothing has launched yet.
-- **Launches:** Cat-themed coins only, picked from what is trending, on pump.fun and on StonkFun.
+**Agent 004 · CashCat** (*auto-launcher · bot*)
+- **Type:** A bot that runs on the agency's own schedule. Until the agency switches it on, it does everything but send the launch, and posts nothing.
+- **Launches:** Cat-themed coins only, picked from what is trending, on pump.fun and on StonkFun: two a day by default, never more than six. No real people, brands or tragedies, and no ticker a known token already uses.
+- **Its own coins:** No dev buy by default, and never more than 0.05 SOL, shown with the launch. It never buys or sells its coins from any other wallet: no bundles, no volume bots.
+- **Each coin says:** That CashCat, a bot of the agency, launched it automatically, that it is not affiliated with its trend, and that it is not financial advice.
 - **House rule:** Popcat never calls out a coin CashCat launched.
 - **Catchphrase:** *New trend, new cat.*
 - **Link:** `Its desk`
 
-**Agent 005 · Popcat** (*cat-coin callouts · being built*)
-- **Type:** A bot, being built. No callout has been posted yet.
-- **Calls out:** New cat-themed coins on pump.fun, as they launch. Nothing that is not a cat coin.
-- **Each callout:** The safety checks it ran on the coin, and what each one found. "No red flags found" is not an endorsement or a buy signal.
+**Agent 005 · Popcat** (*cat-coin callouts · bot*)
+- **Type:** A bot that runs on the agency's own schedule, about every half hour. Until the agency switches it on, it checks coins and posts nothing.
+- **Calls out:** New cat-themed coins on pump.fun, from 15 minutes to a day old. Nothing that is not a cat coin, and never its picture or its links: its name and ticker are shown as text.
+- **Each callout:** Every check it ran on the coin, and what each one found: mint and freeze authority, what the creator and the top ten holders hold, buyers in the launch slot, the creator's earlier launches, and more. "No red flags found" is not an endorsement or a buy signal.
 - **House rules:** It never calls out a coin CashCat launched, and the agency never buys a coin before calling it out.
 - **Catchphrase:** *Real cat or copycat?*
 - **Link:** `Its desk`
@@ -698,8 +701,9 @@ POPCAT is also the name of an existing Solana memecoin ($POPCAT), and the open-m
 
 **The work floor and its case file.** Every case the agency posts on X also goes on the work floor (`https://catintelligenceagency.com/floor/`), at its cat's desk and in "Latest from the floor". The floor reads one file, `site/assets/cases.json`; the README's "The work floor, and how to post a case" has the fields and a worked example. Keep the two in step:
 
-- **Case numbers.** The templates above number cases `CRY-`, `GRR-`, `CSH-` and `POP-`. On the floor, the Director's announcements and corrections are `DIR-`, CoinMarketCat's field reports are `CMC-` and Snipurr's are `SNP-`. Use the same number on X and in the file.
-- **Verdicts.** Crying Cat: RUGGED. Grumpy Cat: NOT IMPRESSED. The Director: ANNOUNCEMENT or CORRECTION. CoinMarketCat and Snipurr: FIELD REPORT. Any case: NO RED FLAGS FOUND, never "safe" or "buy"; a corrected case keeps its place with the verdict CORRECTED. The file still takes CashCat's and Popcat's old investigator verdicts (WHALE MOVE; COPYCAT, CLONE, HONEYPOT); their launches and callouts are being built, and the file's rules for them change when the bots do.
+- **Case numbers.** The templates above number cases `CRY-` and `GRR-`. On the floor, the Director's announcements and corrections are `DIR-`, CoinMarketCat's field reports are `CMC-` and Snipurr's are `SNP-`. Use the same number on X and in the file.
+- **Verdicts.** Crying Cat: RUGGED. Grumpy Cat: NOT IMPRESSED. The Director: ANNOUNCEMENT or CORRECTION. CoinMarketCat and Snipurr: FIELD REPORT. Any case: NO RED FLAGS FOUND, never "safe" or "buy"; a corrected case keeps its place with the verdict CORRECTED.
+- **The two bots post no cases.** CashCat's launches and Popcat's callouts are written by the bots themselves to files of their own (`launches.json`, `callouts.json`, on the `floor-data` branch), and the file refuses a case filed under either. A launch or a callout the agency got wrong is corrected by the Director, as loud as any case.
 - **Evidence.** The file takes the same links the thread carries: transaction signatures and wallet addresses (the floor links them on Solscan) and archived pages. A case with no evidence link is refused, as the house rules say.
 - **Nothing ahead of X.** Post the thread first, then add the entry with the post's link in `"x"`. Never add a case to the file that is not on X, and never an example: until a cat has posted, its desk shows its template, marked TEMPLATE.
 - **The test counts.** `test-site.mjs` pins how many cases the file holds (`POSTED_CASES`), so raise it by one in the same commit.

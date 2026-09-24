@@ -109,7 +109,7 @@ function launchEntry(e) {
 /** Links the floor may draw for a launch, all built here from checked strings. */
 export function launchLinks(l) {
   const links = [
-    { label: VENUES[l.venue].name, href: VENUES[l.venue].page + l.mint },
+    { label: `The coin on ${l.venue === "stonkfun" ? "StonkFun" : "pump.fun"}`, href: VENUES[l.venue].page + l.mint },
     { label: "Launch transaction", href: EXPLORER.tx + l.tx },
     { label: "Mint", href: EXPLORER.address + l.mint },
     { label: "CashCat's wallet", href: EXPLORER.address + l.creator },

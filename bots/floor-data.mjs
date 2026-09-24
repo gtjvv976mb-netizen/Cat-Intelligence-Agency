@@ -8,8 +8,9 @@
  *   node bots/floor-data.mjs push <dir> --message "<msg>" --files a.json,b.json
  *       Commit exactly those files if they changed, and push. A push that loses a race (another
  *       bot pushed first) fetches, rebases and tries again, up to five times: each bot writes only
- *       its own files, so a rebase never conflicts. Prints changed=true|false, and writes it to
- *       $GITHUB_OUTPUT when that is set.
+ *       its own files, so a rebase never conflicts. Prints changed=true|false — true only when a
+ *       file the site shows (launches.json, callouts.json) changed, so Popcat's memory alone
+ *       never triggers a deploy — and writes it to $GITHUB_OUTPUT when that is set.
  *   node bots/floor-data.mjs overlay <site-assets-dir>
  *       For the deploy: read launches.json and callouts.json from floor-data through the GitHub
  *       API and write them over <site-assets-dir>'s copies, after validating them with the
@@ -69,12 +70,13 @@ export function push(dir, { files, message, token, remote = null, attempts = 5 }
   const list = files.filter((f) => fs.existsSync(path.join(dir, f)));
   if (fs.existsSync(path.join(dir, "README.md"))) list.push("README.md");
   git(["add", "--", ...list], { cwd: dir });
-  const staged = git(["diff", "--cached", "--quiet"], { cwd: dir, allowFail: true });
-  if (staged.status === 0) return { changed: false };
+  const staged = git(["diff", "--cached", "--name-only"], { cwd: dir }).stdout.split("\n").filter(Boolean);
+  if (!staged.length) return { changed: false, committed: false };
+  const changed = staged.some((f) => DATA_FILES.includes(f));
   git([...BOT_IDENTITY, "commit", "--quiet", "-m", message], { cwd: dir });
   for (let i = 1; i <= attempts; i++) {
     const r = git(["push", "--quiet", "origin", `HEAD:refs/heads/${BRANCH}`], { cwd: dir, remote, token, allowFail: true });
-    if (r.status === 0) return { changed: true, attempts: i };
+    if (r.status === 0) return { changed, committed: true, attempts: i };
     /* Someone pushed first: take their commits and put ours on top. The bots touch disjoint files. */
     const f = git(["fetch", "--quiet", "origin", BRANCH], { cwd: dir, remote, token, allowFail: true });
     if (f.status !== 0) continue;
@@ -118,7 +120,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       console.log(r.created ? `${BRANCH} does not exist yet: started it empty in ${target}` : `${BRANCH} checked out in ${target}`);
     } else if (cmd === "push") {
       const r = push(path.resolve(target), { files: (opt("--files") ?? "").split(",").filter(Boolean), message: opt("--message") ?? "floor-data: update", token, remote: remoteUrl() });
-      console.log(`changed=${r.changed}`);
+      console.log(`committed=${r.committed} changed=${r.changed}`);
       if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `changed=${r.changed}\n`);
     } else if (cmd === "overlay") {
       if (!process.env.GITHUB_REPOSITORY) throw new Error("GITHUB_REPOSITORY is not set");

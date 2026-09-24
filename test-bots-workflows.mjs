@@ -1,7 +1,7 @@
 /**
  * THE WORKFLOWS: WHO RUNS, WITH WHICH SECRETS, AND HOW THE SITE GETS THE DATA.
  *
- *   · Popcat every 25 minutes, CashCat three times a day, both also by hand; on main only,
+ *   · Popcat every half hour, CashCat three times a day, both also by hand; on main only,
  *     never on a pull request; each in its own concurrency group so two runs never overlap.
  *   · Each secret reaches only the step that needs it: the wallet secret and the Pinata token
  *     only CashCat's step; the model key and the RPC only the two bot steps; nothing echoes one.
@@ -25,7 +25,7 @@ const step = (text, name) => { const i = text.indexOf(`- name: ${name}`); if (i 
 const count = (text, re) => (text.match(re) ?? []).length;
 
 section("WHEN THEY RUN");
-ok("Popcat: every 25 minutes (at :07 and :32) and by hand", /cron: "7,32 \* \* \* \*"/.test(popcat) && /workflow_dispatch:/.test(popcat));
+ok("Popcat: every half hour (at :07 and :37) and by hand", /cron: "7,37 \* \* \* \*"/.test(popcat) && /workflow_dispatch:/.test(popcat));
 ok("CashCat: three times a day and by hand", /cron: "23 2,10,18 \* \* \*"/.test(cashcat) && /workflow_dispatch:/.test(cashcat));
 ok("neither runs on a pull request, and each runs on main only", ![popcat, cashcat].some((t) => /pull_request/.test(t)) && [popcat, cashcat].every((t) => /if: github\.ref == 'refs\/heads\/main'/.test(t)));
 ok("each in its own concurrency group, never cancelling a run in progress", /group: popcat\n  cancel-in-progress: false/.test(popcat) && /group: cashcat\n  cancel-in-progress: false/.test(cashcat));

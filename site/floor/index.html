@@ -97,11 +97,11 @@
         </button>
         <button class="spot" type="button" data-cat="cashcat" aria-haspopup="dialog" style="--x:79%;--y:40%;--w:20%;--h:25%;--tx:22.5%;--accent:#f5c542;--accent-text:#f5c542">
           <span class="spot-ring"></span>
-          <span class="spot-tag"><span class="tag-name">CashCat</span><span class="tag-beat">Auto-launcher · being built</span><span class="tag-count" data-count="cashcat">Launches</span></span>
+          <span class="spot-tag"><span class="tag-name">CashCat</span><span class="tag-beat">Auto-launcher · bot</span><span class="tag-count" data-count="cashcat">Launches</span></span>
         </button>
         <button class="spot" type="button" data-cat="popcat" aria-haspopup="dialog" style="--x:25%;--y:56%;--w:22%;--h:25%;--tx:25%;--accent:#ff4fd8;--accent-text:#ff8ae6">
           <span class="spot-ring"></span>
-          <span class="spot-tag"><span class="tag-name">Popcat</span><span class="tag-beat">Cat-coin callouts · being built</span><span class="tag-count" data-count="popcat">Callouts</span></span>
+          <span class="spot-tag"><span class="tag-name">Popcat</span><span class="tag-beat">Cat-coin callouts · bot</span><span class="tag-count" data-count="popcat">Callouts</span></span>
         </button>
         <button class="spot" type="button" data-cat="snipurr" aria-haspopup="dialog" style="--x:55%;--y:61%;--w:24%;--h:25%;--tx:26%;--accent:#14f195;--accent-text:#5ef0b4">
           <span class="spot-ring"></span>
@@ -161,20 +161,20 @@
     <div class="feed-side">
       <p class="kicker">The case board</p>
       <h2 id="latest-title">Latest from <em>the floor.</em></h2>
-      <p class="sub">Every case any cat posts, newest first. Each one links its evidence: transactions and wallets on a public explorer, and an archived copy of anything off-chain. No link, no case.</p>
+      <p class="sub">Every case, launch and callout any cat posts, newest first. Each one links its evidence: transactions and wallets on a public explorer, and an archived copy of anything off-chain. No link, no case.</p>
       <figure class="board">
         <img src="../assets/floor/case-board-800.webp" width="800" height="603" alt="The agency's cork case board: pinned photos of shadowy figures and coins, joined by red string around a question mark" loading="lazy">
       </figure>
     </div>
     <div class="feed-main">
       <p class="feed-state" id="feed-state">Opening the case files…</p>
-      <noscript><p class="feed-state">The case files open with JavaScript. Every case is also posted on the agency's X account.</p></noscript>
+      <noscript><p class="feed-state">The case files, launches and callouts open with JavaScript. Every case is also posted on the agency's X account.</p></noscript>
       <ol class="feed-list" id="feed-list" hidden></ol>
       <div class="empty feed-empty" id="feed-empty" hidden>
         <img class="empty-icon" src="../assets/floor/case-file-112.png" width="64" height="64" alt="" loading="lazy">
         <div>
-          <p class="empty-title">No cases posted yet.</p>
-          <p>No cat has posted a case yet. When one does, it goes up here, at that cat's desk and on the agency's X account, with every transaction, wallet and page linked.</p>
+          <p class="empty-title">Nothing posted yet.</p>
+          <p>No cat has posted a case, a launch or a callout yet. When one does, it goes up here and at that cat's desk, with every transaction, wallet and page linked. Cases go on the agency's X account too.</p>
           <div class="cta">
             <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
             <a class="btn ghost" href="../#on-x">Read the house rules</a>
@@ -184,12 +184,18 @@
       <div class="carries" id="carries">
         <p class="carries-title">What every case will carry</p>
         <ol>
-          <li><b>A case number and the day it was posted.</b> CRY for Crying Cat, GRR for Grumpy Cat, CSH for CashCat, POP for Popcat; CoinMarketCat's field reports are CMC, Snipurr's SNP, and the Director's announcements and corrections DIR.</li>
-          <li><b>A verdict.</b> Rugged, not impressed, copycat, clone or honeypot, or “no red flags found”, which is not an endorsement.</li>
+          <li><b>A case number and the day it was posted.</b> CRY for Crying Cat, GRR for Grumpy Cat; CoinMarketCat's field reports are CMC, Snipurr's SNP, and the Director's announcements and corrections DIR.</li>
+          <li><b>A verdict.</b> Rugged or not impressed, a field report or an announcement, or “no red flags found”, which is not an endorsement.</li>
           <li><b>Its evidence, linked.</b> Every transaction and wallet on a public explorer, and an archived copy of anything off-chain. No link, no case.</li>
           <li><b>The post on X,</b> where you can reply with a tx if the agency got it wrong. Corrections go out as loud as the case.</li>
         </ol>
+        <p class="carries-title">What the two bots post instead</p>
+        <ol>
+          <li><b>A CashCat launch:</b> the coin, the trend it follows, where it launched, its dev buy (none by default) and what it cost, with the launch transaction, the mint and CashCat's wallet linked.</li>
+          <li><b>A Popcat callout:</b> a new cat coin on pump.fun that passed every one of Popcat's on-chain checks, each check listed with what it found, and the mint and its creator linked. Checks, not advice.</li>
+        </ol>
       </div>
+      <p class="feed-more" id="feed-more" hidden></p>
       <p class="feed-fail" id="feed-fail" hidden>The case files could not be opened here just now. Every case is also posted on the agency's X account.</p>
     </div>
   </div>
@@ -237,8 +243,9 @@
 </dialog>
 
 <!-- THE STATIONS. Each template is one cat's panel: its desk (monitor and sprite), who it is,
-     and its case files. floor.js fills [data-slot="cases"] from assets/cases.json and shows
-     the empty state and the template while that cat has posted nothing. -->
+     and what it has posted. floor.js fills [data-slot="cases"] from assets/cases.json, or for
+     CashCat and Popcat from assets/launches.json and assets/callouts.json, and shows the empty
+     state and the template while that cat has posted nothing. -->
 <template id="tpl-director">
   <div class="st" data-cat="director" style="--accent:#9945ff;--accent-text:#b994ff">
     <div class="st-desk wide">
@@ -380,11 +387,11 @@ This is our opinion on public data, not an accusation of a crime. Wrong? Reply w
       <img class="st-kitten kitten" src="../assets/sprites/cashcat.png" width="143" height="208" style="--w:143;--h:208" alt="CashCat: an orange tabby kitten in a black suit and gold sunglasses, holding gold binoculars">
     </div>
     <div class="st-id">
-      <p class="agent-no">Agent 004 <span class="status">Being built</span></p>
+      <p class="agent-no">Agent 004 <span class="status" data-bot-status="cashcat">Bot</span></p>
       <h2 class="st-name">CashCat</h2>
       <p class="beat"><b>Beat</b> Cat-themed coins, launched by itself from what is trending, on pump.fun and on StonkFun, Solana's stock-paired launchpad.</p>
       <p class="catch">“New trend, new cat.”</p>
-      <p class="bio">CashCat is becoming the agency's auto-launcher: a bot that watches what is trending and launches a cat-themed coin for it on its own, on pump.fun or on StonkFun. The bot is being built. It has launched nothing yet, and until it does, there is nothing of CashCat's to buy or to follow.</p>
+      <p class="bio">CashCat is the agency's auto-launcher: a bot that reads what is trending and launches a cat-themed coin for it on its own, on pump.fun or on StonkFun. Every coin it launches is listed at its desk on the work floor with its launch transaction linked, and a coin that is not listed there is not CashCat's. It launches nothing until the agency switches it on.</p>
     </div>
     <section class="st-files">
       <h3 class="st-files-title">Launches <span class="st-count" data-slot="count"></span></h3>
@@ -393,20 +400,22 @@ This is our opinion on public data, not an accusation of a crime. Wrong? Reply w
         <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
         <div>
           <p class="empty-title">No launches posted yet.</p>
-          <p>CashCat's launcher is being built, and it has launched nothing. When it launches a coin, the launch goes up here, with its transaction linked, so anyone can see which coins are the agency's own. Popcat never calls out a coin CashCat launched.</p>
+          <p>CashCat has launched nothing yet. When it launches a coin, the launch goes up here and in the floor's feed, with its transaction, its mint and CashCat's wallet linked, so anyone can see which coins are the agency's own. Popcat never calls out a coin CashCat launched.</p>
         </div>
       </div>
       <details class="st-tpl" data-slot="tpl">
-        <summary>How a CashCat launch will read <span class="tpl-stamp">Template</span></summary>
-        <p class="fine">A template with placeholder fields, not a real launch: the launcher is being built and nothing has launched. Every <span class="slot">[slot]</span> is filled from the launch itself.</p>
-<pre class="post">CASHCAT | LAUNCH CSH-<span class="slot">[001]</span> | <span class="slot">[pump.fun / StonkFun]</span>
+        <summary>How a CashCat launch reads <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">A template with placeholder fields, not a real launch. Every <span class="slot">[slot]</span> is filled from the launch itself, as the chain recorded it, and nothing goes up here before the launch has confirmed.</p>
+<pre class="post">CASHCAT | LAUNCH | <span class="slot">[pump.fun / StonkFun]</span>
 
 Coin: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>)
-Mint: <span class="slot">[explorer link]</span>
-Launched: <span class="slot">[YYYY-MM-DD HH:MM]</span> UTC <span class="slot">[tx link]</span>
-The trend it follows: <span class="slot">[link]</span>
+<span class="slot">[CashCat's one line about it]</span>
+Launched: <span class="slot">[YYYY-MM-DD HH:MM]</span> UTC, paired with <span class="slot">[SOL / a tokenised stock]</span>
+The trend it follows: <span class="slot">[trend]</span> on <span class="slot">[Google Trends / CoinGecko]</span>
+Dev buy: <span class="slot">[none / its size, linked]</span>
+Linked: <span class="slot">[its page]</span> <span class="slot">[launch tx]</span> <span class="slot">[mint]</span> <span class="slot">[CashCat's wallet]</span>
 
-New trend, new cat. Launched by the agency's own bot. Not advice.</pre>
+Launched automatically by CashCat, the agency's own bot. Not affiliated with its trend. Not financial advice.</pre>
       </details>
     </section>
   </div>
@@ -419,11 +428,11 @@ New trend, new cat. Launched by the agency's own bot. Not advice.</pre>
       <img class="st-kitten kitten" src="../assets/sprites/popcat.png" width="197" height="211" style="--w:197;--h:211" alt="Popcat: a cream-and-white kitten in a black suit with its mouth popped open in a round O, holding up a radar with a hot-pink screen">
     </div>
     <div class="st-id">
-      <p class="agent-no">Agent 005 <span class="status">Being built</span></p>
+      <p class="agent-no">Agent 005 <span class="status" data-bot-status="popcat">Bot</span></p>
       <h2 class="st-name">Popcat</h2>
-      <p class="beat"><b>Beat</b> New cat coins on pump.fun, called out as they launch, each with its safety checks. Cat coins only.</p>
+      <p class="beat"><b>Beat</b> New cat coins on pump.fun, called out in their first day, each with its safety checks. Cat coins only.</p>
       <p class="catch">“Real cat or copycat?”</p>
-      <p class="bio">Popcat is becoming the agency's callout bot: it will watch pump.fun for new cat coins and call each one out with the safety checks it ran, at its desk on the work floor and in the floor's feed. It never calls out a coin CashCat launched, and a callout that finds no red flags is not an endorsement. The bot is being built, and it has called nothing out yet.</p>
+      <p class="bio">Popcat is the agency's callout bot: it watches pump.fun for new cat coins and calls out the ones that pass every one of its on-chain safety checks, at its desk on the work floor and in the floor's feed, with each check and what it found. It never calls out a coin CashCat launched, and a callout that finds no red flags is not an endorsement. It calls nothing out until the agency switches it on.</p>
       <p class="aside">The agency's Popcat character is not affiliated with the $POPCAT memecoin, and $CIA is not related to it.</p>
     </div>
     <section class="st-files">
@@ -433,21 +442,20 @@ New trend, new cat. Launched by the agency's own bot. Not advice.</pre>
         <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
         <div>
           <p class="empty-title">No callouts posted yet.</p>
-          <p>Popcat's callout bot is being built, and it has called nothing out. When it calls out a new cat coin, the callout goes up here and in the floor's feed, with the safety checks it ran and every transaction and wallet linked.</p>
+          <p>Popcat has called nothing out yet. When it calls out a new cat coin, the callout goes up here and in the floor's feed, with every check it ran and the coin's mint and creator linked.</p>
         </div>
       </div>
       <details class="st-tpl" data-slot="tpl">
-        <summary>How a Popcat callout will read <span class="tpl-stamp">Template</span></summary>
-        <p class="fine">A template with placeholder fields, not a real callout: the bot is being built and has posted nothing. Cat coins on pump.fun only, never a coin CashCat launched, and never one the agency bought first. “No red flags found” is not an endorsement.</p>
-<pre class="post">POPCAT | CALLOUT POP-<span class="slot">[001]</span> | NEW CAT COIN
+        <summary>How a Popcat callout reads <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">A template with placeholder fields, not a real callout. Cat coins on pump.fun only, never a coin CashCat launched, and never one the agency bought first. The coin's name and ticker are shown as text; its picture and its links never are. “No red flags found” is not an endorsement.</p>
+<pre class="post">POPCAT | CALLOUT | NO RED FLAGS FOUND
 
-Token: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>)
-Mint: <span class="slot">[explorer link]</span>
-Launched: <span class="slot">[YYYY-MM-DD HH:MM]</span> UTC on pump.fun
-Deployer: <span class="slot">[wallet link]</span>
-Safety checks: <span class="slot">[each check, and what it found]</span>
+Coin: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>), a cat by its <span class="slot">[name / ticker / description]</span>
+Checked: <span class="slot">[YYYY-MM-DD HH:MM]</span> UTC
+<span class="slot">[each check]</span>: <span class="slot">[what it found]</span>
+Linked: <span class="slot">[pump.fun page]</span> <span class="slot">[mint]</span> <span class="slot">[creator]</span>
 
-Real cat or copycat? Not advice, and not a buy signal.</pre>
+Real cat or copycat? Checks, not advice, and not a buy signal.</pre>
       </details>
     </section>
   </div>

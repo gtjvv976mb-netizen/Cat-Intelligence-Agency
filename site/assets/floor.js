@@ -1,15 +1,20 @@
 /* THE WORK FLOOR.
    The office is one picture, and each kitten already sits at its own station in it. This
    script opens a station when its desk (or its name in the list) is clicked, fills every
-   station with the cases that cat has posted, lists the newest from the whole floor, tilts
-   the floor a little towards the mouse, and lights the desks in turn while nobody is
-   pointing at one. With reduced motion nothing moves on its own.
+   station with what that cat has posted, lists the newest from the whole floor, tilts the
+   floor a little towards the mouse, and lights the desks in turn while nobody is pointing at
+   one. With reduced motion nothing moves on its own.
 
    The cases come from assets/cases.json, read through cases-data.js and checked entry by
-   entry by cases.js, which skips (and names, in the console) anything malformed. Every word
-   of a case is drawn as text and every link it carries has been checked, so nothing in that
-   file can put markup or a script on the page. */
+   entry by cases.js, which skips (and names, in the console) anything malformed. The two bots'
+   desks show their own files instead: CashCat's launches and Popcat's callouts, read through
+   bot-posts.js and checked by launches.js and callouts.js the same way. Every word is drawn
+   as text and every link has been checked, so nothing in those files can put markup or a
+   script on the page, and no coin's own image or link is ever shown. */
 import { AGENTS, validateCases } from "./cases.js";
+import { loadBotPosts, botTally } from "./bot-posts.js";
+import { VENUES, TREND_SOURCES, launchLinks, shorten } from "./launches.js";
+import { calloutLinks } from "./callouts.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -53,39 +58,92 @@ function outLink(href, cls, text) {
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 /* What each desk posts: the Director, announcements; the two software cats, field reports; the
-   two bots being built, launches and callouts; the investigators, cases. */
+   two bots, launches and callouts; the investigators, cases. */
 const NOUNS = {
   director: ["announcement", "announcements"], coinmarketcat: ["field report", "field reports"], snipurr: ["field report", "field reports"],
   cashcat: ["launch", "launches"], popcat: ["callout", "callouts"],
 };
 const noun = (cat) => NOUNS[cat] || ["case", "cases"];
 
-/* ── the cases ─────────────────────────────────────────────────────────── */
-let cases = [];
-let state = "loading";   // loading → ready | failed
+/* ── what is posted: the cases, and the two bots' own files ─────────────── */
+const src = {
+  cases: { state: "loading", items: [] },      // loading → ready | failed
+  launches: { state: "loading", items: [] },
+  callouts: { state: "loading", items: [] },
+};
+/* CashCat's desk shows its launches and Popcat's its callouts; every other desk its cases. */
+const DESK = { cashcat: "launches", popcat: "callouts" };
+const deskOf = (cat) => DESK[cat] || "cases";
+const postsOf = (cat) => (deskOf(cat) === "cases" ? src.cases.items.filter((c) => c.agent === cat) : src[deskOf(cat)].items);
+const FAIL = {
+  cases: "The case files could not be opened here just now. Every case is also posted on the agency's X account.",
+  launches: "CashCat's launches could not be opened here just now.",
+  callouts: "Popcat's callouts could not be opened here just now.",
+};
+const MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const FEED_MAX = 60;
 
-function caseCard(c, { heading = "h4", withAgent = false } = {}) {
+/* The pieces every card shares: the article in its cat's colours, the case-file icon, the
+   cat's face and name (in the feed), the time, and the button that opens the station. */
+function cardShell(cat, key) {
   const art = el("article", "case");
-  art.dataset.case = c.id;
-  const tone = ACCENT[c.agent] || {};
+  art.dataset.case = key;
+  const tone = ACCENT[cat] || {};
   if (tone.accent) art.style.setProperty("--accent", tone.accent);
   if (tone.text) art.style.setProperty("--accent-text", tone.text);
-
   const icon = el("img", "case-icon");
   icon.src = "../assets/floor/case-file-112.png";
   icon.width = 44; icon.height = 44; icon.alt = ""; icon.loading = "lazy";
-
-  const meta = el("p", "case-meta");
-  if (withAgent) {
-    const who = el("span", "case-who");
-    const face = el("img");
-    face.src = `../assets/sprites/${c.agent}.png`;
-    face.alt = ""; face.loading = "lazy";
-    const [w, h] = SPRITE[c.agent];
-    face.width = Math.round(w * 26 / h); face.height = 26;
-    who.append(face, AGENTS[c.agent].name);
-    meta.append(who);
+  return { art, icon };
+}
+function whoIs(cat) {
+  const who = el("span", "case-who");
+  const face = el("img");
+  face.src = `../assets/sprites/${cat}.png`;
+  face.alt = ""; face.loading = "lazy";
+  const [w, h] = SPRITE[cat];
+  face.width = Math.round(w * 26 / h); face.height = 26;
+  who.append(face, AGENTS[cat].name);
+  return who;
+}
+function openButton(cat, key) {
+  const open = el("button", "case-open", "Open the station");
+  open.type = "button";
+  open.setAttribute("aria-haspopup", "dialog");
+  open.addEventListener("click", () => openStation(cat, key));
+  return open;
+}
+/* "2026-09-24T21:08:50Z" → "2026-09-24 21:08 UTC", machine-readable in datetime. */
+function stamp(iso) {
+  const t = el("time", "case-date", `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`);
+  t.dateTime = iso;
+  return t;
+}
+/* Where a link goes, as the cases show it: "solscan.io · tx 5Ed5y…dWK8", "pump.fun". */
+function whereTo(href) {
+  const u = new URL(href), last = u.pathname.split("/").pop();
+  return u.host === "solscan.io" ? `solscan.io · ${u.pathname.startsWith("/tx/") ? "tx " : ""}${shorten(last)}` : u.host;
+}
+function linkList(title, links) {
+  const ul = el("ul", "case-ev");
+  for (const l of links) {
+    const li = el("li");
+    li.append(outLink(l.href, "", l.label), el("span", "ev-where", whereTo(l.href)));
+    ul.append(li);
   }
+  return [el("p", "case-ev-title", title), ul];
+}
+function facts(rows) {
+  const dl = el("dl", "case-facts");
+  for (const [k, v] of rows) dl.append(el("dt", "", k), el("dd", "", v));
+  return dl;
+}
+const sol = (n) => `${Number(n.toFixed(6))} SOL`;
+
+function caseCard(c, { heading = "h4", withAgent = false } = {}) {
+  const { art, icon } = cardShell(c.agent, c.id);
+  const meta = el("p", "case-meta");
+  if (withAgent) meta.append(whoIs(c.agent));
   meta.append(el("span", "case-id", c.id));
   const when = el("time", "case-date", c.date);
   when.dateTime = c.date;
@@ -105,27 +163,71 @@ function caseCard(c, { heading = "h4", withAgent = false } = {}) {
   }
   const foot = el("div", "case-foot");
   if (c.x) foot.append(outLink(c.x, "case-x", "Read on X"));
-  if (withAgent) {
-    const open = el("button", "case-open", "Open the station");
-    open.type = "button";
-    open.setAttribute("aria-haspopup", "dialog");
-    open.addEventListener("click", () => openStation(c.agent, c.id));
-    foot.append(open);
-  }
+  if (withAgent) foot.append(openButton(c.agent, c.id));
   if (foot.childNodes.length) body.append(foot);
   art.append(icon, body);
   return art;
 }
 
+/* A CashCat launch: the coin's name and ticker, CashCat's line about it, the trend it
+   follows, where and against what it launched, the dev buy (none by default) and what the
+   launch cost, all as text; the links are the venue's page and Solscan, built by launches.js. */
+function launchCard(l, { heading = "h4", withAgent = false } = {}) {
+  const { art, icon } = cardShell("cashcat", l.mint);
+  const meta = el("p", "case-meta");
+  if (withAgent) meta.append(whoIs("cashcat"));
+  const where = l.venue === "pumpfun" ? VENUES.pumpfun.name : `${l.venue === "stonkfun" ? "StonkFun" : "pump.fun"} · ${l.quote.symbol}`;
+  meta.append(el("span", "case-id", "Launch"), stamp(l.time), el("span", "verdict v-launch", where));
+  const body = el("div", "case-body");
+  body.append(meta, el(heading, "case-title", `${l.name} ($${l.symbol})`), el("p", "case-sum", l.tagline));
+  body.append(facts([
+    ["Trend", `${l.trend.title} (${TREND_SOURCES[l.trend.source]})`],
+    ["Venue", VENUES[l.venue].name],
+    ["Paired with", l.quote.symbol],
+    ["Dev buy", l.devBuy.sol > 0 ? `${sol(l.devBuy.sol)}, from CashCat's own wallet` : "None"],
+    ["Launch cost", `${sol(l.costSol)}, read from the chain`],
+  ]));
+  body.append(el("p", "case-note", "Launched automatically by CashCat, the agency's own bot. Not affiliated with its trend. Not financial advice."));
+  body.append(...linkList("Linked", launchLinks(l)));
+  if (withAgent) { const foot = el("div", "case-foot"); foot.append(openButton("cashcat", l.mint)); body.append(foot); }
+  art.append(icon, body);
+  return art;
+}
+
+/* A Popcat callout: the coin's name and ticker as text (never its image or its links), the
+   word that made it a cat coin, and every check Popcat ran with what it found. */
+function calloutCard(c, { heading = "h4", withAgent = false } = {}) {
+  const { art, icon } = cardShell("popcat", c.mint);
+  const meta = el("p", "case-meta");
+  if (withAgent) meta.append(whoIs("popcat"));
+  meta.append(el("span", "case-id", "Callout"), stamp(c.time), el("span", "verdict v-no-red-flags-found", "No red flags found"));
+  const body = el("div", "case-body");
+  body.append(meta, el(heading, "case-title", `${c.name} ($${c.symbol})`),
+    el("p", "case-sum", `A new cat coin on pump.fun, a cat by its ${c.cat.field}: “${c.cat.word}”. Every check Popcat ran is below, with what it found; none found a red flag.`));
+  body.append(el("p", "case-ev-title", "Popcat's checks"));
+  body.append(facts(c.checks.map((k) => [k.label, k.result === "info" ? `${k.value} (for information)` : k.value])));
+  body.append(el("p", "case-note", "A list of checks, not advice and not a buy signal. The agency never buys a coin before calling it out, and Popcat never calls out a coin CashCat launched."));
+  body.append(...linkList("Linked", calloutLinks(c)));
+  if (withAgent) { const foot = el("div", "case-foot"); foot.append(openButton("popcat", c.mint)); body.append(foot); }
+  art.append(icon, body);
+  return art;
+}
+
+const CARD = { cases: caseCard, launches: launchCard, callouts: calloutCard };
+
 function renderCounts() {
-  const total = cases.length;
   const tally = $("#tally");
-  if (tally) tally.textContent = state === "failed" ? "Case files unavailable here" : state === "loading" ? "Opening the case files…"
-    : total ? `${plural(total, "case", "cases")} posted` : "No cases posted yet";
+  if (tally) {
+    const kinds = [["cases", "case", "cases"], ["launches", "launch", "launches"], ["callouts", "callout", "callouts"]];
+    const parts = kinds.filter(([k]) => src[k].items.length).map(([k, one, many]) => plural(src[k].items.length, one, many));
+    tally.textContent = Object.values(src).some((s) => s.state === "loading") ? "Opening the case files…"
+      : parts.length ? `${parts.join(" · ")} posted` : src.cases.state === "failed" ? "Case files unavailable here" : "Nothing posted yet";
+  }
   for (const cat of Object.keys(AGENTS)) {
-    const n = cases.filter((c) => c.agent === cat).length;
+    const ready = src[deskOf(cat)].state === "ready";
+    const n = postsOf(cat).length;
     const [one, many] = noun(cat);
-    const label = state !== "ready" ? many : n ? plural(n, one, many) : `No ${many} yet`;
+    const label = !ready ? many : n ? plural(n, one, many) : `No ${many} yet`;
     for (const span of $$(`[data-count="${cat}"]`)) {
       span.textContent = label;
       span.classList.toggle("has", n > 0);
@@ -133,19 +235,34 @@ function renderCounts() {
     const name = AGENTS[cat].name;
     for (const b of $$(`.spot[data-cat="${cat}"], .roster-btn[data-cat="${cat}"]`)) {
       const beat = b.querySelector(".tag-beat, .r-no")?.textContent || "";
-      b.setAttribute("aria-label", `${name}'s station. ${beat}. ${state === "ready" ? label : "Open it"}.`);
+      b.setAttribute("aria-label", `${name}'s station. ${beat}. ${ready ? label : "Open it"}.`);
     }
   }
 }
 
+/* The feed: every case, launch and callout, newest first. A case carries only its day, so it
+   sits below the launches and callouts of that same day. The newest FEED_MAX are listed; every
+   post is also at its cat's desk. */
 function renderFeed() {
-  const list = $("#feed-list"), empty = $("#feed-empty"), fail = $("#feed-fail"), msg = $("#feed-state");
+  const list = $("#feed-list"), empty = $("#feed-empty"), fail = $("#feed-fail"), msg = $("#feed-state"), more = $("#feed-more");
   if (!list) return;
-  msg.hidden = true;
-  fail.hidden = state !== "failed";
-  empty.hidden = state !== "ready" || cases.length > 0;
-  list.hidden = state !== "ready" || cases.length === 0;
-  list.replaceChildren(...cases.map((c) => { const li = el("li"); li.append(caseCard(c, { heading: "h3", withAgent: true })); return li; }));
+  const settled = Object.values(src).every((s) => s.state !== "loading");
+  const failed = Object.keys(src).filter((k) => src[k].state === "failed");
+  const items = [
+    ...src.cases.items.map((x) => ({ kind: "cases", cat: x.agent, at: x.date, x })),
+    ...src.launches.items.map((x) => ({ kind: "launches", cat: "cashcat", at: x.time, x })),
+    ...src.callouts.items.map((x) => ({ kind: "callouts", cat: "popcat", at: x.time, x })),
+  ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  msg.hidden = settled;
+  fail.hidden = !settled || failed.length === 0;
+  fail.textContent = failed.map((k) => FAIL[k]).join(" ");
+  empty.hidden = !settled || failed.length > 0 || items.length > 0;
+  list.hidden = !settled || items.length === 0;
+  list.replaceChildren(...(settled ? items.slice(0, FEED_MAX) : []).map((i) => { const li = el("li"); li.append(CARD[i.kind](i.x, { heading: "h3", withAgent: true })); return li; }));
+  if (more) {
+    more.hidden = !settled || items.length <= FEED_MAX;
+    more.textContent = `The newest ${FEED_MAX} of ${items.length} posts. Every one of them is at its cat's desk.`;
+  }
 }
 
 /* ── a station ─────────────────────────────────────────────────────────── */
@@ -155,18 +272,20 @@ let opener = null;
 let current = null;
 
 function fillStation(cat) {
-  const mine = cases.filter((c) => c.agent === cat);
+  const kind = deskOf(cat), { state } = src[kind];
+  const mine = postsOf(cat);
   const list = slot.querySelector('[data-slot="cases"]');
   const none = slot.querySelector('[data-slot="none"]');
   const tpl = slot.querySelector('[data-slot="tpl"]');
   const count = slot.querySelector('[data-slot="count"]');
-  list.replaceChildren(...mine.map((c) => caseCard(c)));
+  list.replaceChildren(...mine.map((x) => CARD[kind](x)));
   count.textContent = state === "ready" && mine.length ? String(mine.length) : "";
   none.hidden = !(state === "ready" && mine.length === 0);
-  if (state === "failed" && !slot.querySelector(".feed-fail")) {
-    list.before(el("p", "feed-fail", "The case files could not be opened here just now. Every case is also posted on the agency's X account."));
-  }
-  // With nothing posted, the template shows how a case will read; once cases exist it folds away.
+  if (state === "failed" && !slot.querySelector(".feed-fail")) list.before(el("p", "feed-fail", FAIL[kind]));
+  // A bot's status says how much it has posted, once its file is read: "Bot · no launches yet".
+  const status = slot.querySelector("[data-bot-status]");
+  if (status) status.textContent = state === "ready" ? `Bot · ${botTally(cat, mine.length)}` : "Bot";
+  // With nothing posted, the template shows how a post will read; once posts exist it folds away.
   tpl.open = !(state === "ready" && mine.length > 0);
 }
 
@@ -211,15 +330,21 @@ dialog.addEventListener("close", () => {
 });
 for (const b of $$(".spot, .roster-btn")) b.addEventListener("click", () => openStation(b.dataset.cat));
 
-/* A link to a station (#crying-cat) or to a case (#CRY-001) opens it. */
+/* A link to a station (#crying-cat), to a case (#CRY-001), or to a launch or a callout by its
+   coin's mint (#<mint>) opens it. */
 function route() {
   let h = "";
   try { h = decodeURIComponent(location.hash.slice(1)); } catch { return false; }   // a malformed #%E0 is no station
   if (!h) return false;
   if (Object.prototype.hasOwnProperty.call(AGENTS, h)) { openStation(h); return true; }
   if (CASE_ID.test(h)) {
-    const c = cases.find((x) => x.id === h);
+    const c = src.cases.items.find((x) => x.id === h);
     if (c) { openStation(c.agent, c.id); return true; }
+  }
+  if (MINT.test(h)) {
+    for (const [cat, kind] of Object.entries(DESK)) {
+      if (src[kind].items.some((x) => x.mint === h)) { openStation(cat, h); return true; }
+    }
   }
   return false;
 }
@@ -283,24 +408,32 @@ frame.addEventListener("focusin", user);
 setInterval(tour, 3000);
 setTimeout(tour, 900);
 
-/* ── load the case file ────────────────────────────────────────────────── */
+/* ── load what the cats have posted ─────────────────────────────────────── */
 renderCounts();
 const deepLinked = route();
 if (deepLinked) requestAnimationFrame(() => scrollTo(0, 0));
+function refresh() {
+  renderCounts();
+  renderFeed();
+  if (current) fillStation(current);
+  else if (!deepLinked && route()) requestAnimationFrame(() => scrollTo(0, 0));
+}
 import("./cases-data.js")
   .then((mod) => {
     const { cases: ok, problems } = validateCases(mod.default);
     for (const p of problems) console.warn("cases.json:", p);
-    cases = ok;
-    state = "ready";
+    src.cases = { state: "ready", items: ok };
   })
   .catch((e) => {
-    state = "failed";
+    src.cases = { state: "failed", items: [] };
     console.warn("cases.json could not be read:", e && e.message ? e.message : e);
   })
-  .finally(() => {
-    renderCounts();
-    renderFeed();
-    if (current) fillStation(current);
-    else if (!deepLinked && route()) requestAnimationFrame(() => scrollTo(0, 0));
-  });
+  .finally(refresh);
+loadBotPosts()
+  .then((posts) => { src.launches = posts.launches; src.callouts = posts.callouts; })
+  .catch((e) => {
+    src.launches = { state: "failed", items: [] };
+    src.callouts = { state: "failed", items: [] };
+    console.warn("the bots' files could not be read:", e && e.message ? e.message : e);
+  })
+  .finally(refresh);

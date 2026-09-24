@@ -32,7 +32,7 @@
  *     counts and returns are not; every page carries the owner's two-line disclaimer; the
  *     ticker $CIA is the only way the initials appear, and nothing describes government
  *     imagery; the six agents and the Director are the seven cats (CashCat and Popcat marked as
- *     bots being built, never live), and every placeholder (the X link, the
+ *     bots, whose status is read from their own files), and every placeholder (the X link, the
  *     contract address, the buy link) comes from one config and renders as empty.
  *   · IT HANGS TOGETHER. Each page has a title, a description, a viewport, og tags and the
  *     kit's favicons; the pages link to each other and to the repository, never to a
@@ -41,6 +41,11 @@
  *     stations are the seven cats, each hotspot on its own desk; the case file ships empty, and every entry the floor will
  *     ever show passes the validator, which refuses unknown agents, impossible dates, any
  *     link that is not http(s) and any HTML; the floor's pictures are the brand kit's.
+ *   · THE BOTS' DESKS SHOW THEIR OWN FILES. CashCat's launches and Popcat's callouts are read
+ *     as JSON modules and checked by the validators the deploy runs; a callout is shown only
+ *     against the launches it must not touch; every word is text, every link is Solscan,
+ *     pump.fun or StonkFun, and no coin's picture is ever drawn; the numbers the cards quote
+ *     are the bots' own.
  *   · THE KIT IS THE SEVEN-CAT KIT. CoinMarketCat is the hoodie tabby, Snipurr keeps its old art,
  *     the floor has seven desks, and every copy the site ships is the kit's, byte for byte or
  *     pixel for pixel.
@@ -366,15 +371,15 @@ ok("Agent 001 is CoinMarketCat, field status active", has("agency", "Agent 001")
 section("THE SEVEN CATS, AND THE PLACEHOLDERS");
 /* The Director and the six agents: each card has its pixel kitten, codename, beat,
    catchphrase, bio, status and accent. CoinMarketCat is the one you can download, in its
-   hoodie purple; Snipurr, in the old mint, ships inside it; CashCat and Popcat are bots being
-   built, and their cards say so. */
+   hoodie purple; Snipurr, in the old mint, ships inside it; CashCat and Popcat are bots, and
+   their cards say so. */
 const CATS = {
   director: { name: "The Director", accent: "#9945ff", status: "On X" },
   coinmarketcat: { name: "CoinMarketCat", accent: "#8b5cf6", status: "Software · download it" },
   "crying-cat": { name: "Crying Cat", accent: "#5ab8ff", status: "On X" },
   "grumpy-cat": { name: "Grumpy Cat", accent: "#e8742c", status: "On X" },
-  cashcat: { name: "CashCat", accent: "#f5c542", status: "Being built" },
-  popcat: { name: "Popcat", accent: "#ff4fd8", status: "Being built" },
+  cashcat: { name: "CashCat", accent: "#f5c542", status: "Bot" },
+  popcat: { name: "Popcat", accent: "#ff4fd8", status: "Bot" },
   snipurr: { name: "Snipurr", accent: "#14f195", status: "Software · inside CoinMarketCat" },
 };
 const cards = Object.fromEntries([...html.agency.matchAll(/<article class="agent[^"]*" id="agent-([a-z-]+)" data-cat="([a-z-]+)"[^>]*style="--accent:(#[0-9a-f]{6})">([\s\S]*?)<\/article>/g)]
@@ -388,20 +393,24 @@ for (const [cat, want] of Object.entries(CATS)) {
     c.cat === cat && c.accent === want.accent
       && c.body.includes(`src="assets/sprites/${cat}.png"`) && fs.existsSync(path.join(SITE, "assets", "sprites", `${cat}.png`))
       && t.includes(want.name) && /class="beat"/.test(c.body) && /class="catch"/.test(c.body) && /class="bio"/.test(c.body)
-      && textOf((c.body.match(/<span class="status[^"]*">([^<]*)<\/span>/) || ["", ""])[1]).trim() === want.status);
+      && textOf((c.body.match(/<span class="status[^"]*"[^>]*>([^<]*)<\/span>/) || ["", ""])[1]).trim() === want.status);
 }
 ok("Popcat's card says the character is not the $POPCAT memecoin, and $CIA is not related to it",
   cards.popcat && textOf(cards.popcat.body).includes("not affiliated with the $POPCAT memecoin, and $CIA is not related to it"));
-/* CashCat and Popcat have new jobs, and neither bot is live: their cards say what they will do,
-   that it is being built, and that nothing has been launched or called out. */
+/* CashCat and Popcat are bots: their cards say what each does, that it posts nothing until the
+   agency switches it on, and where everything it posts is listed. No card claims a launch or a
+   callout: the status says "Bot", and the page adds how many are on file (none yet). */
 {
   const cash = textOf(cards.cashcat?.body || ""), pop = textOf(cards.popcat?.body || "");
-  ok("CashCat's card: the auto-launcher, cat coins from what is trending, on pump.fun and StonkFun, being built, nothing launched",
-    /data-beat="Auto-launcher · being built"/.test(html.agency) && cash.includes("launched by itself from what is trending, on pump.fun and on StonkFun")
-      && cash.includes("The bot is being built. It has launched nothing yet") && !/whale|KOL/i.test(cash));
-  ok("Popcat's card: cat-coin callouts on pump.fun with their safety checks, at its desk and in the floor's feed, being built, nothing called out",
-    /data-beat="Cat-coin callouts · being built"/.test(html.agency) && pop.includes("each with its safety checks. Cat coins only.")
-      && pop.includes("at its desk on the work floor and in the floor's feed") && pop.includes("it has called nothing out yet") && !/radar is a prop/i.test(pop));
+  ok("CashCat's card: the auto-launcher, cat coins from what is trending, on pump.fun and StonkFun, listed at its desk, off until switched on",
+    /data-beat="Auto-launcher · bot"/.test(html.agency) && cash.includes("launched by itself from what is trending, on pump.fun and on StonkFun")
+      && cash.includes("Every coin it launches is listed at its desk on the work floor") && cash.includes("It launches nothing until the agency switches it on.")
+      && !/whale|KOL|being built/i.test(cash));
+  ok("Popcat's card: cat-coin callouts on pump.fun with their safety checks, at its desk and in the floor's feed, off until switched on",
+    /data-beat="Cat-coin callouts · bot"/.test(html.agency) && pop.includes("each with its safety checks. Cat coins only.")
+      && pop.includes("at its desk on the work floor and in the floor's feed") && pop.includes("It calls nothing out until the agency switches it on.")
+      && !/radar is a prop|being built/i.test(pop));
+  ok("no page says a bot is being built any more", !Object.values(text).some((t) => /being built/i.test(t)));
   ok("Snipurr's card: the sniper lane inside CoinMarketCat, software, linking to that lane, its desk and the console",
     /data-beat="The sniper lane · software"/.test(html.agency) && textOf(cards.snipurr?.body || "").includes("the sniper lane inside CoinMarketCat")
       && ["coinmarketcat/#snipurr", "./floor/#snipurr", "console/"].every((h) => (cards.snipurr?.body || "").includes(`href="${h}"`)));
@@ -466,8 +475,10 @@ ok("the model is loaded after first paint, and the pixel roster picture stands i
 ok("the scene caps the pixel ratio at 2, sleeps off screen and in a hidden tab, and keeps still for reduced motion",
   /Math\.min\(window\.devicePixelRatio \|\| 1, 2\)/.test(scene) && /IntersectionObserver/.test(scene) && /visibilitychange/.test(scene)
     && /prefers-reduced-motion: reduce/.test(scene) && /NearestFilter/.test(scene));
-/* Everything the home page can load, counting the larger of each image pair. */
-const homeLoads = new Set(["index.html", "assets/home.css", "assets/config.js", "assets/home.js", "assets/hq3d.js",
+/* Everything the home page can load, counting the larger of each image pair, and the two bots'
+   files it reads for their status (the floor reads them too). */
+const BOT_FILES = ["assets/bot-posts.js", "assets/launches.js", "assets/callouts.js", "assets/launches-data.js", "assets/callouts-data.js", "assets/launches.json", "assets/callouts.json"];
+const homeLoads = new Set(["index.html", "assets/home.css", "assets/config.js", "assets/home.js", "assets/hq3d.js", ...BOT_FILES,
   ...Object.keys(THREE_FILES).filter((f) => f.endsWith(".js")).map((f) => "assets/vendor/three/" + f), ...sceneAssets,
   ...Object.keys(CATS).map((c) => `assets/sprites/${c}.png`),
   ...hrefs(html.agency).filter((h) => !/^https?:/.test(h)).map((h) => h.split("#")[0]).filter((h) => h && !h.endsWith("/"))]);
@@ -534,10 +545,10 @@ const roster = [...floorHtml.matchAll(/<li id="([a-z-]+)"[^>]*><button class="ro
 ok("the station list below repeats all seven as buttons, and each is a link target (/floor/#<cat>)",
   roster.length === 7 && roster.every((m) => m[1] === m[2] && CATS[m[1]]) && new Set(roster.map((m) => m[1])).size === 7);
 const tpl = Object.fromEntries(Object.keys(CATS).map((c) => [c, (floorHtml.match(new RegExp(`<template id="tpl-${c}">([\\s\\S]*?)</template>`)) || ["", ""])[1]]));
-/* Where a station's posts will go. The bots being built say it of what they will post, and
-   claim no post on X nobody has decided on: Popcat's callouts go on its desk and in the feed. */
-const WHERE = { cashcat: /No launches posted yet\. CashCat's launcher is being built, and it has launched nothing\. When it launches a coin, the launch goes up here/,
-  popcat: /No callouts posted yet\. Popcat's callout bot is being built, and it has called nothing out\. When it calls out a new cat coin, the callout goes up here and in the floor's feed/ };
+/* Where a station's posts will go. The bots say it of what they will post, and claim no post
+   on X nobody has decided on: their launches and callouts go on their desks and in the feed. */
+const WHERE = { cashcat: /No launches posted yet\. CashCat has launched nothing yet\. When it launches a coin, the launch goes up here and in the floor's feed/,
+  popcat: /No callouts posted yet\. Popcat has called nothing out yet\. When it calls out a new cat coin, the callout goes up here and in the floor's feed/ };
 for (const [cat, want] of Object.entries(CATS)) {
   const t = tpl[cat], card = cards[cat]?.body || "";
   const same = (cls) => { const a = (t.match(new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`)) || [])[1], b = (card.match(new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`)) || [])[1]; return a && b && textOf(a).trim() === textOf(b).trim(); };
@@ -568,10 +579,12 @@ const shipped = validateCases(caseFile);
 ok("every entry in cases.json passes the validator", shipped.problems.length === 0 && shipped.cases.length === (caseFile?.cases.length ?? -1), shipped.problems.join(" | "));
 ok("the validator knows the seven agents, each with the verdicts of its case template, Snipurr's field reports as SNP",
   JSON.stringify(Object.keys(AGENTS).sort()) === JSON.stringify(Object.keys(CATS).sort())
-    && AGENTS["crying-cat"].verdicts.includes("RUGGED") && AGENTS["grumpy-cat"].verdicts.includes("NOT IMPRESSED") && AGENTS.cashcat.verdicts.includes("WHALE MOVE")
-    && ["COPYCAT", "CLONE", "HONEYPOT", "NO RED FLAGS FOUND"].every((v) => AGENTS.popcat.verdicts.includes(v)) && AGENTS.coinmarketcat.verdicts.includes("FIELD REPORT")
+    && AGENTS["crying-cat"].verdicts.includes("RUGGED") && AGENTS["grumpy-cat"].verdicts.includes("NOT IMPRESSED") && AGENTS.coinmarketcat.verdicts.includes("FIELD REPORT")
     && AGENTS.director.verdicts.includes("ANNOUNCEMENT") && JSON.stringify(AGENTS.snipurr) === JSON.stringify({ name: "Snipurr", prefix: "SNP", verdicts: ["FIELD REPORT"], evidence: true })
     && !Object.values(AGENTS).some((a) => a.verdicts.some((v) => /SAFE|BUY|LEGIT/.test(v))));
+ok("CashCat and Popcat post no cases: their launches and callouts are their own files, and a case filed under either is refused",
+  AGENTS.cashcat.verdicts.length === 0 && AGENTS.cashcat.posts === "launches.json" && AGENTS.popcat.verdicts.length === 0 && AGENTS.popcat.posts === "callouts.json"
+    && ["cashcat", "popcat"].every((agent) => validateCases({ cases: [{ id: agent === "cashcat" ? "CSH-001" : "POP-001", agent, date: "2026-10-01", verdict: "NO RED FLAGS FOUND", title: "A fixture", summary: "A test fixture, not a case.", evidence: [{ label: "A wallet", address: "11111111111111111111111111111111" }] }] }).problems.some((p) => /posts no cases/.test(p))));
 ok("the floor knows Snipurr: its case prefix, its sprite's size and its field reports",
   /\(DIR\|CRY\|GRR\|CSH\|POP\|CMC\|SNP\)/.test(fs.readFileSync(path.join(SITE, "assets", "floor.js"), "utf8"))
     && /snipurr: \[146, 207\]/.test(fs.readFileSync(path.join(SITE, "assets", "floor.js"), "utf8")) && /coinmarketcat: \[175, 209\]/.test(fs.readFileSync(path.join(SITE, "assets", "floor.js"), "utf8"))
@@ -622,8 +635,9 @@ ok("the floor page loads config.js, then floor.js as a module", /<script src="\.
 ok("floor.js validates with cases.js and reads cases.json only through cases-data.js, catching a failure",
   /import \{ AGENTS, validateCases \} from "\.\/cases\.js";/.test(floorJs) && /import\("\.\/cases-data\.js"\)[\s\S]*?\.catch\(/.test(floorJs)
     && /import cases from "\.\/cases\.json" with \{ type: "json" \};/.test(casesData) && /validateCases\(mod\.default\)/.test(floorJs) && /console\.warn\("cases\.json:", p\)/.test(floorJs));
+const botJs = ["bot-posts.js", "launches.js", "callouts.js", "launches-data.js", "callouts-data.js"].map((f) => fs.readFileSync(path.join(SITE, "assets", f), "utf8"));
 ok("the floor's scripts write text only: no innerHTML, outerHTML, insertAdjacentHTML, document.write or eval",
-  ![floorJs, casesData, fs.readFileSync(path.join(SITE, "assets", "cases.js"), "utf8")].some((src) => /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/.test(src)));
+  ![floorJs, casesData, fs.readFileSync(path.join(SITE, "assets", "cases.js"), "utf8"), ...botJs].some((src) => /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/.test(src)));
 ok("evidence and X links open with noopener", /a\.rel = "noopener noreferrer";/.test(floorJs));
 ok("a malformed link (/floor/#%E0) opens nothing instead of throwing, and a late close never empties a reopened station",
   /try \{ h = decodeURIComponent\(location\.hash\.slice\(1\)\); \} catch \{ return false; \}/.test(floorJs)
@@ -653,10 +667,78 @@ ok("no drawn stand-ins: no SVG or canvas on the floor page or in its scripts", !
 const jpegSize = (file) => { const b = fs.readFileSync(file); for (let i = 2; i < b.length;) { const m = b[i + 1], len = b.readUInt16BE(i + 2); if (m >= 0xc0 && m <= 0xc3) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)]; i += 2 + len; } return null; };
 ok("the floor's link preview is 1200 × 630, cropped from the work floor", JSON.stringify(jpegSize(path.join(SITE, "assets", "og-floor-1200x630.jpg"))) === "[1200,630]");
 /* Everything the floor page can load, both sizes of the office picture included. */
-const floorLoads = new Set(["floor/index.html", "assets/home.css", "assets/floor.css", "assets/config.js", "assets/floor.js", "assets/cases.js", "assets/cases-data.js", "assets/cases.json",
+const floorLoads = new Set(["floor/index.html", "assets/home.css", "assets/floor.css", "assets/config.js", "assets/floor.js", "assets/cases.js", "assets/cases-data.js", "assets/cases.json", ...BOT_FILES,
   ...floorPics.map((u) => u.replace(/^\.\.\//, "")), ...cssPics.map((u) => "assets/" + u), "assets/favicon-32.png", "assets/apple-touch-180.png"]);
 const floorBytes = [...floorLoads].reduce((n, f) => n + fs.statSync(path.join(SITE, f)).size, 0);
 ok("the floor page weighs under 2.5 MB with everything it can load", floorBytes < 2.5 * 1024 * 1024, `${(floorBytes / 1024 / 1024).toFixed(2)} MB over ${floorLoads.size} files`);
+
+section("THE BOTS' DESKS");
+/* CashCat's launches and Popcat's callouts reach the page the way the cases do: as JSON modules,
+   each through a loader of its own, and checked by the validators the deploy runs. */
+const assetText = (f) => fs.readFileSync(path.join(SITE, "assets", f), "utf8");
+const botPostsJs = assetText("bot-posts.js");
+ok("the bots' files are read as JSON modules, each through a loader of its own, never fetched",
+  /import launches from "\.\/launches\.json" with \{ type: "json" \};/.test(assetText("launches-data.js")) && /import callouts from "\.\/callouts\.json" with \{ type: "json" \};/.test(assetText("callouts-data.js"))
+    && /Promise\.allSettled\(\[import\("\.\/launches-data\.js"\), import\("\.\/callouts-data\.js"\)\]\)/.test(botPostsJs));
+ok("they are checked by the deploy's own validators; callouts only against CashCat's launches, and not at all without them",
+  /validateLaunches\(l\.value\.default\)/.test(botPostsJs) && /validateCallouts\(c\.value\.default, \{ exclude: launches\.items \}\)/.test(botPostsJs)
+    && /else if \(launches\.state !== "ready"\) warn\(/.test(botPostsJs));
+{
+  const { loadBotPosts, botTally } = await import("./site/assets/bot-posts.js");
+  const warned = [];
+  const posts = await loadBotPosts((...a) => warned.push(a.join(" ")));
+  ok("the files on the site load the page's way and pass with no warning", posts.launches.state === "ready" && posts.callouts.state === "ready" && warned.length === 0,
+    warned.join(" | ") || `${posts.launches.items.length} launches, ${posts.callouts.items.length} callouts`);
+  ok("a bot's status reads \"Bot · no launches yet\" until one is on file, then counts",
+    botTally("cashcat", 0) === "no launches yet" && botTally("cashcat", 1) === "1 launch" && botTally("popcat", 0) === "no callouts yet" && botTally("popcat", 12) === "12 callouts");
+}
+ok("the home page's two bot cards and their stations carry that status, filled from the same files",
+  ["cashcat", "popcat"].every((c) => (html.agency.match(new RegExp(`data-bot-status="${c}">Bot<`, "g")) || []).length === 1 && (tpl[c].match(new RegExp(`data-bot-status="${c}">Bot<`, "g")) || []).length === 1)
+    && /import \{ loadBotPosts, botTally \} from "\.\/assets\/bot-posts\.js";/.test(html.agency)
+    && /status\.textContent = state === "ready" \? `Bot · \$\{botTally\(cat, mine\.length\)\}` : "Bot";/.test(floorJs));
+ok("CashCat's desk shows its launches and Popcat's its callouts, every other desk its cases, and the feed all three, newest first",
+  /import \{ loadBotPosts, botTally \} from "\.\/bot-posts\.js";/.test(floorJs) && /const DESK = \{ cashcat: "launches", popcat: "callouts" \};/.test(floorJs)
+    && /const CARD = \{ cases: caseCard, launches: launchCard, callouts: calloutCard \};/.test(floorJs)
+    && /\.\.\.src\.launches\.items\.map/.test(floorJs) && /\.\.\.src\.callouts\.items\.map/.test(floorJs) && /id="feed-more" hidden/.test(floorHtml));
+const pictures = [...floorJs.matchAll(/\.src = ([^;]+);/g)].map((m) => m[1]);
+ok("no coin's picture is ever drawn: the only pictures the floor's script sets are the case-file icon and the cats' own sprites",
+  pictures.length === 2 && pictures.includes('"../assets/floor/case-file-112.png"') && pictures.includes("`../assets/sprites/${cat}.png`"), pictures.join(", "));
+{
+  const { validateLaunches, launchLinks } = await import("./site/assets/launches.js");
+  const { validateCallouts, calloutLinks, CHECK_IDS } = await import("./site/assets/callouts.js");
+  const fx = (f) => JSON.parse(fs.readFileSync(path.join(here, "fixtures", "bots", f), "utf8"));
+  const snap = fx("popcat/snapshots.json").snapshots[0], sample = fx("pumpfun/create-v2-samples.json").samples[0];
+  /* Test entries, never shipped: a launch and a callout shaped from recorded mainnet answers. */
+  const spyx = STOCK_FOCUS_CHOICES.find((x) => x.symbol === "SPYx");
+  const launch = { time: "2026-09-24T20:00:00Z", venue: "stonkfun", name: "Fixture Cat", symbol: "FIXCAT", tagline: "A test entry, not a launch.", trend: { title: "a test", source: "google-trends" },
+    mint: sample.accounts[0].pubkey, creator: sample.accounts.find((a) => a.isSigner && a.pubkey !== sample.accounts[0].pubkey).pubkey, tx: sample.signature,
+    quote: { symbol: spyx.symbol, mint: spyx.mint }, devBuy: { sol: 0 }, costSol: 0.0087, kitten: "ginger" };
+  const callout = { time: "2026-09-24T21:40:00Z", venue: "pumpfun", mint: snap.apiRow.mint, creator: snap.apiRow.creator, name: snap.apiRow.name, symbol: snap.apiRow.symbol,
+    cat: { field: "name", word: "cat" }, checks: CHECK_IDS.map((id) => ({ id, result: "pass", value: "a test value" })) };
+  const l = validateLaunches({ launches: [launch] }), c = validateCallouts({ callouts: [callout] });
+  const hosts = [...launchLinks(l.launches[0] ?? launch), ...calloutLinks(c.callouts[0] ?? callout)].map((x) => new URL(x.href).host);
+  ok("a launch and a callout link only to Solscan, pump.fun and StonkFun", l.problems.length === 0 && c.problems.length === 0 && hosts.length >= 7
+    && hosts.every((h) => ["solscan.io", "pump.fun", "www.stonkfun.xyz"].includes(h)), [...new Set(hosts)].join(", "));
+  ok("a callout carrying the coin's picture or its links is refused, and so is one on a coin CashCat launched",
+    ["image", "uri", "website", "twitter"].every((k) => validateCallouts({ callouts: [{ ...callout, [k]: "https://example.com/x" }] }).problems.length === 1)
+      && validateCallouts({ callouts: [callout] }, { exclude: [{ ...l.launches[0], mint: callout.mint }] }).problems.some((p) => /never calls out a coin CashCat launched/.test(p))
+      && validateCallouts({ callouts: [callout] }, { exclude: [{ ...l.launches[0], creator: callout.creator }] }).callouts.length === 0);
+}
+{
+  /* The numbers the two cards quote are the bots' own. */
+  const { CASHCAT_DEFAULTS, FENCES } = await import("./bots/cashcat/config.mjs");
+  const { THRESHOLDS } = await import("./bots/popcat/checks.mjs");
+  const { disclosure } = await import("./bots/cashcat/metadata.mjs");
+  const { MAX_DEV_BUY_SOL } = await import("./site/assets/launches.js");
+  pinned("CashCat: two launches a day by default, never more than six", CASHCAT_DEFAULTS.maxLaunchesPerDay === 2 && FENCES.maxLaunchesPerDay[1] === 6, has("agency", "two a day by default, never more than six"));
+  pinned("CashCat: no dev buy by default, never more than 0.05 SOL", CASHCAT_DEFAULTS.devBuySol === 0 && FENCES.devBuySol[1] === 0.05 && MAX_DEV_BUY_SOL === 0.05,
+    has("agency", "No dev buy by default, and never more than 0.05 SOL"));
+  pinned("CashCat: every coin says a bot of the agency launched it, unaffiliated with its trend, not financial advice",
+    /^Launched automatically by CashCat, a bot of the Cat Intelligence Agency/.test(disclosure({ trendTitle: "x" })) && /not affiliated with/.test(disclosure({ trendTitle: "x" })) && /Not financial advice\./.test(disclosure({ trendTitle: "x" })),
+    has("agency", "That CashCat, a bot of the agency, launched it automatically, that it is not affiliated with its trend, and that it is not financial advice."));
+  pinned("Popcat: coins from 15 minutes to a day old", THRESHOLDS.MIN_AGE_MINUTES === 15 && THRESHOLDS.MAX_AGE_HOURS === 24, has("agency", "from 15 minutes to a day old"));
+  pinned("Popcat: about every half hour", /cron: "7,37 \* \* \* \*"/.test(fs.readFileSync(path.join(here, ".github", "workflows", "popcat.yml"), "utf8")), has("agency", "about every half hour"));
+}
 
 section("THE SEVEN-CAT KIT");
 /* The art the site is built from, pinned: CoinMarketCat is the hoodie tabby (its own sprite,

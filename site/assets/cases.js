@@ -4,7 +4,7 @@
 
      { "cases": [ {
          "id":       "CRY-001"            the agent's prefix and a number (see AGENTS below)
-         "agent":    "crying-cat"         director | crying-cat | grumpy-cat | cashcat | popcat | coinmarketcat | snipurr
+         "agent":    "crying-cat"         director | crying-cat | grumpy-cat | coinmarketcat | snipurr
          "date":     "YYYY-MM-DD"         the day it was posted, UTC
          "verdict":  "RUGGED"             one of that agent's verdicts (see AGENTS below)
          "title":    "..."                one line, up to 140 characters
@@ -21,6 +21,10 @@
    built here from a signature or an address. The house rules ask for evidence ("no link, no
    case"), so every case but the Director's announcements needs at least one evidence link.
 
+   CashCat and Popcat post no cases. They are bots now, and what they post lives in files of
+   their own, checked by launches.js and callouts.js: a case filed under either is refused. The
+   Director's CORRECTION covers a launch or a callout the agency got wrong.
+
    This module touches no page and has no side effects: the floor imports it, and
    test-site.mjs runs the same function in Node. */
 
@@ -28,8 +32,8 @@ export const AGENTS = {
   director:      { name: "The Director",  prefix: "DIR", verdicts: ["ANNOUNCEMENT", "CORRECTION"], evidence: false },
   "crying-cat":  { name: "Crying Cat",    prefix: "CRY", verdicts: ["RUGGED", "NO RED FLAGS FOUND", "CORRECTED"], evidence: true },
   "grumpy-cat":  { name: "Grumpy Cat",    prefix: "GRR", verdicts: ["NOT IMPRESSED", "NO RED FLAGS FOUND", "CORRECTED"], evidence: true },
-  cashcat:       { name: "CashCat",       prefix: "CSH", verdicts: ["WHALE MOVE", "NO RED FLAGS FOUND", "CORRECTED"], evidence: true },
-  popcat:        { name: "Popcat",        prefix: "POP", verdicts: ["COPYCAT", "CLONE", "HONEYPOT", "NO RED FLAGS FOUND", "CORRECTED"], evidence: true },
+  cashcat:       { name: "CashCat",       prefix: "CSH", verdicts: [], evidence: true, posts: "launches.json" },
+  popcat:        { name: "Popcat",        prefix: "POP", verdicts: [], evidence: true, posts: "callouts.json" },
   coinmarketcat: { name: "CoinMarketCat", prefix: "CMC", verdicts: ["FIELD REPORT"], evidence: true },
   snipurr:       { name: "Snipurr",       prefix: "SNP", verdicts: ["FIELD REPORT"], evidence: true },
 };
@@ -110,6 +114,7 @@ function caseEntry(entry) {
   for (const k of Object.keys(entry)) if (!FIELDS.has(k)) bad(`unknown field "${k}"`);
   if (typeof entry.agent !== "string" || !own(AGENTS, entry.agent)) bad(`"agent" must be one of ${Object.keys(AGENTS).join(", ")}`);
   const agent = AGENTS[entry.agent];
+  if (agent.posts) bad(`${agent.name} posts no cases: its posts are in ${agent.posts}`);
   if (typeof entry.id !== "string" || !new RegExp(`^${agent.prefix}-\\d{3,4}$`).test(entry.id)) bad(`"id" must look like ${agent.prefix}-001 for ${agent.name}`);
   const date = isoDate(entry.date);
   if (typeof entry.verdict !== "string" || !agent.verdicts.includes(entry.verdict)) bad(`"verdict" for ${agent.name} must be one of ${agent.verdicts.join(", ")}`);

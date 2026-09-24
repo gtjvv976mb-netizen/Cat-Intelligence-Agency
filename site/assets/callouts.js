@@ -106,7 +106,7 @@ function calloutEntry(e) {
 /** The only links the floor draws for a callout. */
 export function calloutLinks(c) {
   return [
-    { label: "pump.fun", href: PUMP_PAGE + c.mint },
+    { label: "The coin on pump.fun", href: PUMP_PAGE + c.mint },
     { label: "Mint", href: EXPLORER.address + c.mint },
     { label: "Creator", href: EXPLORER.address + c.creator },
   ];

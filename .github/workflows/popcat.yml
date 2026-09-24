@@ -1,4 +1,4 @@
-# Popcat, the callout bot: every 25 minutes it reads new pump.fun coins, keeps the cat ones,
+# Popcat, the callout bot: every half hour it reads new pump.fun coins, keeps the cat ones,
 # runs its on-chain checks, and — only with the repository variable POPCAT_LIVE set to 1 —
 # publishes the coins that pass every check to callouts.json on the floor-data branch, then
 # deploys the site. Without POPCAT_LIVE it is a dry run that prints what it would publish.
@@ -11,7 +11,7 @@ name: Popcat
 
 on:
   schedule:
-    - cron: "7,32 * * * *"
+    - cron: "7,37 * * * *"
   workflow_dispatch:
 
 permissions: {}

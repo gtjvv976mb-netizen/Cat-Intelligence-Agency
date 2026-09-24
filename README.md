@@ -1,12 +1,40 @@
-# COINMARKETCAT
+# Cat Intelligence Agency
+
+*Every agent is a cat built for crypto.*
+
+**Website:** [catintelligenceagency.com](https://catintelligenceagency.com/)
+
+Cat Intelligence Agency is a crew of pixel-kitten agents that investigate the crypto market
+in public on X, plus the agency's memecoin, **$CIA**. One of its products is real software:
+**CoinMarketCat**, a sniper bot you run in your own browser. This repository holds all of
+it.
+
+| Agent | Beat | What it is |
+|---|---|---|
+| **The Director** | Runs the agency | The logo and mascot |
+| **CoinMarketCat** | Sniping new launches | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-sniper-bot)) |
+| **Crying Cat** | Ruggers | A persona the agency posts as on X |
+| **Grumpy Cat** | Fake hype | A persona the agency posts as on X |
+| **CashCat** | Whales and KOLs | A persona the agency posts as on X |
+| **Popcat** | Emerging cat memecoins | A persona the agency posts as on X |
+
+## What is in this repository
+
+| Path | What |
+|---|---|
+| `src/`, `manifest.json`, `build.mjs`, `vendor/` | CoinMarketCat, the sniper-bot extension |
+| `site/` | The website: the agency's home with its 3D headquarters, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), and [the console](https://catintelligenceagency.com/console/) the extension signs through |
+| `brand/` | The [brand kit](brand/README.md): the six pixel-kitten agents, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
+
+$CIA is a memecoin with no intrinsic value and no expectation of profit. Nothing here is
+financial advice. Cat Intelligence Agency is a meme and software project, not a government
+agency, and is not affiliated with CoinMarketCap or with the owners of any real cat or meme.
+
+## CoinMarketCat — the sniper bot
 
 *The sniper cat. It hovers ten seconds over every launch and buys only what others followed.*
 
-**This repository is Cat Intelligence Agency:** CoinMarketCat (the browser extension, below), the agency's brand kit in [`brand/`](brand/README.md) (six pixel-kitten agents, the X header, the $CIA coin image, a 3D headquarters, the launch copy), and the website in `site/`.
-
-**Website:** [catintelligenceagency.com](https://catintelligenceagency.com/) — the agency, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/) and [the console](https://catintelligenceagency.com/console/), published from `site/`.
-
-CoinMarketCat — the sniper cat, the first trading agent of Cat Intelligence Agency — is
+CoinMarketCat — the sniper cat, Cat Intelligence Agency's trading bot — is
 the Claude Company launch sniper's lane (HAWK-AI's), run in your own browser. You set the
 limits: the take-profit, the SOL per trade, the daily budget it will not exceed, the stop,
 and which stock-paired tokens to focus on. You also choose who signs:
@@ -25,7 +53,7 @@ anything can spend.
 It is a Chrome extension you build from this repository and load unpacked. It is not in
 a store.
 
-## What it does
+### What it does
 
 - **Watches pump.fun's own program logs** and runs every launch through the same entry
   contract WALL-ST-E runs. The contract, the exit determiner, the curve arithmetic, the
@@ -57,7 +85,7 @@ a store.
   inside that stock's limits. It follows the lane: Observe only watches. See
   [New pools paired with a stock, through Jupiter](#new-pools-paired-with-a-stock-through-jupiter-off-by-default).
 
-## What HAWK-AI's trades taught it
+### What HAWK-AI's trades taught it
 
 The executor's live record, read back off mainnet in full on 2026-09-17 (the tables are
 in Claude-Company's `executor/README.md`):
@@ -85,7 +113,7 @@ Wiring this lane also found a bug in the executor: an unset `SNIPE_STALL_MS` rea
 and its regression (`vendor/executor/test-snipe-stall-default.mjs`) are in the vendored
 commit.
 
-## Launches quoted in a stock (pump.fun Custom Pairs)
+### Launches quoted in a stock (pump.fun Custom Pairs)
 
 In **Options → Stock quotes** you may list up to eight stock mints, each with its own
 numbers **in that stock's units**: a ticket per launch, a canary (the first buy), and a
@@ -133,7 +161,7 @@ you choose is its only stop, and the lane will not arm with a stock listed until
 chosen one. SPYx carries a display multiplier: Phantom shows it scaled, this lane shows the
 raw count over 10^8. A coin that graduates to a pool must be sold by hand, as with SOL.
 
-## New pools paired with a stock, through Jupiter (off by default)
+### New pools paired with a stock, through Jupiter (off by default)
 
 The pump.fun lane hears launches from the pump.fun program's own logs. Tokens are also
 launched straight into pools on Raydium, Meteora, Orca and launchpads, paired with an xStock
@@ -223,7 +251,7 @@ wallet can lose to them in the simulation, not what those programs are. Jupiter 
 `/swap/v1` "no longer actively maintained" and names a successor; no sunset date is
 published.
 
-## Who signs: Phantom per trade, or autopilot
+### Who signs: Phantom per trade, or autopilot
 
 **Phantom per trade** is the default. Phantom has no auto-approve, and this mode does not
 route around it: a buy the lane clears becomes one Phantom window on the console tab; a
@@ -283,7 +311,7 @@ What is true on autopilot, plainly:
 
 `docs/session-wallet.md` has the threat model.
 
-## Install
+### Install
 
 ```bash
 git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
@@ -319,7 +347,7 @@ cd Cat-Intelligence-Agency && npm ci && npm run build      # → dist/
 
 `npm run watch` rebuilds on save; press the reload arrow on the extension card afterwards.
 
-## What it refuses, and what you must know
+### What it refuses, and what you must know
 
 - **A stop that needs a click is a weaker stop than a key's.** In Phantom mode every exit is one Phantom
   window. A declined sell is asked again 8 s later, and an unanswered window is abandoned
@@ -355,7 +383,7 @@ cd Cat-Intelligence-Agency && npm ci && npm run build      # → dist/
 - **Two RPCs are optional here; on the executor they are mandatory.** A single provider
   is a single witness; the shadow row's `endpointVerdict` says `single` when so.
 
-## How it is built
+### How it is built
 
 ```
 manifest.json            MV3; permissions pinned by test-hawk-manifest.mjs
@@ -396,7 +424,7 @@ bound, lookup tables from your RPC → the wallet's other accounts proved untouc
 engine's simulate guard → one Phantom window (or the autopilot key) → the same-message check →
 sent → confirmed → the fill read from the transaction → booked in the stock.
 
-## Keeping the decision code honest
+### Keeping the decision code honest
 
 ```bash
 npm run check-upstream                          # does vendor/executor still match Claude-Company main?
@@ -407,7 +435,7 @@ node scripts/sync-executor.mjs --from ../Claude-Company   # re-vendor from a che
 manifest, so a hand edit under `vendor/` fails the suite by name. CI runs the drift check
 on every push to `main`.
 
-## Tests
+### Tests
 
 `npm test` runs every `test-*.mjs` at the root and under `vendor/executor/`:
 
@@ -426,7 +454,7 @@ on every push to `main`.
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
 | `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 
-## Not advice
+### Not advice
 
 A user-operated tool that runs in your own browser against your own wallet. Nothing here
 is financial advice, nothing here has an edge until you have graded its book over a real

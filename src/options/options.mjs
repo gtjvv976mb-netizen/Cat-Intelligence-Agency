@@ -1,6 +1,8 @@
 /** THE OPTIONS PAGE: every config key, described, validated by the same normalizeConfig the engine runs. */
 import { UI } from "../lib/protocol.mjs";
-import { CONFIG_DEFAULTS, CONSOLE_URLS, normalizeConfig, RECORD } from "../lib/config.mjs";
+import {
+  CONFIG_DEFAULTS, CONSOLE_URLS, normalizeConfig, RECORD, KNOWN_STOCK_QUOTES, STOCK_CANARY_RULE, MAX_QUOTE_MINTS,
+} from "../lib/config.mjs";
 
 const FIELDS = [
   ["Connection", [
@@ -54,6 +56,57 @@ const FIELDS = [
 const $ = (id) => document.getElementById(id);
 const form = $("form");
 const msg = $("msg");
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ── THE STOCK LIST ─────────────────────────────────────────────────────────────────────
+   One row per stock the lane may pay in, each number in THAT STOCK's units. The inputs
+   carry data-q, not name, so the generic reader below never sees them; readStocks()
+   builds the list and normalizeConfig is the fence, exactly as for every other dial. */
+const STOCK_COLUMNS = [
+  ["mint", "text", "Mint address"],
+  ["symbol", "text", "Symbol"],
+  ["maxPerTrade", "number", "Per launch"],
+  ["minPerTrade", "number", "Canary (first buy)"],
+  ["dailyCap", "number", "Per 24h"],
+];
+function stockRow(q = {}) {
+  return `<tr class="stock">${STOCK_COLUMNS.map(([key, type, label]) =>
+    `<td><input type="${type}" data-q="${key}" aria-label="${label}" value="${esc(q[key] ?? "")}" ${type === "number" ? 'step="any" min="0"' : 'spellcheck="false"'} ${key === "mint" ? 'class="mint"' : ""}></td>`).join("")}
+    <td><button type="button" class="btn ghost" data-remove title="Remove this stock">×</button></td></tr>`;
+}
+function stockEditor(list) {
+  return `<fieldset id="stockFieldset"><legend>Stock quotes (pump.fun Custom Pairs)</legend>
+    <p class="help">A pump.fun launch can be priced in a tokenised stock (xStocks such as GLDx, TSLAx, SPYx) instead of SOL. Leave this empty and the lane stays SOL-only, as before. A stock listed here may be PAID with, from the stock already in your wallet: each number is in <b>that stock's units</b> (decimals are read from the mint account on chain, never typed). The network fee and account rent of a stock trade are still paid in SOL and count against your SOL per-24h cap.</p>
+    <p class="help"><span class="rec">Canary rule.</span> ${esc(STOCK_CANARY_RULE)} Set the canary smaller than the per-launch ticket; blank means the canary IS the full ticket.</p>
+    <p class="help">Nothing about stock-quoted launches has been measured: HAWK-AI's record is SOL launches only. Every xStock mint carries an issuer's freeze authority, pause switch and permanent delegate; the lane refuses a paused stock and says so, and cannot defend against a freeze. Changing this list changes the arm sentence, so an armed lane must be re-armed.</p>
+    <table class="stocks"><thead><tr>${STOCK_COLUMNS.map(([, , label]) => `<th>${label}</th>`).join("")}<th></th></tr></thead>
+      <tbody id="stockRows">${list.map(stockRow).join("")}</tbody></table>
+    <div class="stockadd">${KNOWN_STOCK_QUOTES.map((k) => `<button type="button" class="btn ghost" data-add="${esc(k.mint)}" title="${esc(k.name)} — ${esc(k.mint)}">+ ${esc(k.symbol)}</button>`).join("")}
+      <button type="button" class="btn ghost" data-add="">+ another mint</button>
+      <span class="help">at most ${MAX_QUOTE_MINTS}; the address and symbol of each shortcut were read from its mint account on mainnet</span></div>
+  </fieldset>`;
+}
+function wireStockEditor() {
+  const rows = $("stockRows");
+  form.querySelector("#stockFieldset").addEventListener("click", (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (t.hasAttribute("data-remove")) { t.closest("tr")?.remove(); return; }
+    if (t.hasAttribute("data-add")) {
+      const known = KNOWN_STOCK_QUOTES.find((k) => k.mint === t.dataset.add);
+      if (known && rows.querySelector(`input[data-q="mint"][value="${known.mint}"]`)) { msg.className = "msg bad"; msg.textContent = `${known.symbol} is already listed`; return; }
+      rows.insertAdjacentHTML("beforeend", stockRow(known ? { mint: known.mint, symbol: known.symbol } : {}));
+      rows.lastElementChild?.querySelector(known ? 'input[data-q="maxPerTrade"]' : 'input[data-q="mint"]')?.focus();
+    }
+  });
+}
+function readStocks() {
+  return [...form.querySelectorAll("#stockRows tr.stock")].map((tr) => {
+    const q = {};
+    for (const el of tr.querySelectorAll("[data-q]")) { const v = el.value.trim(); if (v !== "") q[el.dataset.q] = v; }
+    return q;
+  }).filter((q) => Object.keys(q).length > 0);
+}
 
 function build(config) {
   form.innerHTML = FIELDS.map(([legend, fields]) => `<fieldset><legend>${legend}</legend>${fields.map(([key, type, label, help]) => {
@@ -63,7 +116,8 @@ function build(config) {
     else if (type === "select") input = `<select name="${key}">${CONSOLE_URLS.map((u) => `<option value="${u}" ${u === v ? "selected" : ""}>${u}</option>`).join("")}</select>`;
     else input = `<input type="${type}" name="${key}" value="${v === null || v === undefined ? "" : String(v)}" ${type === "number" ? 'step="any"' : ""} spellcheck="false">`;
     return `<div class="field"><label>${label}<small>${key}</small></label><div>${input}</div><div class="help">${help}</div></div>`;
-  }).join("")}</fieldset>`).join("");
+  }).join("")}</fieldset>`).join("") + stockEditor(config.quoteMints ?? []);
+  wireStockEditor();
 }
 function read() {
   const out = {};
@@ -71,6 +125,7 @@ function read() {
     if (el.type === "checkbox") out[el.name] = el.checked;
     else out[el.name] = el.value === "" ? null : el.value;
   }
+  out.quoteMints = readStocks();
   return out;
 }
 async function load() {
@@ -84,13 +139,13 @@ $("btnSave").addEventListener("click", async (e) => {
   try { normalizeConfig({ ...CONFIG_DEFAULTS, ...draft }); }
   catch (error) {
     msg.className = "msg bad"; msg.textContent = error.message;
-    const el = form.querySelector(`[name="${error.key}"]`); if (el) { el.classList.add("bad"); el.focus(); }
+    const el = error.key === "quoteMints" ? form.querySelector("#stockFieldset") : form.querySelector(`[name="${error.key}"]`); if (el) { el.classList.add("bad"); el.focus?.(); }
     return;
   }
   const res = await chrome.runtime.sendMessage({ type: UI.SET_CONFIG, config: draft });
-  if (!res?.ok) { msg.className = "msg bad"; msg.textContent = res?.error ?? "save failed"; const el = res?.key && form.querySelector(`[name="${res.key}"]`); if (el) el.classList.add("bad"); return; }
+  if (!res?.ok) { msg.className = "msg bad"; msg.textContent = res?.error ?? "save failed"; const el = res?.key && (res.key === "quoteMints" ? form.querySelector("#stockFieldset") : form.querySelector(`[name="${res.key}"]`)); if (el) el.classList.add("bad"); return; }
   msg.className = "msg good"; msg.textContent = "saved — the lane reads it now";
   build(res.config);
 });
-$("btnDefaults").addEventListener("click", () => { build({ ...CONFIG_DEFAULTS, rpcUrl: read().rpcUrl ?? "" }); msg.className = "msg"; msg.textContent = "defaults shown — press Save to keep them"; });
+$("btnDefaults").addEventListener("click", () => { build({ ...CONFIG_DEFAULTS, rpcUrl: read().rpcUrl ?? "" }); msg.className = "msg"; msg.textContent = "defaults shown (no stock quotes: SOL only) — press Save to keep them"; });
 load();

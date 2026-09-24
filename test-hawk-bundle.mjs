@@ -118,6 +118,22 @@ if (built) {
     const { laneConfigFor, normalizeConfig, CONFIG_DEFAULTS } = await import("./src/lib/config.mjs");
     const v = snipeContract({ notice: { mint: stale.mint, noticeAt: stale.noticeAt }, curve: null, adapter: (await import("./vendor/executor/snipe-venue-pumpfun.mjs")).PUMPFUN_VENUE, cfg: laneConfigFor(normalizeConfig({ ...CONFIG_DEFAULTS, lane: "observe" })), book: { snipes: {}, positions: {}, attempts: {}, deployedTodaySol: 0 }, nowMs: Date.now(), control: { hardStop: false, pauseEntries: false }, fees: { signatureFeeLamports: 5000, prioritizationFeeLamports: 0, rentFeeLamports: 0 } });
     ok("…and the executor's own contract agrees on the gate", v.gate === res?.verdict?.gate, `executor ${v.gate}, bundle ${res?.verdict?.gate}`);
+
+    /* A STOCK QUOTE THROUGH THE BUNDLE: the bundled describeMint (token2022.mjs behind the
+       node:crypto shim) must read the live GLDx mint bytes exactly as Node does, off the
+       same read as a live GLDx-quoted curve. */
+    const fixture = JSON.parse(fs.readFileSync(path.join(here, "vendor", "executor", "fixtures", "pumpfun-xstock-quote.json"), "utf8"));
+    const acct = (address) => { const a = fixture.accounts.find((x) => x.address === address); return { owner: a.owner, lamports: a.lamports, data: a.data }; };
+    const GLDX = "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re";
+    const stockEngine = bundled.createHawkEngine({ bridge, store: bundled.memoryStore(), config: { lane: "observe", quoteMints: [{ mint: GLDX, symbol: "GLDx", maxPerTrade: 0.05, minPerTrade: 0.01, dailyCap: 0.5 }] } });
+    await stockEngine.load();
+    const reads = [];
+    stockEngine.setRpc({ url: "https://x", async getMultipleAccounts(addresses) { reads.push(addresses.map(String)); return { slot: 449_986_225, accounts: addresses.map((a, i) => (String(a) === GLDX ? acct(GLDX) : i === 0 ? acct("JXJC7sJa235q7GbFjsQ9oorm6wHForQ8MZJoF1MedDP") : null)) }; } });
+    const stockRes = await stockEngine.handleNotice({ mint: "DRA4qXNRw5XBd5aVBjFdKJWMc1yiBpqrp8gTWYsmpump", creator: null, slot: 449_986_220, noticeAt: Date.now(), source: "logsSubscribe", raw: {} });
+    const sq = stockEngine.status().quoteMints?.[0];
+    ok("the bundled engine reads a listed stock's mint on the curve's own read", reads.length === 1 && reads[0].length === 4 && reads[0][3] === GLDX, JSON.stringify(reads.map((r) => r.length)));
+    ok("…and the bundled describeMint reads the live GLDx bytes: Token-2022, 8 decimals, unpaused, symbol GLDx", sq?.decimals === 8 && sq.program === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" && sq.paused === false && sq.metadataSymbol === "GLDx", JSON.stringify({ d: sq?.decimals, p: sq?.paused, s: sq?.metadataSymbol }));
+    ok("…and the launch gets past quote_not_sol, sized in GLDx (refused later, for the base mint the probe did not serve)", stockRes?.verdict?.gate !== "quote_not_sol" && stockRes?.verdict?.detail?.quote?.isSol === false, `${stockRes?.verdict?.gate}: ${stockRes?.verdict?.detail?.message?.slice(0, 80)}`);
   }
 }
 fs.rmSync(outdir, { recursive: true, force: true });

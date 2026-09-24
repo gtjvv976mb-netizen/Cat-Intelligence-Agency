@@ -24,6 +24,7 @@ export const UI = Object.freeze({
   PAUSE: "hawk:ui:pause",         // { on: boolean }
   CONNECT: "hawk:ui:connect",     // ask the console tab to connect Phantom
   FORGET_POSITION: "hawk:ui:forget-position", // { mint } — closes a row the user sold by hand
+  CLEAR_STOCK_CANARY: "hawk:ui:clear-stock-canary", // { mint } — the user checked a blocked stock buy; its next buy is a canary again
   OPEN_CONSOLE: "hawk:ui:open-console",
   STATUS_CHANGED: "hawk:ui:status-changed",   // background → popup (broadcast)
 });

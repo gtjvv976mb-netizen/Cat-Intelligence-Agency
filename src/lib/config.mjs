@@ -11,13 +11,23 @@
  * imported from the lane and compared byte for byte against what the user typed, for the
  * wallet Phantom actually connected. The numbers were typed by a person beside the wallet
  * they bind; a config that was pasted from somewhere cannot arm itself.
+ *
+ * STOCK QUOTES. pump.fun "Custom Pairs" let a launch be quoted in a token instead of SOL;
+ * the ones this lane can be told to pay in are tokenised stocks (xStocks such as GLDx,
+ * TSLAx, SPYx). `quoteMints` is the user's list of them, each with its own ticket, day
+ * cap and minimum in THAT token's units. Empty — the default — means SOL only, exactly as
+ * before. A listed mint is what the lane hands the executor as `quoteMintAllowlist`, and
+ * the arm sentence names every listed mint and number, so a sentence typed for SOL alone
+ * can never arm a stock trade.
  */
+import { PublicKey } from "@solana/web3.js";
 import {
   SNIPE_LANE_DEFAULTS, SNIPE_OPERATOR_MAX, SNIPE_LANE_MODES,
   snipeArmSentence, effectiveLaneConfig, armabilityReport,
 } from "../../vendor/executor/snipe-lane.mjs";
 import { SNIPE_DEFAULTS as POLICY_DEFAULTS } from "../../vendor/executor/snipe-policy.mjs";
 import { PUMPFUN_VENUE } from "../../vendor/executor/snipe-venue-pumpfun.mjs";
+import { WSOL, unitsToRaw } from "./tx.mjs";
 
 export const HAWK_BROWSER_VERSION = "coinmarketcat-v1";
 export const LANE_MODES = SNIPE_LANE_MODES;
@@ -43,6 +53,12 @@ export const CONFIG_DEFAULTS = Object.freeze({
   maxSolPerTrade: SNIPE_LANE_DEFAULTS.maxSolPerTrade,
   dailySolCap: SNIPE_LANE_DEFAULTS.dailySolCap,
   maxOpenPositions: 1,        // one Phantom window at a time is the whole point
+  /* ── stock quotes (pump.fun Custom Pairs) ──────────────────────────────────────────
+     [{ mint, symbol, maxPerTrade, dailyCap, minPerTrade }] in the STOCK's units. Empty =
+     SOL only. Decimals are read from the mint account on chain, never typed here. The
+     first live buy in each listed stock is sized at its minPerTrade (a canary) until one
+     buy in that stock has been read back off the chain — see STOCK_CANARY_RULE. */
+  quoteMints: Object.freeze([]),
   requireSocials: SNIPE_LANE_DEFAULTS.requireSocials,
   socialsTimeoutMs: SNIPE_LANE_DEFAULTS.socialsTimeoutMs,
   noticeMaxMs: SNIPE_LANE_DEFAULTS.noticeMaxMs,
@@ -130,6 +146,85 @@ export const RECORD = Object.freeze({
 const BOOL_KEYS = new Set(["requireSocials"]);
 const STRING_KEYS = new Set(["rpcUrl", "rpcWsUrl", "secondaryRpcUrl", "consoleUrl", "lane", "liveAck"]);
 
+/** How many stocks one lane may list. A list is typed by a person; eight is plenty. */
+export const MAX_QUOTE_MINTS = 8;
+
+/**
+ * THE CANARY RULE FOR STOCK QUOTES, IN WORDS THE UI PRINTS VERBATIM.
+ * When this lane was built, no buy on a stock-quoted pump.fun curve had been observed on
+ * chain — only one sell. The buy's account order rests on the venue's IDL and on the SOL
+ * buys it was proved against. So the first live buy in each listed stock is sized at
+ * that stock's minPerTrade, and the full ticket is used only after one buy in that stock
+ * has landed and its fill has been read back from the chain's own balances.
+ */
+export const STOCK_CANARY_RULE = "the first live buy in each listed stock is sized at its minPerTrade (a canary); " +
+  "the full ticket is used only after one buy in that stock has landed and its fill was read back off the chain. " +
+  "No buy on a stock-quoted pump.fun curve had been observed on chain when this lane was built. " +
+  "A buy that lands but cannot be read back or booked blocks that stock until you clear it in the popup.";
+
+/**
+ * Tokenised stocks whose mint accounts were read off mainnet (the vendored fixture
+ * vendor/executor/fixtures/pumpfun-xstock-quote.json, slot 449,986,225): the address and
+ * the symbol in each mint's own TokenMetadata. Offered as a shortcut in the options page;
+ * nothing is listed until the user adds it and types its numbers.
+ */
+export const KNOWN_STOCK_QUOTES = Object.freeze([
+  Object.freeze({ mint: "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re", symbol: "GLDx", name: "Gold xStock" }),
+  Object.freeze({ mint: "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB", symbol: "TSLAx", name: "Tesla xStock" }),
+  Object.freeze({ mint: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W", symbol: "SPYx", name: "SP500 xStock" }),
+]);
+
+/** One entry of `quoteMints`, validated; a malformed one is refused under the key "quoteMints". */
+function normalizeQuoteMint(entry, index) {
+  const where = `quoteMints[${index}]`;
+  const bad = (message) => { throw new ConfigError("quoteMints", `${where}: ${message}`); };
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) bad("must be an object { mint, symbol, maxPerTrade, dailyCap, minPerTrade }");
+  const mint = typeof entry.mint === "string" ? entry.mint.trim() : "";
+  let decoded = null;
+  try { decoded = new PublicKey(mint); } catch { decoded = null; }
+  if (!decoded || decoded.toBase58() !== mint) bad(`mint ${JSON.stringify(entry.mint)} is not a base58 32-byte address`);
+  if (mint === WSOL) bad("wrapped SOL is not a stock quote — SOL is always on, sized by maxSolPerTrade");
+  const symbol = typeof entry.symbol === "string" ? entry.symbol.trim() : "";
+  if (!(symbol.length >= 1 && symbol.length <= 12) || /[\s<>"'&]/.test(symbol)) bad("symbol must be 1 to 12 characters with no spaces");
+  const num = (key, { required = true } = {}) => {
+    const v = entry[key];
+    if (v === undefined || v === null || v === "") { if (required) bad(`${key} is required`); return null; }
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) bad(`${key} must be a positive number of ${symbol}, got ${JSON.stringify(v)}`);
+    return n;
+  };
+  const maxPerTrade = num("maxPerTrade");
+  const dailyCap = num("dailyCap");
+  const minPerTrade = num("minPerTrade", { required: false }) ?? maxPerTrade;
+  if (dailyCap < maxPerTrade) bad(`dailyCap ${dailyCap} ${symbol} is under maxPerTrade ${maxPerTrade} — not one launch could be taken`);
+  if (minPerTrade > maxPerTrade) bad(`minPerTrade ${minPerTrade} ${symbol} is above maxPerTrade ${maxPerTrade}`);
+  /* Eighteen decimals is the most any mint can carry; a number finer than that is no
+     amount at all. The mint's real decimals are checked again when it is read. */
+  for (const [key, v] of [["maxPerTrade", maxPerTrade], ["dailyCap", dailyCap], ["minPerTrade", minPerTrade]]) {
+    try { unitsToRaw(v, 18, key); } catch (error) { bad(error.message); }
+  }
+  return Object.freeze({ mint, symbol, maxPerTrade, dailyCap, minPerTrade });
+}
+
+/** The whole list, from an array or from the JSON text the options page sends. */
+export function normalizeQuoteMints(value) {
+  let list = value;
+  if (list === null || list === undefined || list === "") return Object.freeze([]);
+  if (typeof list === "string") {
+    try { list = JSON.parse(list); }
+    catch (error) { throw new ConfigError("quoteMints", `quoteMints is not valid JSON: ${error.message}`); }
+  }
+  if (!Array.isArray(list)) throw new ConfigError("quoteMints", "quoteMints must be a list of { mint, symbol, maxPerTrade, dailyCap, minPerTrade }");
+  if (list.length > MAX_QUOTE_MINTS) throw new ConfigError("quoteMints", `at most ${MAX_QUOTE_MINTS} stock quotes may be listed, got ${list.length}`);
+  const out = list.map(normalizeQuoteMint);
+  const seen = new Set();
+  for (const q of out) {
+    if (seen.has(q.mint)) throw new ConfigError("quoteMints", `quoteMints lists ${q.mint} twice`);
+    seen.add(q.mint);
+  }
+  return Object.freeze(out);
+}
+
 /** The console pages the manifest's content script matches; the bridge exists nowhere else. */
 export const CONSOLE_URLS = Object.freeze([
   "https://gtjvv976mb-netizen.github.io/coinmarketcat/console/",
@@ -151,6 +246,7 @@ export function normalizeConfig(input = {}) {
   for (const key of Object.keys(CONFIG_DEFAULTS)) {
     if (!(key in src) || src[key] === undefined) continue;
     const v = src[key];
+    if (key === "quoteMints") { out.quoteMints = normalizeQuoteMints(v); continue; }
     if (STRING_KEYS.has(key)) { out[key] = v === null ? "" : String(v).trim(); continue; }
     if (BOOL_KEYS.has(key)) { out[key] = v === true || v === "true" || v === 1 || v === "1"; continue; }
     if (NUMBER_KEYS.has(key)) {
@@ -235,8 +331,16 @@ export function laneConfigFor(config, { lane = config.lane } = {}) {
     stallMs: config.stallMs,
     stallAtX: config.stallAtX,
     liveAck: config.liveAck || null,
+    /* The mints the contract's quote_not_sol gate may admit; each still needs its facts
+       (describeMint of the mint account) handed in beside it, or it is refused by name. */
+    quoteMintAllowlist: Object.freeze((config.quoteMints ?? []).map((q) => q.mint)),
   };
   return effectiveLaneConfig(cfg);
+}
+
+/** The listed stock for a mint, or null. */
+export function quoteEntryFor(config, mint) {
+  return (config.quoteMints ?? []).find((q) => q.mint === mint) ?? null;
 }
 
 /** What snipePolicy() reads: its own defaults under the folded policy dials. */
@@ -245,13 +349,32 @@ export function policyConfigFor(config) {
   return Object.freeze({ ...POLICY_DEFAULTS, ...(eff.policy ?? {}) });
 }
 
-/** The fee model the contract's fee gates judge, mirroring snipe-lane's feeModel(). */
-export function feeModelFor(config) {
+/** The fee model the contract's fee gates judge, mirroring snipe-lane's feeModel(). A
+ *  stock-quoted buy may create TWO token accounts (the launch token's and the stock's),
+ *  so its rent is modelled at two creates: 4,078,560 lamports, under the 4,200,000 rent
+ *  cap. The measured rent of the two is 1,513,840 + 1,559,560 = 3,073,400. */
+export function feeModelFor(config, { quoteAtaCreate = false } = {}) {
+  const rent = Number(SNIPE_LANE_DEFAULTS.rentFeeLamports) || 0;
   return Object.freeze({
     signatureFeeLamports: Number(SNIPE_LANE_DEFAULTS.signatureFeeLamports) || 0,
     prioritizationFeeLamports: Number(config.priorityFeeLamports) || 0,
-    rentFeeLamports: Number(SNIPE_LANE_DEFAULTS.rentFeeLamports) || 0,
+    rentFeeLamports: quoteAtaCreate ? rent * 2 : rent,
   });
+}
+
+/**
+ * THE ARM SENTENCE FOR THIS BROWSER LANE. With no stock listed it is the executor's own
+ * `snipeArmSentence`, byte for byte. With stocks listed, every one is appended with its
+ * ticket, its canary, its day cap and its MINT ADDRESS, so the typed acknowledgement binds
+ * the exact mint the way the executor's binds the wallet: a SOL sentence cannot arm a
+ * GLDx trade, and a sentence typed before a list changed does not arm after it.
+ */
+export function browserArmSentence(wallet, maxSolPerTrade, dailySolCap, quoteMints = []) {
+  const base = snipeArmSentence(wallet, maxSolPerTrade, dailySolCap);
+  if (!Array.isArray(quoteMints) || quoteMints.length === 0) return base;
+  const parts = quoteMints.map((q) =>
+    `${q.maxPerTrade} ${q.symbol} per launch (the first at ${q.minPerTrade} ${q.symbol}), ${q.dailyCap} ${q.symbol} per day (${q.mint})`);
+  return `${base} — and in stock quotes: ${parts.join("; ")}`;
 }
 
 /**
@@ -273,10 +396,15 @@ export function browserArmability({ config, wallet = null, hasBridge = false }) 
       ? `the ${config.maxSolPerTrade} SOL ticket is at or under the ${CANARY_SOL} SOL canary; the lane's own 0.20x stop applies`
       : stopExplicit ? `stop ${config.stopFrac}x of entry, chosen for a ${config.maxSolPerTrade} SOL ticket`
         : `a ${config.maxSolPerTrade} SOL ticket is above the ${CANARY_SOL} SOL canary and the 0.20x default stop was derived for the canary — choose a stop`);
-  const expected = wallet ? snipeArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap) : null;
+  const stocks = config.quoteMints ?? [];
+  if (stocks.length)
+    add("stop_chosen_for_stock_quotes", stopExplicit,
+      stopExplicit ? `stop ${config.stopFrac}x of entry applies to stock-quoted positions too`
+        : "a stock-quoted ticket has no derived stop floor (its network fee is paid in SOL, its size in the stock) — choose a stop");
+  const expected = wallet ? browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, stocks) : null;
   add("live_ack_typed", Boolean(expected) && config.liveAck === expected,
     !expected ? "no wallet to write the sentence for"
-      : config.liveAck === expected ? "the arm sentence matches, byte for byte, for the connected wallet"
+      : config.liveAck === expected ? `the arm sentence matches, byte for byte, for the connected wallet${stocks.length ? ` and the ${stocks.length} listed stock${stocks.length === 1 ? "" : "s"}` : ""}`
         : `type exactly: ${expected}`);
   const lane = armabilityReport({ cfg: laneConfigFor(config, { lane: "execute" }), venue: PUMPFUN_VENUE, stopExplicit });
   for (const item of lane.items) items.push(item);
@@ -289,6 +417,15 @@ export function browserArmability({ config, wallet = null, hasBridge = false }) 
     warnings.push({ name: "entry_wait_under_3s", detail: "entries under three seconds won 0 of 9 on the record; the wait is what keeps this lane out of that bucket" });
   if (config.takeAtEntryX === null || config.takeAtEntryX > 1.5)
     warnings.push({ name: "take_above_1_5x", detail: `44% of the record's coins reached 1.5x and 25% reached 2x; a 1.5x take was worth about +${RECORD.takeAt15xWorthSol} SOL over the 64 at a 0.1 SOL ticket` });
+  if (stocks.length) {
+    warnings.push({ name: "stock_canary", detail: `Canary rule: ${STOCK_CANARY_RULE} Listed: ${stocks.map((q) => `${q.symbol} first buy ${q.minPerTrade} ${q.symbol}, then ${q.maxPerTrade} ${q.symbol}`).join("; ")}.` });
+    const fullCanary = stocks.filter((q) => q.minPerTrade >= q.maxPerTrade);
+    if (fullCanary.length)
+      warnings.push({ name: "stock_canary_is_full_ticket", detail: `${fullCanary.map((q) => q.symbol).join(", ")}: minPerTrade equals maxPerTrade, so the canary buy is the full ticket. Set a smaller minPerTrade in Options to make the first buy small.` });
+    warnings.push({ name: "stock_quote_unmeasured", detail: "HAWK-AI's record is SOL-quoted launches only. Nothing has been measured about stock-quoted launches: no win rate, no follow-through, no fee on a buy. The shadow book grades them on a separate card per stock." });
+    warnings.push({ name: "stock_quote_friction_unpriced", detail: "a stock row's frictionX is 1.0: the network fee and rent are paid in SOL beside it and cannot be netted against a size in the stock, so the stop and the take judge the stock amount only." });
+    warnings.push({ name: "stock_quote_issuer_controls", detail: "every xStock mint read carries a live freeze authority, a pause switch and a permanent delegate held by its issuer. The lane detects a pause on every read and will not buy or sell through one; it cannot defend against a freeze or a clawback of a held position." });
+  }
   warnings.push({ name: "the_record_loses", detail: `the record is ${RECORD.first58.won} up, ${RECORD.first58.lost} down, ${RECORD.first58.netSol} SOL over ${RECORD.first58.trades} trades, and every modelled exit ladder still loses. Nothing here is evidence of an edge. Observe first.` });
   return Object.freeze({ armable: blocking.length === 0, items: Object.freeze(items), blocking: Object.freeze(blocking), warnings: Object.freeze(warnings), expectedAck: expected });
 }

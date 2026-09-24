@@ -29,6 +29,10 @@ a store.
   `node vendor/executor/grade-entry-gates.mjs --file <export>` reads, with the scorecard
   for the two entry rulers live in the popup.
 - **Puts its own losing record beside the arming switch.** The lane starts **Off**; you choose Observe before you ever choose Execute.
+- **Can pay in a tokenised stock, if you list one.** pump.fun "Custom Pairs" let a launch be
+  priced in a token instead of SOL; the ones this lane is built and tested for are xStocks
+  (GLDx, TSLAx, SPYx), paid from the stock already in your wallet. With nothing listed — the
+  default — every such launch is refused, as before. See [Launches quoted in a stock](#launches-quoted-in-a-stock-pumpfun-custom-pairs).
 
 ## What HAWK-AI's trades taught it
 
@@ -57,6 +61,54 @@ Wiring this lane also found a bug in the executor: an unset `SNIPE_STALL_MS` rea
 `0`, which is *off*, so the 90-second stall exit was never running by default. The fix
 and its regression (`vendor/executor/test-snipe-stall-default.mjs`) are in the vendored
 commit.
+
+## Launches quoted in a stock (pump.fun Custom Pairs)
+
+In **Options → Stock quotes** you may list up to eight stock mints, each with its own
+numbers **in that stock's units**: a ticket per launch, a canary (the first buy), and a
+rolling 24-hour cap. The shortcuts for GLDx, TSLAx and SPYx carry the addresses and symbols
+read from each mint account on mainnet (the vendored fixture
+`vendor/executor/fixtures/pumpfun-xstock-quote.json`). What the lane then does:
+
+- **It reads the stock's mint on the same call as the curve.** A listed stock's mint account
+  rides on the one `getMultipleAccounts` every launch already costs, and the executor's
+  `describeMint` reads its token program, decimals and pause switch. It is *described*,
+  never *audited*: the base-mint kill set (`auditMintAccount`) rightly refuses every xStock,
+  because each carries a permanent delegate, a live freeze authority and a pause switch
+  held by its issuer. The executor's entry contract gets those facts as `quote` and judges
+  the ticket, the minimum and the day cap in the stock's raw units.
+- **It refuses** a stock that is not listed, a listed symbol that is not the mint's own, a
+  paused stock (at first notice, at the moment of asking, and it will not ask Phantom to
+  sell while one is paused), a stock whose transfer hook points at a live program, a wallet
+  holding less of the stock than the buy's ceiling, and a buy whose SOL fee and rent would
+  break the SOL day cap. Each refusal says which.
+- **It pays through the right accounts.** The quote's token program is the stock mint's
+  owner (Token-2022 for an xStock), never assumed; the wallet's stock account is its
+  179-byte Token-2022 associated account, created idempotently before the buy and the sell.
+  The simulation must show the stock account paying at most the ceiling and SOL moving by
+  the fee and rent caps only; the fill is read from the transaction's token balances in the
+  stock's decimals, and a lamport that is not fee or rent is a refusal, not a fee.
+- **It books in the stock.** A stock position's size, P&L and day ledger are in the stock;
+  its network fee and rent are SOL, reported beside it and charged to the SOL day. The two
+  are never added together: there is no SOL price for an xStock in this lane. The shadow
+  book grades stock-quoted launches on their own card per stock, never pooled with SOL.
+- **The first live buy in each stock is a canary.** No buy on a stock-quoted pump.fun curve
+  had been observed on chain when this was built — only one sell — so the buy's account
+  order rests on the venue's IDL and the SOL buys it was proven against. The first live buy
+  in each listed stock is sized at its canary (`minPerTrade`); the full ticket is used only
+  after one buy in that stock has landed and its fill was read back off the chain. A buy
+  that lands but cannot be read back or booked **blocks** that stock, says so in the log,
+  the notification and the popup, and stays blocked until you check the signature, sell
+  by hand, and press *clear the block*. The popup shows each stock's state (canary, proven,
+  blocked), and the arm sentence names each stock's canary and mint.
+
+**What is not measured.** HAWK-AI's record is SOL-quoted launches only. Nothing is known
+about stock-quoted launches: not a win rate, not whether they follow through, not the fee
+on a buy (one sell was read: 125 bps of the quote), not the compute a two-account-create
+buy uses. A stock-quoted row's round-trip friction cannot include its SOL fees, so the stop
+you choose is its only stop, and the lane will not arm with a stock listed until you have
+chosen one. SPYx carries a display multiplier: Phantom shows it scaled, this lane shows the
+raw count over 10^8. A coin that graduates to a pool must be sold by hand, as with SOL.
 
 ## Install
 
@@ -92,6 +144,9 @@ cd coinmarketcat && npm ci && npm run build      # → dist/
   yours, and still priced, but nothing can be sold until it is back.
 - **A buy window that sits past 25 s is abandoned.** A declined buy is never re-asked.
 - **One live position at a time** by default. One window at a time is the whole point.
+- **The checklist is the condition.** The sentence alone does not arm: every item the popup
+  lists under "Before this lane may spend money" must be green (a stock listed with no stop
+  chosen, for one, keeps the lane unarmed with the sentence typed).
 - **A curve that has graduated to a pool cannot be sold by this lane** — it sells on the
   curve only. The row says SELL BY HAND; sell it yourself, then press **Forget**.
 - **The manifest is the charter.** Permissions are `storage`, `alarms`, `notifications`;
@@ -150,12 +205,13 @@ on every push to `main`.
 
 | file | proves |
 |---|---|
-| `test-hawk-engine.mjs` | the lane end to end against a scripted chain that executes the venue's own `buy_v2`/`sell_v2` and a scripted Phantom: notice → shadow row → the wait → re-read → sign → fill → 1.5× take → declined sell re-asked → approved sell closes with the chain's SOL; a launch nobody followed is never bought; a declined or unanswered buy; a tampered signature refused; the day cap; the hard stop; the JSONL export read back and scored |
+| `test-hawk-engine.mjs` | the lane end to end against a scripted chain that executes the venue's own `buy_v2`/`sell_v2` and a scripted Phantom: notice → shadow row → the wait → re-read → sign → fill → 1.5× take → declined sell re-asked → approved sell closes with the chain's SOL; a launch nobody followed is never bought; a declined or unanswered buy; a tampered signature refused; the day cap; the hard stop; the JSONL export read back and scored. Then a GLDx-quoted curve built from the live fixture bytes: refused when GLDx is not listed; read on the same call and filed in GLDx when it is; the canary buy with the GLDx account created under Token-2022, simulated on the GLDx delta, read back in eight decimals; the sell for GLDx; the full ticket once proven; the per-stock day cap and the SOL day; a short wallet, a paused stock, a buy that cannot be read back; SOL and GLDx graded apart; the stock list's validation and the arm sentence; the fill reader alone |
 | `test-hawk-manifest.mjs` | the permissions, matches and resources above |
 | `test-hawk-no-key.mjs` | no key, no key derivation, no signer but the bridge, in source and in the bundle |
 | `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
+| `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 
 ## Not advice
 

@@ -231,7 +231,12 @@ function consoleStatus(s) {
     lane: s.lane, executing: s.executing, armable: s.armable, wallet: s.wallet, bridgeReady: s.bridgeReady,
     feed: s.feed, control: s.control, entryInFlight: s.entryInFlight, deployedTodaySol: s.deployedTodaySol, dailySolCap: s.dailySolCap,
     maxSolPerTrade: s.maxSolPerTrade, entryWaitMs: s.entryWaitMs, entryFollowThroughX: s.entryFollowThroughX,
-    open: (s.open ?? []).map((p) => ({ mint: p.mint, symbol: p.symbol, live: p.live, openedAt: p.openedAt, lastMarkX: p.lastMarkX, pendingSell: p.pendingSell ?? null, graduated: p.graduated ?? null, waitedOut: p.waitedOut ?? null, sizeSol: p.sizeSol })),
+    /* The listed stocks, today's spend in each, and the canary rule in its own words: a
+       page that shows a stock-quoted position must be able to name what it was paid in. */
+    quoteMints: (s.quoteMints ?? []).map((q) => ({ mint: q.mint, symbol: q.symbol, maxPerTrade: q.maxPerTrade, minPerTrade: q.minPerTrade, dailyCap: q.dailyCap, deployedToday: q.deployedToday, canary: q.canary, nextLiveTicket: q.nextLiveTicket, paused: q.paused })),
+    deployedTodayQuote: s.deployedTodayQuote ?? {}, stockCanaryRule: s.stockCanaryRule ?? null,
+    open: (s.open ?? []).map((p) => ({ mint: p.mint, symbol: p.symbol, live: p.live, openedAt: p.openedAt, lastMarkX: p.lastMarkX, pendingSell: p.pendingSell ?? null, graduated: p.graduated ?? null, waitedOut: p.waitedOut ?? null, sizeSol: p.sizeSol,
+      quoteMint: p.quoteMint ?? null, quoteSymbol: p.quoteSymbol ?? null, quoteDecimals: p.quoteDecimals ?? null, quotePaused: p.quotePaused ?? null, canary: p.canary ?? null })),
     closes: (s.closes ?? []).slice(0, 20), refusals: (s.refusals ?? []).slice(0, 10), log: (s.log ?? []).slice(0, 15),
     counters: s.counters, book: s.book, shadow: s.shadow, policy: s.policy, record: s.record, version: s.version,
     armability: s.armability ? { armable: s.armability.armable, blocking: s.armability.blocking, warnings: s.armability.warnings, items: s.armability.items } : null,
@@ -267,6 +272,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case UI.PAUSE: { const e = await ensureEngine(); e.setControl({ pauseEntries: msg.on === true }); pushStatus(); return { ok: true }; }
         case UI.CONNECT: { await ensureEngine(); await bridge.connect({ onlyIfTrusted: false }); return { ok: true, wallet: bridge.wallet() }; }
         case UI.FORGET_POSITION: { const e = await ensureEngine(); const done = await e.forgetPosition(msg.mint); pushStatus(); return { ok: done }; }
+        case UI.CLEAR_STOCK_CANARY: { const e = await ensureEngine(); const done = await e.clearStockCanary(msg.mint); pushStatus(); return { ok: done }; }
         case UI.OPEN_CONSOLE: {
           await ensureEngine();
           const url = config.consoleUrl;

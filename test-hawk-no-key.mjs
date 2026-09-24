@@ -83,6 +83,21 @@ for (const file of files) {
 ok("engine.mjs imports no signing helper from the executor", !/snipe-execute\.mjs|createSnipeExecutor|keypair/i.test(fs.readFileSync(path.join(here, "src", "lib", "engine.mjs"), "utf8")));
 ok("nothing under src/ imports the executor's journal (the money record stays on the owner's machine)", files.every((f) => !/journal\.mjs/.test(fs.readFileSync(f, "utf8"))));
 
+console.log("\nTHE UI MESSAGES\n───────────────");
+{
+  /* The popup and the options page talk to the worker through the UI table only. Every
+     entry is a switch, a read or a bookkeeping act (the stock list's "clear the block"
+     among them); none may name a signature or a secret, so no page of this extension can
+     ask the worker to sign or to hand anything key-shaped back. */
+  const { UI } = await import("./src/lib/protocol.mjs");
+  const names = Object.values(UI);
+  const bad = names.filter((t) => /sign|secret|seed|mnemonic|private|keypair|passphrase/i.test(t));
+  ok("no popup or options message asks for a signature or a secret", bad.length === 0, bad.join(", ") || `${names.length} message types`);
+  ok("the stock list's one new message is a bookkeeping act", names.includes("hawk:ui:clear-stock-canary"));
+  const options = fs.readFileSync(path.join(here, "src", "options", "options.mjs"), "utf8");
+  ok("the options page's stock editor stores nothing itself (the worker's normalizeConfig is the only writer)", !/chrome\.storage|localStorage|sessionStorage/.test(options));
+}
+
 console.log("\nTHE KEY FILE\n────────────");
 {
   const text = fs.readFileSync(path.join(here, KEY_FILE), "utf8");
@@ -116,7 +131,15 @@ if (fs.existsSync(dist)) {
     /* @solana/web3.js defines Keypair inside every bundle that imports it; what is banned is
        our code USING one. So the bundle check is for the executor's signing port and for
        secret-key construction at our call sites, which the source scan above already pins. */
-    ok(`${name}: the executor's signing port is not in the bundle`, !/createSnipeExecutor|snipe-execute\.mjs/.test(text));
+    /* Two proofs the signing port is absent. esbuild heads every module it bundles with a
+       `// <path>` line, so a bundled snipe-execute.mjs would carry that header. And the
+       CODE, comments stripped, names neither the port nor its file. A vendored comment
+       that only MENTIONS the file (snipe-lane.mjs's note on why the Node lane stays
+       SOL-only rides inside SNIPE_LANE_DEFAULTS, and esbuild keeps it) is prose, not the port. */
+    ok(`${name}: esbuild bundled no module named snipe-execute.mjs`, !/^\/\/ [^\n]*snipe-execute\.mjs\s*$/m.test(text));
+    const code = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
+    ok(`${name}: the executor's signing port is not in the bundle's code`, !/createSnipeExecutor|snipe-execute\.mjs/.test(code));
+    ok(`${name}: the comment strip left the code to scan`, code.length > text.length / 3 && /chrome\.|postMessage|PublicKey/.test(code), `${(code.length / 1024).toFixed(0)} of ${(text.length / 1024).toFixed(0)} KB`);
     ok(`${name}: no node: import survived`, !/from\s+"node:|require\("node:/.test(text));
     if (name !== "background.js") ok(`${name}: the session secret's key is not in the bundle`, !text.includes(SECRET_ENTRY_KEY));
   }

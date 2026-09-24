@@ -12,6 +12,14 @@ const $ = (id) => document.getElementById(id);
 const send = (type, payload = {}) => chrome.runtime.sendMessage({ type, ...payload });
 const short = (k) => (typeof k === "string" && k.length > 12 ? `${k.slice(0, 4)}…${k.slice(-4)}` : String(k ?? "—"));
 const fmtSol = (n, d = 4) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? "not read" : `${Number(n) >= 0 ? "+" : ""}${Number(n).toFixed(d)} SOL`);
+/** An amount in the unit it was paid in: SOL to four places, a stock to up to eight
+ *  (its raw amount over 10^decimals — Phantom shows SPYx scaled by its multiplier). */
+const amt = (n, symbol = "SOL") => {
+  if (n === null || n === undefined || !Number.isFinite(Number(n))) return "not read";
+  const x = Number(n);
+  return symbol === "SOL" ? `${x.toFixed(4)} SOL` : `${Number(x.toFixed(8))} ${symbol}`;
+};
+const signed = (n, symbol = "SOL") => (n === null || n === undefined || !Number.isFinite(Number(n)) ? "not read" : `${Number(n) >= 0 ? "+" : ""}${amt(n, symbol)}`);
 const ago = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m${s % 60}s` : `${Math.floor(s / 3600)}h`; };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -59,6 +67,31 @@ function render() {
 
   $("dayLine").textContent = `${Number(s.deployedTodaySol ?? 0).toFixed(4)} / ${s.dailySolCap} SOL`;
   $("ticketLine").textContent = `${s.maxSolPerTrade} SOL`;
+
+  /* THE STOCKS, each in its own units, with the canary rule said out loud. */
+  const stocks = s.quoteMints ?? [];
+  $("stockBox").classList.toggle("hidden", stocks.length === 0);
+  $("stocks").innerHTML = stocks.map((q) => {
+    const state = q.canary === "proven" ? "proven" : q.canary === "blocked" ? "blocked" : "canary";
+    const next = state === "blocked" ? "no live buys until you clear the block"
+      : state === "proven" ? `next live buy up to ${amt(q.maxPerTrade, q.symbol)} (a ${q.symbol} buy was read back${q.canarySignature ? ` — ${short(q.canarySignature)}` : ""})`
+        : `next live buy is the canary: ${amt(q.minPerTrade, q.symbol)}, then up to ${amt(q.maxPerTrade, q.symbol)}`;
+    const scaled = Number.isFinite(q.scaledUiMultiplier) && q.scaledUiMultiplier !== 1
+      ? ` · Phantom shows ${esc(q.symbol)} scaled ×${Number(q.scaledUiMultiplier).toFixed(6)}; amounts here are the raw count` : "";
+    return `<div class="item">
+      <div class="t">${esc(q.symbol)} <span class="tag ${state}">${state}</span>${q.paused === true ? ` <span class="tag paused">paused by its issuer</span>` : ""}</div>
+      <div class="r">${q.deployedToday === null ? "not read" : amt(q.deployedToday, q.symbol)} / ${amt(q.dailyCap, q.symbol)}</div>
+      <div class="m">${esc(next)}${state === "blocked" && q.canaryDetail ? ` — ${esc(q.canaryDetail)}` : ""}${scaled}</div>
+      <div class="m mono">${esc(q.mint)}</div>
+      ${state === "blocked" ? `<button class="clear" data-clear="${esc(q.mint)}" title="Only after you have checked that buy's signature and sold it by hand">clear the block</button>` : ""}
+    </div>`;
+  }).join("");
+  $("canaryRule").textContent = stocks.length ? `Canary rule: ${s.stockCanaryRule ?? ""} Nothing about stock-quoted launches has been measured: no win rate, no fee on a buy.` : "";
+  for (const b of document.querySelectorAll("button[data-clear]")) b.addEventListener("click", async () => {
+    if (!confirm("Clear the block? Do this only after you checked that buy's signature on an explorer and sold the position by hand. The next buy in this stock will be a canary again.")) return;
+    await send(UI.CLEAR_STOCK_CANARY, { mint: b.dataset.clear });
+    refresh();
+  });
   $("waitLine").textContent = `${Math.round((s.entryWaitMs ?? 0) / 1000)}s · ≥${s.entryFollowThroughX}x`;
 
   const open = s.open ?? [];
@@ -69,7 +102,7 @@ function render() {
     return `<div class="item ${cls} ${pend}" data-mint="${esc(p.mint)}">
       <div class="t">${esc(p.symbol ?? short(p.mint))} <span class="tag ${p.live ? "live" : "paper"}">${p.live ? "live" : "would-have"}</span></div>
       <div class="r">${p.lastMarkX == null ? "mark unread" : `${Number(p.lastMarkX).toFixed(3)}x`} · ${ago(now - Number(p.openedAt))}</div>
-      <div class="m">${state} · ${Number(p.sizeSol).toFixed(4)} SOL</div>
+      <div class="m">${state} · ${amt(p.sizeSol, p.quoteSymbol ?? "SOL")}${p.quoteSymbol ? " (fees in SOL)" : ""}${p.quotePaused === true ? ` · ${esc(p.quoteSymbol)} PAUSED — cannot sell` : ""}</div>
       ${p.live ? `<button class="forget" data-forget="${esc(p.mint)}" title="Close this row without a sale: the realized figure will read 'not read'">forget</button>` : ""}
     </div>`;
   }).join("") : `<div class="empty">nothing open</div>`;
@@ -83,11 +116,12 @@ function render() {
   const book = s.book ?? {};
   $("bookLine").textContent = book.liveTrades ? `${book.liveTrades} live · ${book.liveWins} up · ${book.liveLosses} down${book.unread ? ` · ${book.unread} not read` : ""}` : "no live trades";
   $("realizedLine").textContent = book.liveTrades ? fmtSol(book.realizedSol) : "—";
+  $("realizedQuoteLine").textContent = Object.values(book.realizedByQuote ?? {}).map((r) => `${signed(r.ui, r.symbol)} over ${r.trades} · fees ${Number(r.feeSol).toFixed(4)} SOL`).join(" · ");
   const closes = (s.closes ?? []).filter((c) => c.reason !== "superseded by the live fill").slice(0, 6);
   $("closes").innerHTML = closes.map((c) => `<div class="item">
       <div class="t">${esc(c.symbol ?? short(c.mint))} <span class="tag ${c.live ? "live" : "paper"}">${c.live ? "live" : "would-have"}</span></div>
-      <div class="r ${c.pnlSol == null ? "" : c.pnlSol >= 0 ? "up" : "down"}">${c.live ? fmtSol(c.pnlSol) : c.markX == null ? "unread" : `${Number(c.markX).toFixed(3)}x`}</div>
-      <div class="m">${esc(c.reason)} · held ${ago(c.heldMs ?? 0)}</div>
+      ${(() => { const pnl = c.quoteSymbol ? c.pnlQuote : c.pnlSol; return `<div class="r ${pnl == null ? "" : pnl >= 0 ? "up" : "down"}">${c.live ? (c.quoteSymbol ? signed(pnl, c.quoteSymbol) : fmtSol(pnl)) : c.markX == null ? "unread" : `${Number(c.markX).toFixed(3)}x`}</div>`; })()}
+      <div class="m">${esc(c.reason)} · held ${ago(c.heldMs ?? 0)}${c.quoteSymbol && c.live && c.feeSolPaid != null ? ` · network fees ${Number(c.feeSolPaid).toFixed(4)} SOL beside it` : ""}${c.canary ? " · the canary" : ""}</div>
     </div>`).join("");
 
   const sh = s.shadow ?? {};
@@ -99,6 +133,9 @@ function render() {
       <div class="m">n ${p.n} · flagged ${p.flagged} · precision ${p.precision == null ? "—" : p.precision}</div>
       <div class="m">${esc(p.why)}</div>
     </div>`).join("") : "";
+  const byQuote = Object.entries(sh.scorecardByQuote ?? {}).filter(([q]) => q !== "So11111111111111111111111111111111111111112");
+  const symbolOf = (mint) => (s.quoteMints ?? []).find((q) => q.mint === mint)?.symbol ?? short(mint);
+  $("quoteCards").innerHTML = byQuote.map(([q, c]) => `<div class="item"><div class="t">${esc(symbolOf(q))}-quoted launches</div><div class="r">${c.judged ?? 0} judged</div><div class="m">graded apart from SOL launches, on their own card; export and run the grader with --quote ${esc(q)}</div></div>`).join("");
   $("refusals").innerHTML = (s.refusals ?? []).slice(0, 5).map((r) => `<div class="item"><div class="t">${esc(r.symbol ?? short(r.mint))}</div><div class="r">${esc(r.gate)}</div><div class="m">${esc(r.message)}</div></div>`).join("") || `<div class="empty">none yet</div>`;
 
   const R = s.record;

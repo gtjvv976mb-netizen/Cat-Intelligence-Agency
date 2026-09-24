@@ -56,6 +56,11 @@
     <div><div class="k">Ticket</div><div class="v" id="ticketLine">—</div></div>
     <div><div class="k">Wait</div><div class="v" id="waitLine">—</div></div>
   </div>
+  <div id="stockBox" class="stocks hidden">
+    <div class="k" style="margin-top:10px">Stock quotes (pump.fun Custom Pairs)</div>
+    <div id="stocks" class="list small"></div>
+    <p class="hint" id="canaryRule"></p>
+  </div>
   <div class="k" style="margin-top:10px">Positions</div>
   <div id="positions" class="list"><div class="empty">nothing open</div></div>
   <div class="row small controls">
@@ -67,7 +72,7 @@
 <section class="card">
   <div class="row">
     <div><div class="k">Book</div><div class="v" id="bookLine">no live trades</div></div>
-    <div><div class="k">Realized</div><div class="v mono" id="realizedLine">—</div></div>
+    <div><div class="k">Realized</div><div class="v mono" id="realizedLine">—</div><div class="v mono small" id="realizedQuoteLine"></div></div>
   </div>
   <div id="closes" class="list"></div>
 </section>
@@ -78,6 +83,7 @@
     <button id="btnExport" class="btn ghost" title="One JSON row per line — the file vendor/executor/grade-entry-gates.mjs --file reads">Export</button>
   </div>
   <div id="scorecard" class="scorecard"></div>
+  <div id="quoteCards" class="list small"></div>
   <div class="k" style="margin-top:8px">Last refusals</div>
   <div id="refusals" class="list small"></div>
 </section>

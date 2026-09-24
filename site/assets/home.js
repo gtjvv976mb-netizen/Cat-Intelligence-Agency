@@ -11,13 +11,17 @@
   const MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
   const xUrl = X_URL.test(clean(cfg.xUrl)) ? clean(cfg.xUrl) : "";
   const ca = MINT.test(clean(cfg.contractAddress)) ? clean(cfg.contractAddress) : "";
-  // The buy link must be the pump.fun page of that same address, or it is not used.
+  // The buy link must be the pump.fun or GMGN page of that same address, or it is not used.
   const buy = clean(cfg.buyUrl);
-  const buyUrl = ca && /^https:\/\/pump\.fun\//.test(buy) && buy.includes(ca) ? buy : "";
+  const BUY_HOSTS = { "pump.fun": "pump.fun", "gmgn.ai": "GMGN" };
+  let buyHost = "";
+  try { buyHost = new URL(buy).host; } catch { buyHost = ""; }
+  const buyUrl = ca && buy.startsWith("https://") && BUY_HOSTS[buyHost] && buy.includes(ca) ? buy : "";
 
   const toLink = (btn, href, label) => {
     const a = document.createElement("a");
     a.className = btn.className;
+    if (btn.id) a.id = btn.id;
     a.href = href;
     a.rel = "noopener";
     a.textContent = label;
@@ -28,12 +32,37 @@
     for (const btn of document.querySelectorAll("button[data-x-link]")) toLink(btn, xUrl, btn.dataset.label || "Follow on X");
   }
   if (ca) {
+    // Launched: the address, a way to copy it, a way to check it, and the facts that change.
     const slot = document.getElementById("ca");
-    if (slot) { slot.textContent = ca; slot.dataset.empty = "false"; }
+    if (slot) {
+      slot.textContent = ca; slot.dataset.empty = "false";
+      // Select, never write: the site does not touch the clipboard (address-swapping is how
+      // copy buttons get abused), so the visitor copies the highlighted address themselves.
+      const pick = document.createElement("button");
+      pick.type = "button"; pick.className = "ca-copy"; pick.textContent = "Select address";
+      pick.addEventListener("click", () => {
+        const r = document.createRange(); r.selectNodeContents(slot);
+        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        pick.textContent = "Selected: now copy it";
+        setTimeout(() => { pick.textContent = "Select address"; }, 2400);
+      });
+      slot.after(pick);
+    }
+    const note = document.getElementById("ca-note");
+    if (note) {
+      note.textContent = "The only real $CIA. Check every character before you buy. ";
+      const check = document.createElement("a");
+      check.href = "https://solscan.io/token/" + ca; check.rel = "noopener"; check.textContent = "Verify on Solscan";
+      note.append(check);
+    }
+    const tick = document.getElementById("ticker-note");
+    if (tick) tick.remove();
+    const state = document.getElementById("launch-state");
+    if (state) state.textContent = "Live on pump.fun, on Solana.";
   }
   if (buyUrl) {
     const btn = document.getElementById("buybtn");
-    if (btn) toLink(btn, buyUrl, "Buy $CIA on pump.fun");
+    if (btn) toLink(btn, buyUrl, "Buy $CIA on " + BUY_HOSTS[new URL(buyUrl).host]);
   }
 
   /* ── an agent's file, in a panel ─────────────────────────────────────── */

@@ -332,7 +332,7 @@ ok("one config: the X link, the contract address and the buy link, and nothing e
 ok("each config value is empty until it exists, or looks exactly like what it is",
   (cfg.xUrl === "" || /^https:\/\/(x|twitter)\.com\/[A-Za-z0-9_]{1,15}\/?$/.test(cfg.xUrl))
     && (cfg.contractAddress === "" || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cfg.contractAddress))
-    && (cfg.buyUrl === "" || (cfg.contractAddress && cfg.buyUrl.startsWith("https://pump.fun/") && cfg.buyUrl.includes(cfg.contractAddress))));
+    && (cfg.buyUrl === "" || (cfg.contractAddress && /^https:\/\/(pump\.fun|gmgn\.ai)\//.test(cfg.buyUrl) && cfg.buyUrl.includes(cfg.contractAddress))));
 ok("the home page reads the config before its script, and ships every placeholder empty",
   html.agency.indexOf('src="assets/config.js"') > 0 && html.agency.indexOf('src="assets/config.js"') < html.agency.indexOf('src="assets/home.js"')
     && /<code class="ca" id="ca" data-empty="true">Not launched\. No address yet\.<\/code>/.test(html.agency)

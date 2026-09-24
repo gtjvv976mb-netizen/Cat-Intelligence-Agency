@@ -426,6 +426,8 @@ Rule 6 matters more than it looks. CashCat investigates paid promos, and Popcat'
 | Name | `Cat Intelligence Agency` |
 | Ticker | `CIA` (shown as `$CIA`). **Working placeholder.** The owner may change it; see section 7. |
 | Chain / venue | Solana, launched on pump.fun |
+| **Contract address** | `EDVtiBjPVeHTeKuvv1TMSC3vdsMUabZSaaoLRpiTpump` (checked on-chain 2026-09-24: Token-2022 mint, name `Cat Intelligence Agency`, symbol `CIA`, 1,000,000,000 supply, 6 decimals, mint and freeze authority both renounced) |
+| Buy / chart | https://gmgn.ai/sol/token/EDVtiBjPVeHTeKuvv1TMSC3vdsMUabZSaaoLRpiTpump |
 | Image | Crying Cat, sobbing over a case file stamped RUGGED (`brand/logo/cia-token-1000.png`) |
 | Launch mechanics | **OWNER TO CONFIRM:** a fair launch on pump.fun, with no presale and no team allocation. |
 

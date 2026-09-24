@@ -315,6 +315,11 @@ details.file[open] summary::before{transform:rotate(90deg)}
 .ca{display:block;font:400 14px/1.4 var(--mono);color:var(--text);background:var(--bg-2);border:2px dashed var(--line-2);padding:12px 14px;overflow-wrap:anywhere;user-select:all}
 .ca[data-empty="true"]{color:var(--text-faint);font-style:italic;user-select:none}
 .ca-note{font:400 9px/1.6 var(--pixel);text-transform:uppercase;color:var(--gold-text);text-wrap:balance}
+.ca[data-empty="false"]{border-style:solid;border-color:var(--gold,#f5c542);color:var(--text)}
+.ca-copy{justify-self:start;font:400 10px/1 var(--pixel);text-transform:uppercase;letter-spacing:1px;padding:10px 14px;min-height:44px;background:var(--gold,#f5c542);color:#1a1204;border:0;box-shadow:4px 4px 0 var(--shadow-ink);cursor:pointer}
+.ca-copy:hover{filter:brightness(1.08)}
+.ca-copy:focus-visible{outline:3px solid var(--text);outline-offset:2px}
+.ca-note a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 .scam{margin-top:32px;position:relative;background:var(--card);padding:22px 24px 20px 24px;box-shadow:0 0 0 3px var(--bad),8px 8px 0 3px var(--shadow-ink)}
 .scam-title{font:400 12px/1.4 var(--pixel);text-transform:uppercase;color:var(--bad);margin:0 0 10px}
 :root[data-theme="light"] .scam-title{color:#b8372a}

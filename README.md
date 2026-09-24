@@ -2,6 +2,8 @@
 
 *The sniper cat. It hovers ten seconds over every launch and buys only what others followed.*
 
+**This repository is Cat Intelligence Agency:** CoinMarketCat (the browser extension, below), the agency's brand kit in [`brand/`](brand/README.md) (six pixel-kitten agents, the X header, the $CIA coin image, a 3D headquarters, the launch copy), and the website in `site/`.
+
 **Website:** [catintelligenceagency.com](https://catintelligenceagency.com/) — the agency, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/) and [the console](https://catintelligenceagency.com/console/), published from `site/`.
 
 CoinMarketCat — the sniper cat, the first trading agent of Cat Intelligence Agency — is
@@ -284,11 +286,11 @@ What is true on autopilot, plainly:
 ## Install
 
 ```bash
-git clone https://github.com/gtjvv976mb-netizen/coinmarketcat
-cd coinmarketcat && npm ci && npm run build      # → dist/
+git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
+cd Cat-Intelligence-Agency && npm ci && npm run build      # → dist/
 ```
 
-1. `chrome://extensions` → **Developer mode** → **Load unpacked** → `coinmarketcat/dist`.
+1. `chrome://extensions` → **Developer mode** → **Load unpacked** → `Cat-Intelligence-Agency/dist`.
    A setup page opens: connect, pick a style, set your limits, choose stocks and who
    signs, and save — which puts the lane in **Observe**. Everything it sets stays editable
    in Options, and the popup's *Setup* link opens it again. The styles: **Balanced** is

@@ -401,7 +401,7 @@ export function normalizeQuoteMints(value) {
 export const CONSOLE_URLS = Object.freeze([
   "https://catintelligenceagency.com/console/",       // the agency's own domain (GitHub Pages, custom domain)
   "https://www.catintelligenceagency.com/console/",
-  "https://gtjvv976mb-netizen.github.io/coinmarketcat/console/",  // the Pages address, until the domain's DNS points at it
+  "https://gtjvv976mb-netizen.github.io/Cat-Intelligence-Agency/console/",  // the Pages address, until the domain's DNS points at it
   "https://claudedotcompany.com/hawk",
   "https://www.claudedotcompany.com/hawk",
   "http://localhost:4949/console/",  // the site served locally: python3 -m http.server 4949 --directory site

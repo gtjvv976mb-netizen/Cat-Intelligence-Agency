@@ -585,7 +585,7 @@ Count: 156 / 160
 - **What it can't do:** a launch that graduates off pump.fun's curve must be sold by hand. In Phantom mode, closing the console tab leaves it with no signer.
 
 **How you get it.** It is not in the Chrome Web Store; you build it from source:
-1. `git clone https://github.com/gtjvv976mb-netizen/coinmarketcat`
+1. `git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency`
 2. Run `npm ci && npm run build`.
 3. Open `chrome://extensions`, turn on Developer mode, choose Load unpacked, and pick `dist`.
 
@@ -647,4 +647,4 @@ POPCAT is also the name of an existing Solana memecoin ($POPCAT), and the open-m
 - **Rules already met.** The CoinMarketCat card keeps "Unmeasured in this lane", which the test requires. None of the test's hype words, user counts or quoted returns appear anywhere in this copy.
 - **No licence.** The repository has no LICENSE file, so this copy says "source on GitHub", never "open source".
 
-**Console links and DNS.** The extension's manifest lets it into the console at `https://catintelligenceagency.com/console/`. It still also allows the github.io console (`https://gtjvv976mb-netizen.github.io/coinmarketcat/console/`) until the domain's DNS points at the site. If the domain isn't live yet when this copy ships, point `Console` links at the github.io address; never at any other page.
+**Console links and DNS.** The extension's manifest lets it into the console at `https://catintelligenceagency.com/console/`. It still also allows the github.io console (`https://gtjvv976mb-netizen.github.io/Cat-Intelligence-Agency/console/`) until the domain's DNS points at the site. If the domain isn't live yet when this copy ships, point `Console` links at the github.io address; never at any other page.

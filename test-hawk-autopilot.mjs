@@ -284,7 +284,7 @@ function connectPhantom(ch) {
   const p = { posted: [], signs: [], mode: "approve" };
   const deliver = (m) => { for (const f of onMessage) f(m); };
   p.port = {
-    name: "hawk-console", sender: { tab: { id: 7 }, origin: "https://gtjvv976mb-netizen.github.io", url: "https://gtjvv976mb-netizen.github.io/coinmarketcat/console/" },
+    name: "hawk-console", sender: { tab: { id: 7 }, origin: "https://gtjvv976mb-netizen.github.io", url: "https://gtjvv976mb-netizen.github.io/Cat-Intelligence-Agency/console/" },
     onMessage: { addListener: (f) => onMessage.push(f) }, onDisconnect: { addListener: (f) => onDisconnect.push(f) },
     disconnect() {},
     postMessage(msg) {

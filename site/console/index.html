@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
 <head>
-<title>GETSNIPED — the launch sniper for Phantom</title>
+<title>CoinMarketCat — the sniper cat for Phantom</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="GETSNIPED: the Claude Company launch sniper in your browser. It hovers ten seconds over every pump.fun launch, buys only what others followed, and signs every trade with your own Phantom. This page is where the extension meets the wallet.">
-<link rel="icon" href="../icons/getsniped-32.png" type="image/png">
+<meta name="description" content="COINMARKETCAT: the Claude Company launch sniper in your browser. It hovers ten seconds over every pump.fun launch, buys only what others followed, and signs every trade with your own Phantom. This page is where the extension meets the wallet.">
+<link rel="icon" href="../icons/coinmarketcat-32.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -96,12 +96,12 @@ p{color:var(--ink-soft)}
 </head>
 <body>
 <nav><div class="wrap">
-  <a class="brand" href="../">GET<em>SNIPED</em></a>
-  <a class="back" href="https://github.com/gtjvv976mb-netizen/getsniped" rel="noopener">The repository</a>
+  <a class="brand" href="../">COINMARKET<em>CAT</em></a>
+  <a class="back" href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">The repository</a>
   <button class="shift" id="shiftbtn" type="button" aria-label="Switch between day and night shift" title="Switch the floor's lighting">&#9790;</button>
 </div></nav>
 <main><div class="wrap">
-  <div class="eyebrow">GETSNIPED · HAWK-AI's lane, in your browser</div>
+  <div class="eyebrow">COINMARKETCAT · HAWK-AI's lane, in your browser</div>
   <h1>The launch sniper that waits before it strikes</h1>
   <p class="lead">A sniper bot for Phantom: it hovers ten seconds over every launch and buys only what others followed. This page is the console. The extension runs the lane; Phantom lives here; every buy and every sell is one approval window you press yourself. <b>Keep this tab open while the lane is armed</b> — the approval windows come from it.</p>
 
@@ -126,7 +126,7 @@ p{color:var(--ink-soft)}
   </section>
 
   <div class="notice" id="noext">
-    <p><b>No extension yet?</b> It is not in a store. You build it from <a href="https://github.com/gtjvv976mb-netizen/getsniped" rel="noopener">the repository</a> and load it unpacked — two commands and one click, below. Until then this page is a description, and the panel above stays quiet.</p>
+    <p><b>No extension yet?</b> It is not in a store. You build it from <a href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">the repository</a> and load it unpacked — two commands and one click, below. Until then this page is a description, and the panel above stays quiet.</p>
   </div>
 
   <h2>What it does, and what it does not</h2>
@@ -149,9 +149,9 @@ p{color:var(--ink-soft)}
   <h2>Install</h2>
   <ol>
     <li>Clone the repository and build the extension:
-      <pre>git clone https://github.com/gtjvv976mb-netizen/getsniped
-cd getsniped &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
-    <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose <code>getsniped/dist</code>.</li>
+      <pre>git clone https://github.com/gtjvv976mb-netizen/coinmarketcat
+cd coinmarketcat &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
+    <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose <code>coinmarketcat/dist</code>.</li>
     <li>Open the extension's <b>Options</b> and paste an RPC URL — Helius, Triton or QuickNode. The public RPC refuses browsers.</li>
     <li>Come back to <b>this page</b>, press <b>Connect Phantom</b>, approve the connection.</li>
     <li>In the popup, choose <b>Observe</b>. Watch the shadow book fill. Export it and grade it with <code>node vendor/executor/grade-entry-gates.mjs --file &lt;export&gt;</code>.</li>

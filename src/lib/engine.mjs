@@ -529,7 +529,7 @@ export function createHawkEngine({
       const txBase64 = toBase64(tx.serialize());
       await simulateGuard({ txBase64, wallet, ata: prepared.associatedBaseUser, mint, side: "buy", expected: { baseOutRaw, maxQuoteInRaw } });
       const summary = `BUY ${pos.symbol ?? short(mint)} — up to ${sol(maxQuoteInRaw).toFixed(4)} SOL for ${baseOutRaw} base units`;
-      notify({ kind: "buy", mint, title: "GETSNIPED: approve the buy in Phantom", body: summary });
+      notify({ kind: "buy", mint, title: "COINMARKETCAT: approve the buy in Phantom", body: summary });
       const { signature, tx: landed } = await signSendConfirm({ txBase64, purpose: "buy", mint, summary, lastValidBlockHeight, timeoutMs: config.approvalTimeoutMs, wallet });
       const fill = fillFromTransaction(landed, { wallet, mint, side: "buy" });
       const openedAt = clock();
@@ -558,7 +558,7 @@ export function createHawkEngine({
         S.counters.entryFailures++;
         S.attempts[mint] = { at: now, outcome: "unbooked", detail: `bought (${signature}) but the book refused the fill: ${error.message}` };
         say(`live ${short(mint)}: BOUGHT BUT THE BOOK REFUSED THE FILL (${error.clause ?? error.name}): ${error.message} — sig ${signature}; sell this by hand`);
-        notify({ kind: "attention", mint, title: "GETSNIPED: a fill the book refused", body: `${short(mint)} was bought (${signature}) but could not be booked. Sell it by hand.` });
+        notify({ kind: "attention", mint, title: "COINMARKETCAT: a fill the book refused", body: `${short(mint)} was bought (${signature}) but could not be booked. Sell it by hand.` });
         charge("entry", entryInputLamports + paidFee, openedAt);
         await persist();
         return { verdict, entered: false, signature };
@@ -717,7 +717,7 @@ export function createHawkEngine({
       if (!pos.graduated) {
         updateSnipe(S, { ...pos, mint, graduated: true });
         say(`live ${short(mint)}: the curve has graduated to a pool — this lane sells on the curve only. SELL IT BY HAND on pump.fun or Jupiter, then press Forget on the row`);
-        notify({ kind: "attention", mint, title: "GETSNIPED: sell by hand", body: `${pos.symbol ?? short(mint)} graduated to a pool. The lane cannot sell it; sell it yourself.` });
+        notify({ kind: "attention", mint, title: "COINMARKETCAT: sell by hand", body: `${pos.symbol ?? short(mint)} graduated to a pool. The lane cannot sell it; sell it yourself.` });
         await persist();
       }
       return { mint, action: "sell", markX, closed: false, graduated: true };
@@ -759,7 +759,7 @@ export function createHawkEngine({
       await simulateGuard({ txBase64, wallet, ata, mint, side: "sell", expected: { qtyRaw: amountRaw, minQuoteOutRaw } });
       const summary = `SELL ${pos.symbol ?? short(mint)} — ${reason}; floor ${sol(minQuoteOutRaw).toFixed(4)} SOL`;
       updateSnipe(S, { ...snipeFor(S, mint), mint, pendingSell: { reason, askedAt: clock(), attempts: Number(pos.pendingSell?.attempts ?? 0) + 1 } });
-      notify({ kind: "sell", mint, title: "GETSNIPED: APPROVE THE SELL IN PHANTOM", body: summary });
+      notify({ kind: "sell", mint, title: "COINMARKETCAT: APPROVE THE SELL IN PHANTOM", body: summary });
       say(`live ${short(mint)}: asking Phantom to sell — ${reason}`);
       emit();
       const { signature, tx: landed } = await signSendConfirm({ txBase64, purpose: "sell", mint, summary, lastValidBlockHeight, timeoutMs: Number(config.sellReaskMs) * 4, wallet });

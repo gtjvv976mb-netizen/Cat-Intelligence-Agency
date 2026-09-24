@@ -1,21 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "GETSNIPED — the launch sniper for Phantom",
-  "short_name": "GETSNIPED",
+  "name": "CoinMarketCat — the sniper cat for Phantom",
+  "short_name": "COINMARKETCAT",
   "version": "0.1.0",
   "description": "The Claude Company launch sniper, in your browser. It hovers ten seconds over every pump.fun launch, runs it through the same entry contract as WALL-ST-E, buys only what others followed, and asks your Phantom to sign each buy and each sell. It never holds a key.",
   "minimum_chrome_version": "116",
   "icons": {
-    "32": "icons/getsniped-32.png",
-    "128": "icons/getsniped-128.png",
-    "512": "icons/getsniped-512.png"
+    "32": "icons/coinmarketcat-32.png",
+    "128": "icons/coinmarketcat-128.png",
+    "512": "icons/coinmarketcat-512.png"
   },
   "action": {
-    "default_title": "GETSNIPED",
+    "default_title": "COINMARKETCAT",
     "default_popup": "popup.html",
     "default_icon": {
-      "32": "icons/getsniped-32.png",
-      "128": "icons/getsniped-128.png"
+      "32": "icons/coinmarketcat-32.png",
+      "128": "icons/coinmarketcat-128.png"
     }
   },
   "options_page": "options.html",
@@ -35,7 +35,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://gtjvv976mb-netizen.github.io/getsniped/console/*",
+        "https://gtjvv976mb-netizen.github.io/coinmarketcat/console/*",
         "https://claudedotcompany.com/hawk*",
         "https://www.claudedotcompany.com/hawk*",
         "http://localhost:4949/console/*",

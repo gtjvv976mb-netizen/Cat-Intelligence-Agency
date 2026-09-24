@@ -158,7 +158,7 @@ function log(line) { recentLog.unshift(`${new Date().toISOString().slice(11, 19)
 function notify({ kind, title, body, mint }) {
   try {
     chrome.notifications.create(`hawk-${kind}-${mint ?? ""}-${Date.now()}`, {
-      type: "basic", iconUrl: chrome.runtime.getURL("icons/getsniped-128.png"), title, message: body,
+      type: "basic", iconUrl: chrome.runtime.getURL("icons/coinmarketcat-128.png"), title, message: body,
       priority: kind === "sell" || kind === "attention" ? 2 : 1, requireInteraction: kind === "sell",
     });
   } catch (error) { console.warn("hawk: notification failed", error); }

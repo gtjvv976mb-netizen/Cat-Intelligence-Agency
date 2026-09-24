@@ -19,7 +19,7 @@ import {
 import { SNIPE_DEFAULTS as POLICY_DEFAULTS } from "../../vendor/executor/snipe-policy.mjs";
 import { PUMPFUN_VENUE } from "../../vendor/executor/snipe-venue-pumpfun.mjs";
 
-export const HAWK_BROWSER_VERSION = "getsniped-v1";
+export const HAWK_BROWSER_VERSION = "coinmarketcat-v1";
 export const LANE_MODES = SNIPE_LANE_MODES;
 export { SNIPE_OPERATOR_MAX, snipeArmSentence };
 
@@ -37,7 +37,7 @@ export const CONFIG_DEFAULTS = Object.freeze({
   rpcUrl: "",                 // https://… — Helius, Triton, QuickNode; the public RPC 403s browsers
   rpcWsUrl: "",               // wss://… — derived from rpcUrl when blank
   secondaryRpcUrl: "",        // optional second reader; when set, both must agree on the curve
-  consoleUrl: "https://gtjvv976mb-netizen.github.io/getsniped/console/",   // the page Phantom lives on; a manifest match, not free text
+  consoleUrl: "https://gtjvv976mb-netizen.github.io/coinmarketcat/console/",   // the page Phantom lives on; a manifest match, not free text
   /* ── the lane ───────────────────────────────────────────────────────────────────── */
   lane: "off",                // off | observe | execute
   maxSolPerTrade: SNIPE_LANE_DEFAULTS.maxSolPerTrade,
@@ -132,7 +132,7 @@ const STRING_KEYS = new Set(["rpcUrl", "rpcWsUrl", "secondaryRpcUrl", "consoleUr
 
 /** The console pages the manifest's content script matches; the bridge exists nowhere else. */
 export const CONSOLE_URLS = Object.freeze([
-  "https://gtjvv976mb-netizen.github.io/getsniped/console/",
+  "https://gtjvv976mb-netizen.github.io/coinmarketcat/console/",
   "https://claudedotcompany.com/hawk",
   "https://www.claudedotcompany.com/hawk",
   "http://localhost:4949/console/",  // the site served locally: python3 -m http.server 4949 --directory site

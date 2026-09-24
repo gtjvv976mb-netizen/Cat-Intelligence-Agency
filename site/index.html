@@ -1,15 +1,15 @@
 <!doctype html>
 <html lang="en">
 <head>
-<title>GETSNIPED — a sniper bot for Phantom</title>
+<title>CoinMarketCat — the sniper cat, by Cat Intelligence Agency</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="GetSniped is a Chrome extension that runs a Solana launch sniper in your own browser and signs every trade with your own Phantom. It hovers ten seconds over every launch, buys only what others followed, and never holds a key. You set the take-profit, the SOL per trade, the daily budget and the stock-paired tokens to focus on.">
-<meta property="og:title" content="GETSNIPED — a sniper bot for Phantom">
+<meta name="description" content="CoinMarketCat is a Chrome extension that runs a Solana launch sniper in your own browser and signs every trade with your own Phantom. It hovers ten seconds over every launch, buys only what others followed, and never holds a key. You set the take-profit, the SOL per trade, the daily budget and the stock-paired tokens to focus on.">
+<meta property="og:title" content="CoinMarketCat — the sniper cat, by Cat Intelligence Agency">
 <meta property="og:description" content="Hovers ten seconds over every launch. Buys only what others followed. Signs with your own hand. Never holds a key.">
 <meta property="og:type" content="website">
-<link rel="icon" href="icons/getsniped-32.png" type="image/png">
-<link rel="apple-touch-icon" href="icons/getsniped-128.png">
+<link rel="icon" href="icons/coinmarketcat-32.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/coinmarketcat-128.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -99,10 +99,10 @@ p{color:var(--ink-soft)}
 </head>
 <body>
 <nav><div class="wrap">
-  <a class="brand" href="./">GET<em>SNIPED</em></a>
+  <a class="brand" href="./">COINMARKET<em>CAT</em></a>
   <div class="links">
     <a class="back" href="console/">Console</a>
-    <a class="back" href="https://github.com/gtjvv976mb-netizen/getsniped" rel="noopener">GitHub</a>
+    <a class="back" href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">GitHub</a>
     <button class="shift" id="shiftbtn" type="button" aria-label="Switch between day and night shift">&#9790;</button>
   </div>
 </div></nav>
@@ -111,7 +111,7 @@ p{color:var(--ink-soft)}
   <header class="hero">
     <div class="eyebrow">A sniper bot for Phantom · Solana</div>
     <h1>It hovers ten seconds.<br>Then it buys only <em>what others followed.</em></h1>
-    <p class="lead">GetSniped is a Chrome extension that runs a launch sniper in your own browser and signs every buy and every sell with <b>your own Phantom</b>, one approval window per trade. It never holds a key. You set the take-profit, the SOL per trade, the daily budget it will not exceed, and the stock-paired tokens to focus on.</p>
+    <p class="lead">CoinMarketCat is a Chrome extension that runs a launch sniper in your own browser and signs every buy and every sell with <b>your own Phantom</b>, one approval window per trade. It never holds a key. You set the take-profit, the SOL per trade, the daily budget it will not exceed, and the stock-paired tokens to focus on.</p>
     <div class="cta">
       <a class="btn" href="#install">Install it</a>
       <a class="btn ghost" href="console/">Open the console</a>
@@ -173,7 +173,7 @@ p{color:var(--ink-soft)}
 
   <section id="stocks">
     <h2>Stock-paired tokens</h2>
-    <p class="sub">Solana now carries tokenized stocks — xStocks by Backed: TSLAx, AAPLx, SPYx, GLDx and more — and launches quoted in them exist on pump.fun today. GetSniped is being extended to them, on pump.fun curves and on new pools across the ecosystem, with the quote token you pick.</p>
+    <p class="sub">Solana now carries tokenized stocks — xStocks by Backed: TSLAx, AAPLx, SPYx, GLDx and more — and launches quoted in them exist on pump.fun today. CoinMarketCat is being extended to them, on pump.fun curves and on new pools across the ecosystem, with the quote token you pick.</p>
     <div class="notice">
       <p><b>Read this before you pick one.</b> xStocks are Token-2022 mints with issuer controls: a permanent delegate, a pause switch, a live freeze authority and a transfer-hook slot. The issuer can freeze, pause or claw back the quote asset itself, and Backed's terms restrict who may hold them. A position paid in an xStock carries that risk on top of the launch's own, and the arming screen will say so in these words.</p>
     </div>
@@ -184,9 +184,9 @@ p{color:var(--ink-soft)}
     <p class="sub">It is not in a store. You build it from the repository and load it unpacked — two commands and one click.</p>
     <ol class="steps">
       <li>Clone and build:
-        <pre>git clone https://github.com/gtjvv976mb-netizen/getsniped
-cd getsniped &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
-      <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose <code>getsniped/dist</code>.</li>
+        <pre>git clone https://github.com/gtjvv976mb-netizen/coinmarketcat
+cd coinmarketcat &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
+      <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose <code>coinmarketcat/dist</code>.</li>
       <li>Open the extension's <b>Options</b> and paste an RPC URL — Helius, Triton or QuickNode. The public RPC refuses browsers.</li>
       <li>Open <a href="console/">the console</a> in a tab, press <b>Connect Phantom</b>, approve the connection. <b>Keep that tab open</b>; the approval windows come from it.</li>
       <li>In the popup choose <b>Observe</b>. Watch the shadow book fill. Export it and grade it with <code>node vendor/executor/grade-entry-gates.mjs --file &lt;export&gt;</code>.</li>

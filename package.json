@@ -1,9 +1,9 @@
 {
-  "name": "getsniped",
+  "name": "coinmarketcat",
   "private": true,
   "type": "module",
   "version": "0.1.0",
-  "description": "GETSNIPED — the Claude Company launch sniper for Phantom. It hovers ten seconds over every pump.fun launch, buys only what others followed, and signs every trade with your own hand. It never holds a key.",
+  "description": "COINMARKETCAT — the Claude Company launch sniper for Phantom. It hovers ten seconds over every pump.fun launch, buys only what others followed, and signs every trade with your own hand. It never holds a key.",
   "engines": {
     "node": ">=22.13 <25"
   },
@@ -23,6 +23,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/gtjvv976mb-netizen/getsniped"
+    "url": "https://github.com/gtjvv976mb-netizen/coinmarketcat"
   }
 }

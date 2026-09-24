@@ -50,7 +50,7 @@ ok("the injected script is the only web-accessible resource", war.length === 1 &
 ok("and only to the console origins", (war[0]?.matches ?? []).every((m) => CONSOLE_URLS.some((u) => m.startsWith(new URL(u).origin))), (war[0]?.matches ?? []).join(", "));
 ok("the default console URL is one the content script matches", CONSOLE_URLS.includes(CONFIG_DEFAULTS.consoleUrl), CONFIG_DEFAULTS.consoleUrl);
 ok("no externally_connectable — no other site or extension may message the worker", manifest.externally_connectable === undefined);
-ok("the icons are the building's own marks, under the bot's name", ["32", "128", "512"].every((s) => manifest.icons?.[s]?.startsWith("icons/getsniped-")), JSON.stringify(manifest.icons));
+ok("the icons are the building's own marks, under the bot's name", ["32", "128", "512"].every((s) => manifest.icons?.[s]?.startsWith("icons/coinmarketcat-")), JSON.stringify(manifest.icons));
 ok("the description says what it never does", /never holds a key/i.test(manifest.description), manifest.description.slice(0, 80));
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

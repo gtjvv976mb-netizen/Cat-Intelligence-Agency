@@ -153,7 +153,7 @@ $("btnExport").addEventListener("click", async () => {
   const blob = new Blob([res.jsonl], { type: "application/x-ndjson" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = `getsniped-shadow-${new Date().toISOString().slice(0, 10)}.jsonl`;
+  a.href = url; a.download = `coinmarketcat-shadow-${new Date().toISOString().slice(0, 10)}.jsonl`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5_000);
   toast(`${res.rows} rows exported — grade them with node vendor/executor/grade-entry-gates.mjs --file`);

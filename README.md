@@ -1,8 +1,8 @@
-# GETSNIPED
+# COINMARKETCAT
 
 *A sniper bot for Phantom. It hovers ten seconds over every launch and buys only what others followed.*
 
-GetSniped is the Claude Company launch sniper's lane — HAWK-AI's — run in your own
+CoinMarketCat is the Claude Company launch sniper's lane — HAWK-AI's — run in your own
 browser and signed by **your own Phantom**, one approval window per trade. It never holds
 a key. You set the limits: the take-profit, the SOL per trade, the daily budget it will
 not exceed, the stop, and which stock-paired tokens to focus on.
@@ -61,17 +61,17 @@ commit.
 ## Install
 
 ```bash
-git clone https://github.com/gtjvv976mb-netizen/getsniped
-cd getsniped && npm ci && npm run build      # → dist/
+git clone https://github.com/gtjvv976mb-netizen/coinmarketcat
+cd coinmarketcat && npm ci && npm run build      # → dist/
 ```
 
-1. `chrome://extensions` → **Developer mode** → **Load unpacked** → `getsniped/dist`.
+1. `chrome://extensions` → **Developer mode** → **Load unpacked** → `coinmarketcat/dist`.
 2. Open the extension's **Options** and paste an RPC URL (Helius, Triton, QuickNode). The
    public mainnet RPC refuses browsers. A second RPC is optional; with one set, a curve
    the two disagree on is not trusted, and a read one of them missed or failed is used
    alone (the shadow row's `endpointVerdict` says `single` or `one_missing`).
 3. Open the console page — the popup's **Console** button opens
-   `https://gtjvv976mb-netizen.github.io/getsniped/console/` — and press **Connect Phantom**.
+   `https://gtjvv976mb-netizen.github.io/coinmarketcat/console/` — and press **Connect Phantom**.
    Phantom injects its provider into web pages only, so signing happens in that tab.
    **Keep it open.**
 4. In the popup choose **Observe**. Watch the shadow book fill. Export it, grade it.

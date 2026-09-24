@@ -74,7 +74,7 @@ if (built) {
     ok(`${out}: no node: specifier survived`, !/["']node:[a-z_]+["']/.test(text));
     ok(`${out}: no require() of a package survived`, !/\brequire\(["'][^"']+["']\)/.test(text.replace(/\/\*[\s\S]*?\*\//g, "")));
   }
-  for (const stat of ["manifest.json", "popup.html", "popup.css", "options.html", "icons/getsniped-32.png", "icons/getsniped-128.png", "icons/getsniped-512.png"])
+  for (const stat of ["manifest.json", "popup.html", "popup.css", "options.html", "icons/coinmarketcat-32.png", "icons/coinmarketcat-128.png", "icons/coinmarketcat-512.png"])
     ok(`${stat} was copied`, fs.existsSync(path.join(outdir, stat)));
 
   /* The manifest names files the build produced — a renamed entry would load as a blank

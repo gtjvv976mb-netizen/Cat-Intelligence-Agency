@@ -54,7 +54,7 @@ export const SHIMS = Object.freeze({
 const EXECUTOR_PACKAGES = /^(@solana\/web3\.js|bs58|buffer|@noble\/hashes)(\/.*)?$/;
 
 export const shimPlugin = {
-  name: "getsniped-shims",
+  name: "coinmarketcat-shims",
   setup(build) {
     build.onResolve({ filter: /^node:/ }, (args) => {
       const hit = SHIMS[args.path];
@@ -97,9 +97,9 @@ const STATIC = Object.freeze([
 
 /* The icons are the building's own marks, carried here under the bot's name. */
 const ICONS = Object.freeze([
-  ["icons/getsniped-32.png", "icons/getsniped-32.png"],
-  ["icons/getsniped-128.png", "icons/getsniped-128.png"],
-  ["icons/getsniped-512.png", "icons/getsniped-512.png"],
+  ["icons/coinmarketcat-32.png", "icons/coinmarketcat-32.png"],
+  ["icons/coinmarketcat-128.png", "icons/coinmarketcat-128.png"],
+  ["icons/coinmarketcat-512.png", "icons/coinmarketcat-512.png"],
 ]);
 
 export function buildOptions({ outdir = DIST } = {}) {

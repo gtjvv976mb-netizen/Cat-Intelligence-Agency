@@ -3,24 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cat Intelligence Agency — trading agents that work inside your limits</title>
-<meta name="description" content="Cat Intelligence Agency builds personal trading agents — cats — that you download and run yourself. Each one trades for you from a wallet you control, inside limits you set, and starts in observe mode. Agent 001 is CoinMarketCat, the sniper cat for new Solana launches.">
-<meta name="theme-color" content="#08050f">
-<link rel="canonical" href="https://gtjvv976mb-netizen.github.io/coinmarketcat/">
+<title>Cat Intelligence Agency — we read the chain</title>
+<meta name="description" content="Crypto cats investigating rugs, fake hype, whales and cat-coin copycats in public, with receipts. Plus CoinMarketCat, a Solana launch sniper in your limits.">
+<meta name="theme-color" content="#0b0716">
+<link rel="canonical" href="https://catintelligenceagency.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cat Intelligence Agency">
-<meta property="og:title" content="Cat Intelligence Agency — trading agents that work inside your limits">
-<meta property="og:description" content="Personal trading agents you download and run yourself. You set the limits; the cat watches, pounces only inside them, and stops when you say. Agent 001: CoinMarketCat, the sniper cat.">
-<meta property="og:url" content="https://gtjvv976mb-netizen.github.io/coinmarketcat/">
-<meta property="og:image" content="https://gtjvv976mb-netizen.github.io/coinmarketcat/icons/coinmarketcat-512.png">
-<meta property="og:image:alt" content="A mint-green cat head whose right eye is a scope reticle">
-<meta name="twitter:card" content="summary">
-<link rel="icon" href="icons/coinmarketcat.svg" type="image/svg+xml">
-<link rel="icon" href="icons/coinmarketcat-32.png" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="icons/coinmarketcat-128.png">
+<meta property="og:title" content="Cat Intelligence Agency — we read the chain">
+<meta property="og:description" content="Every agent is a cat built for crypto. Crying Cat takes the rugs, Grumpy Cat the fake hype, CashCat the whales, Popcat the new cat coins, and CoinMarketCat, the sniper, is software you run yourself.">
+<meta property="og:url" content="https://catintelligenceagency.com/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Six pixel kittens in black suits standing on a pixel floor at night, beside the title Cat Intelligence Agency">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="assets/apple-touch-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
 <script>
 (function () {
   let t = null;
@@ -28,245 +30,380 @@
   document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
 })();
 </script>
-<link rel="stylesheet" href="assets/agency.css">
+<link rel="stylesheet" href="assets/home.css">
+<link rel="preload" as="image" href="assets/site-hero-1200x514.jpg" imagesrcset="assets/site-hero-1200x514.jpg 1200w, assets/site-hero-2400x1029.jpg 2400w" imagesizes="(max-width: 900px) 170vw, 62vw">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./assets/vendor/three/three.module.min.js",
+    "three/addons/": "./assets/vendor/three/addons/"
+  }
+}
+</script>
 </head>
 <body>
-<!-- The agency mark: a cat-eared frame with one watching eye. Drawn here, used by reference. -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <linearGradient id="markEdge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9945ff"/><stop offset="1" stop-color="#14f195"/></linearGradient>
-    <linearGradient id="markEye" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9ffd8"/><stop offset="1" stop-color="#14f195"/></linearGradient>
-  </defs>
-  <symbol id="agencyMark" viewBox="0 0 64 64">
-    <path d="M11 55V24L17 7l11 11h8l11-11 6 17v31a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3z" fill="rgba(153,69,255,.14)" stroke="url(#markEdge)" stroke-width="3.5" stroke-linejoin="round"/>
-    <path d="M17 38q15-16 30 0q-15 16-30 0z" fill="url(#markEye)"/>
-    <ellipse cx="32" cy="38" rx="3" ry="6.4" fill="#0b0716"/>
-  </symbol>
-  <symbol id="catHead" viewBox="0 0 512 512">
-    <path d="M118 250 L130 104 L214 188 Q256 176 298 188 L382 104 L394 250 Q412 322 372 374 Q322 432 256 432 Q190 432 140 374 Q100 322 118 250 Z"/>
-  </symbol>
-</svg>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="bar"><div class="wrap">
   <a class="brand" href="./" aria-label="Cat Intelligence Agency, home">
-    <svg aria-hidden="true"><use href="#agencyMark"/></svg>
-    <span class="name stack">Cat Intelligence <em>Agency</em></span>
+    <img src="assets/favicon-64.png" width="32" height="32" alt="">
+    <span class="name">Cat <em>Intelligence</em> Agency</span>
   </a>
   <nav class="navlinks" aria-label="Site">
-    <a class="opt" href="#how">How it works</a>
     <a class="opt" href="#agents">Agents</a>
-    <a class="opt" href="#principles">Principles</a>
-    <a class="box" href="coinmarketcat/">Agent 001</a>
-    <a class="narrow-hide" href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">GitHub</a>
+    <a class="opt" href="#on-x">On X</a>
+    <a class="opt" href="#cia">$CIA</a>
+    <a class="box" href="coinmarketcat/">CoinMarketCat</a>
     <button class="shift" id="shiftbtn" type="button" aria-label="Switch between night and day theme">&#9790;</button>
   </nav>
 </div></header>
 
 <main id="main">
-<div class="wrap">
-  <section class="hero" aria-labelledby="hero-title">
-    <div>
-      <div class="eyebrow">Cat Intelligence Agency · personal trading agents</div>
-      <h1 id="hero-title">Trading agents that hunt <em>only inside your limits.</em></h1>
-      <p class="lead">We train cats: personalised trading agents you download and run yourself. A cat trades for you, from a wallet you control, on your own terms — inside the budget and the rules you set. It watches before it acts, and you can call it off at any time.</p>
+<section class="hero" id="hero" aria-labelledby="hero-title" data-scene="poster">
+  <div class="hero-scene">
+    <canvas id="hq" role="img" aria-label="The agency headquarters in 3D at night: a building with cat ears on its roof and mint windows, with six pixel kittens standing on the plaza in front of it. Use the left and right arrow keys to pick a kitten and Enter to open its file."></canvas>
+  </div>
+  <div class="nametag" id="nametag" hidden>
+    <span class="nt-code"></span>
+    <span class="nt-beat"></span>
+    <button class="nt-open" type="button">Open file ▸</button>
+  </div>
+  <div class="wrap hero-grid">
+    <div class="hero-top">
+      <a class="cia-chip" href="#cia"><span class="coin" aria-hidden="true"></span>$CIA <small>the agency's memecoin</small></a>
+      <h1 id="hero-title"><span>Cat</span> <em>Intelligence</em> <span>Agency</span></h1>
+      <p class="headline">We read the chain.</p>
+    </div>
+    <div class="stage">
+      <img class="hero-poster" src="assets/site-hero-1200x514.jpg" srcset="assets/site-hero-1200x514.jpg 1200w, assets/site-hero-2400x1029.jpg 2400w" sizes="(max-width: 900px) 170vw, 62vw" width="1200" height="514" alt="The agency's six pixel kittens in black suits standing in a row on a pixel floor, under a night skyline" fetchpriority="high">
+      <p class="hint" aria-hidden="true"><span class="pc">Drag to look around · click a kitten</span><span class="touch">Swipe sideways · tap a kitten</span></p>
+    </div>
+    <div class="hero-bottom">
+      <p class="lead">Cat Intelligence Agency is a crew of cats built for crypto. On X, they investigate rugs, fake hype, whales and copycat cat coins in public, and every case links its on-chain evidence. Agent 001 is software you can run yourself.</p>
       <div class="cta">
-        <a class="btn" href="coinmarketcat/">Meet Agent 001 <span class="arr">→</span></a>
-        <a class="btn ghost" href="#how">How an agent works</a>
-      </div>
-      <div class="strap">
-        <span class="chip"><b>Runs</b> in your browser</span>
-        <span class="chip"><b>Trades</b> from your wallet</span>
-        <span class="chip"><b>Observes</b> before it trades</span>
-        <span class="chip"><b>Promises</b> no returns</span>
+        <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>soon</small></button>
+        <a class="btn mint" href="./coinmarketcat/">Get CoinMarketCat <span class="arr" aria-hidden="true">→</span></a>
+        <a class="btn gold" href="#cia">$CIA</a>
       </div>
     </div>
-    <div class="hero-art" aria-hidden="true">
-      <svg class="ring" viewBox="0 0 200 200">
-        <circle cx="100" cy="100" r="94" fill="none" stroke="#9945ff" stroke-opacity=".45" stroke-width="1.2" stroke-dasharray="2 6"/>
-        <circle cx="100" cy="100" r="80" fill="none" stroke="#14f195" stroke-opacity=".28" stroke-width="1"/>
-        <g stroke="#9945ff" stroke-opacity=".7" stroke-width="2" stroke-linecap="round">
-          <line x1="100" y1="2" x2="100" y2="16"/><line x1="100" y1="184" x2="100" y2="198"/>
-          <line x1="2" y1="100" x2="16" y2="100"/><line x1="184" y1="100" x2="198" y2="100"/>
-        </g>
-      </svg>
-      <div class="core">
-        <svg viewBox="0 0 64 64">
-          <path d="M11 55V24L17 7l11 11h8l11-11 6 17v31a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3z" fill="rgba(153,69,255,.14)" stroke="url(#markEdge)" stroke-width="2.2" stroke-linejoin="round"/>
-          <g class="blink">
-            <path d="M17 38q15-16 30 0q-15 16-30 0z" fill="url(#markEye)"/>
-            <ellipse cx="32" cy="38" rx="3" ry="6.4" fill="#0b0716"/>
-          </g>
-        </svg>
-      </div>
-    </div>
-  </section>
-</div>
+  </div>
+</section>
 
-<hr class="rule">
+<section class="agents" id="agents" aria-labelledby="agents-title">
+  <div class="wrap">
+    <p class="kicker">The agents</p>
+    <h2 id="agents-title">Five agents. <em>One of them is software.</em></h2>
+    <p class="sub">The investigators are characters: their cases are posts on the agency's X account, written from public data. The sniper is a real Chrome extension.</p>
 
-<div class="wrap">
-  <section id="how" aria-labelledby="how-title">
-    <div class="sec-head"><span class="label">Standard procedure</span></div>
-    <h2 id="how-title">How an agent <em>works.</em></h2>
-    <p class="sub">Every cat follows the same four steps. The details are CoinMarketCat's, because it is the only agent in the field.</p>
-    <ol class="steps">
-      <li class="card">
-        <span class="num" aria-hidden="true"></span>
-        <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></div>
-        <h3>You set the limits</h3>
-        <p>Before it does anything, you tell it what it may spend per trade, what it may spend per day, when to take profit and what it may hunt. It checks those limits before every trade, not after.</p>
-      </li>
-      <li class="card">
-        <span class="num" aria-hidden="true"></span>
-        <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><ellipse cx="12" cy="12" rx="1.7" ry="4.2" fill="currentColor"/></svg></div>
-        <h3>It watches</h3>
-        <p>A new agent starts in observe mode. It watches the market and writes down what it would have done — the misses as well as the hits — without spending anything, so you can judge it before you trust it.</p>
-      </li>
-      <li class="card">
-        <span class="num" aria-hidden="true"></span>
-        <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6.5" cy="10" r="2"/><circle cx="10" cy="6" r="2"/><circle cx="14" cy="6" r="2"/><circle cx="17.5" cy="10" r="2"/><path d="M7.5 17.2c0-3.3 2.2-5.7 4.5-5.7s4.5 2.4 4.5 5.7c0 1.6-1.7 2.6-4.5 2.6s-4.5-1-4.5-2.6z"/></svg></div>
-        <h3>It pounces only inside them</h3>
-        <p>It trades only after you arm it, by typing a sentence that names your wallet and your numbers. Even then it pounces only when its rule says so, and a trade that would break one of your limits is refused.</p>
-      </li>
-      <li class="card">
-        <span class="num" aria-hidden="true"></span>
-        <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"/><path d="M8.5 12h7" stroke-linecap="round"/></svg></div>
-        <h3>You can stop it any time</h3>
-        <p>Pause new entries, disarm it, or pull the hard stop — sell everything, buy nothing. Whatever it holds sits in a wallet you control, not with us.</p>
-      </li>
-    </ol>
-  </section>
-</div>
+    <article class="agent wide director" id="agent-director" data-cat="director" data-codename="The Director" data-beat="Head of the agency" style="--accent:#9945ff">
+      <div class="agent-floor"><img class="kitten" src="assets/sprites/director.png" width="150" height="211" alt="The Director: a grey kitten in a black suit and sunglasses, with a coiled earpiece" loading="lazy"></div>
+      <div class="agent-body">
+        <p class="agent-no">Head of the agency <span class="status">On X</span></p>
+        <h3>The Director</h3>
+        <p class="beat"><b>Beat</b> Runs the agency, speaks for the main account and signs every correction. The logo.</p>
+        <p class="catch">“The chain remembers.”</p>
+        <p class="bio">A secret-agent cat in a dark suit and sunglasses, with an earpiece. Every case opens with “Case open.” and ends with “Case closed.” When the agency gets one wrong, the correction goes out under the Director's name.</p>
+        <details class="file">
+          <summary>Open the file</summary>
+          <div class="file-body">
+            <p class="file-label">Correction template <span class="tpl">template</span></p>
+<pre class="post">CORRECTION | CASE <span class="slot">[ID]</span>
 
-<hr class="rule">
+We said: <span class="slot">[what the case claimed]</span>
+The chain shows: <span class="slot">[what is true]</span> <span class="slot">[tx link]</span>
 
-<div class="wrap">
-  <section id="agents" aria-labelledby="agents-title">
-    <div class="sec-head"><span class="label">Agents in the field</span></div>
-    <h2 id="agents-title">One agent in the field. <em>More in training.</em></h2>
-    <p class="sub">Every agent gets a file. This is the only one open.</p>
-
-    <article class="file" aria-labelledby="file-001">
-      <div class="tab">File 001 · <b>open</b></div>
-      <div class="sheet">
-        <div class="portrait">
-          <img src="icons/coinmarketcat.svg" width="192" height="192" alt="CoinMarketCat: a mint cat head whose right eye is a scope reticle">
-          <span class="corners" aria-hidden="true"></span>
-          <div class="cap">Agent 001 · portrait</div>
-        </div>
-        <div>
-          <span class="stamp"><span class="dot" aria-hidden="true"></span>Field status: active</span>
-          <h3 id="file-001">CoinMarket<em>Cat</em></h3>
-          <p class="alias">the sniper cat</p>
-          <dl class="facts">
-            <dt>Agent</dt><dd>001</dd>
-            <dt>Hunts</dt><dd>New Solana launches on pump.fun — including launches paired with tokenised stocks like GLDx, TSLAx and SPYx — and, once you switch it on, new stock-paired pools across Solana, through Jupiter.</dd>
-            <dt>Method</dt><dd>Crouches ten seconds, then pounces only if the launch is still at or above its entry price. Takes profit at 1.5× by default; leaves a stalled launch after 90 s and any position after 180 s.</dd>
-            <dt>Your limits</dt><dd>Take-profit, SOL (or stock) per trade, a daily budget, and which stock tokens to focus on.</dd>
-            <dt>Signs with</dt><dd>Your Phantom, one approval per trade (the default) — or Autopilot, a separate wallet inside the extension that you fund with your daily budget and sweep back when you are done.</dd>
-            <dt>Starts in</dt><dd>Observe mode first. It trades nothing until you type the sentence that arms it.</dd>
-            <dt>Track record</dt><dd><b>Unmeasured</b> in this lane. The desk lane it learned from lost money, and its file says so.</dd>
-          </dl>
-          <div class="cta">
-            <a class="btn" href="coinmarketcat/">Open the file <span class="arr">→</span></a>
-            <a class="btn ghost" href="console/">Console</a>
-            <a class="btn ghost" href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">Source</a>
+We got it wrong. The original stays up, corrected. - The Director</pre>
+            <p class="fine">Posted from the same account, quote-posting the original case. If the case was pinned, the correction is pinned.</p>
           </div>
-        </div>
+        </details>
       </div>
     </article>
 
-    <div class="trainees">
-      <div class="trainee">
-        <svg viewBox="0 0 512 512" aria-hidden="true"><use href="#catHead" fill="var(--card-line)" stroke="var(--ink-faint)" stroke-width="6" stroke-dasharray="14 12"/></svg>
-        <div>
-          <div class="who">Agent 002</div>
-          <div><span class="redact">Codename withheld</span></div>
-          <p><span class="stamp dim">In training</span></p>
+    <div class="agent-grid">
+      <article class="agent wide" id="agent-coinmarketcat" data-cat="coinmarketcat" data-codename="CoinMarketCat" data-beat="The sniper · software" style="--accent:#14f195">
+        <div class="agent-floor"><img class="kitten" src="assets/sprites/coinmarketcat.png" width="146" height="207" alt="CoinMarketCat: a mint-green kitten in a black suit with a crosshair scope over one eye" loading="lazy"></div>
+        <div class="agent-body">
+          <p class="agent-no">Agent 001 <span class="status soft">Software · download it</span></p>
+          <h3>CoinMarketCat</h3>
+          <p class="beat"><b>Beat</b> New Solana launches on pump.fun, including launches priced in tokenised stocks.</p>
+          <p class="catch">“Ten seconds. Then maybe.”</p>
+          <p class="bio">CoinMarketCat watches new Solana launches and, once you arm it, buys only the ones still at or above entry ten seconds later, from your Phantom wallet or an autopilot wallet you fund, inside the take-profit, ticket and daily budget you set. It learned that rule from a trading lane that lost money, starts in Observe, and prints that losing record beside the switch that arms it.</p>
+          <details class="file">
+            <summary>Open the file</summary>
+            <dl class="file-body facts">
+              <dt>Type</dt><dd>Software. A Chrome extension you build and run yourself.</dd>
+              <dt>Hunts</dt><dd>New Solana launches on pump.fun, including launches priced in tokenised stocks like GLDx, TSLAx and SPYx. Once you switch it on, it also hunts new stock-paired pools across Solana, through Jupiter.</dd>
+              <dt>Method</dt><dd>Crouches ten seconds, then pounces only if the launch is still at or above its entry price. Takes profit at 1.5× by default. Leaves a stalled launch after 90 s and any position after 180 s.</dd>
+              <dt>Your limits</dt><dd>Take-profit, SOL (or stock) per trade, a daily budget, and which stock tokens to focus on.</dd>
+              <dt>Starts in</dt><dd>Observe mode. It trades nothing until you type the sentence that arms it.</dd>
+              <dt>Track record</dt><dd>Unmeasured in this lane. The desk lane it learned from lost money, and its file says so.</dd>
+            </dl>
+          </details>
+          <div class="agent-links"><a href="coinmarketcat/">Open the file</a><a href="console/">Console</a><a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">Source</a></div>
         </div>
+      </article>
+
+      <article class="agent" id="agent-crying-cat" data-cat="crying-cat" data-codename="Crying Cat" data-beat="Ruggers" style="--accent:#5ab8ff">
+        <div class="agent-floor"><img class="kitten" src="assets/sprites/crying-cat.png" width="144" height="206" alt="Crying Cat: a cream kitten in a black suit, in tears, holding a case file stamped RUGGED" loading="lazy"></div>
+        <div class="agent-body">
+          <p class="agent-no">Agent 002 <span class="status">On X</span></p>
+          <h3>Crying Cat</h3>
+          <p class="beat"><b>Beat</b> Ruggers: liquidity pulled, devs who dump on their holders, and mint or freeze authority used against holders.</p>
+          <p class="catch">“It cries so you don't have to.”</p>
+          <p class="bio">Crying Cat shows up after a chart goes vertical the wrong way and lays out who pulled what, when, and into which wallet. It names wallets, not people, and it cries so you don't have to.</p>
+          <details class="file">
+            <summary>Open the file</summary>
+            <dl class="file-body facts">
+              <dt>Type</dt><dd>Character. Its cases are posts on X, not software.</dd>
+              <dt>Method</dt><dd>Lays out the transactions, the wallets and the timestamps behind a rug, with a link for every one.</dd>
+            </dl>
+          </details>
+          <div class="agent-links"><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
+        </div>
+      </article>
+
+      <article class="agent" id="agent-grumpy-cat" data-cat="grumpy-cat" data-codename="Grumpy Cat" data-beat="Fake hype" style="--accent:#e8742c">
+        <div class="agent-floor"><img class="kitten" src="assets/sprites/grumpy-cat.png" width="144" height="202" alt="Grumpy Cat: a scowling cream-and-brown kitten in a black suit, arms crossed" loading="lazy"></div>
+        <div class="agent-body">
+          <p class="agent-no">Agent 003 <span class="status">On X</span></p>
+          <h3>Grumpy Cat</h3>
+          <p class="beat"><b>Beat</b> Fake hype: bundled launches, wash-traded volume, bot swarms, bought followers and recycled roadmaps.</p>
+          <p class="catch">“Not impressed.”</p>
+          <p class="bio">Grumpy Cat looks at the chart everyone is shilling and checks whether the buyers, the volume and the followers are real. It has seen this roadmap before, it has the link to prove it, and it is not impressed.</p>
+          <details class="file">
+            <summary>Open the file</summary>
+            <dl class="file-body facts">
+              <dt>Type</dt><dd>Character. Its cases are posts on X, not software.</dd>
+              <dt>Method</dt><dd>Checks whether the buyers, the volume and the followers are real, and links what it finds.</dd>
+            </dl>
+          </details>
+          <div class="agent-links"><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
+        </div>
+      </article>
+
+      <article class="agent" id="agent-cashcat" data-cat="cashcat" data-codename="CashCat" data-beat="Whales and KOLs" style="--accent:#f5c542">
+        <div class="agent-floor"><img class="kitten" src="assets/sprites/cashcat.png" width="143" height="208" alt="CashCat: an orange tabby kitten in a black suit and gold sunglasses, holding gold binoculars" loading="lazy"></div>
+        <div class="agent-body">
+          <p class="agent-no">Agent 004 <span class="status">On X</span></p>
+          <h3>CashCat</h3>
+          <p class="beat"><b>Beat</b> Whales and KOLs: big wallets, who bought before the call, paid promos, and influencers who dump on their followers.</p>
+          <p class="catch">“Follow the wallet.”</p>
+          <p class="bio">CashCat watches the big wallets and lines up their buys and sells against the public posts that moved the price. If a wallet bought before the call and sold into it, CashCat puts the timestamps side by side and lets you do the math.</p>
+          <details class="file">
+            <summary>Open the file</summary>
+            <dl class="file-body facts">
+              <dt>Type</dt><dd>Character. Its cases are posts on X, not software.</dd>
+              <dt>Method</dt><dd>Puts the buys, the call and the sells side by side, timestamps and all. A wallet is tied to an account only when there is a public source for it.</dd>
+            </dl>
+          </details>
+          <div class="agent-links"><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
+        </div>
+      </article>
+
+      <article class="agent" id="agent-popcat" data-cat="popcat" data-codename="Popcat" data-beat="New cat coins" style="--accent:#ff4fd8">
+        <div class="agent-floor"><img class="kitten" src="assets/sprites/popcat.png" width="197" height="211" alt="Popcat: a cream-and-white kitten in a black suit with its mouth popped open in a round O, holding up a radar with a hot-pink screen" loading="lazy"></div>
+        <div class="agent-body">
+          <p class="agent-no">Agent 005 <span class="status">On X</span></p>
+          <h3>Popcat</h3>
+          <p class="beat"><b>Beat</b> New cat coins: cat-themed tokens as they launch, the copycats, clones and honeypots, and the ones that look like real communities.</p>
+          <p class="catch">“Real cat or copycat?”</p>
+          <p class="bio">Popcat checks the new cat coins as they launch and asks every one of them the same question: real cat or copycat? It lays out who deployed each coin, what it copies and whether anyone can sell it, and when it finds nothing wrong it says “no red flags found”, never “buy”.</p>
+          <p class="aside">The agency's Popcat character is not affiliated with the $POPCAT memecoin, and $CIA is not related to it.</p>
+          <details class="file">
+            <summary>Open the file</summary>
+            <dl class="file-body facts">
+              <dt>Type</dt><dd>Character. Its cases are posts on X, not software. The radar is a prop.</dd>
+              <dt>Method</dt><dd>Lays out who deployed each coin, what it copies and whether anyone can sell it. When it finds nothing wrong, it says “no red flags found”, which is not an endorsement.</dd>
+              <dt>Verdicts</dt><dd>Copycat (an older coin's name, ticker or art), clone (its site, roadmap or socials), honeypot (people can buy but not sell), or no red flags found.</dd>
+            </dl>
+          </details>
+          <div class="agent-links"><button type="button" disabled data-x-link data-label="Read its cases on X">Read its cases on X <small>handle soon</small></button></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="onx" id="on-x" aria-labelledby="onx-title">
+  <div class="wrap">
+    <p class="kicker">How the cats work on X</p>
+    <h2 id="onx-title">Every case has <em>receipts.</em></h2>
+    <p class="sub">Crying Cat, Grumpy Cat, CashCat and Popcat are characters. Their cases are posts the agency writes from public data, not the output of a bot or a tool. Every case is a thread of three posts, with every transaction, wallet and web page in it as a link, and every timestamp in UTC.</p>
+    <div class="onx-grid">
+      <div>
+        <p class="rules-title">The agency's house rules</p>
+        <ol class="rules">
+          <li><h3>Every case links its evidence.</h3><p>Anything on-chain links the transactions and wallets on a public explorer, with UTC timestamps. Anything off-chain (posts, sites, roadmaps) links an archived copy. No link, no case.</p></li>
+          <li><h3>Opinion, not accusation.</h3><p>Every finding is the agency's opinion on public data. We say what wallets did. We do not accuse anyone of a crime, and we do not claim to know what anyone intended. When we find nothing wrong, we say “no red flags found”, which is not an endorsement or a buy signal.</p></li>
+          <li><h3>No doxxing.</h3><p>We name wallets and public accounts, never private individuals. We post no real names, faces, addresses, workplaces or families. We never tie a wallet to a real person unless that person made the link public themselves, and we blur personal details in screenshots.</p></li>
+          <li><h3>Corrections as loud as the case.</h3><p>When we get it wrong, the correction goes out from the same account in the same format, quoting the original. If the case was pinned, the correction is pinned.</p></li>
+        </ol>
       </div>
-      <div class="trainee">
-        <svg viewBox="0 0 512 512" aria-hidden="true"><use href="#catHead" fill="var(--card-line)" stroke="var(--ink-faint)" stroke-width="6" stroke-dasharray="14 12"/></svg>
-        <div>
-          <div class="who">Agent 003</div>
-          <div><span class="redact">Codename withheld</span></div>
-          <p><span class="stamp dim">In training</span></p>
+
+      <figure class="casefile" aria-labelledby="case-cap">
+        <div class="case-stamp" aria-hidden="true">Template</div>
+        <figcaption id="case-cap"><b>Sample case file.</b> A template with placeholder fields, not a real case: every <span class="slot">[slot]</span> is filled from public data before it is posted.</figcaption>
+        <div class="thread">
+          <div class="post-card">
+            <div class="who"><img src="assets/cia-director-80.png" width="40" height="40" alt="" loading="lazy"><span><b>Cat Intelligence Agency</b> <span class="slot">@[handle]</span></span></div>
+<pre class="post">CRYING CAT | CASE CRY-<span class="slot">[001]</span> | RUG REPORT
+
+Token: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>)
+Mint: <span class="slot">[explorer link]</span>
+What we see: <span class="slot">[one line, e.g. "LP pulled by the pool's creator, [n] min in"]</span>
+Status: <span class="slot">[OPEN / CLOSED / CORRECTED]</span>
+
+It cries so you don't have to. (1/3)</pre>
+          </div>
+          <div class="post-card">
+<pre class="post">Evidence (UTC):
+<span class="slot">[YYYY-MM-DD HH:MM:SS]</span> launch <span class="slot">[tx link]</span>
+<span class="slot">[YYYY-MM-DD HH:MM:SS]</span> <span class="slot">[LP removed / dev sold [x]% of supply / mint authority used]</span> <span class="slot">[tx link]</span>
+Deployer: <span class="slot">[wallet link]</span>
+Funds went to: <span class="slot">[wallet link]</span>
+Archived page: <span class="slot">[archive link]</span> (2/3)</pre>
+          </div>
+          <div class="post-card">
+<pre class="post">Our read: <span class="slot">[one or two sentences]</span>
+
+This is our opinion on public on-chain data, not an accusation of a crime. Wrong? Reply with a tx. Corrections go out as loud as this. (3/3)</pre>
+          </div>
         </div>
+      </figure>
+    </div>
+    <div class="lead-line">
+      <p><b>Got a lead?</b> Quote-post it with the tx link and tag the agency. We will never DM you.</p>
+      <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+    </div>
+  </div>
+</section>
+
+<section class="cia" id="cia" aria-labelledby="cia-title">
+  <div class="wrap cia-grid">
+    <div class="cia-portrait">
+      <picture><source srcset="assets/cia-director-400.webp" type="image/webp"><img src="assets/cia-director-400.png" width="400" height="400" alt="The Director, the agency's logo: a pixel grey kitten in sunglasses and a black suit inside a mint ring" loading="lazy"></picture>
+      <p class="ticker" aria-hidden="true">$CIA</p>
+    </div>
+    <div class="cia-copy">
+      <p class="kicker">The memecoin</p>
+      <h2 id="cia-title">$CIA, <em>the agency's memecoin.</em></h2>
+      <p class="sub">Every agency needs a mascot with a ticker. Cat Intelligence Agency ($CIA) is ours. It's a meme. It has no intrinsic value, carries no expectation of profit, and unlocks nothing in CoinMarketCat, which works the same whether you hold it or not. It's also a cat coin, so Popcat will check it like any other.</p>
+      <dl class="coin-facts">
+        <dt>Name</dt><dd>Cat Intelligence Agency</dd>
+        <dt>Ticker</dt><dd>$CIA <span class="note">(placeholder until launch)</span></dd>
+        <dt>Where</dt><dd>pump.fun, on Solana</dd>
+        <dt>Launch</dt><dd>A fair launch on pump.fun is planned. It has not launched.</dd>
+        <dt>Contract address</dt>
+        <dd class="ca-slot">
+          <code class="ca" id="ca" data-empty="true">Not launched. No address yet.</code>
+          <span class="ca-note">Posted on X at launch — only trust that one.</span>
+        </dd>
+      </dl>
+      <div class="cta">
+        <button class="btn gold" type="button" id="buybtn" disabled>Buy $CIA on pump.fun <small>not live yet</small></button>
+        <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
+      </div>
+      <div class="scam" role="note">
+        <p class="scam-title">Scam warning</p>
+        <p>Anyone can launch a token called Cat Intelligence Agency with the ticker $CIA. Only one is ours. The only real contract address is the one posted on the agency's X account. We will never DM you. Anyone who does is not us.</p>
+        <p class="crying"><img class="kitten" src="assets/sprites/crying-cat.png" width="144" height="206" alt="" loading="lazy"> Crying Cat has seen how this ends.</p>
       </div>
     </div>
-  </section>
-</div>
+  </div>
+</section>
 
-<hr class="rule">
-
-<div class="wrap">
-  <section id="principles" aria-labelledby="principles-title">
-    <div class="sec-head"><span class="label">The agency's principles</span></div>
-    <h2 id="principles-title">Four rules every cat is <em>trained under.</em></h2>
-    <p class="sub">They are why the agents look the way they do: slow to arm, quick to stop, and plain about what nobody has measured yet.</p>
-    <div class="grid four">
-      <div class="card">
-        <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2.5"/><path d="M16 13h5" stroke-linecap="round"/><path d="M5 6l10-3 1.5 3"/></svg></div>
-        <h3>Your wallet, your limits</h3>
-        <p>An agent trades from a wallet you control, inside numbers you typed. There is no account with us, no pooled fund and nothing to deposit with the agency. There is no agency server at all.</p>
-      </div>
-      <div class="card">
-        <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M9.5 8h6M9.5 12h6M9.5 16h3.5"/></svg></div>
-        <h3>Observe first</h3>
-        <p>Every agent ships in observe mode and keeps a book of what it would have done. Going live is a deliberate act: a sentence you type, naming your wallet and your numbers.</p>
-      </div>
-      <div class="card">
-        <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 20h18M6 20v-6M11 20V6M16 20v-9"/></svg></div>
-        <h3>Honest numbers</h3>
-        <p>No quoted returns, no win rates nobody measured, no user counts. What is unmeasured is called unmeasured — and the losing record CoinMarketCat learned from is printed beside its arming switch.</p>
-      </div>
-      <div class="card">
-        <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
-        <h3>No key ever leaves your browser</h3>
-        <p>Your Phantom key never reaches an agent. Autopilot's separate wallet is created inside your browser, encrypted under your passphrase, and never sent anywhere — there is nowhere to send it.</p>
+<section class="cmc" id="coinmarketcat" aria-labelledby="cmc-title">
+  <div class="wrap">
+    <div class="cmc-head">
+      <div class="cmc-art" aria-hidden="true"><img class="kitten" src="assets/sprites/coinmarketcat.png" width="146" height="207" alt="" loading="lazy"></div>
+      <div>
+        <p class="kicker">Agent 001 · software</p>
+        <h2 id="cmc-title">Agent 001 is the one cat <em>you can install.</em></h2>
+        <p class="sub">CoinMarketCat is a Chrome extension that watches new Solana launches on pump.fun. Once you arm it, it buys only the ones still at or above entry ten seconds later, inside the take-profit, SOL per trade and daily budget you set. List a tokenised stock (GLDx, TSLAx, SPYx) and it can trade launches priced in that stock. Switch on its second venue, which is off by default, and it watches new stock-paired pools anywhere on Solana and trades them through Jupiter.</p>
       </div>
     </div>
-  </section>
-</div>
+    <ul class="pitch">
+      <li><h3>Observe first.</h3><p>Setup leaves it in Observe, where it keeps a book of what it would have done and spends nothing. It trades only after you type the sentence that arms it and every item on its checklist is green.</p></li>
+      <li><h3>You choose who signs.</h3><p>The default is Phantom, one approval per trade, and in that mode the extension holds no key. The other choice is autopilot: a wallet the extension creates, encrypted under your passphrase, funded from Phantom with one approval and swept back when you're done. On autopilot it signs without asking. A key in a browser is a bigger target than Phantom, and your exposure is whatever you fund it with.</p></li>
+      <li><h3>The record is printed, not hidden.</h3><p>The trading lane it learned from lost money: its first 58 round trips went 10 up, 48 down, −1.58 SOL. Its fastest entries, under 3 seconds, won 0 of 9, which is why it waits 10. None of this is evidence of an edge.</p></li>
+      <li><h3>What nobody has measured yet.</h3><p>This lane's own results, launches priced in stocks, the Jupiter pools, and any autopilot trade on mainnet.</p></li>
+      <li><h3>What it can't do.</h3><p>A launch that graduates off pump.fun's curve must be sold by hand. In Phantom mode, closing the console tab leaves it with no signer.</p></li>
+    </ul>
+    <div class="get">
+      <div>
+        <p class="get-title">How you get it</p>
+        <p>It is not in the Chrome Web Store; you build it from source:</p>
+        <ol class="steps">
+          <li><span><code>git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency</code></span></li>
+          <li><span>Run <code>npm ci &amp;&amp; npm run build</code>.</span></li>
+          <li><span>Open <code>chrome://extensions</code>, turn on Developer mode, choose Load unpacked, and pick <code>dist</code>.</span></li>
+        </ol>
+      </div>
+      <div>
+        <p class="get-title">You need</p>
+        <ul class="need">
+          <li>Chrome 116 or later</li>
+          <li>Node 22.13 to 24, to build it</li>
+          <li>Phantom</li>
+          <li>An RPC URL from a provider such as Helius, Triton or QuickNode (the public Solana RPC refuses browsers)</li>
+        </ul>
+        <p class="fine">The agency holds nothing of yours: no account, no deposit, no server.</p>
+      </div>
+    </div>
+    <div class="cta">
+      <a class="btn mint" href="coinmarketcat/">Meet Agent 001 <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn ghost" href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">Get the source on GitHub</a>
+      <a class="btn ghost" href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency#readme" rel="noopener">Read the README</a>
+      <a class="btn ghost" href="console/">Open the console</a>
+    </div>
+  </div>
+</section>
 </main>
 
-<footer>
+<footer class="foot">
   <div class="wrap">
-    <div class="cols">
-      <div>
-        <a class="brand" href="./" aria-label="Cat Intelligence Agency, home">
-          <svg aria-hidden="true"><use href="#agencyMark"/></svg>
-          <span class="name">Cat Intelligence <em>Agency</em></span>
-        </a>
-        <p style="margin-top:14px">Personal trading agents that work inside the limits you set. Software you build from source and run yourself.</p>
-      </div>
-      <div>
-        <span class="label">Agents</span>
-        <ul>
-          <li><a href="coinmarketcat/">001 · CoinMarketCat</a></li>
-          <li><a href="console/">CoinMarketCat console</a></li>
-          <li><span class="label" style="margin:0;display:inline">002 · in training</span></li>
-          <li><span class="label" style="margin:0;display:inline">003 · in training</span></li>
-        </ul>
-      </div>
-      <div>
-        <span class="label">Source</span>
-        <ul>
-          <li><a href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">GitHub repository</a></li>
-          <li><a href="https://github.com/gtjvv976mb-netizen/coinmarketcat#readme" rel="noopener">README</a></li>
-          <li><a href="https://github.com/gtjvv976mb-netizen/coinmarketcat/blob/main/docs/session-wallet.md" rel="noopener">Autopilot wallet notes</a></li>
-        </ul>
-      </div>
+    <div class="foot-top">
+      <a class="brand" href="./" aria-label="Cat Intelligence Agency, home">
+        <img src="assets/favicon-64.png" width="32" height="32" alt="">
+        <span class="name">Cat <em>Intelligence</em> Agency</span>
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="#agents">Agents</a>
+        <a href="#on-x">House rules</a>
+        <a href="#cia">$CIA</a>
+        <a href="coinmarketcat/">CoinMarketCat</a>
+        <a href="console/">Console</a>
+        <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
+      </nav>
     </div>
     <div class="legal">
-      <p><b>Cat Intelligence Agency is a software project, not a government agency.</b> It is not affiliated with, and does not represent, any government, intelligence service or public body.</p>
-      <p><b>CoinMarketCat is not affiliated with CoinMarketCap</b>, and is not endorsed by or connected to it. Nor is it affiliated with Phantom, pump.fun, Jupiter, Backed (xStocks) or Anthropic.</p>
-      <p>Nothing on this site is financial advice. A trading agent can lose all of the money you let it trade. Tokenised stocks are subject to their issuer's terms and your jurisdiction's rules.</p>
+      <p>Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.</p>
+      <p>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
     </div>
   </div>
 </footer>
 
+<dialog class="dossier" id="dossier" aria-label="Agent file">
+  <div class="dossier-inner">
+    <button class="dossier-close" type="button" aria-label="Close the file">✕</button>
+    <div class="dossier-slot"></div>
+  </div>
+</dialog>
+
+<script src="assets/config.js"></script>
+<script src="assets/home.js"></script>
+<script type="module">
+/* The 3D agency loads after the page has painted. If WebGL, the module or the model
+   fails, the pixel roster picture stays, and the page is complete without it. */
+const hero = document.getElementById("hero");
+const webgl = (() => { try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch { return false; } })();
+const go = () => {
+  if (!webgl) { hero.dataset.scene = "fallback"; return; }
+  hero.dataset.scene = "loading";
+  import("./assets/hq3d.js").catch((e) => { hero.dataset.scene = "fallback"; console.warn("3D agency unavailable:", e && e.message); });
+};
+if (document.readyState === "complete") requestAnimationFrame(go); else addEventListener("load", () => requestAnimationFrame(go), { once: true });
+</script>
 <script>
 (function shiftSwitch() {
   const btn = document.getElementById("shiftbtn");

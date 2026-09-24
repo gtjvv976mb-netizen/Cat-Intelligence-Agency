@@ -6,18 +6,20 @@
 <title>CoinMarketCat — the sniper cat for Phantom</title>
 <meta name="description" content="CoinMarketCat is a Chrome extension that attaches to your Phantom wallet and snipes new Solana launches — pump.fun launches, including ones paired with tokenised stocks like GLDx, TSLAx and SPYx, and new stock-paired pools through Jupiter — inside limits you set. Observe mode by default. Its live record is unmeasured.">
 <meta name="theme-color" content="#08050f">
-<link rel="canonical" href="https://gtjvv976mb-netizen.github.io/coinmarketcat/coinmarketcat/">
+<link rel="canonical" href="https://catintelligenceagency.com/coinmarketcat/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cat Intelligence Agency">
 <meta property="og:title" content="CoinMarketCat — the sniper cat for Phantom">
 <meta property="og:description" content="Agent 001 of Cat Intelligence Agency. It crouches ten seconds over every new Solana launch and pounces only if the launch is still at or above its entry price — inside the budget you set, from a wallet you control. Observe mode first. No returns promised.">
-<meta property="og:url" content="https://gtjvv976mb-netizen.github.io/coinmarketcat/coinmarketcat/">
-<meta property="og:image" content="https://gtjvv976mb-netizen.github.io/coinmarketcat/icons/coinmarketcat-512.png">
-<meta property="og:image:alt" content="A mint-green cat head whose right eye is a scope reticle">
-<meta name="twitter:card" content="summary">
-<link rel="icon" href="../icons/coinmarketcat.svg" type="image/svg+xml">
-<link rel="icon" href="../icons/coinmarketcat-32.png" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="../icons/coinmarketcat-128.png">
+<meta property="og:url" content="https://catintelligenceagency.com/coinmarketcat/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Six pixel kittens in black suits standing on a pixel floor at night, beside the title Cat Intelligence Agency">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="../assets/apple-touch-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -31,23 +33,11 @@
 <link rel="stylesheet" href="../assets/agency.css">
 </head>
 <body>
-<!-- The agency mark (a cat-eared frame with one watching eye), used by reference in the footer. -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <linearGradient id="markEdge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9945ff"/><stop offset="1" stop-color="#14f195"/></linearGradient>
-    <linearGradient id="markEye" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9ffd8"/><stop offset="1" stop-color="#14f195"/></linearGradient>
-  </defs>
-  <symbol id="agencyMark" viewBox="0 0 64 64">
-    <path d="M11 55V24L17 7l11 11h8l11-11 6 17v31a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3z" fill="rgba(153,69,255,.14)" stroke="url(#markEdge)" stroke-width="3.5" stroke-linejoin="round"/>
-    <path d="M17 38q15-16 30 0q-15 16-30 0z" fill="url(#markEye)"/>
-    <ellipse cx="32" cy="38" rx="3" ry="6.4" fill="#0b0716"/>
-  </symbol>
-</svg>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="bar"><div class="wrap">
   <a class="brand" href="./" aria-label="CoinMarketCat, the sniper cat">
-    <img src="../icons/coinmarketcat.svg" width="30" height="30" alt="">
+    <img class="px" src="../icons/coinmarketcat-128.png" width="30" height="30" alt="">
     <span class="name">CoinMarket<em>Cat</em></span>
     <span class="tag">Agent 001</span>
   </a>
@@ -73,7 +63,7 @@
       <div class="cta">
         <a class="btn" href="#install">Install it <span class="arr">→</span></a>
         <a class="btn ghost" href="#rule">The pounce rule</a>
-        <a class="btn ghost" href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">Source</a>
+        <a class="btn ghost" href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">Source</a>
       </div>
       <div class="strap">
         <span class="chip"><b>Observe</b> first</span>
@@ -92,7 +82,7 @@
           <line x1="2" y1="100" x2="16" y2="100"/><line x1="184" y1="100" x2="198" y2="100"/>
         </g>
       </svg>
-      <div class="core cat"><img src="../icons/coinmarketcat.svg" width="240" height="240" alt=""></div>
+      <div class="scope"><img src="../assets/sprites/coinmarketcat.png" width="146" height="207" alt=""></div>
     </div>
   </section>
 </div>
@@ -277,7 +267,7 @@
         <p>A private key in a browser is a bigger target than Phantom. While it is unlocked, malware on your machine or another extension with the wrong permissions could read it, and a keylogger could take the passphrase. There is no passphrase reset. And it is new: no Autopilot trade, fund or sweep has yet been made on mainnet. Fund it only with what you can lose, sweep it, and lock it.</p>
       </div>
     </div>
-    <p class="source">The full threat model is in <a href="https://github.com/gtjvv976mb-netizen/coinmarketcat/blob/main/docs/session-wallet.md" rel="noopener">docs/session-wallet.md</a>. Only one file in the repository may touch that key; a test scans every other source file, and the built bundle when there is one, on every run.</p>
+    <p class="source">The full threat model is in <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency/blob/main/docs/session-wallet.md" rel="noopener">docs/session-wallet.md</a>. Only one file in the repository may touch that key; a test scans every other source file, and the built bundle when there is one, on every run.</p>
   </section>
 </div>
 
@@ -290,8 +280,8 @@
     <p class="sub">You build it from the source, read what you build if you like, and load it into Chrome 116 or later with the Phantom extension installed. The build needs Node.js 22.13 to 24.</p>
     <ol class="install">
       <li><div><b>Clone the repository.</b>
-        <pre><code>git clone https://github.com/gtjvv976mb-netizen/coinmarketcat
-cd coinmarketcat</code></pre></div></li>
+        <pre><code>git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
+cd Cat-Intelligence-Agency</code></pre></div></li>
       <li><div><b>Install and build.</b> The extension is written to <code>dist/</code>.
         <pre><code>npm ci
 npm run build</code></pre></div></li>
@@ -372,7 +362,7 @@ npm run build</code></pre></div></li>
     <div class="cols">
       <div>
         <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
-          <svg aria-hidden="true"><use href="#agencyMark"/></svg>
+          <img class="px" src="../assets/favicon-64.png" width="30" height="30" alt="">
           <span class="name">Cat Intelligence <em>Agency</em></span>
         </a>
         <p style="margin-top:14px">CoinMarketCat is the agency's first agent: a launch sniper for Phantom that works inside the limits you set. Built from source, run by you.</p>
@@ -389,16 +379,15 @@ npm run build</code></pre></div></li>
       <div>
         <span class="label">Source</span>
         <ul>
-          <li><a href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">GitHub repository</a></li>
-          <li><a href="https://github.com/gtjvv976mb-netizen/coinmarketcat#readme" rel="noopener">README</a></li>
-          <li><a href="https://github.com/gtjvv976mb-netizen/coinmarketcat/blob/main/docs/session-wallet.md" rel="noopener">Autopilot wallet notes</a></li>
+          <li><a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency#readme" rel="noopener">README</a></li>
+          <li><a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency/blob/main/docs/session-wallet.md" rel="noopener">Autopilot wallet notes</a></li>
         </ul>
       </div>
     </div>
     <div class="legal">
-      <p><b>Cat Intelligence Agency is a software project, not a government agency.</b> It is not affiliated with, and does not represent, any government, intelligence service or public body.</p>
-      <p><b>CoinMarketCat is not affiliated with CoinMarketCap</b>, and is not endorsed by or connected to it. Nor is it affiliated with Phantom, pump.fun, Jupiter, Backed (xStocks) or Anthropic.</p>
-      <p>Nothing on this site is financial advice. A trading agent can lose all of the money you let it trade. Tokenised stocks are subject to their issuer's terms and your jurisdiction's rules.</p>
+      <p>Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.</p>
+      <p>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
     </div>
   </div>
 </footer>

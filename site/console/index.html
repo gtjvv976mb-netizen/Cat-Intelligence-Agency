@@ -6,18 +6,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="The CoinMarketCat console: the page your Phantom wallet lives on while the sniper cat runs. The extension you built attaches here, shows its status, and asks Phantom for every approval from this tab. This page holds no signing code and never sees a key.">
 <meta name="theme-color" content="#08050f">
-<link rel="canonical" href="https://gtjvv976mb-netizen.github.io/coinmarketcat/console/">
+<link rel="canonical" href="https://catintelligenceagency.com/console/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cat Intelligence Agency">
 <meta property="og:title" content="CoinMarketCat console — where the sniper cat meets your Phantom">
 <meta property="og:description" content="The page Phantom lives on while CoinMarketCat, Agent 001 of Cat Intelligence Agency, runs in your browser. Keep it open while the cat is armed.">
-<meta property="og:url" content="https://gtjvv976mb-netizen.github.io/coinmarketcat/console/">
-<meta property="og:image" content="https://gtjvv976mb-netizen.github.io/coinmarketcat/icons/coinmarketcat-512.png">
-<meta property="og:image:alt" content="A mint-green cat head whose right eye is a scope reticle">
-<meta name="twitter:card" content="summary">
-<link rel="icon" href="../icons/coinmarketcat.svg" type="image/svg+xml">
-<link rel="icon" href="../icons/coinmarketcat-32.png" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="../icons/coinmarketcat-128.png">
+<meta property="og:url" content="https://catintelligenceagency.com/console/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Six pixel kittens in black suits standing on a pixel floor at night, beside the title Cat Intelligence Agency">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="../assets/apple-touch-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -55,12 +57,13 @@ nav{background:var(--bar);color:var(--bar-ink);padding:13px 0;border-bottom:1px 
 .wrap{max-width:820px;margin:0 auto;padding:0 24px}
 nav .wrap{display:flex;align-items:center;gap:16px}
 .brand{font-family:"Instrument Serif",Georgia,serif;font-size:24px;line-height:1;text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px;white-space:nowrap;min-width:0}
-.brand img{width:30px;height:30px;flex:none}
+.brand img{width:30px;height:30px;flex:none;image-rendering:pixelated;border-radius:7px;box-shadow:0 0 0 2px rgba(20,241,149,.55)}
 .brand em{font-style:italic;color:var(--sol-soft)}
 nav a.agency{margin-left:auto;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--ink-soft);text-decoration:none;white-space:nowrap}
 nav a.agency:hover{color:var(--sol-green)}
 nav a.agency + a.back{margin-left:0}
-@media (max-width:560px){nav .wrap{gap:10px} .brand{font-size:20px} nav a.agency{display:none} nav a.agency + a.back{margin-left:auto} nav a.back{padding:6px 9px;letter-spacing:.08em}}
+nav a.agency .short{display:none}
+@media (max-width:560px){nav .wrap{gap:10px} .brand{font-size:20px} nav a.agency .long{display:none} nav a.agency .short{display:inline} nav a.back{padding:6px 9px;letter-spacing:.08em}}
 nav a.back{margin-left:auto;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;
   color:rgba(239,234,255,.8);text-decoration:none;border:1px solid rgba(239,234,255,.3);padding:6px 12px;border-radius:5px}
 nav a.back:hover{background:var(--amber);color:#2a2018;border-color:var(--amber)}
@@ -119,9 +122,9 @@ p{color:var(--ink-soft)}
 </head>
 <body>
 <nav><div class="wrap">
-  <a class="brand" href="../coinmarketcat/" aria-label="CoinMarketCat, the sniper cat"><img src="../icons/coinmarketcat.svg" width="30" height="30" alt=""><span>CoinMarket<em>Cat</em></span></a>
-  <a class="agency" href="../">Cat Intelligence Agency</a>
-  <a class="back" href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">GitHub</a>
+  <a class="brand" href="../coinmarketcat/" aria-label="CoinMarketCat, the sniper cat"><img src="../icons/coinmarketcat-128.png" width="30" height="30" alt=""><span>CoinMarket<em>Cat</em></span></a>
+  <a class="agency" href="../"><span class="long">Cat Intelligence Agency</span><span class="short">Agency</span></a>
+  <a class="back" href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
   <button class="shift" id="shiftbtn" type="button" aria-label="Switch between day and night shift" title="Switch the floor's lighting">&#9790;</button>
 </div></nav>
 <main><div class="wrap">
@@ -150,7 +153,7 @@ p{color:var(--ink-soft)}
   </section>
 
   <div class="notice" id="noext">
-    <p><b>No extension yet?</b> It is not in a store. You build it from <a href="https://github.com/gtjvv976mb-netizen/coinmarketcat" rel="noopener">the repository</a> and load it unpacked — the steps are below and on <a href="../coinmarketcat/#install">CoinMarketCat's page</a>. Until then this page is a description, and the panel above stays quiet.</p>
+    <p><b>No extension yet?</b> It is not in a store. You build it from <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">the repository</a> and load it unpacked — the steps are below and on <a href="../coinmarketcat/#install">CoinMarketCat's page</a>. Until then this page is a description, and the panel above stays quiet.</p>
   </div>
 
   <h2>What the cat does, and what it does not</h2>
@@ -173,9 +176,9 @@ p{color:var(--ink-soft)}
   <h2>Install</h2>
   <ol>
     <li>Clone the repository and build the extension:
-      <pre>git clone https://github.com/gtjvv976mb-netizen/coinmarketcat
-cd coinmarketcat &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
-    <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose <code>coinmarketcat/dist</code>.</li>
+      <pre>git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
+cd Cat-Intelligence-Agency &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
+    <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose <code>Cat-Intelligence-Agency/dist</code>.</li>
     <li>The setup page opens on install: paste an RPC URL — Helius, Triton or QuickNode; the public RPC refuses browsers — set your limits and choose who signs. Saving puts the cat in <b>Observe</b>.</li>
     <li>Come back to <b>this page</b>, press <b>Connect Phantom</b>, approve the connection.</li>
     <li>Leave it on <b>Observe</b>. Watch the shadow book fill. Export it and grade it with <code>node vendor/executor/grade-entry-gates.mjs --file &lt;export&gt;</code>.</li>
@@ -183,7 +186,8 @@ cd coinmarketcat &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
   </ol>
 
   <p class="fine"><b>What this is.</b> CoinMarketCat is Agent 001 of <a href="../">Cat Intelligence Agency</a>. A user-operated tool that runs in your own browser against your own wallet. No server receives a key, signs, or can reach this lane; this page ships no signing code — the extension you built carries it. Not advice, not a signal service, and nothing here has an edge until you have graded its book over a real sample. <b>In Phantom mode every position it opens can be sold only by a click you make</b>; if you close this tab, the lane cannot ask. On Autopilot a locked wallet signs nothing, sells included.
-    <br><br><b>Cat Intelligence Agency is a software project, not a government agency.</b> <b>CoinMarketCat is not affiliated with CoinMarketCap</b>, nor with Phantom, pump.fun, Jupiter or Backed (xStocks). An independent project. Not affiliated with, endorsed by, or connected to Anthropic.</p>
+</p>
+  <p class="fine">Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.<br>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
 </div></main>
 <script>
 /* The console panel: renders whatever the extension's content script relays. This page

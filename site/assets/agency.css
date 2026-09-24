@@ -299,3 +299,27 @@ footer p{font-size:14px}
 .risk-sec .sec-head .label{color:var(--terracotta)}
 :root[data-theme="light"] .risk-sec .sec-head .label{color:#a34b27}
 .notice.risk b{color:var(--ink)}
+
+/* ── the pixel kittens (CoinMarketCat's page) ─────────────────────────────
+   The art is pixel art on a 4 px grid: drawn nearest-neighbour, never smoothed.
+   In the hero, the pixel CoinMarketCat stands on the agency's floor inside its scope ring. */
+.px{image-rendering:pixelated}
+.brand img.px{border-radius:7px;box-shadow:0 0 0 2px rgba(20,241,149,.55)}
+footer .brand img.px{border-radius:0}
+.hero-art .scope{position:absolute;inset:8%;border-radius:50%;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;
+  background:radial-gradient(3px 3px at 26% 24%,#cfc6ea 50%,transparent 51%),radial-gradient(3px 3px at 70% 18%,#5ef0b4 50%,transparent 51%),
+    radial-gradient(2px 2px at 80% 40%,#cfc6ea 50%,transparent 51%),radial-gradient(2px 2px at 18% 46%,#b994ff 50%,transparent 51%),
+    radial-gradient(60% 55% at 50% 78%,rgba(20,241,149,.3),transparent 72%),#0b0716;
+  box-shadow:0 0 0 2px rgba(20,241,149,.55),0 24px 60px rgba(153,69,255,.35)}
+.hero-art .scope::before{content:"";position:absolute;left:0;right:0;bottom:0;height:21%;border-top:3px solid #14f195;
+  background:url(floor-tile-256.png) 0 0/256px 256px repeat;image-rendering:pixelated}
+.hero-art .scope::after{content:"";position:absolute;left:50%;bottom:calc(21% - 7px);width:104px;height:12px;margin-left:-52px;background:rgba(0,0,0,.6);
+  clip-path:polygon(18% 0,82% 0,82% 25%,94% 25%,94% 50%,100% 50%,100% 75%,94% 75%,94% 100%,6% 100%,6% 75%,0 75%,0 50%,6% 50%,6% 25%,18% 25%)}
+.hero-art .scope img{position:relative;z-index:1;width:auto;height:207px;max-width:none;margin-bottom:calc(21% - 4px);image-rendering:pixelated;
+  animation:bob 1.2s steps(1) infinite}
+@keyframes bob{50%{transform:translateY(-4px)}}
+@media (max-width:860px){
+  .hero-art{width:min(62%,250px)}
+  .hero-art .scope img{height:138px;image-rendering:auto}
+  .hero-art .scope::after{width:70px;margin-left:-35px;height:9px}
+}

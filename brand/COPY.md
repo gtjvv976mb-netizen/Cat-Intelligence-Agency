@@ -127,11 +127,11 @@ Count: 278 / 280
 ```text
 It starts in Observe and trades nothing until you arm it.
 
-Its rule: wait 10s, buy only if the launch is still at or above entry, take profit at 1.5x.
+Its rule: wait 10s, buy only if the launch is still at or above entry, take profit at 1.5x by default.
 
-That rule comes from a losing record: 58 round trips, 10 up, 48 down, -1.58 SOL. It's printed next to the arm switch. 3/8
+The rule comes from a losing record: 58 round trips, 10 up, 48 down, -1.58 SOL. Printed next to the arm switch. 3/8
 ```
-Count: 273 / 280
+Count: 278 / 280
 
 **4/8**
 ```text
@@ -231,7 +231,7 @@ We got it wrong. The original stays up, corrected. - The Director
 - **What it is:** real software. A Chrome extension (version 0.1.0) that you build from its public source and load unpacked. It is not in the Chrome Web Store.
 - **Beat:** new Solana launches on pump.fun, including launches priced in tokenised stocks (xStocks such as GLDx, TSLAx and SPYx) once you list them. A second venue, off by default, covers new stock-paired pools anywhere on Solana, traded through Jupiter.
 - **Catchphrase:** "Ten seconds. Then maybe."
-- **Bio:** CoinMarketCat watches new Solana launches and, once you arm it, buys only the ones still at or above entry ten seconds later. It trades from your Phantom wallet, or from an autopilot wallet you fund, inside the take-profit, ticket and daily budget you set. It learned that rule from a trading lane that lost money, it starts in Observe, and it prints that losing record beside the switch that arms it.
+- **Bio:** CoinMarketCat watches new Solana launches and, once you arm it, buys only the ones still at or above entry ten seconds later, from your Phantom wallet or an autopilot wallet you fund, inside the take-profit, ticket and daily budget you set. It learned that rule from a trading lane that lost money, starts in Observe, and prints that losing record beside the switch that arms it.
 
 **Field report template.** The agency posts this from its own copy's shadow-book export; the extension itself posts nothing. In Observe, leave out post 2 and write "Observe: nothing bought".
 ```text

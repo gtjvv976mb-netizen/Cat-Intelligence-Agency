@@ -59,6 +59,15 @@
  *     each stock is a CANARY at that stock's minPerTrade until one stock fill has been
  *     read back off the chain (config.mjs STOCK_CANARY_RULE), and the popup says so.
  *
+ *   · A SECOND VENUE, OFF BY DEFAULT: new pools anywhere on Solana that pair a token with
+ *     an xStock, found on public new-pool feeds and traded through Jupiter
+ *     (src/lib/xstock-lane.mjs). It is built here and handed this file's own pieces — the
+ *     clock, the day ledger, the signers, `simulateGuard`, `signSendConfirm` and the fill
+ *     reader — so a Jupiter trade passes the same fences a pump.fun one does. It keeps its
+ *     own book (S.xstock.snipes), ticks on its own loop so a slow Jupiter answer never
+ *     delays a pump.fun sell, and shares with this lane the one-window-at-a-time slot, the
+ *     live-position count and every day cap. With it off, nothing below behaves differently.
+ *
  * Raw amounts are carried as digit strings everywhere they are stored, because the
  * snipe book refuses a BigInt (JSON.stringify throws on it) — see snipe-book.mjs.
  */
@@ -83,6 +92,7 @@ import {
   WSOL, unitsToRaw, rawToUnits,
 } from "./tx.mjs";
 import { SIGN_ERRORS, BridgeError } from "./protocol.mjs";
+import { createXstockLane, freshXstockState, XSTOCK_VENUE_ID } from "./xstock-lane.mjs";
 
 const LAMPORTS = 1_000_000_000n;
 const ZERO_KEY = "11111111111111111111111111111111";
@@ -118,6 +128,7 @@ export function freshState() {
     shadow: {},          // mint → shadow row, the executor's own schema (snipe-shadow.mjs)
     log: [],             // { at, line }, newest first
     counters: { notices: 0, cleared: 0, refused: 0, entered: 0, wouldHaveEntered: 0, sold: 0, entryFailures: 0, sellFailures: 0, signRequests: 0, signRejected: 0, signTimeouts: 0, liveAttempts: 0, waitedOut: 0 },
+    xstock: freshXstockState(),   // the second venue's own book, candidates and canary (xstock-lane.mjs)
   };
 }
 
@@ -146,6 +157,8 @@ export function createHawkEngine({
   adapter = PUMPFUN_VENUE,
   socialsReader = readSocials,
   config: initialConfig = {},
+  jupiter = null,             // the xStock venue's Jupiter client; null builds one on fetchImpl (xstock-lane.mjs)
+  poolDiscovery = null,       // the xStock venue's new-pool poller; null builds one on fetchImpl
 } = {}) {
   if (!bridge || typeof bridge.signTransaction !== "function" || typeof bridge.wallet !== "function")
     throw new Error("createHawkEngine needs a bridge with wallet() and signTransaction()");
@@ -207,7 +220,9 @@ export function createHawkEngine({
     let saved = null;
     try { saved = await store.load(); } catch { saved = null; }
     if (isPlainObject(saved) && saved.version === ENGINE_VERSION) {
-      S = { ...freshState(), ...saved, counters: { ...freshState().counters, ...(saved.counters ?? {}) } };
+      const fx = freshXstockState();
+      S = { ...freshState(), ...saved, counters: { ...freshState().counters, ...(saved.counters ?? {}) },
+        xstock: { ...fx, ...(isPlainObject(saved.xstock) ? saved.xstock : {}), counters: { ...fx.counters, ...(saved.xstock?.counters ?? {}) } } };
       ensureSnipeBook(S);
       for (const pos of snipeList(S)) if (pos.pendingSell) say(`resumed with ${short(pos.mint)} still waiting for a sell approval`);
     }
@@ -246,7 +261,11 @@ export function createHawkEngine({
   function bookView(now, { excludeMint = null, realOnly = false } = {}) {
     const snipes = {};
     for (const [mint, row] of Object.entries(S.snipes)) if (mint !== excludeMint) snipes[mint] = row;
-    return Object.freeze({ snipes, positions: S.positions, attempts: recentAttempts(now, { realOnly }), deployedTodaySol: deployedTodaySol(now) });
+    /* A mint the xStock venue holds is a mint this lane may not open: the contract's
+       already_holding reads it from `positions`. Empty unless that venue holds something. */
+    const xstockHeld = S.xstock?.snipes ?? {};
+    const positions = Object.keys(xstockHeld).length ? { ...S.positions, ...xstockHeld } : S.positions;
+    return Object.freeze({ snipes, positions, attempts: recentAttempts(now, { realOnly }), deployedTodaySol: deployedTodaySol(now) });
   }
   const controlView = () => Object.freeze({ hardStop: control.hardStop === true, pauseEntries: control.pauseEntries === true });
   const venueFeeBps = () => {
@@ -329,7 +348,7 @@ export function createHawkEngine({
     /* With no stock listed and Phantom signing this is the executor's snipeArmSentence
        byte for byte; with stocks listed it names every one, its canary, its cap and its
        mint address; on autopilot it says that nothing will ask before it signs. */
-    if (config.liveAck !== browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, config.quoteMints, { autopilot: onAutopilot() })) return false;
+    if (config.liveAck !== browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, config.quoteMints, { autopilot: onAutopilot(), xstockVenue: config.xstockVenue === true })) return false;
     /* The checklist the popup prints under "Before this lane may spend money" is the
        condition, not a decoration: a matching sentence with a red item (a stock listed
        with no stop chosen, an autopilot wallet that cannot cover a ticket) does not arm. */
@@ -742,7 +761,7 @@ export function createHawkEngine({
         if (spend > feeCap + rentCap) throw new TxError("simulation_failed", `the buy would spend ${spend} lamports of SOL; a ${quote.symbol}-quoted buy pays SOL for the network fee and rent only (caps ${feeCap} + ${rentCap}) — an unexplained drain`);
         const delta = base - preBase;
         if (delta < expected.baseOutRaw) throw new TxError("simulation_failed", `the buy would deliver ${delta} base against the ${expected.baseOutRaw} the instruction asked for`);
-        return { spend, quoteDeltaRaw: -took, units: Number(sim.unitsConsumed) || null };
+        return { spend, quoteDeltaRaw: -took, units: Number(sim.unitsConsumed) || null, post };
       }
       const delta = preBase - base;
       if (delta !== expected.qtyRaw) throw new TxError("simulation_failed", `the sell would move ${delta} base, not the ${expected.qtyRaw} the position holds`);
@@ -750,7 +769,7 @@ export function createHawkEngine({
       if (got < expected.minQuoteOutRaw) throw new TxError("simulation_failed", `the sell would return ${u(got)}, under the ${u(expected.minQuoteOutRaw)} floor`);
       const allowance = feeCap + (pre.accounts[2] ? 0n : rentCap);
       if (spend > allowance) throw new TxError("simulation_failed", `the sell would spend ${spend} lamports of SOL against a ${allowance} allowance for the fee${pre.accounts[2] ? "" : " and the re-created " + quote.symbol + " account"}`);
-      return { spend, quoteDeltaRaw: got, units: Number(sim.unitsConsumed) || null };
+      return { spend, quoteDeltaRaw: got, units: Number(sim.unitsConsumed) || null, post };
     }
     if (side === "buy") {
       const allowance = expected.maxQuoteInRaw + BigInt(SNIPE_LANE_DEFAULTS.maxNetworkFeeLamports) + BigInt(SNIPE_LANE_DEFAULTS.maxRentLamports);
@@ -1013,8 +1032,9 @@ export function createHawkEngine({
 
   /** The user checked a blocked stock's signature and clears the block: the next buy in
    *  that stock is a canary again. A proven stock stays proven. */
-  async function clearStockCanary(quoteMint) {
+  async function clearStockCanary(quoteMint, { venue = null } = {}) {
     await load();
+    if (venue === XSTOCK_VENUE_ID) { const done = await xstock.clearBlock(quoteMint); emit(); return done; }
     const c = S.stockCanary[quoteMint];
     if (!c || c.state !== "blocked") return false;
     delete S.stockCanary[quoteMint];
@@ -1136,7 +1156,8 @@ export function createHawkEngine({
          still marks at or above its own fill is the launch this lane buys. */
       const waited = now - Number(pos.openedAt) >= Number(config.entryWaitMs);
       const followed = Number(config.entryFollowThroughX) <= 0 || (markX !== null && markX >= Number(config.entryFollowThroughX));
-      const openLive = snipeList(S).filter((p) => p.live === true).length;
+      /* One live position at a time by default, across both venues. */
+      const openLive = snipeList(S).filter((p) => p.live === true).length + xstock.liveCount();
       if (armed() && !pos.liveAttempted && !wantsSell && waited && entryInFlight === null && openLive < config.maxOpenPositions && !control.pauseEntries && !control.hardStop) {
         if (followed) {
           updateSnipe(S, carried);
@@ -1316,6 +1337,8 @@ export function createHawkEngine({
         feeLamportsPaid: feeLamportsPaid === null ? null : feeLamportsPaid.toString(), feeSolPaid: feeLamportsPaid === null ? null : sol(feeLamportsPaid),
         markX: closed.markX ?? null, entrySignature: pos.entrySignature ?? null, sellSignature: signature,
         msSinceNotice: pos.msSinceNotice ?? null, waitedOut: pos.waitedOut ?? null,
+        /* A close from the xStock venue says so, and names the pool; a pump.fun row is unchanged. */
+        ...(pos.venue === XSTOCK_VENUE_ID ? { venue: XSTOCK_VENUE_ID, pool: pos.pool ?? null, dex: pos.dex ?? null } : {}),
       });
       if (S.closes.length > 300) S.closes.length = 300;
       return;
@@ -1353,9 +1376,17 @@ export function createHawkEngine({
   async function start() {
     await load();
     if (sessionSigner) await refreshSigner();
-    if (!ticker) ticker = timers.setInterval(() => { tick().catch(() => {}); }, Number(config.tickMs) || 1000);
+    /* Two loops on one interval: the pump.fun lane's tick and the xStock venue's. Each is
+       non-reentrant on its own, so a Jupiter wait never holds up a pump.fun sell. */
+    if (!ticker) ticker = timers.setInterval(() => { tick().catch(() => {}); xstockTick().catch(() => {}); }, Number(config.tickMs) || 1000);
     startFeed();
     emit();
+  }
+  /** The xStock venue's own tick: discovery on its cadence, then its positions. A no-op
+   *  unless config.xstockVenue is on and the lane is not off. */
+  async function xstockTick() {
+    await load();
+    return xstock.tick();
   }
   function stop() {
     if (ticker) { timers.clearInterval(ticker); ticker = null; }
@@ -1368,6 +1399,8 @@ export function createHawkEngine({
     config = normalizeConfig({ ...config, ...next });
     if (before.lane !== config.lane || before.shadowCapacity !== config.shadowCapacity) buildShadow();
     if (before.lane !== config.lane) say(`lane: ${before.lane} → ${config.lane}`);
+    if (before.xstockVenue !== config.xstockVenue)
+      say(config.xstockVenue ? "the xStock venue is ON: new pools pairing a token with a watched stock are polled from the chosen feeds; the arm sentence now names it" : "the xStock venue is off: no pools are polled and nothing is opened there (positions it holds are still managed)");
     if (before.signerMode !== config.signerMode) {
       say(`signer: ${before.signerMode} → ${config.signerMode}${config.signerMode === "autopilot" ? " — buys are signed by the autopilot wallet without a window" : " — every trade is one Phantom approval"}`);
       if (config.signerMode === "autopilot") await refreshAutopilotBalance({ force: true });
@@ -1381,6 +1414,7 @@ export function createHawkEngine({
   function setRpc(primary, secondary = null) { rpc = primary; secondaryRpc = secondary; emit(); }
   async function forgetPosition(mint) {
     await load();
+    if (xstock.holds(mint)) return xstock.forget(mint);
     const pos = snipeFor(S, mint);
     if (!pos) return false;
     const now = clock();
@@ -1440,7 +1474,10 @@ export function createHawkEngine({
     const wallet = signer.wallet();
     const hasBridge = readyOf(bridge);
     const arm = armabilityNow();
-    const open = snipeList(S).map((p) => ({ ...p }));
+    /* Both venues' positions, one list: the popup, the console page and the sweep's
+       "holds a live position" refusal all read it. A row from the xStock venue carries venue. */
+    const xs = xstock.status();
+    const open = [...snipeList(S).map((p) => ({ ...p })), ...xs.open];
     const now = clock();
     const liveCloses = S.closes.filter((c) => c.live);
     /* A close's P&L is in the unit it was paid in: SOL, or its stock. Wins and losses
@@ -1483,11 +1520,31 @@ export function createHawkEngine({
       shadow: { rows: shadow ? shadow.rows().length : Object.keys(S.shadow).length, scorecard: scorecard(), scorecardByQuote: scorecardByQuote() },
       policy: policyConfigFor(config),
       record: RECORD,
+      xstock: { ...xs, open: undefined },
     };
   }
 
+  /* ── the second venue ────────────────────────────────────────────────────────────────
+     Everything it may touch, handed over by name. It signs, simulates and reads fills only
+     through the functions below, which are the ones this lane uses for pump.fun. */
+  const xstock = createXstockLane({
+    clock, timers, fetchImpl, sleep: (ms) => sleep(ms), jupiter, discovery: poolDiscovery,
+    state: () => S, config: () => config, rpc: () => rpc,
+    say, notify: (n) => { try { notify(n); } catch { /* the host's problem */ } }, emit, persist,
+    armed, onAutopilot, control: controlView,
+    activeSigner, isAutopilot, signerHolding, readyOf,
+    claimEntry(mint) { if (entryInFlight !== null) return false; entryInFlight = mint; emit(); return true; },
+    releaseEntry() { entryInFlight = null; emit(); },
+    entryInFlight: () => entryInFlight,
+    liveCount: () => snipeList(S).filter((p) => p.live === true).length + xstock.liveCount(),
+    pumpfunHolds: (mint) => Boolean(snipeFor(S, mint)),
+    deployedTodaySol, deployedTodayQuoteRaw, charge, chargeStock,
+    simulateGuard, signSendConfirm, recordClose,
+    determiner, observeCfg, laneCfg: executeCfg,
+  });
+
   return Object.freeze({
-    start, stop, tick, handleNotice, onLogs, setConfig, setRpc, forgetPosition, clearStockCanary, status, exportShadow, scorecard, scorecardByQuote, report, load,
+    start, stop, tick, xstockTick, handleNotice, onLogs, setConfig, setRpc, forgetPosition, clearStockCanary, status, exportShadow, scorecard, scorecardByQuote, report, load,
     refreshSigner,
     get config() { return config; },
     get state() { return S; },

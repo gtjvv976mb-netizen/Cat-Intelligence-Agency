@@ -178,6 +178,42 @@ console.log("\nTHE AUTOPILOT MESSAGES\n─────────────�
   ok("only the worker and the popup ever name the exported key", JSON.stringify(holders) === JSON.stringify([KEY_HOST, path.join("src", "popup", "popup.mjs")].sort()), holders.join(", "));
 }
 
+console.log("\nTHE xSTOCK VENUE'S NETWORK\n──────────────────────────");
+{
+  /* The second venue is the extension's first code that talks to hosts other than the RPC
+     the user pasted: public new-pool feeds and Jupiter. What is pinned: those files name
+     only the four hosts the venue needs; nothing in them can read, name or send a key or a
+     passphrase; the one request body that carries a wallet carries its PUBLIC key; and the
+     venue reaches a signature only through the engine's signSendConfirm (which refuses a
+     signed message that is not the one asked for), each call after the pre-sign check. */
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
+  const NET = [path.join("src", "lib", "xstock-discovery.mjs"), path.join("src", "lib", "jupiter-swap.mjs")];
+  const LANE = path.join("src", "lib", "xstock-lane.mjs");
+  const ALLOWED_HOSTS = new Set(["api.geckoterminal.com", "api.dexscreener.com", "datapi.jup.ag", "api.jup.ag"]);
+  for (const rel of [...NET, LANE]) {
+    const code = strip(fs.readFileSync(path.join(here, rel), "utf8"));
+    const hosts = [...code.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase());
+    ok(`${rel}: names only the venue's hosts`, hosts.every((h) => ALLOWED_HOSTS.has(h)), [...new Set(hosts)].join(", ") || "none");
+    ok(`${rel}: no plain-http URL`, !/http:\/\//i.test(code));
+    ok(`${rel}: nothing key-shaped or passphrase-shaped in its code`, !/secret|passphrase|privateKey|mnemonic|seed\b/i.test(code));
+    ok(`${rel}: touches no storage and no chrome API`, !/chrome\.|localStorage|sessionStorage|indexedDB/.test(code));
+    ok(`${rel}: signs nothing itself`, !/\.sign\(|signTransaction|partialSign/.test(code));
+  }
+  const jup = strip(fs.readFileSync(path.join(here, NET[1]), "utf8"));
+  const swapBody = jup.match(/request\("\/swap", \{ priority, body: \{([\s\S]*?)\} \}\);/)?.[1] ?? "";
+  const keys = [...swapBody.matchAll(/(\w+):/g)].map((m) => m[1]).filter((k) => !["priorityLevelWithMaxLamports", "maxLamports", "priorityLevel", "global"].includes(k));
+  ok("the one body that names the wallet sends Jupiter its public key and nothing else of it", JSON.stringify(keys) === JSON.stringify(["quoteResponse", "userPublicKey", "wrapAndUnwrapSol", "dynamicComputeUnitLimit", "prioritizationFeeLamports"]), keys.join(", "));
+  ok("…and it asks Jupiter never to wrap SOL: this venue pays in the stock", /wrapAndUnwrapSol: false/.test(swapBody));
+  const lane = strip(fs.readFileSync(path.join(here, LANE), "utf8"));
+  const signs = [...lane.matchAll(/host\.signSendConfirm\(\{ txBase64: swap\.swapTransaction/g)].map((m) => m.index);
+  const checks = [...lane.matchAll(/checkBeforeSigning\(\{ txBase64: swap\.swapTransaction/g)].map((m) => m.index);
+  ok("the venue asks for a signature only through the engine's signSendConfirm, for the buy and the sell", signs.length === 2 && (lane.match(/signSendConfirm/g) ?? []).length === 2);
+  ok("…each after its own pre-sign check of the same bytes (check, sign, check, sign)", signs.length === 2 && checks.length === 2 && checks[0] < signs[0] && signs[0] < checks[1] && checks[1] < signs[1], `checks at ${checks.join(",")}, signs at ${signs.join(",")}`);
+  ok("…whose check resolves the lookup tables on the lane's own RPC", /loadLookupTables\(rpc, lookupTableKeysOf\(txBase64\)\)/.test(lane));
+  const engine = fs.readFileSync(path.join(here, "src", "lib", "engine.mjs"), "utf8");
+  ok("the engine hands the venue its own simulateGuard and signSendConfirm, not a signer's raw call", /simulateGuard, signSendConfirm, recordClose,/.test(engine) && !/createXstockLane\(\{[\s\S]*?signTransaction[\s\S]*?\}\);/.test(engine));
+}
+
 console.log("\nTHE KEY FILE\n────────────");
 {
   const text = fs.readFileSync(path.join(here, KEY_FILE), "utf8");

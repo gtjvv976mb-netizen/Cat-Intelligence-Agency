@@ -27,6 +27,15 @@
  * arms only for the autopilot wallet's own address, only while it is unlocked, only while
  * its balance covers a ticket, and only with a sentence that says, in words, that nothing
  * will ask before it signs. A sentence typed for Phantom cannot arm autopilot.
+ *
+ * THE SECOND VENUE: NEW xSTOCK POOLS, THROUGH JUPITER. `xstockVenue` (off by default)
+ * turns on a discovery poll over public new-pool feeds for pools anywhere on Solana that
+ * pair a token with an xStock, and a lane that trades them through Jupiter
+ * (src/lib/xstock-lane.mjs). It pays in the pool's own stock, from the stock already in
+ * the wallet, at that stock's listed ticket, canary and day cap — the same numbers the
+ * pump.fun stock lane uses, charged to the same ledger. With no stock listed it watches the
+ * built-in list and can only observe. Turning it on appends a clause to the arm sentence,
+ * so a lane armed before the venue existed does not start trading it on an old sentence.
  */
 import { PublicKey } from "@solana/web3.js";
 import {
@@ -49,6 +58,56 @@ export const AUTOPILOT_UNLOCK_MINUTES = Object.freeze({ default: 480, min: 5, ma
 /** The canary: the size the lane's defaults were derived for. A ticket above it must
  *  carry a stop the operator chose (armabilityReport's stopExplicit). */
 export const CANARY_SOL = 0.005;
+
+/**
+ * THE NEW-POOL FEEDS THE xSTOCK VENUE MAY POLL, AND WHAT IS KNOWN ABOUT EACH (read
+ * 2026-09-24; the request shapes and limits are in src/lib/xstock-discovery.mjs):
+ *   · geckoterminal — GET /networks/solana/new_pools: the 20 newest Solana pools of any
+ *     pair, 30–60 s CDN-cached, free tier answers 429 quickly (observed on a first call).
+ *   · dexscreener — GET /token-pairs/v1/solana/{stock}: up to 30 pools of one stock, either
+ *     side, liquidity-ordered, 300 requests a minute (its API reference).
+ *   · jupiter-gems — POST datapi.jup.ag/v1/pools/gems: the 30 newest launchpad pools with
+ *     their quote mint. UNDOCUMENTED; it may change or stop without notice. Off by default.
+ */
+export const XSTOCK_SOURCES = Object.freeze(["geckoterminal", "dexscreener", "jupiter-gems"]);
+export const XSTOCK_SOURCE_DEFAULTS = Object.freeze(["geckoterminal", "dexscreener"]);
+
+/**
+ * THE BUILT-IN xSTOCK LIST: the focus list when the user has listed no stock. Every
+ * address is the Solana address the official product page (https://xstocks.com/us/products,
+ * its embedded __NEXT_DATA__ products list, 1,008 products) gave for that symbol on
+ * 2026-09-24. With no stock listed the venue can only OBSERVE pools in these: a stock with
+ * no ticket is refused at `stock_not_listed`. Before paying in any stock the lane reads its
+ * mint account and refuses a mint whose own symbol is not the listed one.
+ */
+export const XSTOCK_BUILTIN = Object.freeze([
+  ["GLDx", "Gold xStock", "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re"],
+  ["TSLAx", "Tesla xStock", "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB"],
+  ["SPYx", "SP500 xStock", "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W"],
+  ["AAPLx", "Apple xStock", "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp"],
+  ["NVDAx", "NVIDIA xStock", "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh"],
+  ["QQQx", "Nasdaq xStock", "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ"],
+  ["MSTRx", "MicroStrategy xStock", "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ"],
+  ["COINx", "Coinbase xStock", "Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu"],
+  ["HOODx", "Robinhood xStock", "XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg"],
+  ["CRCLx", "Circle xStock", "XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1"],
+  ["MSFTx", "Microsoft xStock", "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX"],
+  ["GOOGLx", "Alphabet xStock", "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN"],
+  ["METAx", "Meta xStock", "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu"],
+  ["AMZNx", "Amazon xStock", "Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg"],
+  ["SPCXx", "SpaceX xStock", "Xs3oZwbHvqis4NYcf4YKWmEia2eC84wSiVrcYcTqpH8"],
+].map(([symbol, name, mint]) => Object.freeze({ symbol, name, mint, source: "xstocks.com/us/products, read 2026-09-24" })));
+
+/**
+ * WHAT IS NOT MEASURED ABOUT THE xSTOCK VENUE, IN WORDS THE UI PRINTS. Every figure in
+ * RECORD is from pump.fun launches paid in SOL; none of it is about these pools.
+ */
+export const XSTOCK_UNMEASURED = "Nothing about new pools paired with an xStock has been measured by this lane: no win rate, " +
+  "no follow-through rate, no fill. HAWK-AI's record is pump.fun launches paid in SOL. The feeds are cached for 30–60 s, " +
+  "so a pool is typically first seen a minute or more after it was created; the 10 s wait and the follow-through rule run " +
+  "from first sight, not from creation. Jupiter answers keyless requests at about 0.5 a second, so marks are seconds apart. " +
+  "On the one pool read while this was built (GAYMF / GLDx, Raydium CPMM, 0.01 GLDx), a round trip through Jupiter returned " +
+  "899,767 of 1,000,000 raw GLDx: about 10% before network fees, which the follow-through rule then has to clear.";
 
 /**
  * The user-facing config. Keys that exist in SNIPE_LANE_DEFAULTS carry the lane's own
@@ -117,6 +176,15 @@ export const CONFIG_DEFAULTS = Object.freeze({
   /* ── the first-run setup ────────────────────────────────────────────────────────────── */
   stylePreset: "",            // "" until the setup page is saved: cautious | balanced | bold | custom
   setupCompletedAt: 0,        // when the setup page was saved (ms), 0 = never
+  /* ── the second venue: new pools pairing a token with an xStock, through Jupiter ─────
+     OFF by default. On, it follows the lane: Off does nothing, Observe discovers and keeps
+     would-have positions, Execute (armed) buys and sells. See src/lib/xstock-lane.mjs. */
+  xstockVenue: false,
+  xstockSources: XSTOCK_SOURCE_DEFAULTS,   // which new-pool feeds to poll (XSTOCK_SOURCES)
+  xstockPollMs: 30_000,       // how often the feeds are polled; their own caches are 30–60 s
+  xstockMaxPoolAgeMs: 300_000,// a pool first seen older than this is refused at notice_stale — unmeasured, see XSTOCK_UNMEASURED
+  xstockSlippageBps: 300,     // the slippage cap written into the Jupiter instruction; the executor's LIVE_LIMITS figure
+  xstockMaxOpen: 2,           // would-have rows this venue marks at once: every mark is one Jupiter call at 0.5 per second
 });
 
 const NUMBER_KEYS = new Set([
@@ -129,6 +197,7 @@ const NUMBER_KEYS = new Set([
   "computeUnitLimit", "priorityFeeLamports", "sellToleranceFrac",
   "approvalTimeoutMs", "sellReaskMs", "tickMs",
   "autopilotUnlockMinutes", "setupCompletedAt",
+  "xstockPollMs", "xstockMaxPoolAgeMs", "xstockSlippageBps", "xstockMaxOpen",
 ]);
 const NULLABLE = new Set(["stopFrac", "takeAtEntryX", "timeStopMs", "stallMs", "stallAtX", "maxCreatorSharePct", "maxLaunchSharePct"]);
 
@@ -166,7 +235,29 @@ export const RECORD = Object.freeze({
   entrySignalsOrderOutcome: false,   // Spearman |ρ| < 0.13 on every signal measured at entry
   sizeBucketWarnAboveSol: 0.15,
 });
-const BOOL_KEYS = new Set(["requireSocials"]);
+const BOOL_KEYS = new Set(["requireSocials", "xstockVenue"]);
+
+/** The feed list, from an array or the comma-separated text a form sends. */
+export function normalizeXstockSources(value) {
+  if (value === null || value === undefined || value === "") return Object.freeze([]);
+  const list = Array.isArray(value) ? value : String(value).split(",");
+  const out = [];
+  for (const raw of list) {
+    const id = String(raw ?? "").trim();
+    if (!id) continue;
+    if (!XSTOCK_SOURCES.includes(id)) throw new ConfigError("xstockSources", `xstockSources: ${JSON.stringify(id)} is not a feed this venue knows (${XSTOCK_SOURCES.join(", ")})`);
+    if (!out.includes(id)) out.push(id);
+  }
+  return Object.freeze(out);
+}
+
+/** The stocks the xStock venue watches: the listed ones (each with a ticket), or — when
+ *  none is listed — the built-in list, which can only be observed. */
+export function xstockFocusList(config) {
+  const listed = (config?.quoteMints ?? []).map((q) => Object.freeze({ mint: q.mint, symbol: q.symbol, listed: true }));
+  if (listed.length) return Object.freeze(listed);
+  return Object.freeze(XSTOCK_BUILTIN.map((b) => Object.freeze({ mint: b.mint, symbol: b.symbol, listed: false })));
+}
 const STRING_KEYS = new Set(["rpcUrl", "rpcWsUrl", "secondaryRpcUrl", "consoleUrl", "lane", "liveAck", "signerMode", "stylePreset"]);
 
 /**
@@ -328,6 +419,7 @@ export function normalizeConfig(input = {}) {
     if (!(key in src) || src[key] === undefined) continue;
     const v = src[key];
     if (key === "quoteMints") { out.quoteMints = normalizeQuoteMints(v); continue; }
+    if (key === "xstockSources") { out.xstockSources = normalizeXstockSources(v); continue; }
     if (STRING_KEYS.has(key)) { out[key] = v === null ? "" : String(v).trim(); continue; }
     if (BOOL_KEYS.has(key)) { out[key] = v === true || v === "true" || v === 1 || v === "1"; continue; }
     if (NUMBER_KEYS.has(key)) {
@@ -381,6 +473,12 @@ export function normalizeConfig(input = {}) {
   if (!(Number.isFinite(out.setupCompletedAt) && out.setupCompletedAt >= 0)) throw new ConfigError("setupCompletedAt", "setupCompletedAt must be a time in ms, or 0");
   if (out.stallMs !== null && !(out.stallMs >= 0)) throw new ConfigError("stallMs", "stallMs must be >= 0 (0 turns the stall exit off), or blank for the policy's 90000");
   if (out.timeStopMs !== null && !(out.timeStopMs > 0)) throw new ConfigError("timeStopMs", "timeStopMs must be above 0, or blank for the policy's 180000");
+  if (!(out.xstockPollMs >= 15_000 && out.xstockPollMs <= 600_000)) throw new ConfigError("xstockPollMs", "xstockPollMs must be 15000..600000: the feeds are cached for 30–60 s and rate-limited");
+  if (!(out.xstockMaxPoolAgeMs >= 30_000 && out.xstockMaxPoolAgeMs <= 3_600_000)) throw new ConfigError("xstockMaxPoolAgeMs", "xstockMaxPoolAgeMs must be 30000..3600000");
+  if (!(Number.isInteger(out.xstockSlippageBps) && out.xstockSlippageBps >= 1 && out.xstockSlippageBps <= 1_000))
+    throw new ConfigError("xstockSlippageBps", "xstockSlippageBps must be a whole number of basis points from 1 to 1000");
+  if (!(Number.isInteger(out.xstockMaxOpen) && out.xstockMaxOpen >= 0 && out.xstockMaxOpen <= 5)) throw new ConfigError("xstockMaxOpen", "xstockMaxOpen must be a whole number from 0 to 5");
+  if (out.xstockVenue && out.xstockSources.length === 0) throw new ConfigError("xstockSources", "the xStock venue is on but no feed is chosen — choose at least one, or turn the venue off");
   return Object.freeze(out);
 }
 
@@ -476,16 +574,21 @@ export function feeModelFor(config, { quoteAtaCreate = false } = {}) {
  * the exact mint the way the executor's binds the wallet: a SOL sentence cannot arm a
  * GLDx trade, and a sentence typed before a list changed does not arm after it.
  */
-export function browserArmSentence(wallet, maxSolPerTrade, dailySolCap, quoteMints = [], { autopilot = false } = {}) {
+export function browserArmSentence(wallet, maxSolPerTrade, dailySolCap, quoteMints = [], { autopilot = false, xstockVenue = false } = {}) {
   const base = snipeArmSentence(wallet, maxSolPerTrade, dailySolCap);
   const stocks = !Array.isArray(quoteMints) || quoteMints.length === 0 ? "" : ` — and in stock quotes: ${quoteMints.map((q) =>
     `${q.maxPerTrade} ${q.symbol} per launch (the first at ${q.minPerTrade} ${q.symbol}), ${q.dailyCap} ${q.symbol} per day (${q.mint})`).join("; ")}`;
+  /* THE SECOND VENUE SAYS SO IN THE SENTENCE. With it off the sentence is exactly what it
+     was; with it on, a sentence typed before it was switched on no longer matches. */
+  const venue = xstockVenue ? XSTOCK_ARM_CLAUSE : "";
   /* AUTOPILOT SAYS SO IN THE SENTENCE. The wallet above is then the autopilot wallet's own
      address, and the words below are what the person is agreeing to: no window, no click. */
-  return `${base}${stocks}${autopilot ? AUTOPILOT_ARM_CLAUSE : ""}`;
+  return `${base}${stocks}${venue}${autopilot ? AUTOPILOT_ARM_CLAUSE : ""}`;
 }
 /** The words an autopilot arm sentence ends with. */
 export const AUTOPILOT_ARM_CLAUSE = " — signed without asking me, by the autopilot key this browser holds";
+/** The words the xStock venue adds to the arm sentence. */
+export const XSTOCK_ARM_CLAUSE = " — and new pools pairing a token with those stocks, bought and sold through Jupiter at those stocks' limits";
 
 /**
  * THE ARMING CHECKLIST FOR A BROWSER LANE. The lane's own armabilityReport (size within
@@ -536,7 +639,7 @@ export function browserArmability({ config, wallet = null, hasBridge = false, au
     add("stop_chosen_for_stock_quotes", stopExplicit,
       stopExplicit ? `stop ${config.stopFrac}x of entry applies to stock-quoted positions too`
         : "a stock-quoted ticket has no derived stop floor (its network fee is paid in SOL, its size in the stock) — choose a stop");
-  const expected = wallet ? browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, stocks, { autopilot: onAutopilot }) : null;
+  const expected = wallet ? browserArmSentence(wallet, config.maxSolPerTrade, config.dailySolCap, stocks, { autopilot: onAutopilot, xstockVenue: config.xstockVenue === true }) : null;
   add("live_ack_typed", Boolean(expected) && config.liveAck === expected,
     !expected ? "no wallet to write the sentence for"
       : config.liveAck === expected ? `the arm sentence matches, byte for byte, for the ${onAutopilot ? "autopilot" : "connected"} wallet${stocks.length ? ` and the ${stocks.length} listed stock${stocks.length === 1 ? "" : "s"}` : ""}`
@@ -560,6 +663,13 @@ export function browserArmability({ config, wallet = null, hasBridge = false, au
     warnings.push({ name: "stock_quote_unmeasured", detail: "HAWK-AI's record is SOL-quoted launches only. Nothing has been measured about stock-quoted launches: no win rate, no follow-through, no fee on a buy. The shadow book grades them on a separate card per stock." });
     warnings.push({ name: "stock_quote_friction_unpriced", detail: "a stock row's frictionX is 1.0: the network fee and rent are paid in SOL beside it and cannot be netted against a size in the stock, so the stop and the take judge the stock amount only." });
     warnings.push({ name: "stock_quote_issuer_controls", detail: "every xStock mint read carries a live freeze authority, a pause switch and a permanent delegate held by its issuer. The lane detects a pause on every read and will not buy or sell through one; it cannot defend against a freeze or a clawback of a held position." });
+  }
+  if (config.xstockVenue === true) {
+    warnings.push({ name: "xstock_venue_unmeasured", detail: `New xStock pools through Jupiter: ${XSTOCK_UNMEASURED}` });
+    warnings.push({ name: "xstock_venue_pays_in_stock", detail: stocks.length
+      ? `This venue pays in the pool's own stock at that stock's ticket (${stocks.map((q) => `${q.symbol} first ${q.minPerTrade}, then ${q.maxPerTrade}`).join("; ")}), charged to the same day caps; the network fee and rent are SOL and count against the SOL day. Its first live buy in each stock is its own canary.`
+      : "No stock is listed, so this venue watches the built-in list and can only observe: every pool it finds is refused at stock_not_listed. List a stock in Options to give it a ticket." });
+    warnings.push({ name: "xstock_venue_jupiter_builds", detail: "Jupiter builds each transaction. Before anything is signed the lane decodes it and refuses it unless it spends only from this wallet, pays exactly the ticket, delivers the new token, and simulates inside the ceiling and above the floor; a pool Jupiter cannot price or exit is refused by name. Jupiter's own programs and the pool's program still run: a bug or a hostile pool there is outside what this check can see." });
   }
   if (onAutopilot) {
     warnings.push({ name: "autopilot_no_window", detail: "Autopilot: every buy and every sell is signed by the autopilot wallet without asking you. The ticket, the day cap and the wallet's own balance are the limits; nothing waits for a click, and nothing asks before it spends." });

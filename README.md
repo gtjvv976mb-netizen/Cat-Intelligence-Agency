@@ -47,6 +47,11 @@ a store.
   priced in a token instead of SOL; the ones this lane is built and tested for are xStocks
   (GLDx, TSLAx, SPYx), paid from the stock already in your wallet. With nothing listed — the
   default — every such launch is refused, as before. See [Launches quoted in a stock](#launches-quoted-in-a-stock-pumpfun-custom-pairs).
+- **Can watch new pools paired with a stock anywhere on Solana, if you turn it on.** A second
+  venue, **off by default**, polls public new-pool feeds for pools on any exchange that pair
+  a token with an xStock you watch, and trades them through Jupiter, paid in that stock,
+  inside that stock's limits. It follows the lane: Observe only watches. See
+  [New pools paired with a stock, through Jupiter](#new-pools-paired-with-a-stock-through-jupiter-off-by-default).
 
 ## What HAWK-AI's trades taught it
 
@@ -123,6 +128,96 @@ buy uses. A stock-quoted row's round-trip friction cannot include its SOL fees, 
 you choose is its only stop, and the lane will not arm with a stock listed until you have
 chosen one. SPYx carries a display multiplier: Phantom shows it scaled, this lane shows the
 raw count over 10^8. A coin that graduates to a pool must be sold by hand, as with SOL.
+
+## New pools paired with a stock, through Jupiter (off by default)
+
+The pump.fun lane hears launches from the pump.fun program's own logs. Tokens are also
+launched straight into pools on Raydium, Meteora, Orca and launchpads, paired with an xStock
+instead of SOL, and there is no single program to listen to for those. This venue reads what
+public indexers publish about new pools and trades the ones that pass its gates through
+Jupiter. Turn it on in the popup's **Venues** card (or Options). With the lane on **Observe**
+it only watches; it buys only when the lane is armed, and the arm sentence names it.
+
+**Where it looks** (Options → *Feeds*; each was read live on 2026-09-24 and its captured
+answer is in `fixtures/xstock-pools/`):
+
+| feed | what it is | what to know |
+|---|---|---|
+| GeckoTerminal `new_pools` | the 20 newest Solana pools of any pair | cached 30–60 s; the free tier answered 429 to the first request of the session |
+| DexScreener `token-pairs` | up to 30 pools of one stock, either side | ordered by liquidity, so a pool with none yet can be missed; 300 requests a minute |
+| Jupiter `gems` (opt-in) | the 30 newest launchpad pools, with their quote mint | **undocumented**; it may change or stop without notice |
+
+It watches the stocks you listed in Options → Stock quotes. With none listed it watches a
+built-in list of fifteen xStocks (addresses from the official product page, read
+2026-09-24) and can only observe them: a stock with no ticket is refused at
+`stock_not_listed`. Every pool found is recorded in the popup with the feed that found it,
+how old it was when first seen, and what became of it. A feed that answers 429 or fails rests
+a minute (a `retry-after: 0` is not trusted), and longer each time it keeps failing.
+
+**What it pays with.** The pool's own stock, from the stock already in your wallet, at that
+stock's listed ticket, canary and 24-hour cap — the same numbers and the same day ledger the
+pump.fun stock lane uses. Jupiter is asked for **direct routes only**, so the swap goes from
+the stock to the token on a pool that pairs them, and nothing else touches the wallet. The
+network fee and the token account's rent are SOL, charged to the SOL day; on autopilot the
+wallet's SOL balance must cover them.
+
+**What it refuses, and in what order** (the first gate that fails names the refusal):
+
+- *in-process:* the lane or venue off, no RPC, HARD STOP, paused entries; `no_new_token` (the
+  other side is SOL, USDC, USDT or another stock: a market in the stock, not a launch);
+  `left_to_pumpfun_lane` (a pump.fun bonding curve: that lane hears it from the program's logs
+  with its own gates and canary); `notice_stale` (first seen more than 5 minutes after it was
+  created, or undated); already held or already judged; `stock_not_listed`;
+  `stock_canary_blocked`.
+- *one account read:* `mint_refused` — the executor's `auditMintAccount` on the **new token**
+  (plus a live mint or freeze authority), never on the stock, whose permanent delegate and
+  pause switch the audit refuses; the live GAYMF token in the fixture is refused here for
+  its TransferFee extension. `stock_unpayable` — the stock described (paused, a live
+  transfer hook, a symbol that is not the listed one) and its ticket checked by the
+  executor's `quoteTicketFor`. `daily_capacity`, `daily_capacity_sol`, and the fee and rent
+  caps through the executor's `assertNetworkFeeBudget`.
+- *Jupiter:* `no_route` (Jupiter cannot price it — the brand-new pump.fun curve quoted in GLDx
+  answered `TOKEN_NOT_TRADABLE`), `quote_mismatch`, `route_not_direct`, `impact_over_cap`,
+  `no_exit_route` (it cannot price the way back), `round_trip_over_cap`.
+
+A pool that clears opens a would-have position. In an armed lane the entry rule is the
+pump.fun lane's: after 10 s it must still mark at or above its would-have fill, the mark
+being Jupiter's quote to sell it straight back. Exits are the same determiner (1.5× take,
+stop, 90 s stall, 180 s time stop, the hold clock), sold back through Jupiter.
+
+**The check before anything is signed.** Jupiter builds the transaction here, so each one is
+decoded and bound before Phantom (or the autopilot wallet) sees it. The check is a port of
+the executor's own Jupiter validator: the wallet must be the fee payer and the only signer;
+every lookup table is read from **your** RPC, never taken from Jupiter; the only programs
+allowed are the compute budget, idempotent creates of the wallet's own account for the two
+mints, and one Jupiter `route_v2` whose data must spend **exactly the ticket**, at the
+quote's output and slippage (inside the cap), with no fee of its own, from the wallet's own
+stock account into its own token account; the priority fee must be inside the lane's. Then
+no other token account of the wallet may be writable; then the engine's own simulation must
+show the stock paid is exactly the ticket, the tokens delivered at or above the floor, and
+SOL moving by the fee and rent only; then neither account may have gained a delegate or a
+close authority. A transaction that spends from another account, changes the amount, sends
+the output elsewhere, adds a transfer or a signer, or hides an account behind a lookup
+table is refused **before signing**, by name (`transaction_refused`, `simulation_refused`).
+The fill is then read from the transaction's own balances, as for pump.fun.
+
+**The canary, for this venue.** The first live buy here in each stock is that stock's
+canary size (`minPerTrade`); the full ticket only after one Jupiter fill in it has been read
+back off the chain. A buy that was sent and cannot be read back or booked blocks that stock
+in this venue until you check the signature and press *clear the block* in the Venues card.
+
+**What is not measured.** Nothing about these pools has been measured by this lane: no win
+rate, no follow-through, no fill. HAWK-AI's record is pump.fun launches paid in SOL. The
+feeds see a pool a minute or more after it is created, so the 10 s wait runs from first
+sight, not from creation. Keyless Jupiter answers about one request every two seconds,
+shared by every quote and mark, so marks are seconds apart and would-have rows beyond two
+are recorded, not marked. On the one pool read while this was built (GAYMF / GLDx, Raydium
+CPMM, 0.01 GLDx) a round trip through Jupiter returned 899,767 of 1,000,000 raw GLDx — about
+10% before network fees, which the follow-through rule then has to clear. Jupiter's own
+program and the pool's program still run inside the swap: the check above bounds what the
+wallet can lose to them in the simulation, not what those programs are. Jupiter calls
+`/swap/v1` "no longer actively maintained" and names a successor; no sunset date is
+published.
 
 ## Who signs: Phantom per trade, or autopilot
 
@@ -239,7 +334,9 @@ cd coinmarketcat && npm ci && npm run build      # → dist/
 - **The manifest is the charter.** Permissions are `storage`, `alarms`, `notifications`;
   the content script matches the console pages only; `injected.js` is the only
   web-accessible resource. Widening any of it (beyond `unlimitedStorage`, which the test
-  tolerates) fails `test-hawk-manifest.mjs`.
+  tolerates) fails `test-hawk-manifest.mjs`. The xStock venue added no permission: its
+  requests to api.jup.ag, api.geckoterminal.com and api.dexscreener.com (and datapi.jup.ag if
+  you choose that feed) are fetches under the same https host permission the RPC uses.
 - **Exactly one file may hold a key, and only on autopilot.** In Phantom mode the
   extension holds no key at all. On autopilot the key lives in `src/lib/session-wallet.mjs`
   and nowhere else: `test-hawk-no-key.mjs` scans every source file on every run, and the
@@ -266,6 +363,10 @@ src/lib/engine.mjs       the lane — dependency-injected, runs in Node for its 
 src/lib/config.mjs       the dials, the arming checklist, RECORD
 src/lib/rpc.mjs          a small JSON-RPC client and the logsSubscribe feed with its watchdog
 src/lib/tx.mjs           transaction assembly (mirrors snipe-execute.mjs) and the fill reader
+src/lib/xstock-lane.mjs  the second venue: new pools paired with a stock — its gates, its book, its entries and exits
+src/lib/xstock-discovery.mjs  the new-pool feeds: parsers, pair classification, dedupe, backoff
+src/lib/jupiter-swap.mjs the Jupiter client (0.5 requests a second) and the check before signing (a port of the executor's)
+fixtures/xstock-pools/   the feeds' and Jupiter's live answers, captured 2026-09-24, that the tests replay
 src/lib/session-wallet.mjs  the autopilot wallet: keystore, signer, fund and sweep builders — the one file that may hold a key
 src/popup/ src/options/  the UI
 src/welcome/             the first-run setup page, opened once on install
@@ -283,6 +384,13 @@ create, `buy_v2`) → **simulated on your RPC with a spend ceiling and a deliver
 one Phantom window → the signed bytes are checked to be the same message → sent with
 preflight skipped → confirmed → the fill read from the transaction's own balances →
 booked, charged to the rolling day. A sell is the same path with `sell_v2`.
+
+A buy in the xStock venue: a feed's pool → the gates above → one `getMultipleAccounts` (the
+new token, audited; the stock, described) → Jupiter's quote in and quote back out → a
+would-have position → the wait → the same again, fresh → Jupiter's transaction → decoded and
+bound, lookup tables from your RPC → the wallet's other accounts proved untouched → the
+engine's simulate guard → one Phantom window (or the autopilot key) → the same-message check →
+sent → confirmed → the fill read from the transaction → booked in the stock.
 
 ## Keeping the decision code honest
 
@@ -306,7 +414,8 @@ on every push to `main`.
 | `test-hawk-autopilot.mjs` | the running service worker under a `chrome` double and a JSON-RPC chain double that verifies every signature and applies the rent rule: install opens the setup page once; the three styles against the defaults dial by dial; only extension pages drive the wallet; create, fund (one Phantom approval, SOL and GLDx by TransferChecked), unlock with a TTL and its alarm, export, sweep to exactly the rent floor with every token and empty account, lock, an unlock that runs out; nothing logged or stored carries the passphrase or the key; no sweep while a position is held |
 | `test-hawk-session-wallet.mjs` | the keystore, the signer and the builders in isolation, including why a token sweep is TransferChecked: Token-2022 refuses a plain Transfer out of an xStock's pausable, hooked account |
 | `test-hawk-manifest.mjs` | the permissions, matches and resources above; the setup page is built, not web-accessible, and opened only on install |
-| `test-hawk-no-key.mjs` | one file may hold a key and only the worker imports it; the autopilot messages, the passphrase and the exported key pinned to where they may appear; in source and in the bundle |
+| `test-hawk-no-key.mjs` | one file may hold a key and only the worker imports it; the autopilot messages, the passphrase and the exported key pinned to where they may appear; the xStock venue's code names only its four hosts, sends Jupiter the wallet's public key and nothing else of it, and reaches a signature only through the engine's `signSendConfirm`, each call after its own pre-sign check; in source and in the bundle |
+| `test-hawk-xstock-venue.mjs` | the second venue against a chain double that runs Jupiter's `route_v2` on a constant-product pool, a scripted Jupiter and scripted feeds, no network: the venue off by default and silent; the captured GeckoTerminal and DexScreener pages parsed and classified; the poller's backoff on the captured 429, dedupe and horizon; the Jupiter client's rate budget; the quote and transaction checks on the **live** GLDx → GAYMF bytes and every hostile edit of them; observe with each gate refusing by name; armed on Phantom: wait, follow-through, buy, 1.5× take, sell, booked in GLDx; ten hostile Jupiter transactions and two hostile pools refused before signing; the canary, full ticket, day caps and a short wallet; an unreadable buy blocking the stock; autopilot signing with nothing secret on the wire; the pump.fun lane unchanged |
 | `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |

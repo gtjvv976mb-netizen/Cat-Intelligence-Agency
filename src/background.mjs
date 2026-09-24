@@ -27,6 +27,11 @@
  * and every lamport above the rent floor back to Phantom, signed by the autopilot wallet.
  * Nothing here logs, stores or sends a passphrase or a key; the one message that hands a
  * key back is the recovery export, which needs the passphrase.
+ *
+ * THE xSTOCK VENUE (off by default) needs nothing new from this file: the engine builds its
+ * feed poller and its Jupiter client on the worker's own fetch (the manifest's https host
+ * permission already covers api.jup.ag, api.geckoterminal.com, api.dexscreener.com), and
+ * the same interval drives its tick. The popup's venue switch is an ordinary SET_CONFIG.
  */
 import { createHawkEngine } from "./lib/engine.mjs";
 import { createRpc, createLogsFeed } from "./lib/rpc.mjs";
@@ -281,7 +286,8 @@ function consoleStatus(s) {
     quoteMints: (s.quoteMints ?? []).map((q) => ({ mint: q.mint, symbol: q.symbol, maxPerTrade: q.maxPerTrade, minPerTrade: q.minPerTrade, dailyCap: q.dailyCap, deployedToday: q.deployedToday, canary: q.canary, nextLiveTicket: q.nextLiveTicket, paused: q.paused })),
     deployedTodayQuote: s.deployedTodayQuote ?? {}, stockCanaryRule: s.stockCanaryRule ?? null,
     open: (s.open ?? []).map((p) => ({ mint: p.mint, symbol: p.symbol, live: p.live, openedAt: p.openedAt, lastMarkX: p.lastMarkX, pendingSell: p.pendingSell ?? null, graduated: p.graduated ?? null, waitedOut: p.waitedOut ?? null, sizeSol: p.sizeSol,
-      quoteMint: p.quoteMint ?? null, quoteSymbol: p.quoteSymbol ?? null, quoteDecimals: p.quoteDecimals ?? null, quotePaused: p.quotePaused ?? null, canary: p.canary ?? null })),
+      quoteMint: p.quoteMint ?? null, quoteSymbol: p.quoteSymbol ?? null, quoteDecimals: p.quoteDecimals ?? null, quotePaused: p.quotePaused ?? null, canary: p.canary ?? null,
+      venue: p.venue ?? null, pool: p.pool ?? null, dex: p.dex ?? null })),
     closes: (s.closes ?? []).slice(0, 20), refusals: (s.refusals ?? []).slice(0, 10), log: (s.log ?? []).slice(0, 15),
     counters: s.counters, book: s.book, shadow: s.shadow, policy: s.policy, record: s.record, version: s.version,
     armability: s.armability ? { armable: s.armability.armable, blocking: s.armability.blocking, warnings: s.armability.warnings, items: s.armability.items } : null,
@@ -598,7 +604,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case UI.PAUSE: { const e = await ensureEngine(); e.setControl({ pauseEntries: msg.on === true }); pushStatus(); return { ok: true }; }
         case UI.CONNECT: { await ensureEngine(); await bridge.connect({ onlyIfTrusted: false }); return { ok: true, wallet: bridge.wallet() }; }
         case UI.FORGET_POSITION: { const e = await ensureEngine(); const done = await e.forgetPosition(msg.mint); pushStatus(); return { ok: done }; }
-        case UI.CLEAR_STOCK_CANARY: { const e = await ensureEngine(); const done = await e.clearStockCanary(msg.mint); pushStatus(); return { ok: done }; }
+        case UI.CLEAR_STOCK_CANARY: { const e = await ensureEngine(); const done = await e.clearStockCanary(msg.mint, { venue: msg.venue === "jupiter-xstock" ? "jupiter-xstock" : null }); pushStatus(); return { ok: done }; }
         case UI.OPEN_CONSOLE: {
           await ensureEngine();
           const url = config.consoleUrl;

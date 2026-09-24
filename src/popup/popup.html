@@ -123,6 +123,23 @@
   <ul id="warnings" class="warnings"></ul>
 </section>
 
+<section class="card" id="venueCard">
+  <div class="k">Venues</div>
+  <div class="row small"><span class="v">pump.fun launches, from the program's own logs</span><span class="pill observe">always</span></div>
+  <label class="venue"><input type="checkbox" id="chkXstock"> New pools paired with an xStock, through Jupiter <span id="xstockPill" class="pill">off</span></label>
+  <p class="hint" id="xstockHint">Off. When on, it polls public new-pool feeds for pools anywhere on Solana that pair a token with a stock you watch, and follows the lane: Observe keeps would-have positions, Execute (armed) trades them through Jupiter, paid in that stock, inside that stock's limits.</p>
+  <div id="xstockBody" class="hidden">
+    <div class="row small"><span class="k">Feeds</span> <span id="xstockFeeds" class="v mono small"></span></div>
+    <div class="row small"><span class="k">Watching</span> <span id="xstockFocus" class="v small"></span></div>
+    <div class="row small"><span class="k">Jupiter</span> <span id="xstockJupiter" class="v mono small"></span></div>
+    <div id="xstockBlocks" class="list small stocks"></div>
+    <div class="k" style="margin-top:8px">Pools found, newest first</div>
+    <div id="xstockCandidates" class="list small"><div class="empty">none yet</div></div>
+    <p class="hint" id="xstockRule"></p>
+    <p class="hint warnline" id="xstockUnmeasured"></p>
+  </div>
+</section>
+
 <section class="card">
   <div class="row">
     <div><div class="k">Today</div><div class="v" id="dayLine">0 / 0 SOL</div></div>

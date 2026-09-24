@@ -107,6 +107,7 @@ function render() {
     refresh();
   });
   $("waitLine").textContent = `${Math.round((s.entryWaitMs ?? 0) / 1000)}s · ≥${s.entryFollowThroughX}x`;
+  renderXstock(s, now);
 
   const open = s.open ?? [];
   $("positions").innerHTML = open.length ? open.map((p) => {
@@ -116,8 +117,9 @@ function render() {
     const state = p.graduated ? (onAuto ? "graduated — Forget, Sweep back, SELL BY HAND in Phantom" : "graduated — SELL BY HAND")
       : p.pendingSell ? (onAuto ? (s.autopilot.unlocked ? `selling (autopilot) — ${esc(p.pendingSell.reason)}` : `UNLOCK THE AUTOPILOT WALLET TO SELL — ${esc(p.pendingSell.reason)}`) : `APPROVE THE SELL IN PHANTOM — ${esc(p.pendingSell.reason)}`)
         : p.waitedOut ? `not bought: ${esc(p.waitedOut)}` : p.live ? (onAuto ? "held by the autopilot wallet" : "held") : p.liveAttempted ? "watched (attempted)" : "watching";
+    const venueTag = p.venue === "jupiter-xstock" ? ` <span class="tag venue" title="${esc(p.pool ?? "")}">Jupiter · ${esc(p.dex ?? "pool")}</span>` : "";
     return `<div class="item ${cls} ${pend}" data-mint="${esc(p.mint)}">
-      <div class="t">${esc(p.symbol ?? short(p.mint))} <span class="tag ${p.live ? "live" : "paper"}">${p.live ? "live" : "would-have"}</span></div>
+      <div class="t">${esc(p.symbol ?? short(p.mint))} <span class="tag ${p.live ? "live" : "paper"}">${p.live ? "live" : "would-have"}</span>${venueTag}</div>
       <div class="r">${p.lastMarkX == null ? "mark unread" : `${Number(p.lastMarkX).toFixed(3)}x`} · ${ago(now - Number(p.openedAt))}</div>
       <div class="m">${state} · ${amt(p.sizeSol, p.quoteSymbol ?? "SOL")}${p.quoteSymbol ? " (fees in SOL)" : ""}${p.quotePaused === true ? ` · ${esc(p.quoteSymbol)} PAUSED — cannot sell` : ""}</div>
       ${p.live ? `<button class="forget" data-forget="${esc(p.mint)}" title="Close this row without a sale: the realized figure will read 'not read'">forget</button>` : ""}
@@ -167,6 +169,59 @@ function render() {
   $("log").innerHTML = (s.log ?? []).slice(0, 10).map((l) => `<div>${Number.isFinite(l.at) ? esc(new Date(l.at).toISOString().slice(11, 19)) : ""} ${esc(l.line)}</div>`).join("");
   $("versionLine").textContent = s.version ?? "";
 }
+
+/* ── the venue card: the xStock venue ───────────────────────────────────────────────── */
+const STATE_WORDS = { new: "new", pending: "waiting for Jupiter", refused: "refused", refused_live: "refused at the attempt", watching: "watching", unsampled: "cleared, not marked", waited_out: "nobody followed", entered: "bought", sold: "sold", closed: "closed" };
+function renderXstock(s, now) {
+  const x = s.xstock ?? null;
+  const on = x?.enabled === true;
+  $("chkXstock").checked = on;
+  $("xstockPill").textContent = !on ? "off" : s.lane === "off" ? "on · lane off" : s.executing ? "on · live" : s.lane === "execute" ? "on · not armed" : "on · observe";
+  $("xstockPill").className = `pill ${on ? (s.executing ? "execute" : "observe") : ""}`;
+  $("xstockBody").classList.toggle("hidden", !on);
+  if (!x) return;
+  $("xstockHint").textContent = on
+    ? `On. It polls ${x.sources.join(" and ")} every ${Math.round((x.pollMs ?? 0) / 1000)}s (next in ${Math.round((x.nextPollInMs ?? 0) / 1000)}s) and judges each pool it finds; ${s.lane === "execute" ? (s.executing ? "armed, a pool that still marks at or above its would-have fill after the wait is bought through Jupiter, paid in its stock" : "not armed, so nothing is bought") : s.lane === "observe" ? "Observe keeps would-have positions and signs nothing" : "the lane is Off, so nothing is polled"}.`
+    : "Off. When on, it polls public new-pool feeds for pools anywhere on Solana that pair a token with a stock you watch, and follows the lane: Observe keeps would-have positions, Execute (armed) trades them through Jupiter, paid in that stock, inside that stock's limits.";
+  const feeds = x.discovery?.feeds ?? [];
+  $("xstockFeeds").textContent = feeds.length ? feeds.map((f) => `${f.id}: ${f.ok} ok${f.rateLimited ? ` · ${f.rateLimited}×429` : ""}${f.errors ? ` · ${f.errors} errors` : ""}${f.resting ? ` · resting ${ago(f.backoffUntil - now)}` : ""}`).join(" | ") : "not polled yet";
+  const listed = (x.focus ?? []).filter((f) => f.listed);
+  $("xstockFocus").textContent = listed.length ? listed.map((f) => f.symbol).join(", ")
+    : `the built-in list (${(x.focus ?? []).map((f) => f.symbol).join(", ")}) — watch only: list a stock in Options to give it a ticket`;
+  const j = x.jupiter ?? {};
+  $("xstockJupiter").textContent = `${j.requests ?? 0} requests · ${j.noRoute ?? 0} no route · ${j.skipped ?? 0} marks skipped for the 0.5/s budget${j.restingForMs ? ` · resting ${ago(j.restingForMs)}` : ""}`;
+  const blocked = Object.entries(x.canary ?? {}).filter(([, c]) => c.state === "blocked");
+  $("xstockBlocks").innerHTML = blocked.map(([mint, c]) => {
+    const sym = (s.quoteMints ?? []).find((q) => q.mint === mint)?.symbol ?? short(mint);
+    return `<div class="item"><div class="t">${esc(sym)} <span class="tag blocked">blocked in this venue</span></div><div class="m">${esc(c.detail ?? "")} — ${esc(c.signature ?? "")}</div>
+      <button class="clear" data-clear-x="${esc(mint)}" title="Only after you have checked that buy's signature and sold it by hand">clear the block</button></div>`;
+  }).join("");
+  for (const b of document.querySelectorAll("button[data-clear-x]")) b.addEventListener("click", async () => {
+    if (!confirm("Clear the block? Do this only after you checked that buy's signature on an explorer and sold the position by hand. The next buy in this stock through Jupiter will be a canary again.")) return;
+    await send(UI.CLEAR_STOCK_CANARY, { mint: b.dataset.clearX, venue: "jupiter-xstock" });
+    refresh();
+  });
+  const cands = x.candidates ?? [];
+  $("xstockCandidates").innerHTML = cands.length ? cands.slice(0, 12).map((c) => {
+    const pair = `${esc(c.tokenSymbol ?? short(c.tokenMint))} / ${esc(c.stockSymbol)}`;
+    const age = c.ageAtFirstSightMs == null ? "creation time not given" : `seen ${ago(c.ageAtFirstSightMs)} after it was created`;
+    const state = STATE_WORDS[c.state] ?? c.state;
+    return `<div class="item"><div class="t">${pair} <span class="tag ${esc(c.state)}">${esc(state)}</span></div>
+      <div class="r">${c.gate ? esc(c.gate) : ""}</div>
+      <div class="m">${esc(c.dex ?? "?")} · from ${esc((c.sources ?? []).join(" + "))} · ${esc(age)} · found ${ago(now - Number(c.firstSeenAt))} ago</div>
+      ${c.message ? `<div class="m">${esc(c.message)}</div>` : ""}
+      <div class="m mono">${esc(c.pool)}</div></div>`;
+  }).join("") : `<div class="empty">${on ? "none yet — new pools paired with a watched stock are rare" : "the venue is off"}</div>`;
+  $("xstockRule").textContent = x.canaryRule ?? "";
+  $("xstockUnmeasured").textContent = x.unmeasured ?? "";
+}
+$("chkXstock").addEventListener("change", async (e) => {
+  const on = e.target.checked;
+  if (on && !confirm("Turn on the xStock venue?\n\nIt polls public new-pool feeds (GeckoTerminal, DexScreener) for pools that pair a token with a stock you watch. In Observe it only keeps would-have positions. Armed, it buys and sells them through Jupiter, paid in that stock, at that stock's ticket and day cap.\n\nThe arm sentence changes, so an armed lane stops being armed until you type the new sentence. Nothing about these pools has been measured.")) { e.target.checked = false; return; }
+  const res = await send(UI.SET_CONFIG, { config: { xstockVenue: on } });
+  if (!res?.ok) { toast(res?.error ?? "could not change the venue"); e.target.checked = !on; }
+  refresh();
+});
 
 /* ── the autopilot card ─────────────────────────────────────────────────────────────── */
 let ap = null;               // the worker's AUTOPILOT.STATUS answer: balances, tokens, fund assets, where a sweep goes

@@ -112,6 +112,9 @@ if (built) {
     const st = engine.status();
     ok("the bundled engine reports the record beside the switch", st.record?.first58?.trades === 58 && Array.isArray(st.armability?.warnings), `record ${st.record?.first58?.trades} trades; ${st.armability?.warnings?.length} warnings`);
     ok("the bundled policy carries the record's 1.5x take and the 90s stall", st.policy?.takeAtEntryX === 1.5 && st.policy?.stallMs === 90_000, JSON.stringify(st.policy));
+    ok("the bundled engine carries the xStock venue, off by default, watching the built-in list", st.xstock?.venue === "jupiter-xstock" && st.xstock.enabled === false && st.xstock.focus?.length === 15 && Array.isArray(st.xstock.candidates), JSON.stringify({ venue: st.xstock?.venue, enabled: st.xstock?.enabled }));
+    const xticked = await engine.xstockTick();
+    ok("…and its tick is a no-op while it is off", Array.isArray(xticked) && xticked.length === 0);
     /* The same launch, refused at the same gate by both the source contract and the bundled one. */
     const stale = { mint: "FgJReZeYfmKZeWrCaGYL8gLnUixwBhjdHuRknC6ypump", creator: null, slot: 1, noticeAt: Date.now() - 600_000, source: "logsSubscribe", raw: {} };
     engine.setRpc({ url: "https://x", async getMultipleAccounts() { return { slot: 1, accounts: [null, null, null] }; } });

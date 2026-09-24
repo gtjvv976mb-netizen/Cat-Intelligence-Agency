@@ -110,3 +110,11 @@ details summary.k{margin-top:10px}
 #walletLine,#apAddress{word-break:break-all}
 .brand .sub{white-space:nowrap}
 #apLockPill{white-space:nowrap}
+/* the venue card: the xStock venue's switch, its feeds and the pools it found */
+label.venue{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px;color:var(--ink);cursor:pointer}
+label.venue .pill{margin-left:auto}
+.item .tag.refused{border-color:var(--bad);color:var(--bad)}
+.item .tag.watching,.item .tag.entered,.item .tag.sold{border-color:var(--good);color:var(--good)}
+.item .tag.pending,.item .tag.unsampled,.item .tag.waited_out{border-color:var(--warn);color:var(--warn)}
+.item .tag.venue{border-color:var(--teal);color:var(--cream)}
+#venueCard .item .m,#venueCard .item .t{overflow-wrap:anywhere}

@@ -2,7 +2,7 @@
 import { UI } from "../lib/protocol.mjs";
 import {
   CONFIG_DEFAULTS, CONSOLE_URLS, normalizeConfig, RECORD, STOCK_FOCUS_CHOICES, STOCK_CANARY_RULE, MAX_QUOTE_MINTS,
-  AUTOPILOT_UNLOCK_MINUTES, STYLE_PRESETS,
+  AUTOPILOT_UNLOCK_MINUTES, STYLE_PRESETS, XSTOCK_SOURCES, XSTOCK_UNMEASURED,
 } from "../lib/config.mjs";
 
 const FIELDS = [
@@ -51,6 +51,14 @@ const FIELDS = [
     ["sellReaskMs", "number", "Sell re-ask (ms)", "A declined or unanswered sell is asked again after this, while the determiner still says sell."],
     ["tickMs", "number", "Tick (ms)", "How often a live position is priced."],
   ]],
+  ["New pools paired with an xStock, through Jupiter (off by default)", [
+    ["xstockVenue", "checkbox", "Turn the venue on", `Polls public new-pool feeds for pools anywhere on Solana that pair a token with a stock you list below (or, with none listed, the built-in list — watch only). It follows the lane: Observe keeps would-have positions; Execute, armed, buys through Jupiter, <b>paid in that pool's stock</b> at that stock's ticket, canary and day cap, and sells on the same exits. Turning it on changes the arm sentence. <span class="rec">Unmeasured.</span> ${XSTOCK_UNMEASURED}`],
+    ["xstockSources", "text", "Feeds", `Comma-separated: ${XSTOCK_SOURCES.join(", ")}. geckoterminal: the 20 newest Solana pools, cached 30–60 s, quick to answer 429. dexscreener: up to 30 pools per watched stock, liquidity-ordered, so a pool with no liquidity yet can be missed. jupiter-gems: the newest launchpad pools — undocumented, may change or stop without notice.`],
+    ["xstockPollMs", "number", "Poll the feeds every (ms)", "15000 to 600000. The feeds' own caches are 30–60 s; polling faster only spends their rate limits."],
+    ["xstockMaxPoolAgeMs", "number", "Oldest pool at first sight (ms)", "A pool first seen older than this is refused at notice_stale. The feeds see a pool a minute or more after it exists, and nothing has measured what age, if any, does better."],
+    ["xstockSlippageBps", "number", "Jupiter slippage cap (bps)", "Written into the Jupiter instruction; the lane refuses a quote or transaction that says otherwise. 300 is the executor's live figure. 1 to 1000."],
+    ["xstockMaxOpen", "number", "Would-have rows marked at once", "Every mark is one Jupiter request, and keyless Jupiter answers about one every two seconds; beyond this a cleared pool is recorded, not marked. 0 to 5."],
+  ]],
   ["Shadow book", [
     ["forwardSamples", "number", "Forward samples", "How many samples a would-have row gets."],
     ["forwardIntervalMs", "number", "Sample interval (ms)", "How far apart. 12 × 5000 is a one-minute window."],
@@ -82,7 +90,7 @@ function stockRow(q = {}) {
 }
 function stockEditor(list) {
   return `<fieldset id="stockFieldset"><legend>Stock quotes (pump.fun Custom Pairs)</legend>
-    <p class="help">A pump.fun launch can be priced in a tokenised stock (xStocks such as GLDx, TSLAx, SPYx) instead of SOL. Leave this empty and the lane stays SOL-only, as before. A stock listed here may be PAID with, from the stock already in your wallet: each number is in <b>that stock's units</b> (decimals are read from the mint account on chain, never typed). The network fee and account rent of a stock trade are still paid in SOL and count against your SOL per-24h cap.</p>
+    <p class="help">A pump.fun launch can be priced in a tokenised stock (xStocks such as GLDx, TSLAx, SPYx) instead of SOL. Leave this empty and the lane stays SOL-only, as before. A stock listed here may be PAID with, from the stock already in your wallet: each number is in <b>that stock's units</b> (decimals are read from the mint account on chain, never typed). The network fee and account rent of a stock trade are still paid in SOL and count against your SOL per-24h cap. When the xStock venue above is on, a pool it finds pairing a token with a stock listed here is traded through Jupiter at these same numbers, charged to the same day.</p>
     <p class="help"><span class="rec">Canary rule.</span> ${esc(STOCK_CANARY_RULE)} Set the canary smaller than the per-launch ticket; blank means the canary IS the full ticket.</p>
     <p class="help">Nothing about stock-quoted launches has been measured: HAWK-AI's record is SOL launches only. Every xStock mint carries an issuer's freeze authority, pause switch and permanent delegate; the lane refuses a paused stock and says so, and cannot defend against a freeze. Changing this list changes the arm sentence, so an armed lane must be re-armed.</p>
     <table class="stocks"><thead><tr>${STOCK_COLUMNS.map(([, , label]) => `<th>${label}</th>`).join("")}<th></th></tr></thead>

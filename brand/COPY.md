@@ -12,7 +12,7 @@ Copy for the X page, the launch, the agents, the memecoin and the site. Paste-re
 
 1. No price talk, no talk of returns or multiples, no space-travel metaphors, no certainty words. No invented numbers, holders, partners or dates.
 2. Crying Cat, Grumpy Cat, CashCat and Popcat are **characters**. Their cases are posts the agency writes from public data. They are not bots, AI or a scanner (Popcat's radar is a prop), so never write "detected", "flagged" or "our tool".
-3. CoinMarketCat is **real software** and is described exactly as it is, including the losing record it learned from.
+3. CoinMarketCat is **real software**, the agentic trader, and is described exactly as it is: it runs only while Chrome is open, spot only, on the owner's own API key, and nothing about its returns has been measured. Snipurr, its sniper lane, is described with the losing record it learned from. CoinMarketCat is not affiliated with CoinMarketCap; say so wherever the product is described.
 4. `$CIA` is a meme and nothing more. It unlocks nothing and nobody is promised anything.
 
 ---
@@ -64,7 +64,7 @@ Option 1 is the recommendation. Crying Cat is the face of the coin, and the RUGG
 - Popcat gasps with its mouth in a round O and points its hot-pink radar.
 - Grumpy Cat crosses its arms, unimpressed.
 - CashCat stares at the file through gold binoculars.
-- CoinMarketCat leans in with its scope glowing.
+- Snipurr, the sniper kitten, leans in with its scope glowing.
 
 The left side reads `$CIA` / CAT INTELLIGENCE AGENCY / cats built for crypto, clear of the spot where X lays the profile photo over the header.
 
@@ -118,11 +118,11 @@ Count: 275 / 280
 
 **2/8**
 ```text
-Agent 001: COINMARKETCAT, the sniper. Real software: a Chrome extension that snipes new Solana launches from your Phantom wallet, inside your limits.
+Agent 001: COINMARKETCAT, the agentic trader. Real software: a Chrome extension that trades Solana spot tokens from a strategy you write in plain English, inside limits the AI cannot change.
 
-Starts in Observe. Waits 10s, buys only if still at or above entry. Learned from a losing record: 58 round trips, -1.58 SOL. 2/8
+Paper first. Your own API key. Snipurr, the sniper cat, rides along. 2/8
 ```
-Count: 279 / 280
+Count: 264 / 280
 
 **3/8**
 ```text
@@ -228,33 +228,35 @@ We got it wrong. The original stays up, corrected. - The Director
 
 ### AGENT 001: COINMARKETCAT
 
-- **Codename:** COINMARKETCAT, "the sniper"
-- **What it is:** real software. A Chrome extension (version 0.1.0) that you build from its public source and load unpacked. It is not in the Chrome Web Store.
-- **Beat:** new Solana launches on pump.fun, including launches priced in tokenised stocks (xStocks such as GLDx, TSLAx and SPYx) once you list them. A second venue, off by default, covers new stock-paired pools anywhere on Solana, traded through Jupiter.
-- **Catchphrase:** "Ten seconds. Then maybe."
-- **Bio:** CoinMarketCat watches new Solana launches and, once you arm it, buys only the ones still at or above entry ten seconds later, from your Phantom wallet or an autopilot wallet you fund, inside the take-profit, ticket and daily budget you set. It learned that rule from a trading lane that lost money, starts in Observe, and prints that losing record beside the switch that arms it.
+- **Codename:** COINMARKETCAT, "the agentic trader"
+- **What it is:** real software. A Chrome extension (version 0.1.0) that you build from its public source and load unpacked. It is not in the Chrome Web Store. CoinMarketCat is not affiliated with CoinMarketCap.
+- **Beat:** Solana spot tokens, traded from a strategy you write in plain English, inside limits it cannot change. Up to ten tokens (a Solana majors preset — JitoSOL, JUP, JTO, PYTH, RAY, BONK, WIF, cbBTC — or your own), settled in USDC or USDT.
+- **How it works:** on your schedule (every 15, 30 or 60 minutes) it asks a model, with your own Anthropic API key, what to do; code then clamps or refuses each proposal against your limits (per token, exposure, stop loss, take profit, daily drawdown, trades a day, slippage), and the stop loss, take profit and drawdown breaker check every half minute on their own. Every decision is logged with its reason. Paper first; live from an autopilot wallet you fund. Pause, liquidate or withdraw at any time; only you can withdraw.
+- **What it is not:** not 24/7 (it runs while Chrome is open), not leveraged (spot only), not free to run (your API credits), not measured (no returns quoted). Sharing or selling strategies is not built.
+- **Ships with:** Snipurr, the sniper cat — the pump.fun sniper lane inside the same extension. It waits ten seconds, buys only if the launch is still at or above entry, and learned that rule from a desk lane that lost money: 58 round trips, 10 up, 48 down, -1.58 SOL.
+- **Catchphrase:** "Your plan. Hard limits. Every move explained."
+- **Bio:** CoinMarketCat trades Solana spot tokens from a strategy you write in plain English. On your schedule it asks a model, with your own API key, what to do about the tokens you chose; code then applies your stop loss, take profit, daily drawdown and per-token limits, which the model cannot change, and every decision is logged with its reason. It starts on paper, runs only while Chrome is open, and carries Snipurr, the sniper cat's lane.
 
-**Field report template.** The agency posts this from its own copy's shadow-book export; the extension itself posts nothing. In Observe, leave out post 2 and write "Observe: nothing bought".
+**Field report template.** The agency posts this from its own copy's journal; the extension itself posts nothing. On paper, leave out the receipts and write "Paper: nothing signed".
 ```text
 FIELD REPORT | AGENT 001 | [YYYY-MM-DD]
 
-Mode: [Observe / Execute, Phantom / Execute, Autopilot]
-Window: [HH:MM]-[HH:MM] UTC
-Limits: take [1.5]x | ticket [0.005] SOL | day cap [0.01] SOL
-Would-have positions: [n] | bought: [n] | closed: [n]
-Up [n] / Down [n] | Net [+/-0.000] SOL (1/3)
+Mode: [Paper / Live] | every [30] min
+Tokens: [symbols] | settled in [USDC]
+Limits: [$25] a token | stop [8]% | take [15]% | day [5]%
+Decisions: [n] | fills: [n] | refused: [n]
+Up [n] / Down [n] | Net [+/-$0.00] (1/3)
 ```
 ```text
 Receipts (UTC):
-[HH:MM:SS] buy [token] [tx link]
-[HH:MM:SS] sell [token], exit: [1.5x take / stop / creator exit / 90s stall / 180s clock] [tx link]
-Signer: [wallet link]
-Shadow book (JSONL): [link] (2/3)
+[HH:MM] buy [token]: [the model's reason] [tx link]
+[HH:MM] sell [token], [stop / take / the model] [tx link]
+Vault: [wallet link] (2/3)
 ```
 ```text
-One window is not a track record. This lane is unmeasured; the lane it learned from lost money. Not advice.
+One window is not a track record. This agent is unmeasured, and a model's judgement is not an edge. Not advice.
 
-Ten seconds. Then maybe.
+Your plan. Hard limits. Every move explained.
 https://catintelligenceagency.com/coinmarketcat/ (3/3)
 ```
 
@@ -439,21 +441,21 @@ Rule 6 matters more than it looks. CashCat investigates paid promos, and Popcat'
 ```text
 Crying Cat opened the case file. It said RUGGED. Crying Cat cried. Then Crying Cat got to work.
 
-$CIA is the memecoin of Cat Intelligence Agency, a crew of pixel kittens investigating crypto in public on X: ruggers, fake hype, whales, KOLs and copycat cat coins, receipts on-chain. Agent 001, CoinMarketCat, is a real sniper-bot extension.
+$CIA is the memecoin of Cat Intelligence Agency, a crew of pixel kittens investigating crypto in public on X: ruggers, fake hype, whales, KOLs and copycat cat coins, receipts on-chain. Agent 001, CoinMarketCat, is a real agentic trading extension.
 
 Fair launch. No presale. No team allocation. Only trust the CA posted on our X. We never DM. Pure meme, no promises, NFA.
 ```
-Count: 462 / 500
+Count: 467 / 500
 
 **Alternate, without the launch terms**
 ```text
 Crying Cat opened the case file. It said RUGGED. Crying Cat cried. Then Crying Cat got to work.
 
-$CIA is the memecoin of Cat Intelligence Agency, a crew of pixel kittens investigating crypto in public on X: ruggers, fake hype, whales, KOLs and copycat cat coins, receipts on-chain. Agent 001, CoinMarketCat, is a real sniper-bot extension.
+$CIA is the memecoin of Cat Intelligence Agency, a crew of pixel kittens investigating crypto in public on X: ruggers, fake hype, whales, KOLs and copycat cat coins, receipts on-chain. Agent 001, CoinMarketCat, is a real agentic trading extension.
 
 Only trust the CA posted on our X. We never DM. Pure meme, no promises, NFA.
 ```
-Count: 417 / 500
+Count: 422 / 500
 
 Both open on Crying Cat, the face of the coin. Neither names Grumpy Cat or Popcat (see section 7).
 
@@ -501,9 +503,9 @@ The site lives at `https://catintelligenceagency.com`.
 
 ### Meta description (limit 160)
 ```text
-Crypto cats investigating rugs, fake hype, whales and cat-coin copycats in public, with receipts. Plus CoinMarketCat, a Solana launch sniper in your limits.
+Crypto cats investigating rugs, fake hype, whales and cat-coin copycats in public, with receipts. Plus CoinMarketCat, plain-English agentic trading on Solana.
 ```
-Count: 156 / 160
+Count: 158 / 160
 
 ### Hero
 
@@ -513,7 +515,7 @@ Count: 156 / 160
 
 **Option B**
 - Headline: **Every agent is a cat. Every case has receipts.**
-- Subline: Crying Cat takes the rugs. Grumpy Cat takes the fake hype. CashCat follows the whales. Popcat checks the new cat coins. And CoinMarketCat, the sniper, is a Chrome extension that trades only inside the limits you set.
+- Subline: Crying Cat takes the rugs. Grumpy Cat takes the fake hype. CashCat follows the whales. Popcat checks the new cat coins. And CoinMarketCat, the agentic trader, is a Chrome extension that trades from your plain-English strategy, only inside the limits you set.
 
 **Buttons:** `Follow the agency on X` · `Meet Agent 001`
 
@@ -521,18 +523,20 @@ Count: 156 / 160
 
 **Section heading:** *Five agents. One of them is software.*
 
-**Section intro:** The investigators are characters: their cases are posts on the agency's X account, written from public data. The sniper is a real Chrome extension.
+**Section intro:** The investigators are characters: their cases are posts on the agency's X account, written from public data. CoinMarketCat, the agentic trader, is a real Chrome extension.
 
 ---
 
-**Agent 001 · CoinMarketCat** (*the sniper*)
+**Agent 001 · CoinMarketCat** (*the agentic trader*)
 - **Type:** Software. A Chrome extension you build and run yourself.
-- **Hunts:** New Solana launches on pump.fun, including launches priced in tokenised stocks like GLDx, TSLAx and SPYx. Once you switch it on, it also hunts new stock-paired pools across Solana, through Jupiter.
-- **Method:** Crouches ten seconds, then pounces only if the launch is still at or above its entry price. Takes profit at 1.5× by default. Leaves a stalled launch after 90 s and any position after 180 s.
-- **Your limits:** Take-profit, SOL (or stock) per trade, a daily budget, and which stock tokens to focus on.
-- **Starts in:** Observe mode. It trades nothing until you type the sentence that arms it.
-- **Track record:** Unmeasured in this lane. The desk lane it learned from lost money, and its file says so.
-- **Catchphrase:** *Ten seconds. Then maybe.*
+- **Trades:** Up to ten Solana spot tokens you choose, from a Solana majors preset or your own list, settled in USDC or USDT. Spot only, with no leverage.
+- **Method:** Every 15, 30 or 60 minutes it asks a model, with your own API key, for buy, sell or hold and a reason. Code then clamps or refuses each proposal against your limits.
+- **Your limits:** Most per token, most of the vault in tokens, stop loss, take profit, a daily drawdown breaker, trades per day and slippage. The stop loss, take profit and breaker check every half minute on their own.
+- **Starts in:** Paper mode. It trades live only from an autopilot wallet you fund, after you type the sentence that arms it.
+- **Runs:** While Chrome is open on your computer, not in a cloud. Model calls are billed to your own API key.
+- **Track record:** Unmeasured in this lane. Nothing about its returns has been measured, and its file says so.
+- **Also inside:** Snipurr, the sniper cat: a pump.fun sniper lane that learned from a desk lane that lost money.
+- **Catchphrase:** *Your plan. Hard limits. Every move explained.*
 - **Links:** `Open the file` · `Console` · `Source`
 
 **Agent 002 · Crying Cat** (*ruggers*)
@@ -583,13 +587,14 @@ Count: 156 / 160
 
 **Heading:** Agent 001 is the one cat you can install.
 
-**Body:** CoinMarketCat is a Chrome extension that watches new Solana launches on pump.fun. Once you arm it, it buys only the ones still at or above entry ten seconds later, inside the take-profit, SOL per trade and daily budget you set. List a tokenised stock (GLDx, TSLAx, SPYx) and it can trade launches priced in that stock. Switch on its second venue, which is off by default, and it watches new stock-paired pools anywhere on Solana and trades them through Jupiter.
+**Body:** CoinMarketCat is agentic trading for Solana, in plain English: a Chrome extension that trades up to ten spot tokens from a strategy you write, inside hard limits the model cannot change. On your schedule it asks a model, with your own API key, what to do; code decides what is allowed, and every decision is written down with its reason. CoinMarketCat is not affiliated with CoinMarketCap.
 
-- **Observe first.** Setup leaves it in Observe, where it keeps a book of what it would have done and spends nothing. It trades only after you type the sentence that arms it and every item on its checklist is green.
-- **You choose who signs.** The default is Phantom, one approval per trade, and in that mode the extension holds no key. The other choice is autopilot: a wallet the extension creates, encrypted under your passphrase, funded from Phantom with one approval and swept back when you're done. On autopilot it signs without asking. A key in a browser is a bigger target than Phantom, and your exposure is whatever you fund it with.
-- **The record is printed, not hidden.** The trading lane it learned from lost money: its first 58 round trips went 10 up, 48 down, −1.58 SOL. Its fastest entries, under 3 seconds, won 0 of 9, which is why it waits 10. None of this is evidence of an edge.
-- **What nobody has measured yet:** this lane's own results, launches priced in stocks, the Jupiter pools, and any autopilot trade on mainnet.
-- **What it can't do:** a launch that graduates off pump.fun's curve must be sold by hand. In Phantom mode, closing the console tab leaves it with no signer.
+- **Paper first.** It starts on paper, filling at Jupiter's quotes and signing nothing. Live, it trades from an autopilot wallet you fund with USDC or USDT, and only after you type the sentence that arms it.
+- **Limits in code, not in the model.** The model proposes buy, sell or hold. Code clamps or refuses each proposal against your caps, and the stop loss, take profit and daily drawdown breaker check every half minute, whether or not the model answers. It cannot change a limit, and it cannot withdraw: only you can, to your Phantom address.
+- **It runs where you are.** While Chrome is open on your computer, not in a cloud around the clock. Spot only, with no leverage. Every model call is billed to your own API key.
+- **Snipurr rides along.** Snipurr, the sniper cat, is its other lane: it waits ten seconds over every new pump.fun launch and buys only if the launch is still at or above its entry price. The default for Snipurr is Phantom, one approval per trade; on autopilot it signs without asking. A key in a browser is a bigger target than Phantom, and your exposure is whatever you fund it with.
+- **What nobody has measured yet:** the agent's results, on paper or live, and Snipurr's own. The desk lane Snipurr learned from lost money: 10 up, 48 down, −1.58 SOL over its first 58 round trips. None of this is evidence of an edge.
+- **Not built:** sharing or selling a strategy to other people.
 
 **How you get it.** It is not in the Chrome Web Store; you build it from source:
 1. `git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency`
@@ -599,8 +604,9 @@ Count: 156 / 160
 You need:
 - Chrome 116 or later
 - Node 22.13 or later to build it
-- Phantom
-- An RPC URL from a provider such as Helius, Triton or QuickNode (the public Solana RPC refuses browsers)
+- Your own Anthropic API key, for the agent's model calls
+- Phantom, to fund it and for Snipurr
+- An RPC URL from a provider such as Helius, Triton or QuickNode, for live trades and Snipurr (the public Solana RPC refuses browsers)
 
 The agency holds nothing of yours: no account, no deposit, no server.
 
@@ -640,7 +646,7 @@ POPCAT is also the name of an existing Solana memecoin ($POPCAT), and the open-m
 - **"CIA" and `$CIA`.** U.S. federal law (the Central Intelligence Agency Act) restricts using the initials "CIA", the agency's name or its seal in commercial activity in a way reasonably calculated to suggest the agency approved it. A plain parody is not that, but a coin ticker is commercial activity. Keep the disclaimers loud, never use a seal, eagle, shield or badge, and have a lawyer look before launch. The ticker is a placeholder anyway.
 - **Tickers are not unique on pump.fun.** Other tokens named "Cat Intelligence Agency" or `$CIA` may already exist, or may appear on launch day. Search first, and lead with the scam warning.
 - **"Crying Cat" and "CashCat".** Search X, pump.fun and the USPTO trademark database before launch. Projects with the same names may exist.
-- **CoinMarketCat vs CoinMarketCap.** The name is close to a well-known brand. The site already says there is no affiliation; keep the cat's look and colours clearly distinct from theirs.
+- **CoinMarketCat vs CoinMarketCap.** The name is close to a well-known brand, and the agent now does something CoinMarketCap also offers (agentic trading). The site and the extension say "CoinMarketCat is not affiliated with CoinMarketCap." wherever the product is described; keep saying it, and keep the cat's look and colours clearly distinct from theirs.
 
 ---
 

@@ -1,5 +1,18 @@
-/** THE OPTIONS PAGE: every config key, described, validated by the same normalizeConfig the engine runs. */
-import { UI } from "../lib/protocol.mjs";
+/**
+ * THE OPTIONS PAGE: the agent's spec first, then every config key of Snipurr's lane, each
+ * validated by the same normalizer its reader runs (normalizeAgentSpec, normalizeConfig).
+ *
+ * THE AGENT has its own form and its own Save: the spec goes to the worker as
+ * AGENT.SAVE_SPEC, and a custom mint is read on chain by the worker before it can be saved.
+ * The API key is a password field, sent once with AGENT.SET_API_KEY and cleared from the
+ * field at once; the page never gets it back — only whether one is saved. The model list
+ * comes from the API with that key (AGENT.LIST_MODELS); with none picked, the agent uses the
+ * newest the key lists. Nothing here stores or logs anything: the worker is the only writer.
+ */
+import { UI, AGENT } from "../lib/protocol.mjs";
+import {
+  normalizeAgentSpec, SOLANA_MAJORS, SETTLEMENT_TOKENS, AGENT_BOUNDS, AGENT_UNMEASURED, AGENT_RUNS_WHERE, SOLANA_MAJORS_VERIFIED,
+} from "../lib/agent-strategy.mjs";
 import {
   CONFIG_DEFAULTS, CONSOLE_URLS, normalizeConfig, RECORD, STOCK_FOCUS_CHOICES, STOCK_CANARY_RULE, MAX_QUOTE_MINTS,
   AUTOPILOT_UNLOCK_MINUTES, STYLE_PRESETS, XSTOCK_SOURCES, XSTOCK_UNMEASURED,
@@ -166,4 +179,127 @@ $("btnSave").addEventListener("click", async (e) => {
   build(res.config);
 });
 $("btnDefaults").addEventListener("click", () => { build({ ...CONFIG_DEFAULTS, rpcUrl: read().rpcUrl ?? "" }); msg.className = "msg"; msg.textContent = "defaults shown (no stock quotes: SOL only) — press Save to keep them"; });
+/* ── THE AGENT ──────────────────────────────────────────────────────────────────────── */
+const agentForm = $("agentForm");
+let agentModels = [];
+const AGENT_LIMITS = [
+  ["maxPositionUsd", "Most in one token ($)", `A buy is clamped to what is left under it, and refused when that is under the $${AGENT_BOUNDS.minTradeUsd} minimum trade.`],
+  ["maxExposurePct", "Most of the vault in tokens (%)", "The rest stays in the settlement token. Pending buys count against it."],
+  ["stopLossPct", "Stop loss (% under entry)", "A position at or under its entry price less this is sold in full. Checked every half minute, whatever the model says, and when it cannot be reached."],
+  ["takeProfitPct", "Take profit (% over entry)", "A position at or over its entry price plus this is sold in full. Checked every half minute."],
+  ["maxDailyDrawdownPct", "Daily drawdown (% of the vault)", "Measured against the vault's value when the UTC day began. At the limit the breaker trips until UTC midnight."],
+  ["maxTradesPerDay", "Trades per day", "The model's buys and sells, per UTC day. A stop loss or take profit is never refused for it and does not count."],
+  ["slippageBps", "Slippage cap (bps)", `Written into every Jupiter instruction; a quote or transaction that says otherwise is refused. ${AGENT_BOUNDS.slippageBps.min} to ${AGENT_BOUNDS.slippageBps.max}.`],
+  ["paperVaultUsd", "Paper vault ($)", `What a paper run starts with, at least the $${AGENT_BOUNDS.minVaultUsd} vault minimum. Starting on paper with nothing held starts a fresh paper vault.`],
+];
+function customRow(c = {}) {
+  return `<tr class="custom"><td><input type="text" data-c="mint" class="mint" aria-label="Mint address" spellcheck="false" value="${esc(c.mint ?? "")}"></td>
+    <td><input type="text" data-c="symbol" aria-label="Symbol" spellcheck="false" maxlength="12" value="${esc(c.symbol ?? "")}"></td>
+    <td class="help">${c.decimals === undefined ? "read on chain when saved" : `${c.decimals} decimals · read ${esc(new Date(c.verifiedAt).toISOString().slice(0, 10))}${c.freezeAuthority ? " · has a freeze authority" : ""}`}</td>
+    <td><button type="button" class="btn ghost" data-cremove title="Remove this token">×</button></td></tr>`;
+}
+function modelOptions(chosen) {
+  const list = [...agentModels];
+  if (chosen && !list.some((m) => m.id === chosen)) list.push({ id: chosen, displayName: `${chosen} (saved)` });
+  return `<option value="">Newest your key lists (default)</option>` + list.map((m) => `<option value="${esc(m.id)}" ${m.id === chosen ? "selected" : ""}>${esc(m.displayName === m.id ? m.id : `${m.displayName} — ${m.id}`)}</option>`).join("");
+}
+function buildAgent(res) {
+  const a = res.agent, spec = a.spec;
+  const inUniverse = new Set(spec.universe);
+  const field = (label, sub, input, help) => `<div class="field"><label>${label}<small>${sub}</small></label><div>${input}</div><div class="help">${help}</div></div>`;
+  agentForm.innerHTML = `<fieldset class="agent"><legend>The agent — agentic trading in plain English</legend>
+    <p class="help">Describe a strategy in your own words. On the schedule you choose, CoinMarketCat asks a model — through your own Anthropic API key — what to do about the tokens you list, showing it prices, changes, volume, liquidity and a few indicators computed from 15-minute candles. What the model proposes then goes through the limits below, which are code it cannot change: the stop loss, the take profit and the daily drawdown breaker run every half minute on their own. Every decision is journaled with its reason. It trades spot tokens only, paid for with the settlement token and sold back into it.</p>
+    <p class="truth">${esc(AGENT_RUNS_WHERE)} ${esc(AGENT_UNMEASURED)}</p>
+    ${field("Name", "name", `<input type="text" id="agName" maxlength="${AGENT_BOUNDS.nameMax}" value="${esc(spec.name)}" spellcheck="false">`, "What the journal and the arm sentence call it.")}
+    ${field("Strategy", "strategy", `<textarea id="agStrategy" maxlength="${AGENT_BOUNDS.strategyMax}" placeholder="For example: hold at most three tokens. Buy a token whose 4-hour return is positive and whose RSI is under 70; sell half when RSI goes over 80. Never buy after a 24-hour move of more than 15%.">${esc(spec.strategy)}</textarea><div class="counter" id="agCount"></div>`,
+      "In plain English (any language). The model is told to follow it inside the rules; where they conflict, the rules win. It is not a limit: nothing written here can widen one.")}
+    ${field("Tokens", "universe", `<div class="majors">${SOLANA_MAJORS.map((m) => `<label><input type="checkbox" data-major="${esc(m.mint)}" ${inUniverse.has(m.mint) ? "checked" : ""}> ${esc(m.symbol)} <small>${esc(m.name)}</small></label>`).join("")}</div>
+      <table class="stocks" style="margin-top:8px"><thead><tr><th>Custom mint</th><th>Symbol</th><th></th><th></th></tr></thead><tbody id="agCustom">${(spec.custom ?? []).map(customRow).join("")}</tbody></table>
+      <div class="stockadd"><button type="button" class="btn ghost" id="btnAgAddCustom">+ a custom mint</button></div>`,
+      `At most ${AGENT_BOUNDS.universeMax}. The Solana majors preset: each mint was read on chain and on Jupiter's token list on ${esc(SOLANA_MAJORS_VERIFIED.at.slice(0, 10))}. A custom mint is read over your RPC when you save — its decimals and token program come from the chain. SOL itself is not tradable in this version (the wrapped-SOL leg is not built); JitoSOL follows SOL's price but is not SOL.`)}
+    ${field("Settlement token", "settlementMint", `<select id="agSettlement">${SETTLEMENT_TOKENS.map((t) => `<option value="${esc(t.mint)}" ${t.mint === spec.settlementMint ? "selected" : ""}>${esc(t.symbol)} — ${esc(t.mint)}</option>`).join("")}</select>`,
+      `Every buy spends it and every sell returns it; the vault is counted in it, at $1 a unit. The vault minimum is $${AGENT_BOUNDS.minVaultUsd} and the minimum trade $${AGENT_BOUNDS.minTradeUsd}. Its issuer keeps a freeze authority over it.`)}
+    ${field("Ask the model every", "scheduleMinutes", `<select id="agSchedule">${AGENT_BOUNDS.schedules.map((m) => `<option value="${m}" ${m === spec.scheduleMinutes ? "selected" : ""}>${m} minutes</option>`).join("")}</select>`,
+      "Each call is billed to your API key: every 15 minutes is 96 calls a day. The protections do not wait for it.")}
+    ${AGENT_LIMITS.map(([k, label, help]) => field(label, k, `<input type="number" step="any" id="ag_${k}" value="${esc(String(spec[k]))}">`, help)).join("")}
+    ${field("When the breaker trips", "drawdownAction", `<select id="agDrawdownAction"><option value="stop_entries" ${spec.drawdownAction === "stop_entries" ? "selected" : ""}>Stop new buys until UTC midnight</option><option value="liquidate" ${spec.drawdownAction === "liquidate" ? "selected" : ""}>Sell everything back to the settlement token, and stop</option></select>`,
+      "Either way the model is not trusted to decide it.")}
+    ${field("Mode", "mode", `<select id="agMode"><option value="paper" ${spec.mode === "paper" ? "selected" : ""}>Paper (default) — nothing signed</option><option value="live" ${spec.mode === "live" ? "selected" : ""}>Live — the autopilot wallet signs</option></select>`,
+      "Paper fills every order at Jupiter's quote and signs nothing. Live needs the autopilot wallet created, unlocked and funded with at least $50 of the settlement token (and a little SOL for fees), and the arm sentence typed in the popup. Stop the agent before switching.")}
+    ${field("Anthropic API key", "stored in this browser", `<div class="keyrow"><input type="password" id="agApiKey" autocomplete="off" spellcheck="false" placeholder="${res.apiKeySaved ? "saved — paste a new one to replace it" : "paste your key"}"><button type="button" class="btn" id="btnAgKeySave">Save key</button><button type="button" class="btn ghost" id="btnAgKeyClear">Clear</button><span class="saved ${res.apiKeySaved ? "yes" : ""}" id="agKeyState">${res.apiKeySaved ? "saved" : "not saved"}</span></div>`,
+      "Bring your own key: there is no CoinMarketCat server. It is kept in this browser's extension storage, read only by the extension's service worker, and sent only to https://api.anthropic.com. It is never shown again, not even here. Every model call is billed to it.")}
+    ${field("Model", "model", `<div class="keyrow"><select id="agModel">${modelOptions(spec.model)}</select><button type="button" class="btn ghost" id="btnAgModels">Load the list</button></div>`,
+      "The list is what your key may use, as the API returns it, newest first. With none picked, the agent uses the newest one listed each time it starts.")}
+    <div class="agentbar"><button type="button" id="btnAgSave" class="btn">Save the agent</button><span id="agMsg" class="msg"></span></div>
+  </fieldset>`;
+  const count = () => { $("agCount").textContent = `${$("agStrategy").value.length} / ${AGENT_BOUNDS.strategyMax}`; };
+  $("agStrategy").addEventListener("input", count); count();
+  $("btnAgAddCustom").addEventListener("click", () => { $("agCustom").insertAdjacentHTML("beforeend", customRow()); $("agCustom").lastElementChild?.querySelector('input[data-c="mint"]')?.focus(); });
+  $("agCustom").addEventListener("click", (e) => { if (e.target instanceof HTMLElement && e.target.hasAttribute("data-cremove")) e.target.closest("tr")?.remove(); });
+  $("btnAgSave").addEventListener("click", saveAgent);
+  $("btnAgKeySave").addEventListener("click", saveKey);
+  $("btnAgKeyClear").addEventListener("click", clearKey);
+  $("btnAgModels").addEventListener("click", loadModels);
+}
+function readAgent() {
+  const custom = [...agentForm.querySelectorAll("#agCustom tr.custom")].map((tr) => ({
+    mint: tr.querySelector('[data-c="mint"]').value.trim(), symbol: tr.querySelector('[data-c="symbol"]').value.trim(),
+  })).filter((c) => c.mint || c.symbol);
+  const majors = [...agentForm.querySelectorAll("input[data-major]")].filter((x) => x.checked).map((x) => x.dataset.major);
+  const out = {
+    name: $("agName").value, strategy: $("agStrategy").value, settlementMint: $("agSettlement").value, scheduleMinutes: Number($("agSchedule").value),
+    drawdownAction: $("agDrawdownAction").value, mode: $("agMode").value, model: $("agModel").value, custom, universe: [...majors, ...custom.map((c) => c.mint)],
+  };
+  for (const [k] of AGENT_LIMITS) out[k] = $(`ag_${k}`).value === "" ? null : $(`ag_${k}`).value;
+  return out;
+}
+const agentMsg = (text, cls = "") => { const m = $("agMsg"); m.className = `msg ${cls}`; m.textContent = text; };
+async function saveAgent() {
+  for (const el of agentForm.querySelectorAll(".bad")) el.classList.remove("bad");
+  const draft = readAgent();
+  /* The page's own check, on everything the chain does not have to answer; the worker reads
+     each custom mint on chain and runs the same normalizer again before it stores anything. */
+  try { normalizeAgentSpec({ ...draft, custom: [], universe: draft.universe.filter((m) => SOLANA_MAJORS.some((x) => x.mint === m)) }); }
+  catch (error) {
+    agentMsg(error.message, "bad");
+    const el = error.key === "strategy" ? $("agStrategy") : error.key === "name" ? $("agName") : $(`ag_${error.key}`);
+    if (el) { el.classList.add("bad"); el.focus?.(); }
+    return;
+  }
+  agentMsg("saving — a custom mint is read on chain first…");
+  const res = await chrome.runtime.sendMessage({ type: AGENT.SAVE_SPEC, spec: draft });
+  if (!res?.ok) { agentMsg(res?.error ?? "save failed", "bad"); return; }
+  agentMsg("saved — the agent reads it at its next tick", "good");
+  await loadAgent();
+}
+async function saveKey() {
+  const apiKey = $("agApiKey").value.trim();
+  $("agApiKey").value = "";
+  if (!apiKey) { agentMsg("paste a key first", "bad"); return; }
+  const res = await chrome.runtime.sendMessage({ type: AGENT.SET_API_KEY, apiKey });
+  if (!res?.ok) { agentMsg(res?.error ?? "the key was not saved", "bad"); return; }
+  agentMsg("the key is saved in this browser; load the model list to check it", "good");
+  $("agKeyState").textContent = "saved"; $("agKeyState").className = "saved yes";
+}
+async function clearKey() {
+  if (!confirm("Remove the API key from this browser? The agent cannot ask the model without it; the protections keep running.")) return;
+  const res = await chrome.runtime.sendMessage({ type: AGENT.CLEAR_API_KEY });
+  if (res?.ok) { $("agKeyState").textContent = "not saved"; $("agKeyState").className = "saved"; agentMsg("the key was removed", "good"); }
+}
+async function loadModels() {
+  agentMsg("asking the API which models your key may use…");
+  const res = await chrome.runtime.sendMessage({ type: AGENT.LIST_MODELS });
+  if (!res?.ok) { agentMsg(res?.error ?? "the list could not be read", "bad"); return; }
+  agentModels = res.models;
+  const chosen = $("agModel").value;
+  $("agModel").innerHTML = modelOptions(chosen);
+  agentMsg(`${res.models.length} models listed; pick one, or keep the default, then Save the agent`, "good");
+}
+async function loadAgent() {
+  const res = await chrome.runtime.sendMessage({ type: AGENT.STATUS }).catch(() => null);
+  if (res?.ok) buildAgent(res);
+  else agentForm.innerHTML = `<fieldset class="agent"><legend>The agent</legend><p class="help">The agent could not be read: ${esc(res?.error ?? "the worker did not answer")}</p></fieldset>`;
+}
+
+loadAgent();
 load();

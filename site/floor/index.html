@@ -103,7 +103,7 @@
         </button>
         <button class="spot" type="button" data-cat="coinmarketcat" aria-haspopup="dialog" style="--x:55%;--y:61%;--w:24%;--h:25%;--tx:26%;--accent:#14f195;--accent-text:#5ef0b4">
           <span class="spot-ring"></span>
-          <span class="spot-tag"><span class="tag-name">CoinMarketCat</span><span class="tag-beat">The sniper · software</span><span class="tag-count" data-count="coinmarketcat">Field reports</span></span>
+          <span class="spot-tag"><span class="tag-name">CoinMarketCat</span><span class="tag-beat">The agentic trader · software</span><span class="tag-count" data-count="coinmarketcat">Field reports</span></span>
         </button>
       </div>
     </div>
@@ -174,7 +174,7 @@
       <div class="carries" id="carries">
         <p class="carries-title">What every case will carry</p>
         <ol>
-          <li><b>A case number and the day it was posted.</b> CRY for Crying Cat, GRR for Grumpy Cat, CSH for CashCat, POP for Popcat; the sniper's field reports are CMC, and the Director's announcements and corrections DIR.</li>
+          <li><b>A case number and the day it was posted.</b> CRY for Crying Cat, GRR for Grumpy Cat, CSH for CashCat, POP for Popcat; CoinMarketCat's field reports are CMC, and the Director's announcements and corrections DIR.</li>
           <li><b>A verdict.</b> Rugged, not impressed, whale move, copycat, clone or honeypot, or “no red flags found”, which is not an endorsement.</li>
           <li><b>Its evidence, linked.</b> Every transaction and wallet on a public explorer, and an archived copy of anything off-chain. No link, no case.</li>
           <li><b>The post on X,</b> where you can reply with a tx if the agency got it wrong. Corrections go out as loud as the case.</li>
@@ -472,9 +472,9 @@ Deployer: <span class="slot">[wallet link]</span> (2/3)</pre>
     <div class="st-id">
       <p class="agent-no">Agent 001 <span class="status soft">Software · download it</span></p>
       <h2 class="st-name">CoinMarketCat</h2>
-      <p class="beat"><b>Beat</b> New Solana launches on pump.fun, including launches priced in tokenised stocks.</p>
-      <p class="catch">“Ten seconds. Then maybe.”</p>
-      <p class="bio">CoinMarketCat watches new Solana launches and, once you arm it, buys only the ones still at or above entry ten seconds later, from your Phantom wallet or an autopilot wallet you fund, inside the take-profit, ticket and daily budget you set. It learned that rule from a trading lane that lost money, starts in Observe, and prints that losing record beside the switch that arms it.</p>
+      <p class="beat"><b>Beat</b> Solana spot tokens, traded from a strategy you write in plain English, inside limits it cannot change.</p>
+      <p class="catch">“Your plan. Hard limits. Every move explained.”</p>
+      <p class="bio">CoinMarketCat trades Solana spot tokens from a strategy you write in plain English. On your schedule it asks a model, with your own API key, what to do about the tokens you chose; code then applies your stop loss, take profit, daily drawdown and per-token limits, which the model cannot change, and every decision is logged with its reason. It starts on paper, runs only while Chrome is open, and carries Snipurr, the sniper cat's lane.</p>
       <div class="agent-links"><a href="../coinmarketcat/">Open its file</a><a href="../console/">Console</a></div>
     </div>
     <section class="st-files">
@@ -484,28 +484,27 @@ Deployer: <span class="slot">[wallet link]</span> (2/3)</pre>
         <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
         <div>
           <p class="empty-title">No field reports posted yet.</p>
-          <p>The agency has not posted a field report. When it does, the report appears here and on the agency's X account, with every buy and sell linked. The extension itself posts nothing: each report is written from the agency's own copy of it.</p>
+          <p>The agency has not posted a field report. When it does, the report appears here and on the agency's X account, with every decision's reason and every buy and sell linked. The extension itself posts nothing: each report is written from the journal of the agency's own copy of it.</p>
           <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>handle soon</small></button>
         </div>
       </div>
       <details class="st-tpl" data-slot="tpl">
         <summary>How a field report reads <span class="tpl-stamp">Template</span></summary>
-        <p class="fine">A template with placeholder fields, not a real report. It is written from the shadow-book export of the agency's own copy. In Observe, post 2 is left out and the report says "Observe: nothing bought".</p>
+        <p class="fine">A template with placeholder fields, not a real report. It is written from the journal of the agency's own copy. On paper, receipts are left out and the report says "Paper: nothing signed".</p>
 <pre class="post">FIELD REPORT | AGENT 001 | <span class="slot">[YYYY-MM-DD]</span>
 
-Mode: <span class="slot">[Observe / Execute, Phantom / Execute, Autopilot]</span>
-Window: <span class="slot">[HH:MM]</span>-<span class="slot">[HH:MM]</span> UTC
-Limits: take <span class="slot">[1.5]</span>x | ticket <span class="slot">[0.005]</span> SOL | day cap <span class="slot">[0.01]</span> SOL
-Would-have positions: <span class="slot">[n]</span> | bought: <span class="slot">[n]</span> | closed: <span class="slot">[n]</span>
-Up <span class="slot">[n]</span> / Down <span class="slot">[n]</span> | Net <span class="slot">[+/-0.000]</span> SOL (1/3)</pre>
+Mode: <span class="slot">[Paper / Live]</span> | every <span class="slot">[30]</span> min
+Tokens: <span class="slot">[symbols]</span> | settled in <span class="slot">[USDC]</span>
+Limits: <span class="slot">[$25]</span> a token | stop <span class="slot">[8]</span>% | take <span class="slot">[15]</span>% | day <span class="slot">[5]</span>%
+Decisions: <span class="slot">[n]</span> | fills: <span class="slot">[n]</span> | refused: <span class="slot">[n]</span>
+Up <span class="slot">[n]</span> / Down <span class="slot">[n]</span> | Net <span class="slot">[+/-$0.00]</span> (1/3)</pre>
 <pre class="post">Receipts (UTC):
-<span class="slot">[HH:MM:SS]</span> buy <span class="slot">[token]</span> <span class="slot">[tx link]</span>
-<span class="slot">[HH:MM:SS]</span> sell <span class="slot">[token]</span>, exit: <span class="slot">[1.5x take / stop / creator exit / 90s stall / 180s clock]</span> <span class="slot">[tx link]</span>
-Signer: <span class="slot">[wallet link]</span>
-Shadow book (JSONL): <span class="slot">[link]</span> (2/3)</pre>
-<pre class="post">One window is not a track record. This lane is unmeasured; the lane it learned from lost money. Not advice.
+<span class="slot">[HH:MM]</span> buy <span class="slot">[token]</span>: <span class="slot">[the model's reason]</span> <span class="slot">[tx link]</span>
+<span class="slot">[HH:MM]</span> sell <span class="slot">[token]</span>, <span class="slot">[stop / take / the model]</span> <span class="slot">[tx link]</span>
+Vault: <span class="slot">[wallet link]</span> (2/3)</pre>
+<pre class="post">One window is not a track record. This agent is unmeasured, and a model's judgement is not an edge. Not advice.
 
-Ten seconds. Then maybe.
+Your plan. Hard limits. Every move explained.
 https://catintelligenceagency.com/coinmarketcat/ (3/3)</pre>
       </details>
     </section>

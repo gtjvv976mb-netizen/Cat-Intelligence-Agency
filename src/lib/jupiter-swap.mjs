@@ -41,6 +41,10 @@ import { TOKEN_PROGRAM, TOKEN_2022_PROGRAM } from "../../vendor/executor/token20
 import { ATA_PROGRAM, associatedTokenAddress, fromBase64 } from "./tx.mjs";
 
 export const JUPITER_SWAP_API = "https://api.jup.ag/swap/v1";
+/** Jupiter's price API on the same host and the same keyless budget: the agent's fallback
+ *  price for a token DexScreener did not price (src/lib/agent-market.mjs). Read live on
+ *  2026-09-24: { <mint>: { usdPrice, liquidity, decimals, priceChange24h, … } }, cached 5 s. */
+export const JUPITER_PRICE_API = "https://api.jup.ag/price/v3";
 export const JUPITER_PROGRAM = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
 export const JUPITER_EVENT_AUTHORITY = "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf";
 export const LOOKUP_TABLE_PROGRAM = "AddressLookupTab1e1111111111111111111111111";
@@ -90,7 +94,7 @@ const positiveRaw = (v, label) => {
 export function createJupiterClient({
   fetchImpl = globalThis.fetch, clock = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   timers = { setTimeout: globalThis.setTimeout.bind(globalThis), clearTimeout: globalThis.clearTimeout.bind(globalThis) },
-  baseUrl = JUPITER_SWAP_API, intervalMs = JUPITER_KEYLESS_INTERVAL_MS, timeoutMs = 10_000, maxWaitMs = 15_000,
+  baseUrl = JUPITER_SWAP_API, priceUrl = JUPITER_PRICE_API, intervalMs = JUPITER_KEYLESS_INTERVAL_MS, timeoutMs = 10_000, maxWaitMs = 15_000,
 } = {}) {
   let nextAt = 0;
   let backoffUntil = 0;
@@ -108,10 +112,10 @@ export function createJupiterClient({
     nextAt = Math.max(clock(), nextAt) + intervalMs;
   }
 
-  async function request(path, { query = null, body = null, priority = "entry" } = {}) {
+  async function request(path, { query = null, body = null, priority = "entry", base = baseUrl } = {}) {
     await slot(priority);
     counters.requests++;
-    const url = `${baseUrl}${path}${query ? `?${new URLSearchParams(query).toString()}` : ""}`;
+    const url = `${base}${path}${query ? `?${new URLSearchParams(query).toString()}` : ""}`;
     const controller = typeof AbortController === "function" ? new AbortController() : null;
     const timer = controller ? timers.setTimeout(() => controller.abort(), timeoutMs) : null;
     let res, text;
@@ -165,8 +169,28 @@ export function createJupiterClient({
         prioritizationFeeLamports: { priorityLevelWithMaxLamports: { maxLamports: Number(priorityFeeLamports), priorityLevel: "veryHigh", global: false } },
       } });
     },
+    /** USD prices for up to 50 mints in one request, on the same rate budget as every
+     *  quote and swap: one keyless client, so the agent and the xStock venue never ask
+     *  Jupiter for more than 0.5 requests a second between them. */
+    prices({ mints, priority = "background" }) {
+      const ids = [...new Set((mints ?? []).map(String))].slice(0, 50);
+      return request("", { priority, base: priceUrl, query: { ids: ids.join(",") } });
+    },
     status() { const now = clock(); return { ...counters, lastError, nextSlotInMs: Math.max(0, nextAt - now), restingForMs: Math.max(0, backoffUntil - now) }; },
   });
+}
+
+/**
+ * THE PAIR ALLOWLIST. A caller that trades only between named mints (the agent: its
+ * settlement token and its universe, either way) passes `allowedPairs` as "in>out"
+ * strings, and a swap whose input and output are not one of them is refused at
+ * `pair_not_allowed` — before a quote is asked for, and again inside the check before
+ * signing, on the mints the transaction is bound to.
+ */
+export function assertPairAllowed({ inputMint, outputMint, allowedPairs }) {
+  const pairs = allowedPairs instanceof Set ? allowedPairs : new Set(allowedPairs ?? []);
+  if (!pairs.has(`${inputMint}>${outputMint}`))
+    throw new SwapCheckError("pair_not_allowed", `${inputMint} → ${outputMint} is not a pair this swap may be: only the settlement token and the listed tokens, either way`);
 }
 
 /* ── the quote: does it say what was asked? ──────────────────────────────────────── */
@@ -322,12 +346,15 @@ export async function loadLookupTables(rpc, addresses) {
  *   · the priority fee its compute budget implies is inside `maxPriorityFeeLamports`.
  * It is pure: the lookup tables arrive resolved. What it returns (the writable accounts,
  * the two custody accounts) is what the lane pre-reads and simulates next.
+ * With `allowedPairs` (the agent passes its own), the input and output must also be one of
+ * those pairs, or nothing else is read: `pair_not_allowed`.
  */
 export function checkSwapTransaction({
   txBase64, wallet, inputMint, outputMint, inputProgram, outputProgram, amountRaw, quote,
-  slippageCapBps, lookupTables = new Map(), maxPriorityFeeLamports, maxComputeUnits = JUPITER_MAX_COMPUTE_UNITS,
+  slippageCapBps, lookupTables = new Map(), maxPriorityFeeLamports, maxComputeUnits = JUPITER_MAX_COMPUTE_UNITS, allowedPairs = null,
 }) {
   const bad = (clause, message) => { throw new SwapCheckError(clause, message); };
+  if (allowedPairs !== null) assertPairAllowed({ inputMint, outputMint, allowedPairs });
   for (const [label, program] of [["input", inputProgram], ["output", outputProgram]])
     if (program !== TOKEN_PROGRAM && program !== TOKEN_2022_PROGRAM) bad("token_program", `the ${label} mint's program ${program} is not a token program`);
   let tx;

@@ -29,24 +29,43 @@
  * key back is the recovery export, which needs the passphrase.
  *
  * THE xSTOCK VENUE (off by default) needs nothing new from this file: the engine builds its
- * feed poller and its Jupiter client on the worker's own fetch (the manifest's https host
- * permission already covers api.jup.ag, api.geckoterminal.com, api.dexscreener.com), and
- * the same interval drives its tick. The popup's venue switch is an ordinary SET_CONFIG.
+ * feed poller on the worker's own fetch (the manifest's https host permission already covers
+ * api.jup.ag, api.geckoterminal.com, api.dexscreener.com), and the same interval drives its
+ * tick. The popup's venue switch is an ordinary SET_CONFIG. Its Jupiter client is the ONE
+ * this file makes and shares with the agent, so the two never ask Jupiter for more than the
+ * keyless 0.5 requests a second between them.
+ *
+ * THE AGENT (src/lib/agent-runner.mjs) is CoinMarketCat's agentic trader; the pump.fun engine
+ * above is Snipurr, its sniper lane. This file hosts the agent too: it ticks on the same
+ * half-minute keepalive alarm (the protections — stop loss, take profit, the daily drawdown
+ * breaker — on every tick; the model on the owner's schedule), it is handed the engine's
+ * fences bound to the autopilot wallet (engine.agentFences), and it is driven from the
+ * extension's own pages through the AGENT messages. The owner's Anthropic API key is kept in
+ * chrome.storage.local under AGENT_KEY_STORAGE, read here and nowhere else, and handed to the
+ * brain only as a reader; the brain sends it to https://api.anthropic.com and nowhere else,
+ * and no status, log line or page ever carries it (test-agent-no-leak.mjs). WITHDRAW is the
+ * owner's: it pauses the agent and runs the existing sweep to the connected Phantom address;
+ * the model has no message, no action and no code path that reaches it.
  */
 import { createHawkEngine } from "./lib/engine.mjs";
 import { createRpc, createLogsFeed } from "./lib/rpc.mjs";
 import { PUMPFUN_PROGRAM_ID } from "../vendor/executor/snipe-venue-pumpfun.mjs";
-import { TOKEN_2022_PROGRAM, TOKEN_PROGRAM, describeMint } from "../vendor/executor/token2022.mjs";
+import { TOKEN_2022_PROGRAM, TOKEN_PROGRAM, describeMint, parseMintExtensions, assertTradeableExtensions } from "../vendor/executor/token2022.mjs";
 import {
   CONFIG_DEFAULTS, normalizeConfig, websocketUrlFor, ConfigError, quoteEntryFor, STOCK_FOCUS_CHOICES, AUTOPILOT_UNLOCK_MINUTES,
 } from "./lib/config.mjs";
-import { UI, BRIDGE, SIGN_ERRORS, BridgeError, nextId, AUTOPILOT } from "./lib/protocol.mjs";
+import { UI, BRIDGE, SIGN_ERRORS, BridgeError, nextId, AUTOPILOT, AGENT } from "./lib/protocol.mjs";
 import { fromBase64, toBase64, sameMessage, signatureOf, transactionFeeLamports, unitsToRaw, rawToUnits } from "./lib/tx.mjs";
 import {
   createKeystore, createSessionSigner, buildFundTransaction, buildSweepTransaction, buildTokenSweepTransaction,
   buildTokenFundTransaction, buildCloseTokenAccountsTransaction, sweepableLamports, MAX_CLOSES_PER_TRANSACTION,
   SYSTEM_ACCOUNT_RENT_EXEMPT_LAMPORTS,
 } from "./lib/session-wallet.mjs";
+import { createJupiterClient } from "./lib/jupiter-swap.mjs";
+import { createMarket } from "./lib/agent-market.mjs";
+import { createBrain } from "./lib/agent-brain.mjs";
+import { createAgentRunner } from "./lib/agent-runner.mjs";
+import { SETTLEMENT_TOKENS, SOLANA_MAJORS, SOLANA_MAJORS_VERIFIED, AGENT_BOUNDS, settlementByMint, settlementFor } from "./lib/agent-strategy.mjs";
 
 const STATE_KEY = "hawk:state";
 const SHADOW_KEY = "hawk:shadow";
@@ -55,6 +74,7 @@ const AUTOPILOT_META_KEY = "coinmarketcat:autopilot";   // { sweepTo, lastFund }
 const PORT_NAME = "hawk-console";
 const ALARM = "hawk-keepalive";
 const EXPIRY_ALARM = "coinmarketcat-autopilot-expiry";
+const AGENT_KEY_STORAGE = "coinmarketcat:agent:api-key";   // the owner's Anthropic API key: read by this file only
 const FUND_PRIORITY_FEE_LAMPORTS = 10_000;   // a transfer is not in a race; this lands it under ordinary load
 const SWEEP_COMPUTE_UNIT_LIMIT = 20_000;
 
@@ -195,6 +215,9 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 /* ── the engine ────────────────────────────────────────────────────────────────────── */
+/** One keyless Jupiter client for everything this worker asks Jupiter: the xStock venue's
+ *  quotes and swaps, and the agent's quotes, swaps and fallback prices, on one rate budget. */
+const jupiter = createJupiterClient({});
 let engine = null;
 let config = null;
 let starting = null;
@@ -226,7 +249,7 @@ async function ensureEngine() {
     const { primary, secondary } = rpcFor(config);
     engine = createHawkEngine({
       rpc: primary, secondaryRpc: secondary, bridge, sessionSigner, store, feedFactory: feedFactoryFor(config),
-      log, notify, config,
+      log, notify, config, jupiter,
     });
     engine.onStatus(() => scheduleStatusPush());
     await engine.start();                      // start() refreshes the signer: the keystore is read before anything arms
@@ -296,7 +319,9 @@ function consoleStatus(s) {
 function updateBadge(status = null) {
   const s = status ?? (engine ? engine.status() : null);
   let text = "", color = "#7a6d9c";
+  const a = agent ? agent.status() : null;
   if (s?.executing) { text = s.signerMode === "autopilot" ? "AUTO" : "LIVE"; color = "#ff6b5a"; }
+  else if (a && a.status === "running") { text = a.mode === "live" ? "AGNT" : "PAPR"; color = a.mode === "live" ? "#ff6b5a" : "#14f195"; }
   else if (s?.lane === "observe") { text = "OBS"; color = "#9945ff"; }
   else if (s?.lane === "execute") { text = "ARM?"; color = "#e0ad3d"; }
   if ((s?.open ?? []).some((p) => p.live && p.pendingSell)) { text = "SELL"; color = "#ff6b5a"; }
@@ -366,6 +391,7 @@ const simError = (sim) => `${JSON.stringify(sim.err)}${Array.isArray(sim.logs) &
 
 async function autopilotStatus() {
   const e = await ensureEngine();
+  const agentSettlement = settlementFor((await ensureAgent()).spec());
   const snap = keystore.snapshot();
   const meta = await readMeta();
   const publicKey = snap.publicKey;
@@ -379,7 +405,9 @@ async function autopilotStatus() {
   return {
     exists: Boolean(publicKey), publicKey, unlocked: snap.unlocked, expiresAt: snap.expiresAt,
     signerMode: config.signerMode, unlockMinutes: config.autopilotUnlockMinutes, unlockMinutesRange: AUTOPILOT_UNLOCK_MINUTES,
-    fundAssets: [{ asset: "SOL", symbol: "SOL", defaultAmount: config.dailySolCap }, ...(config.quoteMints ?? []).map((q) => ({ asset: q.mint, symbol: q.symbol, defaultAmount: q.dailyCap }))],
+    fundAssets: [{ asset: "SOL", symbol: "SOL", defaultAmount: config.dailySolCap },
+      ...(agentSettlement ? [{ asset: agentSettlement.mint, symbol: agentSettlement.symbol, defaultAmount: AGENT_BOUNDS.minVaultUsd }] : []),
+      ...(config.quoteMints ?? []).filter((q) => q.mint !== agentSettlement?.mint).map((q) => ({ asset: q.mint, symbol: q.symbol, defaultAmount: q.dailyCap }))],
     phantomWallet: bridge.wallet(), phantomReady: bridge.isReady(), sweepTo: bridge.wallet() ?? meta.sweepTo ?? null,
     balanceLamports, balanceSol: balanceLamports === null ? null : lamportsToSol(balanceLamports), rentFloorLamports: SYSTEM_ACCOUNT_RENT_EXEMPT_LAMPORTS,
     tokens: tokens.map((t) => ({ mint: t.mint, symbol: t.symbol, amountRaw: t.amountRaw, decimals: t.decimals, ui: t.ui })),
@@ -455,8 +483,10 @@ async function autopilotFund(msg) {
     if (lamports <= 0n) throw new Error("the SOL amount must be more than zero");
     built = buildFundTransaction({ from, to, lamports, blockhash, priorityFeeLamports: FUND_PRIORITY_FEE_LAMPORTS });
   } else {
-    const entry = quoteEntryFor(config, asset);
-    if (!entry) throw new Error("only a stock listed in Options → Stock quotes can be funded from here");
+    /* A listed stock, or the agent's settlement token (USDC or USDT): the vault it trades from. */
+    const settlementToken = settlementByMint(asset);
+    const entry = quoteEntryFor(config, asset) ?? (settlementToken ? { symbol: settlementToken.symbol, dailyCap: AGENT_BOUNDS.minVaultUsd } : null);
+    if (!entry) throw new Error("only SOL, the agent's settlement token (USDC or USDT) or a stock listed in Options → Stock quotes can be funded from here");
     const read = await rpc.getMultipleAccounts([asset]);
     const facts = describeMint(read.accounts[0] ?? null, asset);
     if (facts.metadataSymbol && facts.metadataSymbol !== entry.symbol) throw new Error(`the list names ${shortKey(asset)} ${entry.symbol}, but that mint calls itself ${facts.metadataSymbol}`);
@@ -560,6 +590,135 @@ async function autopilotSweep(msg) {
   return { ok: true, ...done };
 }
 
+/* ── the agent ─────────────────────────────────────────────────────────────────────────
+   The runner, its market source and its brain. The brain is handed `readApiKey`, the only
+   reader of the owner's key; the runner never sees the key at all. */
+async function readApiKey() {
+  const got = await chrome.storage.local.get(AGENT_KEY_STORAGE);
+  const key = got?.[AGENT_KEY_STORAGE];
+  return typeof key === "string" && key.length ? key : null;
+}
+async function hasApiKey() { return (await readApiKey()) !== null; }
+const market = createMarket({ jupiter });
+const brain = createBrain({ apiKey: readApiKey });
+let agent = null;
+let agentStarting = null;
+async function ensureAgent() {
+  if (agent) return agent;
+  if (agentStarting) return agentStarting;
+  agentStarting = (async () => {
+    const runner = createAgentRunner({
+      storage: chromeArea(chrome.storage.local), market, brain, jupiter,
+      fences: () => (engine && typeof engine.agentFences === "function" ? engine.agentFences() : null),
+      hasApiKey, log, notify,
+    });
+    await runner.load();
+    agent = runner;
+    return runner;
+  })();
+  try { return await agentStarting; } finally { agentStarting = null; }
+}
+/** One agent tick, off the message path: the protections every time, the model when due. */
+function agentTick() {
+  ensureEngine().then(() => ensureAgent()).then((a) => a.tick()).then(() => updateBadge()).catch((e) => log(`agent tick failed: ${e?.message ?? e}`));
+}
+/** A custom mint, read over the owner's RPC before it can join the universe: its decimals
+ *  and token program come from the chain, never from the form. */
+async function verifyCustomMints(list) {
+  if (!Array.isArray(list) || list.length === 0) return [];
+  const known = new Map((agent?.spec().custom ?? []).map((c) => [c.mint, c]));
+  const fresh = list.filter((c) => !(known.has(String(c?.mint ?? "").trim())));
+  let read = { accounts: [] };
+  if (fresh.length) read = await hostRpc().getMultipleAccounts(fresh.map((c) => String(c.mint).trim()));
+  return list.map((c) => {
+    const mint = String(c?.mint ?? "").trim();
+    if (known.has(mint)) return { ...known.get(mint), symbol: c.symbol ?? known.get(mint).symbol };
+    const account = read.accounts?.[fresh.indexOf(c)] ?? null;
+    let facts;
+    try { facts = describeMint(account, mint); } catch (error) { throw new Error(`${mint}: ${error.message}`); }
+    if (facts.initialized !== true) throw new Error(`${mint} is not an initialized mint`);
+    if (facts.program === TOKEN_2022_PROGRAM) {
+      try { assertTradeableExtensions(parseMintExtensions(Buffer.from(account.data[0], account.data[1] || "base64")), mint); }
+      catch (error) { throw new Error(`${c.symbol ?? mint}: ${error.message}`); }
+    }
+    if (facts.paused) throw new Error(`${c.symbol ?? mint} is paused by its issuer`);
+    return { mint, symbol: String(c.symbol ?? "").trim(), decimals: facts.decimals, program: facts.program, verifiedAt: Date.now(), freezeAuthority: facts.freezeAuthority, mintAuthority: facts.mintAuthority };
+  });
+}
+async function agentStatus() {
+  await ensureEngine();
+  const a = await ensureAgent();
+  if (a.spec().mode === "live") { try { await a.liveArmability(); } catch { /* the checklist says what it could not read */ } }
+  const meta = await readMeta();
+  return {
+    ok: true, agent: a.status(), apiKeySaved: await hasApiKey(), withdrawTo: bridge.wallet() ?? meta.sweepTo ?? null,
+    autopilot: { publicKey: keystore.snapshot().publicKey, unlocked: sessionSigner.isReady() },
+    settlementTokens: SETTLEMENT_TOKENS, majors: SOLANA_MAJORS, majorsVerified: SOLANA_MAJORS_VERIFIED, bounds: AGENT_BOUNDS, rpcConfigured: Boolean(config?.rpcUrl),
+  };
+}
+async function agentSaveSpec(msg) {
+  const a = await ensureAgent();
+  const input = msg.spec && typeof msg.spec === "object" && !Array.isArray(msg.spec) ? msg.spec : {};
+  const custom = await verifyCustomMints(input.custom ?? []);
+  const saved = await a.saveSpec({ ...input, custom });
+  updateBadge();
+  return { ok: true, spec: saved };
+}
+async function agentSetApiKey(msg) {
+  const typed = typeof msg.apiKey === "string" ? msg.apiKey.trim() : "";
+  if (!/^[A-Za-z0-9_-]{20,300}$/.test(typed)) throw new Error("that does not look like an API key: paste the whole key (letters, digits, - and _)");
+  await chrome.storage.local.set({ [AGENT_KEY_STORAGE]: typed });
+  log("agent: an API key was saved in this browser; it is sent only to the Anthropic API");
+  return { ok: true, apiKeySaved: true };
+}
+async function agentClearApiKey() {
+  await chrome.storage.local.remove(AGENT_KEY_STORAGE);
+  log("agent: the API key was removed from this browser");
+  return { ok: true, apiKeySaved: false };
+}
+async function agentListModels() {
+  const list = await brain.listModels({ force: true });
+  return { ok: true, models: list.map((m) => ({ id: m.id, displayName: m.displayName })) };
+}
+/** THE OWNER'S WITHDRAWAL: pause the agent, sweep the autopilot wallet to the Phantom address
+ *  the owner confirmed (the existing sweep, signed by the autopilot wallet), then close the
+ *  agent's rows for what left. Only an extension page can ask; the model cannot. */
+async function agentWithdraw(msg) {
+  const a = await ensureAgent();
+  await a.pauseForWithdraw();
+  const result = await autopilotSweep({ expectTo: msg.expectTo });
+  await a.markWithdrawn(result);
+  updateBadge();
+  return result;
+}
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || typeof msg.type !== "string" || !msg.type.startsWith("hawk:agent:")) return false;
+  (async () => {
+    if (!fromExtensionPage(sender)) return { ok: false, error: "the agent answers the extension's own pages only" };
+    try {
+      switch (msg.type) {
+        case AGENT.STATUS: return await agentStatus();
+        case AGENT.SAVE_SPEC: return await agentSaveSpec(msg);
+        case AGENT.SET_API_KEY: return await agentSetApiKey(msg);
+        case AGENT.CLEAR_API_KEY: return await agentClearApiKey();
+        case AGENT.LIST_MODELS: return await agentListModels();
+        case AGENT.START: { await ensureEngine(); const a = await ensureAgent(); const st = await a.start({ liveAck: typeof msg.liveAck === "string" ? msg.liveAck : undefined }); agentTick(); return { ok: true, agent: st }; }
+        case AGENT.PAUSE: { const a = await ensureAgent(); const st = msg.on === false ? await a.resume() : await a.pause(); updateBadge(); return { ok: true, agent: st }; }
+        case AGENT.STOP: { const a = await ensureAgent(); const st = await a.stop(); updateBadge(); return { ok: true, agent: st }; }
+        case AGENT.RUN_NOW: { const a = await ensureAgent(); const st = await a.runNow(); agentTick(); return { ok: true, agent: st }; }
+        case AGENT.LIQUIDATE: { await ensureEngine(); const a = await ensureAgent(); const out = await a.liquidateAll(); updateBadge(); return { ok: true, ...out }; }
+        case AGENT.WITHDRAW: { await ensureEngine(); return { ok: true, ...(await agentWithdraw(msg)) }; }
+        default: return { ok: false, error: `unknown message ${msg.type}` };
+      }
+    } catch (error) {
+      /* The message only: AgentError, AgentSpecError, BrainError and RpcError never carry the
+         API key, and nothing here is logged. */
+      return { ok: false, error: error?.message ?? String(error), code: error?.clause ?? error?.code, key: error?.key };
+    }
+  })().then(sendResponse);
+  return true;
+});
+
 /* ── messages from the popup, the options page and the setup page ──────────────────── */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || typeof msg.type !== "string" || !msg.type.startsWith("hawk:autopilot:")) return false;
@@ -572,7 +731,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case AUTOPILOT.UNLOCK: return await autopilotUnlock(msg);
         case AUTOPILOT.LOCK: return await autopilotLock();
         case AUTOPILOT.FUND: return await autopilotFund(msg);
-        case AUTOPILOT.SWEEP: return await autopilotSweep(msg);
+        case AUTOPILOT.SWEEP: {
+          /* The agent's live positions are tokens in this wallet: a plain sweep would move
+             them out from under its book. Its own Withdraw pauses it and closes those rows. */
+          const held = (await ensureAgent()).liveHeld();
+          if (held > 0) throw new Error(`the agent holds ${held} live position${held === 1 ? "" : "s"} in this wallet: Liquidate all first, or use the agent's Withdraw, which pauses it and closes those rows as withdrawn`);
+          return await autopilotSweep(msg);
+        }
         case AUTOPILOT.EXPORT_SECRET: return await autopilotExport(msg);
         default: return { ok: false, error: `unknown message ${msg.type}` };
       }
@@ -640,7 +805,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 chrome.runtime.onStartup.addListener(() => { chrome.alarms.create(ALARM, { periodInMinutes: 0.5 }); ensureEngine().catch((e) => log(`boot failed: ${e.message}`)); });
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ALARM) ensureEngine().catch((e) => log(`wake failed: ${e.message}`));
+  if (alarm.name === ALARM) { ensureEngine().catch((e) => log(`wake failed: ${e.message}`)); agentTick(); }
   if (alarm.name === EXPIRY_ALARM) {
     /* The unlock ran out: the snapshot already says locked (it judges the clock); this
        re-reads the store, which removes the expired entry, and says so out loud. */

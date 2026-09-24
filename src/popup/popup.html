@@ -5,11 +5,65 @@
 <title>COINMARKETCAT</title>
 <link rel="stylesheet" href="popup.css">
 </head>
-<body>
+<body data-tab="agent">
 <header class="top">
-  <div class="brand">COINMARKET<em>CAT</em> <span class="sub">sniper cat</span></div>
+  <div class="brand">COINMARKET<em>CAT</em> <span class="sub">agentic trading cat</span></div>
   <span id="lanePill" class="pill">off</span>
 </header>
+
+<nav class="tabs" id="tabs" aria-label="Lanes">
+  <button type="button" data-tab="agent" class="on">Agent</button>
+  <button type="button" data-tab="snipurr">Snipurr · sniper lane</button>
+</nav>
+
+<section class="card agent" id="agentCard" data-tab="agent">
+  <div class="row">
+    <div><div class="k">The agent</div><div class="v" id="agName">not set up yet</div></div>
+    <div class="pills"><span id="agModePill" class="pill">paper</span><span id="agStatusPill" class="pill">stopped</span></div>
+  </div>
+  <p class="hint" id="agLine">Describe a strategy in plain English in Options, choose its tokens and limits, then start it on paper.</p>
+  <div class="stats">
+    <div><div class="k">Vault</div><div class="v mono" id="agVault">—</div></div>
+    <div><div class="k">In tokens</div><div class="v mono" id="agExposure">—</div></div>
+    <div><div class="k">Realized</div><div class="v mono" id="agRealized">—</div></div>
+    <div><div class="k">Unrealized</div><div class="v mono" id="agUnrealized">—</div></div>
+    <div><div class="k">Win rate</div><div class="v mono" id="agWinRate">—</div></div>
+    <div><div class="k">Max drawdown</div><div class="v mono" id="agMaxDD">—</div></div>
+  </div>
+  <div class="row small"><span class="k">Today (UTC)</span> <span id="agDay" class="v small">—</span></div>
+  <div class="k" style="margin-top:10px">Positions</div>
+  <div id="agPositions" class="list"><div class="empty">nothing held</div></div>
+  <div class="k" style="margin-top:10px">Last decisions</div>
+  <div id="agDecisions" class="list small"><div class="empty">no decision yet</div></div>
+  <div id="agArmBox" class="armbox hidden">
+    <div class="k">Before the agent may trade live</div>
+    <ul id="agChecklist" class="checklist"></ul>
+    <div class="k">Type the sentence for the autopilot wallet</div>
+    <div class="mono expected" id="agExpectedAck">—</div>
+    <div class="ackrow">
+      <textarea id="agAckInput" rows="3" spellcheck="false" placeholder="I arm the CoinMarketCat agent …"></textarea>
+      <button id="btnAgCopyAck" class="btn ghost" title="Put the sentence in the box exactly as the agent prints it">Copy</button>
+    </div>
+  </div>
+  <div class="agbtns">
+    <button id="btnAgStart" class="btn">Start on paper</button>
+    <button id="btnAgPause" class="btn ghost">Pause</button>
+    <button id="btnAgRunNow" class="btn ghost" title="Ask the model at the next tick instead of waiting for the schedule. Billed to your API key.">Decide now</button>
+    <button id="btnAgLiquidate" class="btn ghost warn" title="Sell every position back to the settlement token, then pause">Liquidate all</button>
+    <button id="btnAgWithdraw" class="btn ghost" title="Sweep the autopilot wallet back to your Phantom address. The model cannot do this.">Withdraw</button>
+    <button id="btnAgStop" class="btn ghost">Stop</button>
+  </div>
+  <p class="hint" id="agUsage"></p>
+  <p class="hint posture" id="agTruth"></p>
+  <p class="hint"><a href="#" id="lnkAgentOptions">Set up the agent in Options</a> — name, strategy, tokens, limits, your API key and the model.</p>
+</section>
+
+<section class="card" id="agJournalCard" data-tab="agent">
+  <details id="agJournalBox">
+    <summary class="k">The agent's journal</summary>
+    <div id="agJournal" class="log mono"></div>
+  </details>
+</section>
 
 <section class="card setup hidden" id="setupCard">
   <div class="row">
@@ -36,7 +90,7 @@
 </section>
 
 <section class="card" id="autopilotCard">
-  <div class="k">Who signs</div>
+  <div class="k">Who signs Snipurr's trades</div>
   <div class="seg two" id="signerSeg">
     <button data-signer="phantom" title="One Phantom approval window per trade. The extension holds no key.">Phantom per trade</button>
     <button data-signer="autopilot" title="The autopilot wallet signs each trade without a window.">Autopilot</button>
@@ -44,7 +98,7 @@
   <p class="hint" id="signerHint"></p>
 
   <div id="apNone" class="hidden">
-    <p class="hint">Autopilot trades from a wallet this extension makes: you fund it from Phantom with one approval, and it signs the cat's buys and sells without asking. It needs a passphrase of 12 characters or more; there is no reset, so write it down outside this browser.</p>
+    <p class="hint">Autopilot trades from a wallet this extension makes: you fund it from Phantom with one approval, and it signs the agent's and Snipurr's buys and sells without asking. It needs a passphrase of 12 characters or more; there is no reset, so write it down outside this browser.</p>
     <details id="apCreateBox">
       <summary class="k">Create the autopilot wallet</summary>
       <input id="apPass1" type="password" autocomplete="new-password" minlength="12" placeholder="passphrase (12+ characters)">
@@ -101,8 +155,8 @@
   <p class="hint posture">A key in a browser is a bigger attack surface than Phantom: while the autopilot wallet is unlocked, malware on this machine or a hostile extension could read it. Your exposure is what you fund it with. Lock clears the unlocked key. Sweep back when you are done.</p>
 </section>
 
-<section class="card">
-  <div class="k">Lane</div>
+<section class="card" data-tab="snipurr">
+  <div class="k">Snipurr (sniper lane)</div>
   <div class="seg" id="laneSeg">
     <button data-lane="off">Off</button>
     <button data-lane="observe">Observe</button>
@@ -123,7 +177,7 @@
   <ul id="warnings" class="warnings"></ul>
 </section>
 
-<section class="card" id="venueCard">
+<section class="card" id="venueCard" data-tab="snipurr">
   <div class="k">Venues</div>
   <div class="row small"><span class="v">pump.fun launches, from the program's own logs</span><span class="pill observe">always</span></div>
   <label class="venue"><input type="checkbox" id="chkXstock"> New pools paired with an xStock, through Jupiter <span id="xstockPill" class="pill">off</span></label>
@@ -140,7 +194,7 @@
   </div>
 </section>
 
-<section class="card">
+<section class="card" data-tab="snipurr">
   <div class="row">
     <div><div class="k">Today</div><div class="v" id="dayLine">0 / 0 SOL</div></div>
     <div><div class="k">Ticket</div><div class="v" id="ticketLine">—</div></div>
@@ -159,7 +213,7 @@
   </div>
 </section>
 
-<section class="card">
+<section class="card" data-tab="snipurr">
   <div class="row">
     <div><div class="k">Book</div><div class="v" id="bookLine">no live trades</div></div>
     <div><div class="k">Realized</div><div class="v mono" id="realizedLine">—</div><div class="v mono small" id="realizedQuoteLine"></div></div>
@@ -167,7 +221,7 @@
   <div id="closes" class="list"></div>
 </section>
 
-<section class="card">
+<section class="card" data-tab="snipurr">
   <div class="row">
     <div><div class="k">Shadow book</div><div class="v" id="shadowLine">0 rows</div></div>
     <button id="btnExport" class="btn ghost" title="One JSON row per line — the file vendor/executor/grade-entry-gates.mjs --file reads">Export</button>
@@ -178,20 +232,20 @@
   <div id="refusals" class="list small"></div>
 </section>
 
-<section class="card">
+<section class="card" data-tab="snipurr">
   <details>
-    <summary class="k">What the record says</summary>
+    <summary class="k">What Snipurr's record says</summary>
     <div id="record" class="record"></div>
   </details>
 </section>
 
-<section class="card">
-  <div class="k">Log</div>
+<section class="card" data-tab="snipurr">
+  <div class="k">Snipurr's log</div>
   <div id="log" class="log mono"></div>
 </section>
 
 <footer class="foot">
-  <a href="#" id="lnkOptions">Options</a> · <a href="#" id="lnkSetup">Setup</a> · <span id="versionLine" class="mono"></span> · not advice; nothing here has an edge until you have graded it
+  <a href="#" id="lnkOptions">Options</a> · <a href="#" id="lnkSetup">Setup</a> · <span id="versionLine" class="mono"></span> · not advice; nothing here has an edge until you have graded it · CoinMarketCat is not affiliated with CoinMarketCap.
 </footer>
 <script type="module" src="popup.js"></script>
 </body>

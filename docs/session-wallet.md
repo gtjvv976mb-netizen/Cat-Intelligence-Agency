@@ -10,6 +10,15 @@ extension holds no key.
 A private key in a browser is a bigger attack surface than one on a server. Read that
 sentence first; everything below is what the extension does about it and what it cannot.
 
+**Two lanes use it.** Snipurr, the sniper lane, signs from it when *Who signs* is Autopilot.
+CoinMarketCat's agent signs from it in **live** mode, and only there: every agent swap is
+Jupiter's transaction put through the check before signing (the pair allowlist, the decode,
+the simulation), then signed through the engine's `signSendConfirm`, fixed to this wallet.
+The agent funds it with USDC or USDT (the popup's *Fund from Phantom* offers the agent's
+settlement token), and its **Withdraw** is this wallet's sweep, which only the owner can ask
+for. The model the agent consults never sees the key, never names a sweep, and has no path
+to one.
+
 ## Why it exists
 
 Phantom cannot sign for a bot. The lane as shipped asks Phantom for one approval per

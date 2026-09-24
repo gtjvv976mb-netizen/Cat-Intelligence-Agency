@@ -1546,6 +1546,21 @@ export function createHawkEngine({
   return Object.freeze({
     start, stop, tick, xstockTick, handleNotice, onLogs, setConfig, setRpc, forgetPosition, clearStockCanary, status, exportShadow, scorecard, scorecardByQuote, report, load,
     refreshSigner,
+    /* THE AGENT'S FENCES (src/lib/agent-runner.mjs). The agent lane trades from the
+       autopilot wallet only, so what it is handed is bound to that signer and nothing else:
+       this lane's own simulateGuard, and signSendConfirm with the autopilot wallet fixed as
+       the signer — the same same-message check, the same send and confirm, never Phantom.
+       Null when no autopilot wallet is wired in. */
+    agentFences() {
+      if (!sessionSigner) return null;
+      return Object.freeze({
+        rpc: () => rpc,
+        wallet: () => sessionSigner.wallet() ?? null,
+        ready: () => readyOf(sessionSigner),
+        simulateGuard,
+        signSendConfirm: (args) => signSendConfirm({ ...args, signer: sessionSigner }),
+      });
+    },
     get config() { return config; },
     get state() { return S; },
     setControl(next) { control = { ...control, ...next }; say(`control: hard stop ${control.hardStop ? "ON" : "off"}, entries ${control.pauseEntries ? "PAUSED" : "open"}`); emit(); },

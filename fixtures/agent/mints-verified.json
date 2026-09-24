@@ -1,0 +1,350 @@
+{
+ "readAt": "2026-09-24T19:27:25.845Z",
+ "rpc": "https://api.mainnet-beta.solana.com",
+ "rpcMethod": "getMultipleAccounts (base64, confirmed)",
+ "slot": 450123200,
+ "jupiter": "https://api.jup.ag/tokens/v2/search?query=<mint>",
+ "tokens": [
+  {
+   "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+   "symbol": "USDC",
+   "name": "USD Coin",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "moonshot-verified",
+     "strict",
+     "verified",
+     "stable"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 534788257985,
+    "dataLength": 82,
+    "data": [
+     "AQAAAJj+huiNm+Lqi8HMpIeLKYjCQPUrhCS/tA7Rot3LXhmbAx6p23M0HAAGAQEAAABicKqKWcWUBbRShshncubNEm6bil06OFNtN/e0FOi2Zw==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 6,
+    "initialized": true,
+    "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+    "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+   "symbol": "USDT",
+   "name": "USDT",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "strict",
+     "verified",
+     "stable",
+     "community",
+     "moonshot-verified"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 212997227853,
+    "dataLength": 82,
+    "data": [
+     "AQAAAAXqnPFs5BGY8aSZN8iMNwqU1K//ibW6y470XmMku3j3rivlPl+kDQAGAQEAAAAF6pzxbOQRmPGkmTfIjDcKlNSv/4m1usuO9F5jJLt49w==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 6,
+    "initialized": true,
+    "mintAuthority": "Q6XprfkF8RQQKoQVG33xT88H7wi8Uk1B1CC7YAs69Gi",
+    "freezeAuthority": "Q6XprfkF8RQQKoQVG33xT88H7wi8Uk1B1CC7YAs69Gi",
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+   "symbol": "JitoSOL",
+   "name": "Jito Staked SOL",
+   "jupiter": {
+    "decimals": 9,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "lst",
+     "original-lst",
+     "strict",
+     "verified",
+     "yield"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 3826303234,
+    "dataLength": 82,
+    "data": [
+     "AQAAAFTlniTAUaihSnsel5fw4Szfp0kCFmUxlaalEqbxZmArxVXiJ+tKHAAJAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 9,
+    "initialized": true,
+    "mintAuthority": "6iQKfEyhr3bZMotVkW6beNZz5CPAkiwvgV2CTje9pVSS",
+    "freezeAuthority": null,
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+   "symbol": "JUP",
+   "name": "Jupiter",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "birdeye-trending",
+     "community",
+     "moonshot-verified",
+     "strict",
+     "verified",
+     "defi"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 74276338103,
+    "dataLength": 82,
+    "data": [
+     "AAAAAAR52GkzETukAZvPEQhyTvOJYJx7N+gEvMOLMHR3hqi8WRJQV3xgGAAGAQAAAAAEedhpMxE7pAGbzxEIck7ziWCcezfoBLzDizB0d4aovA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 6,
+    "initialized": true,
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+   "symbol": "JTO",
+   "name": "JITO",
+   "jupiter": {
+    "decimals": 9,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "birdeye-trending",
+     "community",
+     "strict",
+     "verified",
+     "defi"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 17559788072,
+    "dataLength": 82,
+    "data": [
+     "AAAAAJLiUML0yiylCWKlscF9+mkS38SUfUF9ppyIbcCwngi6GovWRfnUsA0JAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 9,
+    "initialized": true,
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+   "symbol": "PYTH",
+   "name": "Pyth Network",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "birdeye-trending",
+     "community",
+     "strict",
+     "verified",
+     "defi"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 58984011426,
+    "dataLength": 82,
+    "data": [
+     "AAAAAOWN16Dln/JcNWvVK/Tz+cPAheQFLpHU03PNjUI5WqiEO9qRD+mGIwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 6,
+    "initialized": true,
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+   "symbol": "RAY",
+   "name": "Raydium",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "verified",
+     "defi",
+     "birdeye-trending",
+     "community",
+     "strict"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 346696437393,
+    "dataLength": 82,
+    "data": [
+     "AAAAAGTAxuCHdubhHkDFa7JYs1BNUSZnSdTP4QN5n/otcPcqe84EasT4AQAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 6,
+    "initialized": true,
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+   "symbol": "Bonk",
+   "name": "Bonk",
+   "jupiter": {
+    "decimals": 5,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "moonshot-verified",
+     "strict",
+     "verified",
+     "meme",
+     "birdeye-trending"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 1092249446731,
+    "dataLength": 82,
+    "data": [
+     "AAAAAHlZUWfaSAxa4TRFAdIRt3NjQOP73wDs3mO2TciKzC8chCGrjb/iHXoFAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 5,
+    "initialized": true,
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+   "symbol": "$WIF",
+   "name": "dogwifhat",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "moonshot-verified",
+     "strict",
+     "verified",
+     "meme"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 529174431588,
+    "dataLength": 82,
+    "data": [
+     "AAAAAA4EesA+DPAMJ/KLCHOzM3gAvuvhNFFzXHWwlBt0+H3qqfIACHCMAwAGAQAAAAAOBHrAPgzwDCfyiwhzszN4AL7r4TRRc1x1sJQbdPh96g==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 6,
+    "initialized": true,
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "extensionNames": []
+   }
+  },
+  {
+   "mint": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
+   "symbol": "cbBTC",
+   "name": "Coinbase Wrapped BTC",
+   "jupiter": {
+    "decimals": 8,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "moonshot-verified",
+     "verified"
+    ]
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 210726837,
+    "dataLength": 82,
+    "data": [
+     "AQAAAKoz6yzOpQMSoLLEk9JQue0dVo65NoiFL7Q6iHB0233zTmIF1koAAAAIAQEAAAC4w8iB6IaECTptFFc7SwwIK5GelttHc5YkHziM1W49cw==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "decimals": 8,
+    "initialized": true,
+    "mintAuthority": "CTQE6PMesbH4szKR9Nk5moj9WWUr9MVGP734wYX9wy3p",
+    "freezeAuthority": "DSFAkPhfrSR95J9oq9Sh8rUetbj5vgFmwiSuHw6rAVnz",
+    "extensionNames": []
+   }
+  }
+ ]
+}

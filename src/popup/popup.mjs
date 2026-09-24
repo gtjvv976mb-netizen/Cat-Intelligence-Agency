@@ -12,8 +12,16 @@
  * and is cleared from its field; the exported key is shown once, in one box, and cleared
  * when hidden, when its section closes, after two minutes, or when the popup closes.
  * Nothing here is stored or logged.
+ *
+ * THE AGENT CARD (the first tab) is CoinMarketCat's agentic trader, drawn from the worker's
+ * AGENT.STATUS: its mode and state, the vault, the positions with their stop and take
+ * prices, the P&L, the win rate and the max drawdown, today's trades and breaker, and the
+ * last decisions with their rationale and what became of each action. Its buttons are the
+ * owner's controls — start (live only with the typed sentence), pause, decide now,
+ * liquidate all, withdraw, stop — each one AGENT message. The page never sees the API key.
+ * The second tab is Snipurr, the pump.fun sniper lane, exactly as it was.
  */
-import { UI, AUTOPILOT } from "../lib/protocol.mjs";
+import { UI, AUTOPILOT, AGENT } from "../lib/protocol.mjs";
 
 const $ = (id) => document.getElementById(id);
 const send = (type, payload = {}) => chrome.runtime.sendMessage({ type, ...payload });
@@ -46,9 +54,7 @@ function render() {
   if (!status) return;
   const s = status;
   const now = Date.now();
-  const pill = $("lanePill");
-  pill.textContent = s.executing ? "LIVE" : s.lane === "execute" ? "execute — not armed" : s.lane;
-  pill.className = `pill ${s.executing ? "execute" : s.lane === "execute" ? "armq" : s.lane}`;
+  renderPill();
 
   const phantom = s.phantomWallet !== undefined ? s.phantomWallet : s.wallet;
   $("walletLine").textContent = phantom ? phantom : s.bridgeReady ? "console open — not connected" : "open the console page first";
@@ -234,6 +240,7 @@ function renderSigner(s) {
   $("signerHint").textContent = auto
     ? `Autopilot: buys and sells are signed by the autopilot wallet without a window${a?.unlocked ? `, while it is unlocked (until ${until(a.expiresAt)})` : " — it is locked now and signs nothing"}. The console tab is needed only to fund from Phantom.`
     : "Phantom: every buy and every sell is one approval window on the console tab. The extension holds no key.";
+  $("signerHint").textContent += " The agent, live, always trades from the autopilot wallet below.";
   const exists = Boolean(a?.publicKey) || Boolean(ap?.exists);
   $("apNone").classList.toggle("hidden", exists);
   $("apSome").classList.toggle("hidden", !exists);
@@ -378,6 +385,147 @@ async function refresh() {
   if (res?.ok) { status = res.status; render(); }
 }
 
+/* ── the agent card ─────────────────────────────────────────────────────────────────── */
+let ag = null;               // the worker's AGENT.STATUS answer
+let tab = "agent";
+const money = (n, sign = false) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? "—" : `${sign && Number(n) >= 0 ? "+" : ""}${Number(n) < 0 ? "−" : ""}$${Math.abs(Number(n)).toFixed(2)}`);
+const pctText = (n, sign = false) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? "—" : `${sign && Number(n) >= 0 ? "+" : ""}${Number(n).toFixed(2)}%`);
+const priceText = (n) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? "—" : Number(n) >= 1 ? `$${Number(n).toFixed(2)}` : `$${Number(n).toPrecision(4)}`);
+const clock = (ms) => (Number.isFinite(ms) ? new Date(ms).toTimeString().slice(0, 5) : "—");
+function setTab(next) {
+  tab = next;
+  document.body.dataset.tab = next;
+  for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("on", b.dataset.tab === next);
+  renderPill();
+}
+function renderPill() {
+  const pill = $("lanePill");
+  if (tab === "agent" && ag) {
+    const a = ag.agent;
+    pill.textContent = a.status === "running" ? `${a.mode} · running` : a.status === "paused" ? `${a.mode} · paused` : "agent stopped";
+    pill.className = `pill ${a.status === "running" ? (a.mode === "live" ? "execute" : "observe") : a.status === "paused" ? "armq" : ""}`;
+  } else if (status) {
+    pill.textContent = status.executing ? "LIVE" : status.lane === "execute" ? "execute — not armed" : status.lane;
+    pill.className = `pill ${status.executing ? "execute" : status.lane === "execute" ? "armq" : status.lane}`;
+  }
+}
+function outcomeChips(entry) {
+  return (entry.outcomes ?? []).map((o) => `<span class="chip ${esc(o.outcome)}">${esc(o.symbol ?? short(o.mint))} ${esc(o.action)} · ${esc(o.outcome)}${o.usd ? ` $${Number(o.usd).toFixed(2)}` : ""}${o.clause ? ` · ${esc(o.clause)}` : ""}${o.clampedBy ? ` · clamped by ${esc(o.clampedBy.join(", "))}` : ""}</span>`).join("");
+}
+function journalLine(j) {
+  const t = esc(new Date(j.at).toISOString().slice(5, 16).replace("T", " "));
+  if (j.kind === "decision") return `${t} DECISION ${esc(j.rationale)} [${(j.actions ?? []).map((a) => `${esc(a.action)} ${esc(a.symbol)}${a.usd ? ` $${a.usd}` : a.fraction ? ` ${Math.round(a.fraction * 100)}%` : ""}`).join(", ") || "no action"}] · ${j.usage ? `${j.usage.inputTokens + j.usage.outputTokens} tokens` : ""}`;
+  if (j.kind === "fill") return `${t} ${j.paper ? "PAPER " : ""}${esc(j.side.toUpperCase())} ${esc(j.symbol)} ${money(j.usd)}${j.protection ? ` (${esc(j.protection.replace(/_/g, " "))})` : ""}${j.realizedUsd !== undefined ? ` · realized ${money(j.realizedUsd, true)}` : ""}${j.signature ? ` · ${esc(j.signature)}` : ""}`;
+  if (j.kind === "refusal") return `${t} REFUSED ${esc(j.action ?? "")} ${esc(j.symbol ?? "")} at ${esc(j.clause)} — ${esc(j.message)}`;
+  if (j.kind === "brain_failure") return `${t} MODEL FAILED (${esc(j.clause)}) — ${esc(j.message)}; no new entries, the protections ran`;
+  return `${t} ${esc(j.kind.toUpperCase())} ${esc(j.message ?? "")}`;
+}
+function renderAgent() {
+  if (!ag) return;
+  const a = ag.agent;
+  const live = a.specMode === "live";
+  $("agName").textContent = a.spec.name ? `${a.spec.name} · ${a.spec.universeEntries.map((u) => u.symbol).join(", ")} · settled in ${a.spec.settlementSymbol}` : "not named yet";
+  $("agModePill").textContent = a.status === "stopped" ? a.specMode : a.mode;
+  $("agModePill").className = `pill ${(a.status === "stopped" ? a.specMode : a.mode) === "live" ? "live" : "paper"}`;
+  $("agStatusPill").textContent = a.status;
+  $("agStatusPill").className = `pill ${a.status}`;
+  const problems = [...a.problems.map((p) => p.detail), ...(ag.apiKeySaved ? [] : ["save your API key in Options"])];
+  $("agLine").textContent = a.status === "running"
+    ? `${a.mode === "live" ? "Live, from the autopilot wallet" : "Paper: fills at Jupiter's quotes, nothing signed"}. The model is asked every ${a.spec.scheduleMinutes} min — next ${a.nextBrainInMs === null ? "—" : a.nextBrainInMs < 60_000 ? "within a minute" : `in ${Math.round(a.nextBrainInMs / 60_000)} min`}; the stop loss, take profit and breaker check every half minute.`
+    : a.status === "paused" ? "Paused: the model is not asked. The stop loss, take profit and daily drawdown breaker keep running."
+      : problems.length ? `To start: ${problems.join("; ")}.` : `Ready to start ${live ? "LIVE — the checklist below must be green" : "on paper"}. The model will be asked every ${a.spec.scheduleMinutes} min.`;
+  const v = a.vault ?? {};
+  $("agVault").textContent = money(v.equityUsd ?? v.settlementUsd);
+  $("agExposure").textContent = v.equityUsd === null || v.equityUsd === undefined ? "—" : `${money(v.positionsUsd)} · ${pctText(v.exposurePct)}`;
+  $("agRealized").textContent = money(a.pnl.realizedUsd, true);
+  $("agUnrealized").textContent = a.positions.length ? money(a.pnl.unrealizedUsd, true) : "—";
+  $("agWinRate").textContent = a.pnl.winRatePct === null ? "— (no closed trade)" : `${a.pnl.winRatePct}% of ${a.pnl.wins + a.pnl.losses}`;
+  $("agMaxDD").textContent = a.pnl.fills ? pctText(a.pnl.maxDrawdownPct) : "—";
+  $("agDay").textContent = a.day ? `${a.day.trades} of ${a.day.maxTrades} trades · down ${pctText(a.day.drawdownPct)} of the ${a.day.limitPct}% limit · breaker ${a.day.tripped ? `TRIPPED — ${a.day.action === "liquidate" ? "liquidating" : "no new buys"} until UTC midnight` : "ok"}` : "no tick yet";
+  $("agPositions").innerHTML = a.positions.length ? a.positions.map((p) => `<div class="item ${p.live ? "live" : ""}">
+      <div class="t">${esc(p.symbol)} <span class="tag ${p.live ? "live" : "paper"}">${p.live ? "live" : "paper"}</span></div>
+      <div class="r ${p.pnlPct === null ? "" : p.pnlPct >= 0 ? "up" : "down"}">${money(p.valueUsd)} · ${pctText(p.pnlPct, true)}</div>
+      <div class="m">${esc(String(p.qty))} at ${priceText(p.entryPriceUsd)} · now ${priceText(p.priceUsd)}${p.basis && p.basis !== "price" ? ` (${esc(p.basis)})` : ""} · stop ${priceText(p.stopLossAtUsd)} · take ${priceText(p.takeProfitAtUsd)}</div>
+    </div>`).join("") : `<div class="empty">nothing held — the vault is all ${esc(a.spec.settlementSymbol)}</div>`;
+  $("agDecisions").innerHTML = a.decisions.length ? a.decisions.slice(0, 4).map((d) => d.kind === "decision" ? `<div class="item">
+      <div class="t">${esc(clock(d.at))} · ${(d.actions ?? []).length ? esc((d.actions ?? []).map((x) => `${x.action} ${x.symbol}`).join(", ")) : "hold"}</div>
+      <div class="r">${d.usage ? `${(d.usage.inputTokens + d.usage.outputTokens).toLocaleString()} tokens` : ""}</div>
+      <div class="why">${esc(d.rationale)}</div>
+      <div class="chips">${outcomeChips(d)}</div>
+    </div>` : `<div class="item"><div class="t">${esc(clock(d.at))} · ${d.kind === "brain_failure" ? `<span class="tag fail">model failed · ${esc(d.clause)}</span>` : "not asked"}</div><div class="m">${esc(d.message)}${d.kind === "brain_failure" ? " — no new entries; the protections ran" : ""}</div></div>`).join("")
+    : `<div class="empty">no decision yet</div>`;
+  const showArm = live && a.status === "stopped";
+  $("agArmBox").classList.toggle("hidden", !showArm);
+  if (showArm && a.armability) {
+    $("agChecklist").innerHTML = a.armability.items.map((i) => `<li class="${i.ok ? "ok" : ""}"><b>${esc(i.name.replace(/_/g, " "))}</b> — ${esc(i.detail)}</li>`).join("");
+    $("agExpectedAck").textContent = a.armability.expectedAck ?? "create the autopilot wallet to see the sentence";
+  }
+  $("btnAgStart").textContent = live ? "Start LIVE — the autopilot wallet signs" : "Start on paper";
+  $("btnAgStart").classList.toggle("hidden", a.status !== "stopped");
+  $("btnAgPause").classList.toggle("hidden", a.status === "stopped");
+  $("btnAgPause").textContent = a.status === "paused" ? "Resume" : "Pause";
+  $("btnAgRunNow").disabled = a.status !== "running";
+  $("btnAgLiquidate").disabled = a.positions.length === 0;
+  $("btnAgWithdraw").disabled = !ag.withdrawTo;
+  $("btnAgWithdraw").title = ag.withdrawTo ? `Sweep the autopilot wallet — every token, then the SOL above the rent floor — to ${ag.withdrawTo}. The model cannot do this.` : "Connect Phantom once so a withdrawal has a destination.";
+  $("btnAgStop").classList.toggle("hidden", a.status === "stopped");
+  const u = a.usage;
+  $("agUsage").textContent = `Model calls: ${u.calls} (${u.failures} failed) · ${(u.inputTokens + u.cacheReadTokens + u.cacheWriteTokens).toLocaleString()} tokens in, ${u.outputTokens.toLocaleString()} out — billed to your own API key${a.spec.model ? ` · model ${a.spec.model}` : " · model: the newest your key lists"}${a.pnl.feesSol ? ` · network fees ${a.pnl.feesSol} SOL` : ""}`;
+  $("agTruth").textContent = `${a.runsWhere} ${a.unmeasured} CoinMarketCat is not affiliated with CoinMarketCap.`;
+  $("agJournal").innerHTML = a.journal.slice(0, 40).map((j) => `<div>${journalLine(j)}</div>`).join("") || `<div>nothing yet</div>`;
+  renderPill();
+}
+async function refreshAgent() {
+  const res = await send(AGENT.STATUS).catch(() => null);
+  if (res?.ok) { ag = res; renderAgent(); }
+}
+async function agentCall(type, payload, button) {
+  if (button) button.disabled = true;
+  try {
+    const res = await send(type, payload).catch((error) => ({ ok: false, error: String(error?.message ?? error) }));
+    if (!res?.ok) toast(res?.error ?? "the agent refused");
+    return res;
+  } finally { if (button) button.disabled = false; await refreshAgent(); }
+}
+for (const b of document.querySelectorAll("#tabs button")) b.addEventListener("click", () => setTab(b.dataset.tab));
+$("lnkAgentOptions").addEventListener("click", (e) => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
+$("btnAgCopyAck").addEventListener("click", () => { $("agAckInput").value = ag?.agent?.armability?.expectedAck ?? ""; });
+$("btnAgStart").addEventListener("click", async () => {
+  const live = ag?.agent?.specMode === "live";
+  if (live && !confirm("Start the agent LIVE? It trades from the autopilot wallet, and the autopilot wallet signs every buy and sell WITHOUT asking you, inside the limits you set.")) return;
+  const res = await agentCall(AGENT.START, live ? { liveAck: $("agAckInput").value.trim() } : {}, $("btnAgStart"));
+  if (res?.ok) toast(live ? "Started LIVE. The model is asked on your schedule; the protections check every half minute." : "Started on paper. Nothing is signed; fills are Jupiter's quotes.");
+});
+$("btnAgPause").addEventListener("click", async () => {
+  const paused = ag?.agent?.status === "paused";
+  await agentCall(AGENT.PAUSE, { on: !paused }, $("btnAgPause"));
+});
+$("btnAgRunNow").addEventListener("click", async () => {
+  if (!confirm("Ask the model now instead of waiting for the schedule? The call is billed to your API key.")) return;
+  const res = await agentCall(AGENT.RUN_NOW, {}, $("btnAgRunNow"));
+  if (res?.ok) toast("The model is asked at the next tick, within a minute.");
+});
+$("btnAgLiquidate").addEventListener("click", async () => {
+  if (!confirm("Liquidate all? Every position is sold back to the settlement token through the same checks, then the agent is paused.")) return;
+  toast("Selling everything back…");
+  const res = await agentCall(AGENT.LIQUIDATE, {}, $("btnAgLiquidate"));
+  if (res?.ok) toast(`Liquidated: ${res.done.filter((d) => d.sold).length} of ${res.done.length} sold${res.done.some((d) => !d.sold) ? "; the rest are retried every tick" : ""}. The agent is paused.`);
+});
+$("btnAgWithdraw").addEventListener("click", async () => {
+  const to = ag?.withdrawTo;
+  if (!to) return;
+  const held = ag?.agent?.liveHeld ?? 0;
+  if (!confirm(`Withdraw to ${to}?\n\nThe agent is paused, then the autopilot wallet is swept back to that Phantom address: every token${held ? ` — including the ${held} position${held === 1 ? "" : "s"} the agent holds, moved as tokens, not sold` : ""} — then the SOL above the rent floor. The autopilot wallet must be unlocked; it signs the sweep.`)) return;
+  toast("Withdrawing…");
+  const res = await agentCall(AGENT.WITHDRAW, { expectTo: to }, $("btnAgWithdraw"));
+  if (res?.ok) toast(`Withdrawn to ${short(res.to)}: ${[res.sol ? `${res.sol.sol} SOL` : res.solNote, ...(res.tokens ?? []).map((t) => `${t.ui} ${t.symbol}`)].filter(Boolean).join(", ")}.`);
+  await refreshAutopilot();
+});
+$("btnAgStop").addEventListener("click", async () => {
+  if (!confirm("Stop the agent? The model is no longer asked. Anything it still holds keeps its stop loss and take profit until it is sold.")) return;
+  await agentCall(AGENT.STOP, {}, $("btnAgStop"));
+});
+
 $("btnConsole").addEventListener("click", () => send(UI.OPEN_CONSOLE));
 $("btnConnect").addEventListener("click", async () => {
   const res = await send(UI.CONNECT);
@@ -423,5 +571,7 @@ $("btnExport").addEventListener("click", async () => {
 chrome.runtime.onMessage.addListener((msg) => { if (msg?.type === UI.STATUS_CHANGED && msg.status) { status = msg.status; render(); } });
 refresh();
 refreshAutopilot();
+refreshAgent();
 setInterval(refresh, 3_000);
+setInterval(refreshAgent, 3_000);
 setInterval(refreshAutopilot, 15_000);    // the balance and tokens are live chain reads: not every 3 s

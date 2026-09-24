@@ -141,6 +141,38 @@ if (built) {
     ok("…and the bundled describeMint reads the live GLDx bytes: Token-2022, 8 decimals, unpaused, symbol GLDx", sq?.decimals === 8 && sq.program === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" && sq.paused === false && sq.metadataSymbol === "GLDx", JSON.stringify({ d: sq?.decimals, p: sq?.paused, s: sq?.metadataSymbol }));
     ok("…and the launch gets past quote_not_sol, sized in GLDx (refused later, for the base mint the probe did not serve)", stockRes?.verdict?.gate !== "quote_not_sol" && stockRes?.verdict?.detail?.quote?.isSol === false, `${stockRes?.verdict?.gate}: ${stockRes?.verdict?.detail?.message?.slice(0, 80)}`);
   }
+
+  console.log("\nTHE AGENT, BUNDLED, DECIDES LIKE ITS SOURCE\n──────────────────────────────────────────");
+  /* The agent's pure pieces, bundled with the extension's own options: the limits the popup
+     and the worker carry must refuse exactly what the source refuses, and the worker bundle
+     must carry the runner. */
+  const agentLib = path.join(outdir, "agent-probe");
+  const aopts = buildOptions({ outdir: agentLib });
+  aopts.entryPoints = { risk: path.join(here, "src", "lib", "agent-risk.mjs"), strategy: path.join(here, "src", "lib", "agent-strategy.mjs"), runner: path.join(here, "src", "lib", "agent-runner.mjs") };
+  aopts.logLevel = "silent";
+  const ar = await esbuild.build(aopts);
+  ok("the agent's modules bundle", ar.errors.length === 0, `${ar.errors.length} errors`);
+  fs.writeFileSync(path.join(agentLib, "package.json"), JSON.stringify({ type: "module" }));
+  const bRisk = await import(pathToFileURL(path.join(agentLib, "risk.js")).href);
+  const bStrategy = await import(pathToFileURL(path.join(agentLib, "strategy.js")).href);
+  const bRunner = await import(pathToFileURL(path.join(agentLib, "runner.js")).href);
+  const sRisk = await import("./src/lib/agent-risk.mjs");
+  const sStrategy = await import("./src/lib/agent-strategy.mjs");
+  const JUPM = sStrategy.SOLANA_MAJORS[1].mint;
+  const probe = (R, S) => {
+    const spec = S.normalizeAgentSpec({ name: "Probe", strategy: "a probe of the bundle, no more than that", maxPositionUsd: 25 });
+    const day = R.rollDay(null, { now: Date.UTC(2026, 8, 24, 12), equityUsd: 100 });
+    const plan = R.planOrders({ spec, proposals: [{ action: "buy", mint: JUPM, usd: 100, confidence: 1, reason: "x" }, { action: "withdraw", mint: JUPM }], positions: {}, prices: { [JUPM]: 0.3 }, settlementUsd: 100, day });
+    const prot = R.protections({ spec, positions: { [JUPM]: { mint: JUPM, symbol: "JUP", decimals: 6, qtyRaw: "10000000", costUsd: 10 } }, prices: { [JUPM]: 0.9 }, settlementUsd: 90, day, now: Date.UTC(2026, 8, 24, 12) });
+    return JSON.stringify({ orders: plan.orders, refusals: plan.refusals.map((x) => x.clause), exits: prot.exits.map((x) => x.reason), sentence: S.agentArmSentence(spec, JUPM) });
+  };
+  ok("the bundled limits clamp, refuse and stop exactly as the source does", probe(bRisk, bStrategy) === probe(sRisk, sStrategy), probe(bRisk, bStrategy).slice(0, 120));
+  ok("the bundled preset is the verified one, SOL still refused", bStrategy.SOLANA_MAJORS.map((m) => m.mint).join() === sStrategy.SOLANA_MAJORS.map((m) => m.mint).join() && (() => { try { bStrategy.normalizeAgentSpec({ universe: ["So11111111111111111111111111111111111111112"] }); return false; } catch (e) { return e.clause === "sol_not_in_v1"; } })());
+  ok("the bundled runner builds", typeof bRunner.createAgentRunner === "function" && bRunner.JOURNAL_MAX === 300);
+  const bg = fs.readFileSync(path.join(outdir, "background.js"), "utf8");
+  ok("the worker bundle carries the agent: its runner, its brain's origin, its market's hosts", /coinmarketcat:agent:state/.test(bg) && bg.includes("https://api.anthropic.com") && bg.includes("https://api.dexscreener.com/tokens/v1/solana/") && bg.includes("https://api.geckoterminal.com/api/v2/networks/solana/pools/"));
+  const popup = fs.readFileSync(path.join(outdir, "popup.js"), "utf8");
+  ok("the popup bundle drives the agent through its own messages", popup.includes("hawk:agent:status") && popup.includes("hawk:agent:withdraw") && !popup.includes("coinmarketcat:agent:api-key"));
 }
 fs.rmSync(outdir, { recursive: true, force: true });
 

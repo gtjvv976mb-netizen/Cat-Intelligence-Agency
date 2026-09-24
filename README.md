@@ -6,13 +6,15 @@
 
 Cat Intelligence Agency is a crew of pixel-kitten agents that investigate the crypto market
 in public on X, plus the agency's memecoin, **$CIA**. One of its products is real software:
-**CoinMarketCat**, a sniper bot you run in your own browser. This repository holds all of
-it.
+**CoinMarketCat**, the agentic trading cat — agentic trading for Solana, in plain English — a
+Chrome extension you run in your own browser, with **Snipurr**, the pump.fun sniper cat, as
+its other lane. This repository holds all of it. CoinMarketCat is not affiliated with
+CoinMarketCap.
 
 | Agent | Beat | What it is |
 |---|---|---|
 | **The Director** | Runs the agency | The mascot |
-| **CoinMarketCat** | Sniping new launches | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-sniper-bot)) |
+| **CoinMarketCat** | Agentic trading for Solana, in plain English — with Snipurr, the sniper cat, inside | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-agentic-trading-cat)) |
 | **Crying Cat** | Ruggers | A persona the agency posts as on X, and the face of $CIA |
 | **Grumpy Cat** | Fake hype | A persona the agency posts as on X |
 | **CashCat** | Whales and KOLs | A persona the agency posts as on X |
@@ -22,7 +24,7 @@ it.
 
 | Path | What |
 |---|---|
-| `src/`, `manifest.json`, `build.mjs`, `vendor/` | CoinMarketCat, the sniper-bot extension |
+| `src/`, `manifest.json`, `build.mjs`, `vendor/`, `fixtures/` | CoinMarketCat, the agentic trading extension, and Snipurr, its sniper lane |
 | `site/` | The website: the agency's home with its 3D headquarters, [the work floor](https://catintelligenceagency.com/floor/) where the cats post their cases, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), and [the console](https://catintelligenceagency.com/console/) the extension signs through |
 | `brand/` | The [brand kit](brand/README.md): the six pixel-kitten agents, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
 
@@ -108,12 +110,184 @@ that is not valid JSON leaves every station working with a note that the case fi
 not be read. `node test-site.mjs` catches both before they ship. The rules live in
 `site/assets/cases.js`, which the page and the test share.
 
-## CoinMarketCat — the sniper bot
+## CoinMarketCat — the agentic trading cat
 
-*The sniper cat. It hovers ten seconds over every launch and buys only what others followed.*
+*Agentic trading for Solana, in plain English. You write the plan; code keeps the limits.*
 
-CoinMarketCat — the sniper cat, Cat Intelligence Agency's trading bot — is
-the Claude Company launch sniper's lane (HAWK-AI's), run in your own browser. You set the
+CoinMarketCat is a Chrome extension that trades Solana spot tokens from a strategy you
+describe in your own words. You name an agent, write its strategy, choose up to ten tokens
+and set hard limits; on the schedule you choose it asks a model — through **your own
+Anthropic API key** — what to do, and deterministic code then decides what of that is
+allowed. It starts on **paper**. It trades live only from the autopilot wallet you fund and
+unlock, and only after you type the sentence that arms it. It is **spot only**, with no
+leverage, and it **runs only while Chrome is open** on your computer. Nothing about its
+returns has been measured.
+
+Its other lane is **Snipurr**, the sniper cat: the pump.fun launch sniper this extension
+started as, unchanged, [documented below](#snipurr--the-sniper-lane).
+
+CoinMarketCat is not affiliated with CoinMarketCap. Its agent follows the shape of the
+"agentic trading" idea CoinMarketCap describes publicly — a plain-English strategy, a
+universe, risk limits enforced by code, a vault the owner alone controls, a journal of
+every decision — on Solana spot instead of leveraged futures, and in your browser instead
+of a hosted service. The strategy marketplace and profit share that idea includes are
+**not built** (they would need a server this project does not have).
+
+### How the agent works
+
+Every half minute the service worker's alarm runs one tick (`src/lib/agent-runner.mjs`):
+
+1. **Snapshot.** One DexScreener request prices every token in the universe: price, 1 h
+   and 24 h change, 24 h volume, liquidity (`src/lib/agent-market.mjs`). A token DexScreener
+   does not price is asked of Jupiter's price API. A figure a source did not give is `null`
+   and named as missing — never guessed, never carried over.
+2. **Protections**, before anything else and whether or not the model is reachable: the
+   stop loss, the take profit and the daily drawdown breaker (`src/lib/agent-risk.mjs`).
+3. **The model**, only while running and only when its schedule (15, 30 or 60 minutes)
+   comes round. It is shown the owner's strategy (in the system prompt, after the rules),
+   the snapshot plus RSI(14), EMA(20), EMA(50) and 1 h / 4 h / 24 h returns computed here
+   from GeckoTerminal's 15-minute candles, the vault, the positions, the P&L, the limits
+   (read-only) and its last five decisions. It must answer through one tool,
+   `submit_decisions`: a rationale and a list of `buy` (in dollars), `sell` (a fraction of
+   the position) or `hold`, each with a confidence and a reason (`src/lib/agent-brain.mjs`).
+4. **The limits** turn the proposal into clamped orders and named refusals.
+5. **Execute**, sells first. Paper fills at Jupiter's quote; live runs Jupiter's
+   transaction through the check before signing and has the autopilot wallet sign it.
+6. **Journal**: every decision with its rationale and what became of each action, every
+   refusal with its clause, every fill (with its signature when live), the breaker, the
+   controls, and the tokens each model call used. It keeps the last 300 entries, in
+   `chrome.storage.local`, and the popup shows them.
+
+A model failure — the network, a timeout, a 401/429/5xx, a refusal, an answer with no
+tool call, or a tool input that is not exactly the decision format (a field it does not
+have, such as a limit, refuses the whole decision) — means **no new entries that tick**,
+journaled by its clause. The protections run regardless.
+
+### The limits
+
+The model cannot change any of these: they are read from the spec the owner saved, which
+nothing the model returns can write. Every clause is walked in `test-agent-risk.mjs`.
+
+| Limit | Default | Fence | What happens |
+|---|---|---|---|
+| Most in one token | $25 | $10 and up | a buy is clamped to what is left under it (`position_cap`) |
+| Most of the vault in tokens | 60% | 1–100% | pending buys count too (`exposure_cap`) |
+| Stop loss | 8% under entry | 0.5–50% | the whole position is sold, every half minute (`stop_loss`) |
+| Take profit | 15% over entry | 0.5–1000% | the whole position is sold, every half minute (`take_profit`) |
+| Daily drawdown | 5% | 0.5–50% | measured from the vault's value at the start of the UTC day; at the limit the breaker trips until UTC midnight and either stops new buys or sells everything (`drawdown_breaker`, `drawdown_liquidate`) |
+| Trades a day | 6 | 1–96 | the model's buys and sells per UTC day; a stop or take never counts and is never refused (`trades_per_day`) |
+| Slippage | 100 bps | 10–300 bps | written into every Jupiter instruction; a quote or transaction that says otherwise is refused |
+| Minimum trade | $10 | fixed | a smaller buy, or a partial sell worth less, is refused (`below_min_trade`); a whole position may always be sold |
+| Minimum vault | $50 | fixed | no buys below it (`vault_below_minimum`), and the model is not called when nothing is held |
+| Buy price impact | 2% | fixed | a buy whose quote moves the price more is refused; a sell never is |
+
+A buy is clamped in order — the per-token cap, the settlement balance, the exposure cap —
+and refused, naming the tightest, when what is left is under $10. Only tokens in the
+universe may be traded (`not_in_universe`); the settlement token cannot be traded into;
+a second action for one token in one tick is refused; no buys while paused (`paused`) or
+after the breaker trips. The proceeds of a sell are not spent by a buy in the same tick.
+
+**The universe** is at most ten tokens: the **Solana majors** preset — JitoSOL, JUP, JTO,
+PYTH, RAY, BONK, WIF and cbBTC — and custom mints. Every preset mint was found on
+Jupiter's token API (verified, strict) and read back as a mint account on mainnet on
+2026-09-24 at slot 450,123,200; the bytes are in `fixtures/agent/mints-verified.json` and
+`test-agent-strategy.mjs` re-derives every decimals and token-program figure from them. A
+custom mint is read over your RPC when you save it (its decimals and program come from the
+chain; a Token-2022 mint with a transfer fee, a live hook or a pause is refused). **SOL
+itself is not in this version**: buying SOL delivers wrapped SOL, and the check before
+signing is a port that dropped the executor's wrapped-SOL branches, so the wrapped-SOL mint
+is refused by name (`sol_not_in_v1`). JitoSOL follows SOL's price; it is not SOL.
+
+**The settlement token** is USDC by default, or USDT, counted at face value. Every buy
+spends it and every sell returns it, so every trade is a token-to-token swap — the kind the
+existing check before signing handles. USDC, USDT and cbBTC keep a freeze authority held by
+their issuers.
+
+### Paper and live
+
+- **Paper** (the default) starts a paper vault ($100 unless you change it, at least $50)
+  and fills every order at the output Jupiter quotes for it. Nothing is signed; no wallet
+  and no RPC are needed, only your API key. A quote is not a fill: a real trade can come in
+  lower, down to the slippage cap.
+- **Live** trades from the **autopilot wallet** (see [Who signs](#who-signs-phantom-per-trade-or-autopilot)).
+  Fund it from Phantom with at least $50 of the settlement token — the popup's *Fund from
+  Phantom* now offers USDC and USDT beside SOL — and a little SOL (the checklist asks for
+  0.02) for network fees and each token's account rent. Unlock it, set an RPC in Options,
+  and type the sentence the agent prints, which names the agent, the autopilot wallet, the
+  settlement token, every limit and every token; change any of them and it must be typed
+  again. Every live swap is Jupiter's transaction run through the check the xStock venue
+  uses: the pair must be the settlement token and a listed token, either way
+  (`allowedPairs`, refused at `pair_not_allowed` inside `checkSwapTransaction`); the route
+  decoded and bound to the quote; the lookup tables resolved on your RPC; the wallet's other
+  token accounts untouched; the engine's simulation guard on the settlement-token and token
+  deltas; the exact input; both accounts safe after the simulation. Then the engine's
+  `signSendConfirm`, bound to the autopilot wallet, signs without a window, sends, confirms,
+  and the fill is read back from the chain. A live USDC → JUP transaction Jupiter built on
+  2026-09-24 passes that check (`fixtures/agent/jupiter-usdc-jup-swap.json`).
+
+### Your API key, and what the model costs
+
+There is no CoinMarketCat server, so the agent calls the Anthropic Messages API with **your
+own key** (bring your own key). Paste it in **Options → Agent**: it is kept in
+`chrome.storage.local`, read by the service worker alone, sent only to
+`https://api.anthropic.com` in the `x-api-key` header, never shown again, never logged, and
+never given to a content script, a web page or the site. `test-agent-no-leak.mjs` pins that
+in the source, in the built bundles and through the running worker.
+
+No model identifier is written anywhere in this repository. The model is chosen at run
+time: Options lists the models your key may use (`GET /v1/models`), newest first, and with
+none picked the agent uses the first one listed. Every call is billed to your key: one per
+tick that the schedule comes round (every 15 minutes is 96 calls a day), plus one to list
+the models. The journal and the popup show the tokens each call used. If a model refuses a
+forced tool choice, the agent asks once more with the tool choice left to the model, and
+remembers that for it.
+
+### What runs where
+
+- **In your browser**: the agent, its limits, its journal, the autopilot wallet, your key.
+  It runs while Chrome is open on this computer — close Chrome or let it sleep and nothing
+  runs, not the model and not the stop loss. It is not a cloud service and it does not run
+  around the clock.
+- **Anthropic's API**: the model calls, on your key.
+- **Keyless public data**: DexScreener (one request per tick, 300 a minute allowed),
+  GeckoTerminal (15-minute candles, only when the model is due, 2.1 s apart, a 429 rests it
+  a minute and doubles), Jupiter (quotes, swaps and fallback prices on ONE client shared with
+  Snipurr's xStock venue, at the keyless 0.5 requests a second).
+- **Your RPC**: live reads, simulations and sends only.
+- **Nowhere else.** The site never talks to any of this; the agent's live data stays in the
+  extension.
+
+### The controls
+
+In the popup's **Agent** tab: **Start** (on paper, or live with the typed sentence),
+**Pause** (the model is not asked; the protections keep running), **Decide now** (ask the
+model at the next tick), **Liquidate all** (every position sold back to the settlement token
+through the same checks, then paused), **Withdraw**, and **Stop** (what is still held keeps
+its protections). **Withdraw** is yours alone: it pauses the agent and runs the existing
+sweep of the autopilot wallet — every token, then the SOL above the rent floor — to your
+connected Phantom address, then closes the agent's rows for what left as withdrawn. The
+model cannot name it (only `buy`, `sell` and `hold` exist), and the runner has no code path
+from a decision to a sweep. While the agent holds live positions the autopilot card's plain
+*Sweep* refuses and points to Withdraw.
+
+### What is not measured, and what it is not
+
+- **Unmeasured.** No win rate, no return and no drawdown from a real run, paper or live.
+  A model deciding from a snapshot of prices and a few indicators is not evidence of an edge.
+- **Not 24/7**: it runs while Chrome is open. **Not leveraged**: spot only.
+- **Not free to run**: every model call costs your own API credits, and every live trade a
+  network fee in SOL.
+- **Not a marketplace**: sharing or selling a strategy, and any profit share, is not built.
+- **No live agent trade has been made on mainnet.** The live path is proven against the
+  scripted chain in `test-agent-runner.mjs` and against Jupiter's recorded live transaction,
+  and nowhere else.
+
+## Snipurr — the sniper lane
+
+*Snipurr, the sniper cat. It hovers ten seconds over every launch and buys only what others followed.*
+
+Snipurr is CoinMarketCat's pump.fun sniper lane — the Claude Company launch sniper's lane
+(HAWK-AI's), run in your own browser, and the lane this extension started as. You set the
 limits: the take-profit, the SOL per trade, the daily budget it will not exceed, the stop,
 and which stock-paired tokens to focus on. You also choose who signs:
 
@@ -123,10 +297,11 @@ and which stock-paired tokens to focus on. You also choose who signs:
   under your passphrase, and — while you have it unlocked — signs the lane's buys and
   sells without asking. You fund it from Phantom with one approval and sweep it back when
   you are done. This is the one mode in which the extension holds a key; see
-  [Who signs](#who-signs-phantom-per-trade-or-autopilot) for exactly what that means.
+  [Who signs](#who-signs-phantom-per-trade-or-autopilot) for exactly what that means. The
+  agent's live mode uses the same wallet.
 
-When you install it, a setup page opens and walks you through your own limits before
-anything can spend.
+When you install it, a setup page opens and walks you through Snipurr's limits and the
+wallet before anything can spend. It sits in the popup's **Snipurr** tab.
 
 It is a Chrome extension you build from this repository and load unpacked. It is not in
 a store.
@@ -389,42 +564,6 @@ What is true on autopilot, plainly:
 
 `docs/session-wallet.md` has the threat model.
 
-### Install
-
-```bash
-git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
-cd Cat-Intelligence-Agency && npm ci && npm run build      # → dist/
-```
-
-1. `chrome://extensions` → **Developer mode** → **Load unpacked** → `Cat-Intelligence-Agency/dist`.
-   A setup page opens: connect, pick a style, set your limits, choose stocks and who
-   signs, and save — which puts the lane in **Observe**. Everything it sets stays editable
-   in Options, and the popup's *Setup* link opens it again. The styles: **Balanced** is
-   the lane's own defaults (the record's 1.5× take, 90 s stall and 180 s time stop at the
-   executor's 0.005 SOL canary, 0.01 SOL a day); **Cautious** is no looser on any dial and
-   tighter on three (one canary a day, 60 s stall, 120 s time stop — a choice, not a
-   measured improvement); **Bold** is labelled *looser than the record supports* (0.05 SOL
-   a ticket, 0.25 SOL a day, 2× take, 120 s stall, 300 s time stop, a proposed 0.5× stop).
-   Every style keeps the 10 s wait and the ≥ 1.0× follow-through. The stock checklist
-   offers GLDx, TSLAx and SPYx (read from the vendored fixture) and AAPLx and NVDAx (read
-   over RPC on 2026-09-24, not in the fixture); a ticked stock is written into the same
-   stock list Options edits, in that stock's own units.
-2. Open the extension's **Options** and paste an RPC URL (the setup page asks for it too) (Helius, Triton, QuickNode). The
-   public mainnet RPC refuses browsers. A second RPC is optional; with one set, a curve
-   the two disagree on is not trusted, and a read one of them missed or failed is used
-   alone (the shadow row's `endpointVerdict` says `single` or `one_missing`).
-3. Open the console page — the popup's **Console** button opens
-   `https://catintelligenceagency.com/console/` — and press **Connect Phantom**.
-   Phantom injects its provider into web pages only, so signing happens in that tab.
-   **Keep it open.**
-4. In the popup choose **Observe**. Watch the shadow book fill. Export it, grade it.
-5. To arm: choose **Execute**, read the checklist, type the sentence the lane prints for
-   the wallet that will sign (Phantom's, or the autopilot wallet's), press **Arm**. It is compared byte for byte, as WALL-ST-E does
-   with `SNIPE_LIVE_ACK`. A ticket above the 0.005 SOL canary must also have a stop you
-   chose.
-
-`npm run watch` rebuilds on save; press the reload arrow on the extension card afterwards.
-
 ### What it refuses, and what you must know
 
 - **A stop that needs a click is a weaker stop than a key's.** In Phantom mode every exit is one Phantom
@@ -461,21 +600,76 @@ cd Cat-Intelligence-Agency && npm ci && npm run build      # → dist/
 - **Two RPCs are optional here; on the executor they are mandatory.** A single provider
   is a single witness; the shadow row's `endpointVerdict` says `single` when so.
 
-### How it is built
+## Install
+
+```bash
+git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
+cd Cat-Intelligence-Agency && npm ci && npm run build      # → dist/
+```
+
+`chrome://extensions` → **Developer mode** → **Load unpacked** → `Cat-Intelligence-Agency/dist`.
+
+**The agent.** Open **Options** (the popup's *Options* link, or the agent card's *Set up the
+agent*). In **The agent**: name it, write the strategy, tick the tokens (or add a custom mint
+— that needs an RPC, below), choose the settlement token and the schedule, set the limits,
+paste your Anthropic API key and press **Save key**, press **Load the list** and pick a model
+(or keep the newest), and **Save the agent**. In the popup's **Agent** tab press **Start on
+paper**. Read the journal. To go live: set an RPC (below), create, fund (USDC or USDT, at
+least $50, and a little SOL) and unlock the autopilot wallet in the popup, switch the mode to
+Live in Options, then type the sentence the agent card prints and press **Start LIVE**.
+
+**Snipurr and the wallet.** The rest of this section is the setup page that opens on install,
+which sets up Snipurr's lane and the parts both lanes share.
+
+1. The setup page opens on install: connect, pick a style, set your limits, choose stocks and who
+   signs, and save — which puts the lane in **Observe**. Everything it sets stays editable
+   in Options, and the popup's *Setup* link opens it again. The styles: **Balanced** is
+   the lane's own defaults (the record's 1.5× take, 90 s stall and 180 s time stop at the
+   executor's 0.005 SOL canary, 0.01 SOL a day); **Cautious** is no looser on any dial and
+   tighter on three (one canary a day, 60 s stall, 120 s time stop — a choice, not a
+   measured improvement); **Bold** is labelled *looser than the record supports* (0.05 SOL
+   a ticket, 0.25 SOL a day, 2× take, 120 s stall, 300 s time stop, a proposed 0.5× stop).
+   Every style keeps the 10 s wait and the ≥ 1.0× follow-through. The stock checklist
+   offers GLDx, TSLAx and SPYx (read from the vendored fixture) and AAPLx and NVDAx (read
+   over RPC on 2026-09-24, not in the fixture); a ticked stock is written into the same
+   stock list Options edits, in that stock's own units.
+2. Open the extension's **Options** and paste an RPC URL (the setup page asks for it too) (Helius, Triton, QuickNode). The
+   public mainnet RPC refuses browsers. A second RPC is optional; with one set, a curve
+   the two disagree on is not trusted, and a read one of them missed or failed is used
+   alone (the shadow row's `endpointVerdict` says `single` or `one_missing`).
+3. Open the console page — the popup's **Console** button opens
+   `https://catintelligenceagency.com/console/` — and press **Connect Phantom**.
+   Phantom injects its provider into web pages only, so signing happens in that tab.
+   **Keep it open.**
+4. In the popup's **Snipurr** tab choose **Observe**. Watch the shadow book fill. Export it, grade it.
+5. To arm: choose **Execute**, read the checklist, type the sentence the lane prints for
+   the wallet that will sign (Phantom's, or the autopilot wallet's), press **Arm**. It is compared byte for byte, as WALL-ST-E does
+   with `SNIPE_LIVE_ACK`. A ticket above the 0.005 SOL canary must also have a stop you
+   chose.
+
+`npm run watch` rebuilds on save; press the reload arrow on the extension card afterwards.
+
+## How it is built
 
 ```
 manifest.json            MV3; permissions pinned by test-hawk-manifest.mjs
 build.mjs                esbuild; a plugin swaps node:crypto and jupiter.mjs for src/shims/
-src/background.mjs       the service worker: hosts the engine, the bridge, the autopilot wallet's keystore, fund and sweep, the badge, notifications
+src/background.mjs       the service worker: hosts the agent and Snipurr's engine, the bridge, the autopilot wallet's keystore, fund and sweep, the agent's API key, the badge, notifications
+src/lib/agent-strategy.mjs  the agent's spec: name, strategy, universe (the verified majors, custom mints), settlement, schedule, limits, the arm sentence
+src/lib/agent-market.mjs    the snapshot: DexScreener prices, GeckoTerminal candles, Jupiter's fallback price, the indicators, rate limits and backoff
+src/lib/agent-brain.mjs     the model call: the Messages API with the owner's key, the submit_decisions tool, the decision format, every failure by clause
+src/lib/agent-risk.mjs      the hard limits: pure functions — the protections, the breaker and its UTC reset, clamps and refusals
+src/lib/agent-runner.mjs    the tick: snapshot, protections, the model on schedule, the limits, paper or live execution, the journal
+fixtures/agent/             the live answers the agent's tests replay: the verified mints, DexScreener, GeckoTerminal, Jupiter prices and a USDC → JUP swap
 src/content.mjs          on the console page only: injects injected.js, relays with a nonce
 src/injected.mjs         in the page's world: the only code that touches window.phantom.solana
-src/lib/engine.mjs       the lane — dependency-injected, runs in Node for its tests
+src/lib/engine.mjs       Snipurr's lane — dependency-injected, runs in Node for its tests; hands the agent its fences (agentFences)
 src/lib/config.mjs       the dials, the arming checklist, RECORD
 src/lib/rpc.mjs          a small JSON-RPC client and the logsSubscribe feed with its watchdog
 src/lib/tx.mjs           transaction assembly (mirrors snipe-execute.mjs) and the fill reader
 src/lib/xstock-lane.mjs  the second venue: new pools paired with a stock — its gates, its book, its entries and exits
 src/lib/xstock-discovery.mjs  the new-pool feeds: parsers, pair classification, dedupe, backoff
-src/lib/jupiter-swap.mjs the Jupiter client (0.5 requests a second) and the check before signing (a port of the executor's)
+src/lib/jupiter-swap.mjs the Jupiter client (0.5 requests a second, quotes, swaps and prices) and the check before signing (a port of the executor's), with the agent's pair allowlist
 fixtures/xstock-pools/   the feeds' and Jupiter's live answers, captured 2026-09-24, that the tests replay
 src/lib/session-wallet.mjs  the autopilot wallet: keystore, signer, fund and sweep builders — the one file that may hold a key
 src/popup/ src/options/  the UI
@@ -504,7 +698,7 @@ bound, lookup tables from your RPC → the wallet's other accounts proved untouc
 engine's simulate guard → one Phantom window (or the autopilot key) → the same-message check →
 sent → confirmed → the fill read from the transaction → booked in the stock.
 
-### Keeping the decision code honest
+## Keeping the decision code honest
 
 ```bash
 npm run check-upstream                          # does vendor/executor still match Claude-Company main?
@@ -515,28 +709,37 @@ node scripts/sync-executor.mjs --from ../Claude-Company   # re-vendor from a che
 manifest, so a hand edit under `vendor/` fails the suite by name. CI runs the drift check
 on every push to `main`.
 
-### Tests
+## Tests
 
 `npm test` runs every `test-*.mjs` at the root and under `vendor/executor/`:
 
 | file | proves |
 |---|---|
-| `test-hawk-engine.mjs` | the lane end to end against a scripted chain that executes the venue's own `buy_v2`/`sell_v2` and a scripted Phantom: notice → shadow row → the wait → re-read → sign → fill → 1.5× take → declined sell re-asked → approved sell closes with the chain's SOL; a launch nobody followed is never bought; a declined or unanswered buy; a tampered signature refused; the day cap; the hard stop; the JSONL export read back and scored. Then a GLDx-quoted curve built from the live fixture bytes: refused when GLDx is not listed; read on the same call and filed in GLDx when it is; the canary buy with the GLDx account created under Token-2022, simulated on the GLDx delta, read back in eight decimals; the sell for GLDx; the full ticket once proven; the per-stock day cap and the SOL day; a short wallet, a paused stock, a buy that cannot be read back; SOL and GLDx graded apart; the stock list's validation and the arm sentence; the fill reader alone |
+| `test-agent-strategy.mjs` | the agent's spec: every preset mint re-derived from the recorded mainnet bytes and Jupiter's token list; the defaults; every refusal by name (SOL, the settlement token, an unverified mint, eleven tokens, each limit's fence); the pair allowlist; the arm sentence binding every limit and token |
+| `test-agent-market.mjs` | the snapshot replayed from the recorded DexScreener, GeckoTerminal and Jupiter answers: the parsers, missing stays missing, the indicators worked by hand and cross-checked on the live candles, one request per tick, candles only when asked and 2.1 s apart, a 429 resting the host and doubling, Jupiter pricing only what DexScreener did not |
+| `test-agent-brain.mjs` | the brain against a scripted Anthropic API with invented model ids: the request and its headers, the model list and the default, the decision format held exactly, 401/403/429/500/529/400, a refusal, a truncated answer, no tool call, the retry when a forced tool choice is refused, usage, and the key in one header to one origin |
+| `test-agent-risk.mjs` | the hard limits clause by clause: the UTC day, valuation with stale and unpriced marks, the stop and take at their edges, the breaker tripping, holding and resetting at UTC midnight, liquidate, every clamp in order, every refusal clause produced, and no limit the model can move |
+| `test-agent-runner.mjs` | the agent end to end: paper against scripted feeds, Jupiter and the model — decisions, clamps, fills, the take and stop between turns, the model failing, the breaker, pause, liquidate, stop, the journal cap, a restart; then live on a chain double with the real engine's fences and the real autopilot wallet — arming, a checked and signed buy read back from the chain, five hostile transactions refused before signing, a live take profit, a locked wallet; and the pair allowlist on Jupiter's recorded live transaction |
+| `test-agent-no-leak.mjs` | the API key: the AGENT messages, where the key is read, the password field that is cleared, the running worker (the key only ever to api.anthropic.com, never stored elsewhere, logged or answered), the bundles, the site; and no model identifier in any file or commit message |
+| `test-hawk-engine.mjs` | Snipurr's lane end to end against a scripted chain that executes the venue's own `buy_v2`/`sell_v2` and a scripted Phantom: notice → shadow row → the wait → re-read → sign → fill → 1.5× take → declined sell re-asked → approved sell closes with the chain's SOL; a launch nobody followed is never bought; a declined or unanswered buy; a tampered signature refused; the day cap; the hard stop; the JSONL export read back and scored. Then a GLDx-quoted curve built from the live fixture bytes: refused when GLDx is not listed; read on the same call and filed in GLDx when it is; the canary buy with the GLDx account created under Token-2022, simulated on the GLDx delta, read back in eight decimals; the sell for GLDx; the full ticket once proven; the per-stock day cap and the SOL day; a short wallet, a paused stock, a buy that cannot be read back; SOL and GLDx graded apart; the stock list's validation and the arm sentence; the fill reader alone |
 | `test-hawk-engine.mjs` §18 | autopilot with the real session wallet (a keystore over Maps, `createSessionSigner`): locked it does not arm; unlocked and funded it arms on the autopilot sentence; the buy and the sell reaching the chain carry ed25519 signatures by the autopilot key and Phantom is asked nothing; the key reaches no log, notification or store; a wallet short of one buy does not arm, and one that fell short since the last read is refused at `autopilot_balance_short`; switching to Phantom never strands a position; locked, a sell waits and says so; an unlock that runs out disarms |
 | `test-hawk-autopilot.mjs` | the running service worker under a `chrome` double and a JSON-RPC chain double that verifies every signature and applies the rent rule: install opens the setup page once; the three styles against the defaults dial by dial; only extension pages drive the wallet; create, fund (one Phantom approval, SOL and GLDx by TransferChecked), unlock with a TTL and its alarm, export, sweep to exactly the rent floor with every token and empty account, lock, an unlock that runs out; nothing logged or stored carries the passphrase or the key; no sweep while a position is held |
 | `test-hawk-session-wallet.mjs` | the keystore, the signer and the builders in isolation, including why a token sweep is TransferChecked: Token-2022 refuses a plain Transfer out of an xStock's pausable, hooked account |
-| `test-hawk-manifest.mjs` | the permissions, matches and resources above; the setup page is built, not web-accessible, and opened only on install |
-| `test-hawk-no-key.mjs` | one file may hold a key and only the worker imports it; the autopilot messages, the passphrase and the exported key pinned to where they may appear; the xStock venue's code names only its four hosts, sends Jupiter the wallet's public key and nothing else of it, and reaches a signature only through the engine's `signSendConfirm`, each call after its own pre-sign check; in source and in the bundle |
+| `test-hawk-manifest.mjs` | the permissions, matches and resources above; the name and description (the agentic trading cat, and Snipurr); the setup page is built, not web-accessible, and opened only on install |
+| `test-hawk-no-key.mjs` | one file may hold a key and only the worker imports it; the agent's files name only their hosts, sign nothing and never reach the sweep, and its runner signs only through the engine's fences, after its own check; the autopilot messages, the passphrase and the exported key pinned to where they may appear; the xStock venue's code names only its four hosts, sends Jupiter the wallet's public key and nothing else of it, and reaches a signature only through the engine's `signSendConfirm`, each call after its own pre-sign check; in source and in the bundle |
 | `test-hawk-xstock-venue.mjs` | the second venue against a chain double that runs Jupiter's `route_v2` on a constant-product pool, a scripted Jupiter and scripted feeds, no network: the venue off by default and silent; the captured GeckoTerminal and DexScreener pages parsed and classified; the poller's backoff on the captured 429, dedupe and horizon; the Jupiter client's rate budget; the quote and transaction checks on the **live** GLDx → GAYMF bytes and every hostile edit of them; observe with each gate refusing by name; armed on Phantom: wait, follow-through, buy, 1.5× take, sell, booked in GLDx; ten hostile Jupiter transactions and two hostile pools refused before signing; the canary, full ticket, day caps and a short wallet; an unreadable buy blocking the stock; autopilot signing with nothing secret on the wire; the pump.fun lane unchanged |
-| `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does |
+| `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does; the bundled agent limits decide exactly as their source |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
 | `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, six stations for the six cats, each with its sprite, screen, copy and an honest empty state; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the six agent cards; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
 | `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 
-### Not advice
+## Not advice
 
 A user-operated tool that runs in your own browser against your own wallet. Nothing here
-is financial advice, nothing here has an edge until you have graded its book over a real
-sample. In Phantom mode every position it opens can be sold only by a click you make; on
-autopilot it sells without asking, from a wallet that can lose everything you fund it with.
+is financial advice, and nothing here has an edge until you have measured it over a real
+sample: the agent's journal on paper, Snipurr's graded shadow book. A model's judgement is
+not an edge, and the agent's returns are unmeasured. In Phantom mode every position Snipurr
+opens can be sold only by a click you make; on autopilot both lanes sell without asking,
+from a wallet that can lose everything you fund it with. CoinMarketCat is not affiliated
+with CoinMarketCap.

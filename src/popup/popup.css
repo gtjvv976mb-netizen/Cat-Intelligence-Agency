@@ -118,3 +118,29 @@ label.venue .pill{margin-left:auto}
 .item .tag.pending,.item .tag.unsampled,.item .tag.waited_out{border-color:var(--warn);color:var(--warn)}
 .item .tag.venue{border-color:var(--teal);color:var(--cream)}
 #venueCard .item .m,#venueCard .item .t{overflow-wrap:anywhere}
+/* the lanes: the agent first, Snipurr (the sniper lane) beside it; the wallet cards serve both */
+.tabs{display:grid;grid-template-columns:1fr 1fr;margin:10px 12px 0;border:1px solid var(--card-line);border-radius:8px;overflow:hidden}
+.tabs button{background:var(--panel);color:var(--ink-soft);border:0;padding:8px 0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.tabs button+button{border-left:1px solid var(--card-line)}
+.tabs button.on{background:var(--teal);color:var(--cream)}
+body[data-tab="agent"] .card[data-tab="snipurr"],body[data-tab="snipurr"] .card[data-tab="agent"]{display:none !important}
+.card.agent{border-color:var(--sol-green)}
+.pills{display:flex;gap:5px;flex:none}
+.pill.paper{border-color:var(--sol-green);color:var(--sol-soft)}
+.pill.live{border-color:var(--bad);color:var(--bad);background:rgba(255,107,90,.08)}
+.pill.running{border-color:var(--good);color:var(--good)}
+.pill.paused{border-color:var(--warn);color:var(--warn)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 10px;margin-top:10px}
+.stats .v{font-size:12.5px}
+.agbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.agbtns .btn{flex:1 1 30%}
+.btn.ghost.warn{border-color:var(--warn);color:var(--warn)}
+.item .chips{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.chip{font-family:"JetBrains Mono",monospace;font-size:9.5px;padding:1px 6px;border-radius:3px;border:1px solid var(--card-line);color:var(--ink-soft)}
+.chip.filled,.chip.held,.chip.closed{border-color:var(--good);color:var(--good)}
+.chip.refused,.chip.failed{border-color:var(--bad);color:var(--bad)}
+.item .why{grid-column:1 / -1;color:var(--ink);font-size:11.5px;white-space:pre-wrap;word-break:break-word}
+.item .tag.fail{border-color:var(--bad);color:var(--bad)}
+#agJournal{max-height:220px}
+.hint a{color:var(--amber);text-decoration:none}
+.hint a:hover{text-decoration:underline}

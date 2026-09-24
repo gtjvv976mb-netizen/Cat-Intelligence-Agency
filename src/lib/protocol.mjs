@@ -1,7 +1,7 @@
 /**
  * THE WIRE BETWEEN THE FOUR PLACES THIS EXTENSION RUNS.
  *
- *   popup / options / welcome ──runtime.sendMessage──▶ background (the engine, the autopilot wallet)
+ *   popup / options / welcome ──runtime.sendMessage──▶ background (the agent, the Snipurr lane's engine, the autopilot wallet)
  *   background ──tabs.sendMessage──▶ content script ──window.postMessage──▶ injected (Phantom)
  *
  * Every message carries `type` from one of the tables below. Nothing else is accepted:
@@ -50,6 +50,33 @@ export const AUTOPILOT = Object.freeze({
 /** The AUTOPILOT messages whose payload carries a passphrase, and the one that returns a secret. */
 export const AUTOPILOT_CARRIES_PASSPHRASE = Object.freeze([AUTOPILOT.CREATE, AUTOPILOT.UNLOCK, AUTOPILOT.EXPORT_SECRET]);
 export const AUTOPILOT_RETURNS_SECRET = Object.freeze([AUTOPILOT.EXPORT_SECRET]);
+
+/**
+ * popup / options → background: THE AGENT (src/lib/agent-runner.mjs). A table apart from UI
+ * and AUTOPILOT because one of these carries a secret the owner typed — the API key, sent
+ * once from Options to be kept in chrome.storage.local, read by the worker alone and sent
+ * only to the Anthropic API — and none hands one back: STATUS says whether a key is saved,
+ * never what it is. None carries transaction bytes or a limit the model could have written:
+ * SAVE_SPEC carries the owner's form, normalized by normalizeAgentSpec; WITHDRAW carries the
+ * destination the owner confirmed, and the worker sweeps to Phantom with the existing sweep.
+ * test-agent-no-leak.mjs pins exactly which. The worker answers these only from the
+ * extension's own pages, never from a web page or a content script.
+ */
+export const AGENT = Object.freeze({
+  STATUS: "hawk:agent:status",             // → { agent: runner.status(), apiKeySaved, withdrawTo, … }
+  SAVE_SPEC: "hawk:agent:save-spec",       // { spec } — name, strategy, universe, settlement, schedule, limits, mode, model
+  SET_API_KEY: "hawk:agent:set-api-key",   // { apiKey } — the one message that carries a secret; never returned
+  CLEAR_API_KEY: "hawk:agent:clear-api-key",
+  LIST_MODELS: "hawk:agent:list-models",   // → [{ id, displayName }], as the API lists them for the saved key
+  START: "hawk:agent:start",               // { liveAck? } — live starts only with the typed sentence
+  PAUSE: "hawk:agent:pause",               // { on } — no model calls; the protections keep running
+  STOP: "hawk:agent:stop",
+  RUN_NOW: "hawk:agent:run-now",           // ask the model at the next tick instead of waiting for the schedule
+  LIQUIDATE: "hawk:agent:liquidate",       // every position back to the settlement token, then paused
+  WITHDRAW: "hawk:agent:withdraw",         // { expectTo } — the owner's sweep of the autopilot wallet to Phantom
+});
+export const AGENT_CARRIES_SECRET = Object.freeze([AGENT.SET_API_KEY]);
+export const AGENT_RETURNS_SECRET = Object.freeze([]);
 
 /** background → content → injected (requests), and back (replies with the same id) */
 export const BRIDGE = Object.freeze({

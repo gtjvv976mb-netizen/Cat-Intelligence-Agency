@@ -6,7 +6,12 @@
  * (site/coinmarketcat/index.html) and the console the extension's content script attaches
  * to (site/console/index.html). This file pins what those pages may and may not be:
  *
- *   · THE NUMBERS ARE THE CODE'S. Every dial the pages quote — the ten-second crouch, the
+ *   · THE AGENT'S NUMBERS ARE THE CODE'S. CoinMarketCat is the agentic trader now: its schedule,
+ *     its ten-token universe and the majors preset, its settlement, every default limit, the $10 and
+ *     $50 minimums, paper by default and the half-minute protections are read from agent-strategy.mjs
+ *     and the worker, and its page says plainly that it runs while Chrome is open, spot only, on the
+ *     owner's own API credits, unmeasured, and not affiliated with CoinMarketCap.
+ *   · SNIPURR'S NUMBERS ARE THE CODE'S. Every dial the pages quote for the sniper lane — the ten-second crouch, the
  *     1.0x follow-through, the 1.5x take, the 90 s stall, the 180 s clock, the 20% stop,
  *     the 0.005 SOL ticket, the 0.01 SOL day, the 1 SOL ceiling, eight stocks, the 12-
  *     character passphrase, the eight-hour unlock, the Phantom windows — is read from the
@@ -47,6 +52,7 @@ import {
 import { SNIPE_DEFAULTS as POLICY_DEFAULTS } from "./vendor/executor/snipe-policy.mjs";
 import { CHANNEL, BRIDGE } from "./src/lib/protocol.mjs";
 import { MIN_PASSPHRASE_LENGTH, DEFAULT_UNLOCK_TTL_MS } from "./src/lib/session-wallet.mjs";
+import { AGENT_SPEC_DEFAULTS, AGENT_BOUNDS, SOLANA_MAJORS, SETTLEMENT_TOKENS } from "./src/lib/agent-strategy.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = path.join(here, "site");
@@ -214,7 +220,9 @@ ok("localStorage holds the theme and nothing else", storageKeys.length >= 6 && s
 
 section("THE NUMBERS ARE THE CODE'S");
 const pinned = (name, codeOk, pagesOk, detail) => ok(name, codeOk && pagesOk, detail);
-pinned("the crouch: ten seconds", CONFIG_DEFAULTS.entryWaitMs === 10_000, has("cat", "crouches ten seconds") && has("cat", "Crouch 10 s") && has("agency", "Crouches ten seconds"));
+/* Snipurr's numbers: the sniper lane is Snipurr's now, described on the cat's page (its "Snipurr, the sniper lane"
+   section) and in the agency's CoinMarketCat pitch, and still read from the code that decides them. */
+pinned("the crouch: ten seconds", CONFIG_DEFAULTS.entryWaitMs === 10_000, has("cat", "crouches ten seconds") && has("cat", "Crouch 10 s") && has("agency", "crouches ten seconds"));
 pinned("the pounce: still at or above its entry price", CONFIG_DEFAULTS.entryFollowThroughX === 1, has("cat", "at or above its entry price") && has("agency", "at or above its entry price"));
 pinned("the take: 1.5x by default", CONFIG_DEFAULTS.takeAtEntryX === 1.5, has("cat", "1.5× by default") && has("cat", "Take 1.5×") && has("agency", "1.5× by default"));
 pinned("the stall: under entry at 90 seconds", POLICY_DEFAULTS.stallMs === 90_000 && POLICY_DEFAULTS.stallAtX === 1, has("cat", "still under its entry price at ninety seconds") && has("agency", "after 90 s"));
@@ -245,6 +253,48 @@ const pkg = JSON.parse(fs.readFileSync(path.join(here, "package.json"), "utf8"))
 pinned("Chrome and Node versions", manifest.minimum_chrome_version === "116" && pkg.engines.node === ">=22.13 <25", has("cat", "Chrome 116 or later") && has("cat", "Node.js 22.13 to 24"));
 pinned("the repository", pkg.repository.url === REPO, has("cat", `git clone ${REPO}`));
 
+section("THE AGENT'S NUMBERS ARE THE CODE'S");
+/* CoinMarketCat is the agentic trader: every number its page and the agency's pitch quote is
+   read from src/lib/agent-strategy.mjs, and the half-minute protections from the worker's alarm. */
+{
+  const d = AGENT_SPEC_DEFAULTS;
+  pinned("the model is asked every 15, 30 or 60 minutes", JSON.stringify(AGENT_BOUNDS.schedules) === "[15,30,60]" && d.scheduleMinutes === 30,
+    has("cat", "every 15, 30 or 60 minutes") && has("agency", "Every 15, 30 or 60 minutes"));
+  pinned("up to ten tokens", AGENT_BOUNDS.universeMax === 10, has("cat", "up to ten tokens") && has("agency", "Up to ten Solana spot tokens"));
+  pinned("the Solana majors preset, by symbol", SOLANA_MAJORS.map((m) => m.symbol).join(", ") === "JitoSOL, JUP, JTO, PYTH, RAY, BONK, WIF, cbBTC",
+    has("cat", "JitoSOL, JUP, JTO, PYTH, RAY, BONK, WIF and cbBTC"));
+  pinned("settled in USDC by default, or USDT", SETTLEMENT_TOKENS.map((t) => t.symbol).join() === "USDC,USDT" && d.settlementMint === SETTLEMENT_TOKENS[0].mint,
+    has("cat", "settled in USDC by default, or USDT") && has("agency", "settled in USDC or USDT"));
+  pinned("the limits' defaults: $25 a token, 60% in tokens, 8% stop loss, 15% take profit, 5% daily drawdown, 6 trades a day, 100 bps",
+    d.maxPositionUsd === 25 && d.maxExposurePct === 60 && d.stopLossPct === 8 && d.takeProfitPct === 15 && d.maxDailyDrawdownPct === 5 && d.maxTradesPerDay === 6 && d.slippageBps === 100,
+    ["$25 per token", "60% of the vault", "8% stop loss", "15% take profit", "5% daily drawdown", "6 trades a day", "100 bps"].every((p) => has("cat", p)));
+  pinned("the $10 minimum trade and the $50 minimum vault, fixed", AGENT_BOUNDS.minTradeUsd === 10 && AGENT_BOUNDS.minVaultUsd === 50,
+    has("cat", "$10 minimum trade") && has("cat", "$50 minimum vault") && has("cat", "at least $50 of USDC or USDT"));
+  pinned("paper is the default, from a $100 paper vault", d.mode === "paper" && d.paperVaultUsd === 100,
+    has("cat", "Paper is the default") && has("cat", "$100 unless you change it") && has("agency", "It starts on paper"));
+  pinned("the protections check every half minute: the worker's alarm", /chrome\.alarms\.create\(ALARM, \{ periodInMinutes: 0\.5 \}\)/.test(fs.readFileSync(path.join(here, "src", "background.mjs"), "utf8")),
+    has("cat", "every half minute") && has("agency", "every half minute"));
+  pinned("the model is chosen at run time: the newest the key lists, unless the owner picks one", d.model === "",
+    has("cat", "by default, the newest one the API lists for your key"));
+  pinned("SOL itself is not in this version", !SOLANA_MAJORS.some((m) => m.mint === "So11111111111111111111111111111111111111112"), has("cat", "SOL itself is not tradable in this version"));
+  for (const phrase of [
+    "It runs while Chrome is open on this computer, not in a cloud around the clock.",
+    "It is spot only, with no leverage.",
+    "Every model call is billed to your own API key.",
+    "Nothing about this agent's returns has been measured",
+    "The model cannot change a limit, trade outside your list, or withdraw.",
+    "Only you can withdraw",
+    "Sharing or selling a strategy to other people is not built.",
+    "CoinMarketCat is not affiliated with CoinMarketCap.",
+  ]) ok(`the cat's page says: "${phrase.slice(0, 60)}"`, has("cat", phrase));
+  for (const phrase of ["CoinMarketCat is not affiliated with CoinMarketCap.", "While Chrome is open on your computer, not in a cloud around the clock.", "Spot only, with no leverage.", "Every model call is billed to your own API key."])
+    ok(`the agency's pitch says: "${phrase.slice(0, 60)}"`, has("agency", phrase));
+  const allText = Object.values(text).join(" ");
+  ok("no page promises round-the-clock trading, leverage on offer, or a figure for returns", !/24\/7|\bruns 24|always on\b|up to \d+x leverage|\d+x leverage|win rate of \d|\d+% win rate/i.test(allText));
+  ok("CoinMarketCat is the agentic trader on its card, its floor station and its page", /data-beat="The agentic trader · software"/.test(html.agency) && html.floor.includes('<span class="tag-beat">The agentic trader · software</span>') && has("cat", "CoinMarketCat, the agentic trading cat."));
+  ok("Snipurr is named as the sniper lane on the cat's page and in the agency's pitch", has("cat", "Snipurr, the sniper lane.") && has("agency", "Snipurr, the sniper cat, is its other lane"));
+}
+
 section("THE RECORD IS RECORD'S");
 const under3 = RECORD.bySecondsLate.find((b) => b.bucket === "under 3s");
 const late = RECORD.bySecondsLate.find((b) => b.bucket === "10s+");
@@ -266,7 +316,7 @@ for (const phrase of [
   "Launch sniping loses money more often than not.",
   "The lane this cat learned from has been unprofitable.",
   "This cat's own live record is unmeasured.",
-  "Use observe mode first. Only fund what you can afford to lose.",
+  "Run the agent on paper and Snipurr in Observe first. Only fund what you can afford to lose.",
   "None of this is evidence of an edge.",
   "no Autopilot trade, fund or sweep has yet been made on mainnet",
   "Nothing has been measured yet about stock-paired launches or pools",

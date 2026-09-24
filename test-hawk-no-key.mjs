@@ -24,6 +24,11 @@
  * stay banned. The built bundles for the page-facing scripts and the UI must not carry
  * the secret's storage key at all.
  *
+ * What is pinned about the agent (src/lib/agent-*.mjs): its files name only their own hosts,
+ * hold nothing key-shaped, sign nothing, and never reach the sweep; its runner reaches a
+ * signature once, through the engine's fences bound to the autopilot wallet, after its own
+ * check of the same bytes. The owner's API key is pinned apart, in test-agent-no-leak.mjs.
+ *
  * What is pinned about the autopilot wallet's wiring: the AUTOPILOT message table is
  * exactly seven messages; only create, unlock and export carry a passphrase, and the
  * worker reads one in those three handlers and nowhere else; only the export returns the
@@ -212,6 +217,52 @@ console.log("\nTHE xSTOCK VENUE'S NETWORK\n────────────�
   ok("…whose check resolves the lookup tables on the lane's own RPC", /loadLookupTables\(rpc, lookupTableKeysOf\(txBase64\)\)/.test(lane));
   const engine = fs.readFileSync(path.join(here, "src", "lib", "engine.mjs"), "utf8");
   ok("the engine hands the venue its own simulateGuard and signSendConfirm, not a signer's raw call", /simulateGuard, signSendConfirm, recordClose,/.test(engine) && !/createXstockLane\(\{[\s\S]*?signTransaction[\s\S]*?\}\);/.test(engine));
+}
+
+console.log("\nTHE AGENT'S NETWORK AND SIGNING\n───────────────────────────────");
+{
+  /* CoinMarketCat's agent (src/lib/agent-*.mjs) is the second lane that trades through
+     Jupiter, and the first that talks to a model. What is pinned: its files name only the
+     hosts they need; none can read, name or send a wallet key or a passphrase; none touches
+     chrome.* or storage of its own; the runner reaches a signature only through the engine's
+     fences — signSendConfirm bound to the autopilot wallet — once, after its own check of the
+     same bytes, with the pair allowlist inside the check; and nothing in the agent reaches the
+     sweep. The owner's API key is pinned in test-agent-no-leak.mjs. */
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
+  const AGENT_FILES = {
+    [path.join("src", "lib", "agent-market.mjs")]: ["api.dexscreener.com", "api.geckoterminal.com"],
+    [path.join("src", "lib", "agent-brain.mjs")]: ["api.anthropic.com"],
+    [path.join("src", "lib", "agent-risk.mjs")]: [],
+    [path.join("src", "lib", "agent-runner.mjs")]: [],
+    /* two URLs in a string that SAYS where the preset mints were read; this file fetches nothing */
+    [path.join("src", "lib", "agent-strategy.mjs")]: ["api.mainnet-beta.solana.com", "api.jup.ag"],
+  };
+  for (const [rel, allowed] of Object.entries(AGENT_FILES)) {
+    const code = strip(fs.readFileSync(path.join(here, rel), "utf8"));
+    const hosts = [...new Set([...code.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase()))];
+    ok(`${rel}: names only its own hosts`, hosts.every((h) => allowed.includes(h)), hosts.join(", ") || "none");
+    ok(`${rel}: nothing wallet-key-shaped or passphrase-shaped in its code`, !/secretKey|passphrase|privateKey|mnemonic|Keypair|seed\b/i.test(code));
+    ok(`${rel}: touches no chrome API and no storage of its own, logs nothing`, !/chrome\.|localStorage|sessionStorage|indexedDB|console\./.test(code));
+    ok(`${rel}: signs nothing itself`, !/\.sign\(|signTransaction|partialSign/.test(code));
+    ok(`${rel}: never reaches the sweep`, !/buildSweepTransaction|buildTokenSweepTransaction|autopilotSweep|sweep\(/i.test(code));
+  }
+  ok("agent-strategy.mjs fetches nothing: its URLs are words", !/\bfetch\s*\(/.test(strip(fs.readFileSync(path.join(here, "src", "lib", "agent-strategy.mjs"), "utf8"))));
+  const runner = strip(fs.readFileSync(path.join(here, "src", "lib", "agent-runner.mjs"), "utf8"));
+  const signs = [...runner.matchAll(/f\.signSendConfirm\(\{ txBase64,/g)].map((m) => m.index);
+  const at = (re) => runner.search(re);
+  ok("the runner asks for a signature once, through the fences' signSendConfirm", signs.length === 1 && (runner.match(/signSendConfirm/g) ?? []).length === 1);
+  ok("…after the check of the same bytes: pair, lookup tables from this RPC, decode, custody, simulation, exact input",
+    signs.length === 1 && [/assertPairAllowed\(\{ inputMint, outputMint, allowedPairs: pairsNow\(\) \}\)/, /loadLookupTables\(rpc, lookupTableKeysOf\(txBase64\)\)/, /checkSwapTransaction\(\{/, /checkWritableCustody\(/, /f\.simulateGuard\(\{/, /"exact_input"/, /checkSafeAfter\(/]
+      .every((re) => at(re) >= 0 && at(re) < signs[0]));
+  ok("…with the pair allowlist inside the check itself", /lookupTables: tables, maxPriorityFeeLamports: AGENT_PRIORITY_FEE_LAMPORTS, allowedPairs: pairsNow\(\),/.test(runner));
+  ok("…and in paper nothing is signed: the paper path returns before the fences are asked", runner.indexOf("if (!liveMode()) {") < runner.indexOf("const f = fences();\n    if (!f) throw new AgentError(\"no_autopilot\""));
+  const engine = fs.readFileSync(path.join(here, "src", "lib", "engine.mjs"), "utf8");
+  ok("the engine's agent fences bind signSendConfirm to the autopilot wallet, never to Phantom", /agentFences\(\) \{[\s\S]*?signSendConfirm: \(args\) => signSendConfirm\(\{ \.\.\.args, signer: sessionSigner \}\),[\s\S]*?\}/.test(engine) && !/agentFences\(\) \{[^}]*bridge/.test(engine));
+  const bg = fs.readFileSync(path.join(here, KEY_HOST), "utf8");
+  const withdraw = bg.match(/async function agentWithdraw\(msg\) \{[\s\S]*?\n\}\n/)?.[0] ?? "";
+  ok("the agent's withdrawal is the worker's existing sweep, to the address the owner confirmed", /await autopilotSweep\(\{ expectTo: msg\.expectTo \}\)/.test(withdraw) && /pauseForWithdraw\(\)/.test(withdraw));
+  ok("…reached only from the AGENT.WITHDRAW message, never from the runner", (strip(bg).match(/agentWithdraw\(/g) ?? []).length === 2 && /case AGENT\.WITHDRAW: \{[^\n]*agentWithdraw\(msg\)/.test(bg));
+  ok("a plain sweep is refused while the agent holds live positions (its own Withdraw closes those rows)", /case AUTOPILOT\.SWEEP: \{[\s\S]*?liveHeld\(\)[\s\S]*?return await autopilotSweep\(msg\);/.test(bg));
 }
 
 console.log("\nTHE KEY FILE\n────────────");

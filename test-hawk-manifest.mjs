@@ -55,7 +55,13 @@ ok("the icons are the building's own marks, under the bot's name", ["32", "128",
    false in one mode, so the charter now says what is true in both, and may not say the
    old sentence again. */
 ok("the description does not claim the extension never holds a key (on autopilot it holds one)", !/never holds a key|holds no key/i.test(manifest.description), manifest.description);
-ok("the description names both signers: Phantom per trade, and an autopilot wallet you fund", /Phantom per trade/i.test(manifest.description) && /autopilot wallet you fund/i.test(manifest.description), manifest.description);
+/* CoinMarketCat is the agentic trader now, and the sniper lane is Snipurr's: the charter says
+   so in both places a person reads it — the extension's name and its store description. Who
+   signs is said on the checklists and in the popup, where there is room to say it fully. */
+ok("the name is CoinMarketCat, the agentic trading cat", manifest.name === "CoinMarketCat — the agentic trading cat" && manifest.name.length <= 75, manifest.name);
+ok("the description says what it is — agentic trading for Solana in plain English — and names Snipurr, the sniper lane",
+  /agentic trading for Solana in plain English/.test(manifest.description) && /Snipurr, the pump\.fun sniper cat/.test(manifest.description), manifest.description);
+ok("…and claims nothing it cannot keep: no returns, no 24/7, no leverage", !/profit|return|24\/7|always on|leverage|guarantee/i.test(manifest.description));
 ok("the description fits Chrome's 132-character limit", manifest.description.length <= 132, `${manifest.description.length} characters`);
 
 console.log("\nTHE FIRST-RUN SETUP PAGE\n────────────────────────");

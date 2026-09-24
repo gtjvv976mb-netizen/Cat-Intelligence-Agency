@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "CoinMarketCat — the sniper cat for Phantom",
+  "name": "CoinMarketCat — the agentic trading cat",
   "short_name": "COINMARKETCAT",
   "version": "0.1.0",
-  "description": "CoinMarketCat, the sniper cat: pump.fun launches inside your limits, signed by Phantom per trade or by an autopilot wallet you fund.",
+  "description": "CoinMarketCat: agentic trading for Solana in plain English, with Snipurr, the pump.fun sniper cat",
   "minimum_chrome_version": "116",
   "icons": {
     "32": "icons/coinmarketcat-32.png",

@@ -1,0 +1,91 @@
+{
+ "note": "GET https://api.jup.ag/price/v3?ids=<USDC and the eight majors> — the live answer, unedited.",
+ "capturedAt": "2026-09-24T19:28:36.777Z",
+ "status": 200,
+ "rateLimitRemaining": "4",
+ "mints": [
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+  "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+  "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+  "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+  "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+  "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+  "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij"
+ ],
+ "body": {
+  "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R": {
+   "createdAt": "2024-06-07T10:56:42.584Z",
+   "liquidity": 20195163.328652706,
+   "usdPrice": 2.1889728777287507,
+   "blockId": 450123469,
+   "decimals": 6,
+   "priceChange24h": 4.598059494348273
+  },
+  "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263": {
+   "createdAt": "2024-06-07T10:26:40.709Z",
+   "liquidity": 6250600.96979325,
+   "usdPrice": 0.0000037093836229791787,
+   "blockId": 450123465,
+   "decimals": 5,
+   "priceChange24h": 5.629637722290049
+  },
+  "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm": {
+   "createdAt": "2024-06-07T10:51:21.979Z",
+   "liquidity": 7018996.117802818,
+   "usdPrice": 0.23782272956279427,
+   "blockId": 450123468,
+   "decimals": 6,
+   "priceChange24h": 3.826519763008153
+  },
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
+   "createdAt": "2024-06-05T08:55:25.527Z",
+   "liquidity": 464446085.53267324,
+   "usdPrice": 0.9997742381967851,
+   "blockId": 450123476,
+   "decimals": 6,
+   "priceChange24h": -0.008249343866758093
+  },
+  "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3": {
+   "createdAt": "2024-06-07T10:22:58.336Z",
+   "liquidity": 505935.7946008158,
+   "usdPrice": 0.06825451859138654,
+   "blockId": 450123371,
+   "decimals": 6,
+   "priceChange24h": 8.810530080976802
+  },
+  "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn": {
+   "createdAt": "2024-06-07T10:51:21.979Z",
+   "liquidity": 1218919717.5892518,
+   "usdPrice": 153.05998724096239,
+   "blockId": 450123289,
+   "decimals": 9,
+   "priceChange24h": 2.6395954630982468
+  },
+  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN": {
+   "createdAt": "2024-06-07T10:56:42.584Z",
+   "liquidity": 5459098.058199784,
+   "usdPrice": 0.30465852644417235,
+   "blockId": 450123416,
+   "decimals": 6,
+   "priceChange24h": 5.829949658624336
+  },
+  "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij": {
+   "createdAt": "2024-10-08T16:54:05Z",
+   "liquidity": 31048876.082095824,
+   "usdPrice": 84602.89174678341,
+   "blockId": 450123475,
+   "decimals": 8,
+   "priceChange24h": 0.22724880466735903
+  },
+  "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL": {
+   "createdAt": "2024-06-07T10:15:02.516Z",
+   "liquidity": 485270.5298370295,
+   "usdPrice": 0.5066271749297597,
+   "blockId": 450123421,
+   "decimals": 9,
+   "priceChange24h": 9.72371075034002
+  }
+ }
+}

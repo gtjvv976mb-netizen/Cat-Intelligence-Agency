@@ -383,18 +383,32 @@ export function validateTiers(raw) {
   });
   return { value: raw, problems: [] };
 }
-/* GET /v1/perks/challenge: { wallet, nonce, message, expiresAt }. The site signs the message only
-   if it is plain text, untouched, that names the site, the wallet signing it and the nonce. */
+/* GET /v1/perks/challenge: { wallet, nonce, message, expiresAt }. The message must be exactly the
+   contract's six lines (docs/hq/API.md; test-site.mjs compares them), joined by "\n" with no
+   trailing newline. Only the wallet (the one connected), the nonce and the two times vary, and
+   Expires is expiresAt. The site asks a wallet to sign nothing else. */
+export const CHALLENGE_LINES = Object.freeze([
+  "catintelligenceagency.com asks you to prove you hold this wallet, to show your $CIA holder perks.",
+  "Wallet: <wallet>",
+  "Nonce: <nonce>",
+  "Issued: <ISO time>",
+  "Expires: <ISO time, expiresAt>",
+  "Signing this message moves nothing: no SOL, no tokens, no approval, and it costs nothing.",
+]);
+export function challengeMessage({ wallet, nonce, issuedAt, expiresAt }) {
+  return [CHALLENGE_LINES[0], `Wallet: ${wallet}`, `Nonce: ${nonce}`, `Issued: ${issuedAt}`, `Expires: ${expiresAt}`, CHALLENGE_LINES[5]].join("\n");
+}
 export function validateChallenge(raw, wallet) {
   exact(raw, "challenge", ["wallet", "nonce", "message", "expiresAt"]);
   V.address(raw, "wallet", "challenge");
   if (raw.wallet !== wallet) throw new HqInvalid("challenge.wallet is not the connected wallet");
   V.pattern(raw, "nonce", "challenge", NONCE, "a nonce");
-  if (typeof raw.message !== "string" || raw.message.length < 16 || raw.message.length > 600 || /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/.test(raw.message))
-    throw new HqInvalid("challenge.message must be 16 to 600 characters of plain text");
-  for (const [what, needle] of [["the site", "catintelligenceagency.com"], ["the wallet signing it", wallet], ["its nonce", raw.nonce]])
-    if (!raw.message.includes(needle)) throw new HqInvalid(`challenge.message does not name ${what}`);
   V.time(raw, "expiresAt", "challenge");
+  if (typeof raw.message !== "string") throw new HqInvalid("challenge.message must be text");
+  const issued = (raw.message.split("\n")[3] || "").replace(/^Issued: /, "");
+  if (!isIsoTime(issued) || Date.parse(issued) > Date.parse(raw.expiresAt)) throw new HqInvalid("challenge.message has no Issued time before it expires");
+  if (raw.message !== challengeMessage({ wallet, nonce: raw.nonce, issuedAt: issued, expiresAt: raw.expiresAt }))
+    throw new HqInvalid("challenge.message is not the contract's six lines, for this wallet, this nonce and this expiry");
   return { value: raw, problems: [] };
 }
 export function validatePerks(raw) {

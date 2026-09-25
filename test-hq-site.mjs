@@ -246,6 +246,17 @@ const good = {
     && refuses(() => V.validateChallenge({ ...clone(ch), nonce: "a-different-nonce" }, wallet)) && refuses(() => V.validateChallenge({ ...clone(ch), message: ch.message.replace("catintelligenceagency.com", "evil.example") }, wallet))
     && refuses(() => V.validateChallenge({ ...clone(ch), message: "sign this" }, wallet)) && refuses(() => V.validateChallenge({ ...clone(ch), message: `${ch.message}‮` }, wallet))
     && refuses(() => V.validateChallenge(clone(ch), "11111111111111111111111111111111")) && refuses(() => V.validateChallenge({ ...clone(ch), extra: 1 }, wallet)));
+  const lines = ch.message.split("\n");
+  const withLines = (ls) => ({ ...clone(ch), message: ls.join("\n") });
+  const later = new Date(Date.parse(ch.expiresAt) + 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  ok("the challenge is refused unless it is exactly the contract's six lines: only the wallet, the nonce and the two times vary",
+    lines.length === 6 && JSON.stringify([lines[0], lines[5]]) === JSON.stringify([V.CHALLENGE_LINES[0], V.CHALLENGE_LINES[5]]) && lines[1] === `Wallet: ${wallet}` && lines[4] === `Expires: ${ch.expiresAt}`
+      && refuses(() => V.validateChallenge({ ...clone(ch), message: `${ch.message}\n` }, wallet)) && refuses(() => V.validateChallenge(withLines([...lines, "Also approve this."]), wallet))
+      && refuses(() => V.validateChallenge(withLines(lines.slice(0, 5)), wallet)) && refuses(() => V.validateChallenge(withLines(lines.map((l, i) => (i === 1 ? "Wallet: 11111111111111111111111111111111" : l))), wallet))
+      && refuses(() => V.validateChallenge(withLines(lines.map((l, i) => (i === 4 ? `Expires: ${later}` : l))), wallet)) && refuses(() => V.validateChallenge({ ...withLines(lines.map((l, i) => (i === 3 ? `Issued: ${later}` : l))), expiresAt: ch.expiresAt }, wallet))
+      && refuses(() => V.validateChallenge(withLines(lines.map((l, i) => (i === 5 ? "Signing this message moves nothing." : l))), wallet)) && refuses(() => V.validateChallenge(withLines(lines.map((l, i) => (i === 3 ? "Issued: yesterday" : l))), wallet))
+      && refuses(() => V.validateChallenge({ ...clone(ch), message: ch.message.replace(/\n/g, "\r\n") }, wallet))
+      && !refuses(() => V.validateChallenge({ ...clone(ch), message: V.challengeMessage({ wallet, nonce: ch.nonce, issuedAt: "2026-09-25T10:00:00.123Z", expiresAt: ch.expiresAt }) }, wallet)));
   const pk = W.verify();
   ok("a perks answer: holder and tier must agree, perks are short text", !refuses(() => V.validatePerks(clone(pk))) && refuses(() => V.validatePerks({ ...clone(pk), holder: false }))
     && refuses(() => V.validatePerks({ ...clone(pk), tier: "whale" })) && !refuses(() => V.validatePerks({ ...clone(pk), perks: ["x".repeat(120)] })) && refuses(() => V.validatePerks({ ...clone(pk), perks: ["x".repeat(121)] })) && refuses(() => V.validatePerks({ ...clone(pk), perks: ["a\u200Bb"] })) && refuses(() => V.validatePerks({ ...clone(pk), perks: [5] })) && refuses(() => V.validatePerks({ ...clone(pk), balance: 5 })));

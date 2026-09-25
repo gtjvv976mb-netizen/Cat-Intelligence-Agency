@@ -22,6 +22,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { RANKS, rankForCareer, decSum, decMax, roundDec, decCmp } from "../site/assets/hq-format.js";
+import { challengeMessage } from "../site/assets/hq-validate.js";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 function rng(seed) {
@@ -221,7 +222,7 @@ export function mockWorld({ seed = 7, mode = "mixed", empty = false, now = Date.
       { id: "agent", minCia: "1000000", perks: ["Mock: the Night Ops skin", "Mock: a vote on the next agent's name", "Mock: a vote on the next agent's strategy"] },
       { id: "director", minCia: "10000000", perks: ["Mock: every perk skin", "Mock: both votes", "Mock: your wallet named on the Transparency page, if you want it"] },
     ] }),
-    challenge: (wallet, nonce = randomBytes(8).toString("hex")) => ({ wallet, nonce, message: `catintelligenceagency.com asks you to sign in to $CIA holder perks.\n\nWallet: ${wallet}\nNonce: ${nonce}\nExpires: ${iso(-5 * 60_000)}\n\nMock HQ. Signing this costs nothing and moves nothing.`, expiresAt: iso(-5 * 60_000) }),
+    challenge: (wallet, nonce = randomBytes(12).toString("hex")) => ({ wallet, nonce, message: challengeMessage({ wallet, nonce, issuedAt: iso(0), expiresAt: iso(-5 * 60_000) }), expiresAt: iso(-5 * 60_000) }),
     verify: () => ({ holder: true, balance: "1250000", tier: "agent", perks: ["Mock: the Night Ops skin", "Mock: a vote on the next agent's name", "Mock: a vote on the next agent's strategy"], expiresAt: iso(-24 * H) }),
     nextEvent,
   };

@@ -908,6 +908,7 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
 {
   const API = fs.readFileSync(path.join(here, "docs", "hq", "API.md"), "utf8");
   const HF = await import("./site/assets/hq-format.js");
+  const HVC = await import("./site/assets/hq-validate.js");
   const HQ_JS = ["hq-client.js", "hq-validate.js", "hq-format.js", "hq-ui.js", "hq-chart.js", "hq-live.js", "hq-agent.js", "hq-investors.js", "hq-perks.js", "hq-band.js"];
   const src = Object.fromEntries(HQ_JS.map((f) => [f, fs.readFileSync(path.join(SITE, "assets", f), "utf8")]));
   const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -931,9 +932,17 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
       && client.includes('const DEV_HOSTS = ["localhost", "127.0.0.1"];') && client.includes("return m && Number(m[2]) <= 65535 && DEV_HOSTS.includes(pageHost) ? s : \"\";"));
   ok("hq-client.js: no cookies, no referrer, no cache, no redirects, a timeout and a size cap",
     ['credentials: "omit"', 'cache: "no-store"', 'redirect: "error"', 'referrerPolicy: "no-referrer"', 'mode: "cors"', "TIMEOUT_MS = 12_000", "MAX_BYTES = 2_000_000"].every((x) => client.includes(x)));
-  const contractPaths = new Set([...API.matchAll(/`(?:GET|POST) (\/v1\/[\w/:]+)/g)].map((m) => m[1]));
+  /* The site's endpoints: every one the contract lists, except under "Outside the site's contract"
+     (HQ's health check and the owner's admin commands), which the site never calls. */
+  const [API_SITE, API_OUTSIDE = ""] = API.split("### Outside the site's contract");
+  const contractPaths = new Set([...API_SITE.matchAll(/`(?:GET|POST) (\/v1\/[\w/:]+)/g)].map((m) => m[1]));
   const clientPaths = new Set([...code(client).matchAll(/["`](\/v1\/[\w/]*)(\$\{[^}]+\})?/g)].map((m) => m[1] + (m[2] ? ":id" : "")));
   ok("hq-client.js calls the contract's endpoints and nothing else", contractPaths.size === 11 && [...clientPaths].every((x) => contractPaths.has(x)) && [...contractPaths].every((x) => clientPaths.has(x)), [...clientPaths].join(" "));
+  ok("the site never calls what the contract keeps outside it: HQ's health check and the owner's admin commands",
+    /`GET \/health`/.test(API_OUTSIDE) && /`POST \/v1\/admin`/.test(API_OUTSIDE) && !/\/health|\/v1\/admin|admin/i.test(HQ_JS.map((f) => code(src[f])).join(" ")));
+  const template = (API.match(/six lines[\s\S]*?```\n([\s\S]*?)\n```/) || [])[1];
+  ok("the perks challenge the site will sign is the contract's six lines, word for word", template && JSON.stringify(template.split("\n")) === JSON.stringify(HVC.CHALLENGE_LINES)
+    && /raw\.message !== challengeMessage\(/.test(src["hq-validate.js"]), template ? "" : "no template in API.md");
   ok("its one POST is /v1/perks/verify, carrying the wallet, the message and the signature",
     (code(client).match(/post:/g) || []).length === 1 && client.includes('call("/v1/perks/verify", null, validatePerks, { post: { wallet, message, signature } })') && client.includes('method: post ? "POST" : "GET"'));
   ok("every answer goes through a validator before a page sees it", (code(client).match(/call\("/g) || []).length + (code(client).match(/call\(`/g) || []).length === 10 && /return check\(raw\);/.test(client) && /validateStreamEvent\(type, JSON\.parse\(e\.data\)\)/.test(client) && /e\.origin !== origin/.test(client));

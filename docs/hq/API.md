@@ -112,7 +112,9 @@ closed trades. Trading P&L never includes creator fees; fees are their own line.
 ```
 `coin` may be null (an agent with no coin of its own); its `symbol` and `name` are null while
 the coin's metadata cannot be read. `roiPct` is realized + unrealized trading P&L over net
-deposits, and is null when nothing is deposited.
+deposits, and is null when nothing is deposited. `careerRealizedSol` is the realized trading
+profit the rank counts, so it is never negative: a net loss counts as 0 there, and
+`realizedPnlSol` shows the loss as it is.
 
 ### `GET /v1/agents/:id`
 The Agent plus:
@@ -197,6 +199,13 @@ has no endpoint in v1; the site shows it as coming.
 
 ### Errors
 Any failure answers a 4xx or 5xx status with `{ "error": "code", "message": "…" }`.
+
+### Outside the site's contract
+- `GET /health`: HQ's own status for Railway's health check (`ok`, uptime, which switches are
+  on, the indexer's and the feed's state). No key, balance or trading figure.
+- `POST /v1/admin`: the owner's commands (hire, pause, set limits, switch an agent's mode, the
+  kill switch), each a request signed by `HQ_OWNER_WALLET` and refused without it. The site never
+  calls it; the owner uses `services/hq/admin-client.mjs` or the console (docs/hq/DEPLOY.md).
 
 ## What HQ never does
 

@@ -144,7 +144,7 @@ export function checkCollectFeeMessage(message, { wallet }) {
 export function checkSimulation(sim, { walletBefore, walletAfter, maxSpendLamports, mustLog = null, mayGain = false }) {
   if (!sim) refuse("simulation", "no simulation result");
   if (sim.err) refuse("simulation", `the simulation failed: ${JSON.stringify(sim.err).slice(0, 200)}`);
-  if (typeof walletBefore !== "number" || typeof walletAfter !== "number") refuse("simulation", "the wallet's balance before or after is unknown");
+  if (!Number.isFinite(walletBefore) || !Number.isFinite(walletAfter)) refuse("simulation", "the wallet's balance before or after is unknown");
   const spent = walletBefore - walletAfter;
   if (spent > maxSpendLamports) refuse("spend", `the simulation spends ${spent} lamports, over the ${maxSpendLamports} budget`);
   if (!mayGain && spent < 0) refuse("spend", "the wallet would gain lamports from a launch, which is not a launch");

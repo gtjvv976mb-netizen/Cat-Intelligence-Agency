@@ -231,6 +231,22 @@ section("THROUGH THE RUNTIME: THE GATE, IN ORDER");
   ok("the owner's kill command stops every buy", killed.clause === "kill_switch");
 }
 
+section("A CURVE BUY'S CEILING IS HELD TO THE SIZE THE LIMITS ALLOWED");
+{
+  const rig = await paperRig({ agents: [{ id: 4 }] });
+  const { runtime, db } = rig;
+  const buyWith = (plan, mint) => runtime.buy(db.getAgent(4), { mint, symbol: "C", decimals: 6, venue: "pumpfun", askedLamports: parseSol("0.05"), plan: async () => plan, reason: "test" });
+  const sizes = [];
+  const over = await runtime.buy(db.getAgent(4), { mint: addr(80), symbol: "C", decimals: 6, venue: "pumpfun", askedLamports: parseSol("0.05"), plan: async (size) => { sizes.push(size); return { deliverable: true, baseOutRaw: 1_000_000n, maxQuoteInRaw: size + 1n }; }, reason: "test" });
+  ok("a plan whose ceiling is one lamport over the size the gate allowed: refused (plan_over_size), nothing bought", over.ok === false && over.clause === "plan_over_size" && sizes[0] === parseSol("0.05") && db.listTrades(4, "paper").length === 0);
+  const undeliverable = await buyWith({ deliverable: false, baseOutRaw: 1_000_000n, maxQuoteInRaw: parseSol("0.01") }, addr(81));
+  ok("a plan the planner says cannot deliver: refused (no_plan)", undeliverable.clause === "no_plan");
+  const nothing = await buyWith({ deliverable: true, baseOutRaw: 0n, maxQuoteInRaw: parseSol("0.01") }, addr(82));
+  ok("…and one that delivers no tokens: refused (no_plan)", nothing.clause === "no_plan" && db.listTrades(4, "paper").length === 0);
+  const fine = await buyWith({ deliverable: true, baseOutRaw: 1_000_000n, maxQuoteInRaw: parseSol("0.05") }, addr(83));
+  ok("a deliverable plan at the size: bought", fine.ok === true && db.listTrades(4, "paper").length === 1);
+}
+
 section("THE PROTECTIONS SELL WHILE PAUSED AND UNDER THE KILL SWITCH");
 {
   const M = addr(70);

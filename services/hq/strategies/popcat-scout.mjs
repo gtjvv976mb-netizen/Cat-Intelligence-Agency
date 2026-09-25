@@ -30,7 +30,7 @@ export const defaults = Object.freeze({
 });
 export function normalizeSettings(input = {}) {
   const s = { ...defaults.settings, ...(input ?? {}) };
-  const unknown = Object.keys(input ?? {}).filter((k) => !(k in defaults.settings));
+  const unknown = Object.keys(input ?? {}).filter((k) => !Object.hasOwn(defaults.settings, k));
   if (unknown.length) throw new Error(`unknown setting ${unknown.join(", ")} for popcat-scout`);
   const c = Number(s.checksPerTick), p = Number(s.listingPages);
   if (!(Number.isInteger(c) && c >= 1 && c <= 10)) throw new Error("checksPerTick must be 1 to 10 (each check is about a dozen RPC reads)");

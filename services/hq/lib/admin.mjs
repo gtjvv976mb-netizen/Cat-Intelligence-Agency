@@ -5,7 +5,7 @@
  *     `node services/hq/cli.mjs …`): whoever has a shell there is the owner;
  *   · POST /v1/admin, a SIGNED request: { command, nonce, issuedAt, signature }, where the
  *     signature is HQ_OWNER_WALLET's ed25519 signature over adminMessage({ command, nonce,
- *     issuedAt }). issuedAt must be within HQ_ADMIN_MAX_SKEW_SECONDS of the server's clock and
+ *     issuedAt, server }), server being this HQ's id (HQ_SERVER_ID). issuedAt must be within HQ_ADMIN_MAX_SKEW_SECONDS of the server's clock and
  *     the nonce never seen before (it is kept past that window). Without HQ_OWNER_WALLET the
  *     endpoint refuses everything. No other endpoint changes anything but a perks nonce.
  *
@@ -39,7 +39,9 @@ export function canonical(value) {
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${canonical(value[k])}`).join(",")}}`;
   return JSON.stringify(value);
 }
-export const adminMessage = ({ command, nonce, issuedAt }) => `cia-hq admin\n${canonical({ command, issuedAt, nonce })}`;
+/** The signed text names the server it is for (HQ_SERVER_ID), so a command signed for one HQ is
+ *  refused by any other that shares the owner's wallet. */
+export const adminMessage = ({ command, nonce, issuedAt, server }) => `cia-hq admin\n${canonical({ command, issuedAt, nonce, server })}`;
 
 /** Check a signed admin request; returns the command. Spends the nonce. */
 export function verifyAdminRequest({ body, config, db, clock = () => Date.now() }) {
@@ -49,7 +51,7 @@ export function verifyAdminRequest({ body, config, db, clock = () => Date.now() 
   if (typeof nonce !== "string" || !/^[A-Za-z0-9_-]{16,64}$/.test(nonce)) throw new AdminError("bad_request", "nonce must be 16 to 64 letters, digits, - or _");
   const at = Date.parse(issuedAt);
   if (!Number.isFinite(at) || Math.abs(clock() - at) > config.adminSkewMs) throw new AdminError("stale", "issuedAt is missing or too far from the server's clock", 401);
-  if (!verifyEd25519({ address: config.owner, message: adminMessage({ command, nonce, issuedAt }), signature })) throw new AdminError("bad_signature", "not signed by the owner's wallet", 401);
+  if (!verifyEd25519({ address: config.owner, message: adminMessage({ command, nonce, issuedAt, server: config.serverId }), signature })) throw new AdminError("bad_signature", `not signed by the owner's wallet for this server (${config.serverId})`, 401);
   if (db.getNonce(`admin:${nonce}`)) throw new AdminError("replayed", "that nonce was already used", 401);
   db.createNonce({ nonce: `admin:${nonce}`, purpose: "admin", wallet: config.owner, expiresAt: clock() + 2 * config.adminSkewMs + 86_400_000 });
   db.useNonce(`admin:${nonce}`, clock());
@@ -134,6 +136,12 @@ export async function executeAdminCommand(command, { source, deps }) {
         if (!["paper", "live"].includes(command.mode)) throw new AdminError("bad_mode", "mode is paper or live");
         if (command.mode === "live" && agent.mode !== "live" && command.confirmWallet !== agent.wallet)
           throw new AdminError("confirm", `to trade real SOL, confirmWallet must be this agent's wallet, typed: ${agent.wallet}`);
+        /* Back to paper leaves real tokens with no stop watching them: refused while the wallet holds any. */
+        if (command.mode === "paper" && agent.mode === "live") {
+          if (typeof deps.runtime?.walletLedger !== "function") throw new AdminError("holds_unknown", "the wallet's holdings cannot be read here, so it stays live: liquidate it first where they can be", 503);
+          const held = deps.runtime.walletLedger(agent)?.positions ?? [];
+          if (held.length) throw new AdminError("holds_positions", `agent ${agent.id}'s wallet still holds ${held.length} coin(s) bought live: liquidate it first (agent.liquidate), then switch it to paper`, 409);
+        }
         patch.mode = command.mode;
       }
       db.updateAgent(agent.id, patch);

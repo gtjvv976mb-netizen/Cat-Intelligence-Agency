@@ -137,11 +137,14 @@ Optional, when you want them:
 | `HQ_PERKS_TTL_HOURS` / `HQ_CHALLENGE_TTL_SECONDS` | how long a verified tier lasts / a sign-in message lasts | `24` / `300` |
 | `HQ_INDEX_INTERVAL_SECONDS` / `HQ_MAX_HISTORY_PAGES` | how often wallets are re-read / how far back a wallet's history is read | `60` / `20` |
 | `HQ_AGENCY_LAUNCHES_URL` | the site's list of CashCat launches (never bought) | the site's `launches.json` |
-| `HQ_RATE_READ_PER_MIN`, `HQ_RATE_PERKS_PER_MIN`, `HQ_RATE_ADMIN_PER_MIN`, `HQ_STREAMS_PER_CLIENT`, `HQ_STREAMS_TOTAL` | per-visitor limits | `240`, `12`, `12`, `4`, `500` |
+| `HQ_RATE_READ_PER_MIN`, `HQ_RATE_PERKS_PER_MIN`, `HQ_RATE_ADMIN_PER_MIN` | per-visitor limits a minute | `240`, `12`, `12` |
+| `HQ_STREAMS_PER_NETWORK`, `HQ_STREAMS_TOTAL` | live streams open at once per visitor network (an IPv4 /24, an IPv6 /64), and in all | `8`, `300` |
+| `HQ_STREAM_MAX_SECONDS` | a live stream ends after this long and the page reconnects where it was (10 to 300) | `300` |
+| `HQ_SERVER_ID` | the name your signed commands are for (step 10); set it only for a second HQ, such as a test copy, to that copy's API host | `api.catintelligenceagency.com` |
 | `HQ_ADMIN_MAX_SKEW_SECONDS` | how old a signed admin command may be | `300` |
 | `HQ_RPC_WS_URL` | only if your RPC's websocket is not the `wss://` form of `HQ_RPC_URL` | derived |
 | `HQ_DATA_DIR` / `HQ_DB_PATH` | where the database lives; leave empty on Railway (the volume is used) | the volume |
-| `HQ_HOST` / `PORT` | leave them: Railway sets `PORT`, HQ listens on it | `0.0.0.0` / `8787` |
+| `HQ_HOST` / `PORT` | leave them: Railway sets `PORT` and HQ listens on it (8787 only where nothing sets it, such as your own computer) | `0.0.0.0` / `8787` |
 
 Railway redeploys after you save variables. Open **Deployments**: the new one should turn green
 ("Active") once `/health` answers.
@@ -149,7 +152,9 @@ Railway redeploys after you save variables. Open **Deployments**: the new one sh
 ## 5. Point api.catintelligenceagency.com at HQ
 
 1. Railway → service → **Settings → Networking → Custom Domain** → enter
-   `api.catintelligenceagency.com` (port: the one Railway suggests, 8787 if asked).
+   `api.catintelligenceagency.com`. For the port, keep the one Railway detects: it is the `PORT`
+   Railway gives HQ, which HQ listens on. Do not type 8787 there (HQ is not on 8787 on Railway
+   unless you set `PORT` to `8787` yourself in Variables).
 2. Railway shows **two records**: a `CNAME` (something like `xxxx.up.railway.app`) and a `TXT`
    record that proves you own the domain. **Both are required.**
 3. Namecheap → Domain List → `catintelligenceagency.com` → **Advanced DNS → Add New Record**:
@@ -200,8 +205,12 @@ evidence of an edge.** HAWK-AI's live record, which Snipurr's rules come from, l
 
 1. `node services/hq/cli.mjs agent list` shows each agent's wallet address.
 2. In Phantom, from the **treasury** wallet, send SOL to that address (start small: 0.1 SOL).
-3. Within a minute HQ reads the deposit from the chain; it shows on the agent's page under
-   transfers. The agent's live numbers come only from its wallet's own transactions.
+3. Check it arrived in Phantom, or on Solscan under the agent's wallet address. **While the agent
+   is still on paper, its page on the site (and `agent show`) is its paper book**: the pretend
+   bankroll, not this deposit. HQ reads the deposit from the chain within a minute all the same,
+   and it appears on the agent's page under transfers once you switch the agent live (step 8),
+   when the page becomes the wallet's own record. The agent's live numbers come only from its
+   wallet's own transactions.
 
 ## 8. Switch an agent live
 
@@ -216,7 +225,10 @@ Both switches are needed; either one off means nothing is signed.
    inside its limits: max per trade, max open positions, stop loss, take profit, trailing stop,
    daily loss limit, Crying Cat's rug check before every buy, and never an agency coin.
 
-Back to paper any time: `agent mode 1 paper`. Money home:
+Back to paper only once the wallet holds no coin: first `node services/hq/cli.mjs agent
+liquidate 1` (it sells everything the agent holds), then `agent mode 1 paper`. HQ refuses to
+switch a live agent that still holds coins to paper, because on paper its stop loss, take
+profit and daily limit would stop watching the real tokens. Money home:
 `node services/hq/cli.mjs agent withdraw 1 all` (or an amount) — it can only ever go to
 `HQ_TREASURY_ADDRESS`.
 
@@ -250,7 +262,10 @@ Instead of `railway ssh`, you can send the same commands signed by your own admi
      --url https://api.catintelligenceagency.com --command '{"op":"kill","on":true}'
    ```
    The key signs one message on your computer; only the signature is sent. Each command has a
-   fresh nonce and expires after `HQ_ADMIN_MAX_SKEW_SECONDS`.
+   fresh nonce and expires after `HQ_ADMIN_MAX_SKEW_SECONDS`. It is signed for one server, the
+   host in `--url` (or `--server <name>`): HQ refuses a command signed for any other name than
+   its `HQ_SERVER_ID` (`api.catintelligenceagency.com` unless you set it), so a command meant for
+   a test copy of HQ can never be replayed against the real one.
 
 ## 11. Buybacks, when you are ready
 

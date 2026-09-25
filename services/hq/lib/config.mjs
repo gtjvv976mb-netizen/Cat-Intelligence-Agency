@@ -131,9 +131,14 @@ export function readConfig(env = process.env) {
       read: num(env, "HQ_RATE_READ_PER_MIN", 240, { min: 10, max: 100_000, integer: true }),
       perks: num(env, "HQ_RATE_PERKS_PER_MIN", 12, { min: 1, max: 1000, integer: true }),
       admin: num(env, "HQ_RATE_ADMIN_PER_MIN", 12, { min: 1, max: 1000, integer: true }),
-      streamsPerClient: num(env, "HQ_STREAMS_PER_CLIENT", 4, { min: 1, max: 100, integer: true }),
-      streamsTotal: num(env, "HQ_STREAMS_TOTAL", 500, { min: 1, max: 100_000, integer: true }),
+      /* open streams per client network (an IPv4 /24, an IPv6 /64), and in all */
+      streamsPerNetwork: num(env, "HQ_STREAMS_PER_NETWORK", 8, { min: 1, max: 1000, integer: true }),
+      streamsTotal: num(env, "HQ_STREAMS_TOTAL", 300, { min: 1, max: 5_000, integer: true }),
+      /* a stream ends after this long; the client resumes with Last-Event-ID and misses nothing */
+      streamMaxMs: num(env, "HQ_STREAM_MAX_SECONDS", 300, { min: 10, max: 300, integer: true }) * 1000,
     }),
+    /* the server's id in the owner's signed commands: a command signed for one HQ is refused by any other */
+    serverId: str(env.HQ_SERVER_ID, "api.catintelligenceagency.com"),
   });
 }
 

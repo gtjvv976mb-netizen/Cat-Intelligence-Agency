@@ -32,7 +32,8 @@
  *   deposit    someone else paid, no token moved, cash arrived: SOL sent to the wallet
  *   airdrop    someone else paid and a token arrived: never a position (it was not bought); the
  *              rent of an account they opened for it is value that is not a deposit ("other")
- *   token_out  the wallet paid and a token left with no cash back: moved by hand, not sold
+ *   token_out  the wallet paid and a token left with nothing back beyond the fee: moved by hand, not
+ *              sold (it leaves the books at its cost, as a withdrawal)
  *   other      anything else, with its value change, never counted as trading
  */
 import bs58 from "bs58";
@@ -154,7 +155,9 @@ export function classifyTransaction(tx, { wallet }) {
   if (v.moved.length === 1) {
     const { mint, delta, decimals } = v.moved[0];
     if (v.paidByWallet && delta > 0n && v.cashDelta < 0n) return { ...base, kind: "trade", side: "buy", mint, decimals, tokens: delta, sol: -v.cashDelta - v.rentDelta };
-    if (v.paidByWallet && delta < 0n && v.cashDelta + v.fee > 0n) return { ...base, kind: "trade", side: "sell", mint, decimals, tokens: -delta, sol: v.cashDelta + v.rentDelta };
+    /* A sell brings value back beyond its own fee: cash AND the wallet's own account rent, because
+       a Jupiter sell that pays out wrapped SOL may open the wallet's wSOL account out of it. */
+    if (v.paidByWallet && delta < 0n && v.cashDelta + v.rentDelta + v.fee > 0n) return { ...base, kind: "trade", side: "sell", mint, decimals, tokens: -delta, sol: v.cashDelta + v.rentDelta };
     if (v.paidByWallet && delta < 0n) return { ...base, kind: "token_out", mint, decimals, tokens: -delta, value };
     if (!v.paidByWallet && delta > 0n) return { ...base, kind: "airdrop", mint, decimals, tokens: delta, value };
     return { ...base, kind: "other", value, note: `a ${mint} move the ledger does not read as a trade` };

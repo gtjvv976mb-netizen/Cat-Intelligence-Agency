@@ -66,7 +66,7 @@ const solNum = (v, key, { min, max }) => {
 /** Limits from the owner's input over the strategy's defaults, fenced. Stored as strings. */
 export function normalizeLimits(input = {}, defaults = {}) {
   const src = { ...defaults, ...Object.fromEntries(Object.entries(input ?? {}).filter(([, v]) => v !== undefined)) };
-  const unknown = Object.keys(input ?? {}).filter((k) => !(k in LIMIT_FENCES));
+  const unknown = Object.keys(input ?? {}).filter((k) => !Object.hasOwn(LIMIT_FENCES, k));
   if (unknown.length) throw new LimitError(unknown[0], `unknown limit ${unknown.join(", ")}: the limits are ${Object.keys(LIMIT_FENCES).join(", ")}`);
   const F = LIMIT_FENCES;
   const maxPerTrade = solNum(src.maxPerTradeSol, "maxPerTradeSol", F.maxPerTradeSol);

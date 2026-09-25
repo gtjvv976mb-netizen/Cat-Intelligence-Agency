@@ -35,12 +35,40 @@ export const PERKS = Object.freeze({
 const SPKI_ED25519 = Buffer.from("302a300506032b6570032100", "hex");
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
-/** An ed25519 signature check with a Solana address as the public key. Never throws. */
+/**
+ * The public keys of small order: points no one holds a private key for, against which a
+ * signature can be forged (the identity verifies a constant signature; the all-zero key, the
+ * System Program's address, verifies one found in a few tries). Compared with the sign bit
+ * cleared, so their negative-x and non-canonical encodings are caught too — the list libsodium
+ * refuses (the identity, y = 0, y = −1, the two order-8 points, and y = p, p + 1 encoded as is).
+ */
+const SMALL_ORDER = Object.freeze([
+  "0000000000000000000000000000000000000000000000000000000000000000",
+  "0100000000000000000000000000000000000000000000000000000000000000",
+  "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+  "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+  "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+].map((h) => Buffer.from(h, "hex")));
+export function isSmallOrderKey(pub) {
+  if (!pub || pub.length !== 32) return false;
+  const k = Buffer.from(pub);
+  k[31] &= 0x7f;
+  return SMALL_ORDER.some((b) => b.equals(k));
+}
+const keyOf = (address) => { try { return Buffer.from(bs58.decode(String(address))); } catch { return null; } };
+/** A wallet that can sign: a Solana address whose key is not of small order. */
+export const isSigningWallet = (address) => isAddress(address) && !isSmallOrderKey(keyOf(address));
+
+/** An ed25519 signature check with a Solana address as the public key. Never throws; a key of
+ *  small order never verifies. */
 export function verifyEd25519({ address, message, signature }) {
   try {
     const pub = Buffer.from(bs58.decode(String(address)));
     const sig = Buffer.from(bs58.decode(String(signature)));
     if (pub.length !== 32 || sig.length !== 64) return false;
+    if (isSmallOrderKey(pub)) return false;
     const key = crypto.createPublicKey({ key: Buffer.concat([SPKI_ED25519, pub]), format: "der", type: "spki" });
     return crypto.verify(null, Buffer.isBuffer(message) ? message : Buffer.from(String(message), "utf8"), key, sig);
   } catch { return false; }
@@ -86,21 +114,27 @@ export async function readCiaBalance(rpc, wallet) {
   return total;
 }
 
-export function createPerks({ db, config, clock = () => Date.now(), randomBytes = crypto.randomBytes, balanceOf }) {
+export function createPerks({ db, config, clock = () => Date.now(), randomBytes = crypto.randomBytes, balanceOf, log = () => {} }) {
   function challenge(wallet) {
     if (!isAddress(wallet)) throw new PerksError("bad_wallet", "wallet must be a Solana address");
+    if (!isSigningWallet(wallet)) throw new PerksError("bad_wallet", "that address has no private key: nothing can sign for it");
     const now = clock();
     const nonce = bs58.encode(randomBytes(16));
     const issuedAt = new Date(now).toISOString();
     const expiresAt = new Date(now + config.challengeTtlMs).toISOString();
     const message = challengeMessage({ wallet, nonce, issuedAt, expiresAt });
-    db.createNonce({ nonce, purpose: "perks", wallet, message, expiresAt: now + config.challengeTtlMs });
+    /* a wallet's newer challenge replaces its older unused one */
+    db.tx(() => {
+      db.dropUnusedNonces({ purpose: "perks", wallet });
+      db.createNonce({ nonce, purpose: "perks", wallet, message, expiresAt: now + config.challengeTtlMs });
+    });
     return { wallet, nonce, message, expiresAt };
   }
 
   async function verify(body) {
     const wallet = body?.wallet, message = body?.message, signature = body?.signature;
     if (!isAddress(wallet)) throw new PerksError("bad_wallet", "wallet must be a Solana address");
+    if (!isSigningWallet(wallet)) throw new PerksError("bad_wallet", "that address has no private key: nothing can sign for it");
     if (typeof message !== "string" || message.length > 1_000) throw new PerksError("bad_message", "message must be the challenge's text");
     if (typeof signature !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(signature)) throw new PerksError("bad_signature", "signature must be base58");
     const nonce = /^Nonce: ([1-9A-HJ-NP-Za-km-z]{8,40})$/m.exec(message)?.[1] ?? null;
@@ -113,9 +147,11 @@ export function createPerks({ db, config, clock = () => Date.now(), randomBytes 
     if (row.wallet !== wallet || row.message !== message) throw new PerksError("mismatch", "the wallet or the message is not the challenge's", 401);
     if (!verifyEd25519({ address: wallet, message, signature })) throw new PerksError("bad_signature", "the signature is not this wallet's over this message", 401);
     let balance;
-    try { balance = await balanceOf(wallet); } catch (e) { throw new PerksError("balance_unreadable", `the $CIA balance could not be read from the chain (${e.message})`, 503); }
+    /* the RPC's own words (which can carry its URL and key) go to the log, never to the client */
+    try { balance = await balanceOf(wallet); } catch (e) { log(`perks: balance of ${wallet} unreadable: ${e?.message ?? e}`); throw new PerksError("balance_unreadable", "the $CIA balance could not be read from the chain; try again shortly", 503); }
     const tier = tierFor(balance, config.perkTiers);
-    return { holder: balance > 0n, balance: unitsString(balance, CIA_FACTS.decimals), tier, perks: [...PERKS[tier]], expiresAt: new Date(now + config.perksTtlMs).toISOString() };
+    /* holder means a tier, exactly as the contract has it */
+    return { holder: tier !== "none", balance: unitsString(balance, CIA_FACTS.decimals), tier, perks: [...PERKS[tier]], expiresAt: new Date(now + config.perksTtlMs).toISOString() };
   }
   return Object.freeze({ challenge, verify });
 }

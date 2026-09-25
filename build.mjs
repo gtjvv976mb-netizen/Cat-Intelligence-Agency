@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
- * BUILD THE EXTENSION.
+ * BUILD THE EXTENSION: the Cat Intelligence Agency extension, with CoinMarketCat, Snipurr,
+ * Popcat, CashCat and Crying Cat inside.
  *
  * Six bundles (the worker, the console relay, the injected Phantom bridge, the popup,
- * the options page and the first-run setup page), one manifest, three icons, into ./dist —
- * the folder Chrome loads unpacked. The point of this file is the plugin, not the entry list:
+ * the options page and the first-run setup page), one manifest, three icons, the five cats'
+ * sprites and CashCat's logo art and font, into ./dist — the folder Chrome loads unpacked.
+ * The point of this file is the plugin, not the entry list:
  *
  *   · the engine imports the executor's snipe modules from vendor/executor/, copied
  *     verbatim from a named commit of Claude-Company by scripts/sync-executor.mjs and
@@ -90,6 +92,13 @@ export const ENTRIES = Object.freeze({
   "welcome.js": "welcome/welcome.mjs",     // the first-run setup page the worker opens on install
 });
 
+/* The five cats in the extension, each with its pixel sprite from the brand kit (brand/sprites/),
+   copied byte for byte for the popup's tabs and the setup page. */
+export const CAT_SPRITES = Object.freeze(["coinmarketcat", "snipurr", "popcat", "cashcat", "crying-cat"]);
+/* CashCat's logo art, copied byte for byte from bots/cashcat/art/: the eight kittens (1024 × 1024),
+   their measured signs, and Press Start 2P with its licence (SIL OFL 1.1: bundled unmodified). */
+export const CASHCAT_KITTENS = Object.freeze(["black", "calico", "ginger", "greytabby", "siamese", "sphynx", "tuxedo", "white"]);
+
 export const STATIC = Object.freeze([
   ["manifest.json", "manifest.json"],
   ["src/popup/popup.html", "popup.html"],
@@ -97,13 +106,44 @@ export const STATIC = Object.freeze([
   ["src/options/options.html", "options.html"],
   ["src/welcome/welcome.html", "welcome.html"],
   ["src/welcome/welcome.css", "welcome.css"],
+  ...CAT_SPRITES.map((c) => [`brand/sprites/${c}.png`, `sprites/${c}.png`]),
+  ...CASHCAT_KITTENS.map((k) => [`bots/cashcat/art/${k}.png`, `art/${k}.png`]),
+  ["bots/cashcat/art/signs.json", "art/signs.json"],
+  ["bots/cashcat/art/font/PressStart2P-Regular.ttf", "art/font/PressStart2P-Regular.ttf"],
+  ["bots/cashcat/art/font/OFL.txt", "art/font/OFL.txt"],
 ]);
 
-/* The icons are the building's own marks, carried here under the bot's name. */
+/* The icons are the agency's own mark: Crying Cat's face from the $CIA coin (brand/logo/). */
 const ICONS = Object.freeze([
-  ["icons/coinmarketcat-32.png", "icons/coinmarketcat-32.png"],
-  ["icons/coinmarketcat-128.png", "icons/coinmarketcat-128.png"],
-  ["icons/coinmarketcat-512.png", "icons/coinmarketcat-512.png"],
+  ["icons/cia-32.png", "icons/cia-32.png"],
+  ["icons/cia-128.png", "icons/cia-128.png"],
+  ["icons/cia-512.png", "icons/cia-512.png"],
+]);
+
+/**
+ * WHY EACH HOST PERMISSION. manifest.json cannot carry a comment, so the reasons live here;
+ * test-hawk-manifest.mjs requires one for every host permission the manifest asks for, and the
+ * README repeats them for the Chrome Web Store's review.
+ */
+export const HOST_PERMISSION_REASONS = Object.freeze({
+  "https://*/*": "The Solana RPC is whatever https URL the user pastes in Options (Helius, Triton, QuickNode or their own node), so no fixed host list can name it; every other request goes to one of the fixed hosts listed with its reason (the agent's model, prices and swaps; Popcat's pump.fun listing and IPFS metadata; CashCat's trends, verified-token list and Pinata uploads). A fetch permission only: the extension injects nothing into any page but the agency's console page.",
+  "wss://*/*": "Snipurr's live feed is one logsSubscribe websocket to the same user-chosen RPC (its wss URL, or the one derived from the https URL).",
+});
+
+/** Every fixed host the extension's code calls, which cat calls it, and why. The RPC is the user's. */
+export const HOSTS_CALLED = Object.freeze([
+  ["api.anthropic.com", "CoinMarketCat, CashCat", "the model, with the user's own API key (list the models; the agent's decisions; CashCat's drafts and reviews)"],
+  ["api.dexscreener.com", "CoinMarketCat, Snipurr", "prices for the agent's tokens; new pools paired with a stock (off by default)"],
+  ["api.geckoterminal.com", "CoinMarketCat, Snipurr", "15-minute candles for the agent; new pools (off by default)"],
+  ["api.jup.ag", "CoinMarketCat, Snipurr", "quotes, swaps and fallback prices, keyless"],
+  ["datapi.jup.ag", "Snipurr", "Jupiter's newest launchpad pools, only if the user chooses that feed"],
+  ["frontend-api-v3.pump.fun", "Popcat", "pump.fun's newest coins and a creator's launch count"],
+  ["pump.mypinata.cloud", "Popcat", "a coin's metadata by its IPFS CID, to see whether it names a social link (none is shown or followed)"],
+  ["gateway.pinata.cloud", "Popcat, CashCat", "the same metadata by CID; CashCat reads back what it pinned"],
+  ["uploads.pinata.cloud", "CashCat", "pins the logo and metadata of the user's coin, with the user's own Pinata JWT"],
+  ["trends.google.com", "CashCat", "Google Trends' US trending-searches feed, for drafting from a trend"],
+  ["api.coingecko.com", "CashCat", "CoinGecko's trending categories, for drafting from a trend"],
+  ["lite-api.jup.ag", "CashCat", "Jupiter's verified-token list: no draft may take a verified token's ticker or name"],
 ]);
 
 export function buildOptions({ outdir = DIST } = {}) {

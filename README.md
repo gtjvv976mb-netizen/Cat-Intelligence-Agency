@@ -5,34 +5,37 @@
 **Website:** [catintelligenceagency.com](https://catintelligenceagency.com/)
 
 Cat Intelligence Agency is a crew of seven pixel kittens built for crypto, plus the agency's
-memecoin, **$CIA**. Two of them investigate the market in public on X. Two are real software:
-**CoinMarketCat**, the agentic trading cat — agentic trading for Solana, in plain English — a
-Chrome extension you run in your own browser, and **Snipurr**, the pump.fun sniper cat, which
-ships inside it as its other lane. Two more, **CashCat** and **Popcat**, are the agency's
-bots: an auto-launcher and a callout bot that run on this repository's GitHub Actions and post
-only on the website, dry until the owner switches them on ([below](#cashcat-and-popcat--the-agencys-bots)).
-This repository holds all of it. CoinMarketCat is not affiliated with
+memecoin, **$CIA**. The software cats come in **one download: the Cat Intelligence Agency
+extension**, a Chrome extension you run in your own browser against your own wallet, with five
+cats inside ([below](#the-cat-intelligence-agency-extension--five-cats-one-download)):
+**CoinMarketCat**, the agentic trading cat — agentic trading for Solana, in plain English;
+**Snipurr**, the pump.fun sniper cat; **Popcat**, which checks new cat coins on pump.fun;
+**CashCat**, which launches a cat coin of your own; and **Crying Cat**, a rug check for any mint.
+The agency also runs its own **CashCat** and **Popcat** as bots on this repository's GitHub
+Actions, posting only on the website, dry until the owner switches them on
+([below](#cashcat-and-popcat--the-agencys-bots)). Crying Cat and Grumpy Cat are also characters
+the agency posts as on X. This repository holds all of it. CoinMarketCat is not affiliated with
 CoinMarketCap.
 
 | Agent | Beat | What it is |
 |---|---|---|
 | **The Director** | Runs the agency | The mascot |
-| **CoinMarketCat** | Agentic trading for Solana, in plain English | **A product: the Chrome extension in this repository** ([manual below](#coinmarketcat--the-agentic-trading-cat)). An orange tabby pixel kitten in a purple hoodie |
-| **Snipurr** | New pump.fun launches, sniped by rule | Software: the sniper lane inside CoinMarketCat ([manual below](#snipurr--the-sniper-lane)). It posts nothing on X. The mint-green kitten with the sniper-scope eyepiece, CoinMarketCat's old art |
-| **Crying Cat** | Ruggers | A persona the agency posts as on X, and the face of $CIA |
-| **Grumpy Cat** | Fake hype | A persona the agency posts as on X |
-| **CashCat** | Launches cat-themed coins by itself, from what is trending, on pump.fun and on StonkFun (Solana's stock-paired launchpad) | **A bot in this repository** (`bots/cashcat/`, [below](#cashcat-and-popcat--the-agencys-bots)), dry until switched on; nothing has launched. It no longer investigates whales and KOLs |
-| **Popcat** | Checks every new cat coin on pump.fun and lists it at its desk on the work floor with its safety checks: a callout when none finds a red flag, spotted with its red flags named when one does. Every six hours it picks at most one callout for the agency to post by hand on pump.fun. Cat coins only | **A bot in this repository** (`bots/popcat/`), dry until switched on; nothing has been listed or picked |
+| **CoinMarketCat** | Agentic trading for Solana, in plain English | **Software: a cat in the Cat Intelligence Agency extension** ([manual below](#coinmarketcat--the-agentic-trading-cat)). An orange tabby pixel kitten in a purple hoodie |
+| **Snipurr** | New pump.fun launches, sniped by rule | Software: the sniper lane in the extension ([manual below](#snipurr--the-sniper-lane)). It posts nothing on X. The mint-green kitten with the sniper-scope eyepiece, CoinMarketCat's old art |
+| **Crying Cat** | Ruggers | A persona the agency posts as on X, and the face of $CIA; in the extension, a rug check for any mint ([below](#crying-cat-in-the-extension--a-rug-check-for-any-mint)) |
+| **Grumpy Cat** | Fake hype | A persona the agency posts as on X. Not in the extension: telling real hype from fake needs social data it does not have |
+| **CashCat** | Launches cat-themed coins by itself, from what is trending, on pump.fun and on StonkFun (Solana's stock-paired launchpad) | **A bot in this repository** (`bots/cashcat/`, [below](#cashcat-and-popcat--the-agencys-bots)), dry until switched on; nothing has launched. In the extension, it launches a cat coin of your own on pump.fun ([below](#cashcat-in-the-extension--launch-a-cat-coin-of-your-own)). It no longer investigates whales and KOLs |
+| **Popcat** | Checks every new cat coin on pump.fun and lists it at its desk on the work floor with its safety checks: a callout when none finds a red flag, spotted with its red flags named when one does. Every six hours it picks at most one callout for the agency to post by hand on pump.fun. Cat coins only | **A bot in this repository** (`bots/popcat/`), dry until switched on; nothing has been listed or picked. In the extension, the same checks on new cat coins, for you ([below](#popcat-in-the-extension--the-cat-coin-scanner)) |
 
 ## What is in this repository
 
 | Path | What |
 |---|---|
-| `src/`, `manifest.json`, `build.mjs`, `vendor/`, `fixtures/` | CoinMarketCat, the agentic trading extension, and Snipurr, its sniper lane |
+| `src/`, `manifest.json`, `build.mjs`, `vendor/`, `fixtures/` | The Cat Intelligence Agency extension: CoinMarketCat, Snipurr, Popcat, CashCat and Crying Cat |
 | `bots/`, `.github/workflows/cashcat.yml`, `.github/workflows/popcat.yml` | CashCat and Popcat, the agency's two bots, and the workflows that run them |
 | `site/` | The website: the agency's home with its 3D headquarters, [the work floor](https://catintelligenceagency.com/floor/) where the cats post their cases, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), and [the console](https://catintelligenceagency.com/console/) the extension signs through |
 | `brand/` | The [brand kit](brand/README.md): the seven pixel kittens (CoinMarketCat in its purple hoodie, Snipurr in CoinMarketCat's old art), the work floor with seven desks, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
-| `icons/` | The extension's icons: CoinMarketCat's face, in its hoodie |
+| `icons/` | The extension's icons (`cia-*.png`: Crying Cat's face from the $CIA coin, the agency's mark) and CoinMarketCat's own (`coinmarketcat-*.png`, its hoodie tabby, for its page on the site) |
 
 $CIA is a memecoin with no intrinsic value and no expectation of profit. Nothing here is
 financial advice. Cat Intelligence Agency is a meme and software project, not a government
@@ -472,12 +475,205 @@ file back before it builds); claiming creator fees on pump.fun coins quoted in a
 by default; any StonkFun creator-fee claim (none exists on chain); and `getTokenLargestAccounts`,
 which public endpoints refuse (Popcat reads holders with `getProgramAccounts` instead).
 
+## The Cat Intelligence Agency extension — five cats, one download
+
+*One extension, in your own browser, against your own wallet. Nothing here is advice.*
+
+The download is one Chrome extension, **Cat Intelligence Agency**, with the agency's five
+software cats inside. The popup has a tab for each, with its pixel sprite:
+
+| Tab | What it does | Needs |
+|---|---|---|
+| **CoinMarketCat** | Agentic trading for Solana in plain English: a strategy you write, a model through your own Anthropic key, limits the model cannot change ([below](#coinmarketcat--the-agentic-trading-cat)). Paper by default | Your Anthropic key; live, the autopilot wallet and an RPC |
+| **Snipurr** | The pump.fun sniper lane ([below](#snipurr--the-sniper-lane)). Off, then Observe, before any money moves | An RPC; Phantom or the autopilot wallet |
+| **Popcat** | New cat coins on pump.fun, each with Popcat's twelve on-chain checks, as text. It trades nothing | An RPC |
+| **CashCat** | Launch a cat coin of your own on pump.fun, from the autopilot wallet, after the agency's content rules and pre-sign checks. Auto mode is off until you arm it | The autopilot wallet, an RPC, your Pinata key; your Anthropic key to draft from a trend |
+| **Crying Cat** | A rug check for any mint you paste | An RPC |
+
+The three new cats reuse the agency's bots' own code rather than copies of it: Popcat's checks
+(`bots/popcat/checks.mjs`), the cat-word detector and the content rules (`bots/lib/`), CashCat's
+trend reader, drafting, ticker check, logo layout, pump.fun builder and pre-sign check
+(`bots/cashcat/`, `bots/lib/txcheck.mjs`), and the site's own validator for what may be shown
+(`site/assets/callouts.js`). The pieces that were Node-only were split so both run them as they
+are: the long given-name list is a module (`bots/lib/given-names.mjs`), and the logo's layout and
+drawing (`bots/cashcat/logo-layout.mjs`) are apart from the bot's Node renderer.
+
+**The public mainnet RPC does not work from the extension.** Asked from this extension in
+Chromium on 2026-09-25, `https://api.mainnet-beta.solana.com` answered 403 "Access forbidden"
+(it refuses requests that carry a browser extension's origin), while pump.fun's API, the IPFS
+gateways, Jupiter, Google Trends and CoinGecko answered. So Popcat, Crying Cat and CashCat need
+your own RPC, set in Options, like the lanes do; with none set, Popcat and Crying Cat try the
+public endpoint and say, on its 403, to set one.
+
+### Popcat in the extension — the cat-coin scanner
+
+The same scan the agency's Popcat runs, for one person. While the popup shows the Popcat tab (it
+asks every half minute), and on the extension's half-minute alarm only if you switch background
+scanning on (off by default), the service worker reads pump.fun's newest coins, keeps the cat ones
+(`detectCat`; a name or ticker the content rules would not print, or the floor's validator would
+refuse — HTML, a link scheme, a hidden character — is never shown, not even as waiting), waits
+until each is 15 minutes old, and runs Popcat's twelve checks on it against your RPC. Each coin is
+listed with its verdict, **NO RED FLAGS FOUND** or **RED FLAGS (n)**, every check with what it
+read, and its red flags in the floor's plain words.
+
+- **Text only.** A coin's name and ticker are drawn as text, never HTML; no coin's picture is
+  shown; the only links are its pump.fun page and Solscan, built from an address the validator
+  accepted, and checked again in the popup before they are drawn. A link the coin supplied (its
+  website, its socials, its metadata) is never shown or followed.
+- **The pace.** One scan step at a time, not two within twenty seconds, at most two coins checked
+  a step (about a dozen RPC reads and two pump.fun reads each, paced per host by the bots' http
+  client, which rests a host that answers 429 or 5xx). A failed step rests the scanner from a
+  minute, doubling to fifteen; a coin whose accounts do not read is tried three times and dropped.
+- **Never your own coins.** Popcat never calls out a coin you launched with CashCat: a coin in
+  your CashCat journal, or whose creator is your autopilot wallet — as pump.fun lists it or as its
+  bonding curve records it on chain — is never listed.
+- **No trading.** The tab's code names no signer and no wallet key. A callout is a list of checks
+  at one moment, never advice.
+
+### Crying Cat in the extension — a rug check for any mint
+
+Paste a mint address, or a pump.fun coin link of exactly the form
+`https://pump.fun/coin/<address>`; anything else is refused before anything is read, and what you
+pasted is never fetched. Crying Cat reads the chain and reports, with plain-language notes: the
+mint and freeze authority; the Token-2022 extensions against the audit the trading lanes run; the
+holders, with the bonding curve and every program-held account (pools, vaults) left out, against
+Popcat's thresholds (the ten largest over 30%, or fewer than 25 holders); the creator's share when
+the coin's pump.fun curve names its creator; whether the coin has graduated or how much of its
+curve has sold; and whether it copies an established cat coin, when the mint carries its name. A
+token too big to list (the RPC refuses, or the answer passes the size cap) is read from its 20
+largest accounts, and the count says it was not counted. A wallet, a token account or an empty
+address is said to be one. A red flag is what the chain said at that moment, never an accusation.
+**Grumpy Cat** (fake hype) is not in the extension: telling real hype from fake needs social data
+it does not have.
+
+### CashCat in the extension — launch a cat coin of your own
+
+**Drafting.** Type a coin — its name, ticker, one line and the topic it riffs on, and the kitten
+and background of its logo — or ask CashCat to draft one from a trend: it reads Google Trends' US
+feed and CoinGecko's trending categories (each topic through `checkTrend` first) and asks the
+model, through your Anthropic key and the model picked at run time from `GET /v1/models`, to
+propose a coin, then asks it again as a separate reviewer. Every draft, either way, passes the
+bots' rules before it can be launched: `checkTrend` on its topic (with the long given-name list),
+`checkProposal` on its words, Jupiter's verified tickers and the established cat coins, the site's
+record validator, and the model's review whenever a key is saved. Each refusal is named.
+
+**The logo** is drawn in the service worker on an OffscreenCanvas from the bot's own files, copied
+into the build byte for byte: one of the eight kitten bases (1024 × 1024) with the ticker on its
+sign in Press Start 2P (SIL Open Font License, bundled unmodified with its licence). Each sign is
+measured from the pixels with the bot's own `measureSign` and must equal the bot's recorded
+rectangle; the test draws the same logo with the bot's renderer and compares the pixels.
+
+**The metadata** is pinned on IPFS through **your own Pinata account**: the logo and a JSON
+document in pump.fun's shape, read back from Pinata's public gateway before its URI is used. The
+description ends **"Not financial advice. Not affiliated with [the topic]."** It does not claim to
+be from the Cat Intelligence Agency and carries no agency website: your coin is yours. A "Made with
+CashCat." line is added only if you tick it in Options (off by default). The Pinata JWT is kept like
+the Anthropic key: in `chrome.storage.local`, read by the service worker alone, sent only to
+Pinata's upload API in one header, never shown again (`test-cats-no-leak.mjs`).
+
+**The transaction** is pump.fun's `create_v2`, SOL-quoted, built by the bot's verified builder
+(`bots/cashcat/pumpfun.mjs`) as a v0 transaction with no lookup table. Before any signature it
+passes the bot's pre-sign check on the compiled message (exactly the autopilot wallet and the new
+mint as signers, at most two compute-budget instructions, one `create_v2` whose sixteen accounts
+and decoded arguments are the planned ones) and a simulation on your RPC that must succeed, log
+`CreateV2` and cost the wallet at most the bot's launch budget, 0.015 SOL. It is built and
+simulated once with a placeholder URI before anything is pinned, and again with the real one.
+"Check the launch" does all of that and shows the simulated cost without pinning, signing or
+sending; launching needs the ticker typed to confirm. StonkFun launches, and pump.fun coins quoted
+in a stock, stay the agency's CashCat's for now.
+
+**Who signs: the autopilot wallet only.** A create needs two signatures: the payer's and the new
+mint's. The mint's keypair is made in `src/lib/session-wallet.mjs` (the one file that may hold a
+key), used once to add its signature, and dropped — memory only, never storage; then the engine's
+`signSendConfirm`, bound to the autopilot wallet, signs, checks the message is the one that was
+checked, sends and confirms. **Phantom is not offered for CashCat**: whether Phantom keeps another
+signer's signature on a v0 transaction it is asked to sign (rather than dropping it or changing the
+message, which some wallets do to add their own instructions) could not be verified here, so the
+autopilot wallet is the only signer.
+
+**The dev buy** is 0 by default, at most 0.05 SOL, manual launches only, and shown: a separate
+transaction after the launch lands, built by the bot's builder and held to its dev-buy check.
+
+**Auto mode** (off by default) drafts from a trend, has the model review the draft, and launches
+it from the autopilot wallet on a schedule (every 2 to 24 hours) while Chrome is open. You arm it
+by typing the sentence it prints, which names the autopilot wallet and every cap; changing a cap or
+the wallet disarms it. Its hard caps: **at most 2 launches a UTC day** (every launch from the
+extension counts, manual or automatic), never below your minimum balance (0.05 SOL by default,
+at least 0.02) plus one launch's budget, **no dev buy**, and nothing after a launch: **it never
+buys or sells the coins it launched**, from any wallet, and uses no other wallet. The first run is
+ten minutes after arming; each run schedules the next before it starts, so a refusal never
+retries every half minute.
+
+**The journal** keeps every launch — its mint, its signature, its topic or trend, what it cost —
+and every refusal. A launch is written as "sending" before it is signed; a launch whose outcome
+could not be read blocks the next until you check it on Solscan and mark it, and disarms auto mode.
+
+### Permissions and hosts, for the Chrome Web Store
+
+The permissions are `storage`, `alarms` and `notifications`, and nothing else
+(`test-hawk-manifest.mjs`). The three new cats added none. The content script runs on the agency's
+console page only. The host permissions, and why each is needed:
+
+| Host permission | Why |
+|---|---|
+| `https://*/*` | The Solana RPC is whatever https URL the user pastes in Options (Helius, Triton, QuickNode or their own node), so no fixed host list can name it; every other request goes to one of the fixed hosts listed with its reason (the agent's model, prices and swaps; Popcat's pump.fun listing and IPFS metadata; CashCat's trends, verified-token list and Pinata uploads). A fetch permission only: the extension injects nothing into any page but the agency's console page. |
+| `wss://*/*` | Snipurr's live feed is one logsSubscribe websocket to the same user-chosen RPC (its wss URL, or the one derived from the https URL). |
+
+Every fixed host the extension calls, which cat calls it, and why:
+
+| Host | Called by | Why |
+|---|---|---|
+| `api.anthropic.com` | CoinMarketCat, CashCat | the model, with the user's own API key (list the models; the agent's decisions; CashCat's drafts and reviews) |
+| `api.dexscreener.com` | CoinMarketCat, Snipurr | prices for the agent's tokens; new pools paired with a stock (off by default) |
+| `api.geckoterminal.com` | CoinMarketCat, Snipurr | 15-minute candles for the agent; new pools (off by default) |
+| `api.jup.ag` | CoinMarketCat, Snipurr | quotes, swaps and fallback prices, keyless |
+| `datapi.jup.ag` | Snipurr | Jupiter's newest launchpad pools, only if the user chooses that feed |
+| `frontend-api-v3.pump.fun` | Popcat | pump.fun's newest coins and a creator's launch count |
+| `pump.mypinata.cloud` | Popcat | a coin's metadata by its IPFS CID, to see whether it names a social link (none is shown or followed) |
+| `gateway.pinata.cloud` | Popcat, CashCat | the same metadata by CID; CashCat reads back what it pinned |
+| `uploads.pinata.cloud` | CashCat | pins the logo and metadata of the user's coin, with the user's own Pinata JWT |
+| `trends.google.com` | CashCat | Google Trends' US trending-searches feed, for drafting from a trend |
+| `api.coingecko.com` | CashCat | CoinGecko's trending categories, for drafting from a trend |
+| `lite-api.jup.ag` | CashCat | Jupiter's verified-token list: no draft may take a verified token's ticker or name |
+
+### Privacy: what stays in your browser, and what is sent where
+
+There is no Cat Intelligence Agency server: nothing the extension does is sent to the agency.
+
+**Stored in this browser** (`chrome.storage.local`, readable by the extension alone): your
+settings for each lane and cat; the agent's strategy, positions and journal; Snipurr's book and
+shadow book; the autopilot wallet's key, encrypted under your passphrase; your Anthropic API key;
+your Pinata JWT; Popcat's scan (the coins it checked, the queue); CashCat's settings, current draft
+and journal. **In memory only** (`chrome.storage.session`): the autopilot wallet's unlocked key,
+while it is unlocked. The new mint's key of a CashCat launch is never stored at all.
+
+**Sent, and where:**
+
+- **Anthropic** (`api.anthropic.com`), with your key: the agent's context (the strategy, the
+  prices and indicators, the vault, the positions, the limits, recent decisions); CashCat's trends
+  and drafts for a proposal or a review; the model list.
+- **Pinata** (`uploads.pinata.cloud`, with your JWT; `gateway.pinata.cloud` without it): your
+  coin's logo and metadata document, and the read-back. Popcat reads other coins' metadata by CID
+  through `gateway.pinata.cloud` and `pump.mypinata.cloud`, with nothing of yours.
+- **Your RPC**: every chain read, simulation and transaction the lanes and cats make, with your
+  wallets' public addresses, the mints you check or trade, and the signed transactions you send.
+- **pump.fun** (`frontend-api-v3.pump.fun`): Popcat's requests for the newest coins and a
+  creator's launch count. Nothing of yours.
+- **Jupiter** (`api.jup.ag`, `lite-api.jup.ag`, `datapi.jup.ag` if chosen): quotes and swaps with
+  your wallet's public key; the verified-token list for CashCat.
+- **DexScreener** and **GeckoTerminal**: the tokens the agent prices, and (if you turn it on) new
+  pools paired with a stock. Nothing of yours but which tokens you watch.
+- **Google Trends** and **CoinGecko**: CashCat's trend feeds, only when you draft from a trend or
+  auto mode runs. Nothing of yours.
+- **The console page** (`catintelligenceagency.com/console/`, in a tab you open): the lanes'
+  status for the page to draw, and the transactions Phantom is asked to sign. Never a key.
+
 ## CoinMarketCat — the agentic trading cat
 
 *Agentic trading for Solana, in plain English. You write the plan; code keeps the limits.*
 
-CoinMarketCat is a Chrome extension that trades Solana spot tokens from a strategy you
-describe in your own words. You name an agent, write its strategy, choose up to ten tokens
+CoinMarketCat is the Cat Intelligence Agency extension's trading cat: it trades Solana spot
+tokens from a strategy you describe in your own words. You name an agent, write its strategy, choose up to ten tokens
 and set hard limits; on the schedule you choose it asks a model — through **your own
 Anthropic API key** — what to do, and deterministic code then decides what of that is
 allowed. It starts on **paper**. It trades live only from the autopilot wallet you fund and
@@ -485,8 +681,8 @@ unlock, and only after you type the sentence that arms it. It is **spot only**, 
 leverage, and it **runs only while Chrome is open** on your computer. Nothing about its
 returns has been measured.
 
-Its other lane is **Snipurr**, the sniper cat: the pump.fun launch sniper this extension
-started as, unchanged, [documented below](#snipurr--the-sniper-lane).
+Beside it in the extension is **Snipurr**, the sniper cat: the pump.fun launch sniper the
+extension started as, unchanged, [documented below](#snipurr--the-sniper-lane).
 
 CoinMarketCat is not affiliated with CoinMarketCap. Its agent follows the shape of the
 "agentic trading" idea CoinMarketCap describes publicly — a plain-English strategy, a
@@ -674,8 +870,8 @@ and which stock-paired tokens to focus on. You also choose who signs:
 When you install it, a setup page opens and walks you through Snipurr's limits and the
 wallet before anything can spend. It sits in the popup's **Snipurr** tab.
 
-It is a Chrome extension you build from this repository and load unpacked. It is not in
-a store.
+It ships in the Cat Intelligence Agency extension, which you load unpacked: the download
+(`cat-intelligence-agency-extension.zip`), or a build from this repository. It is not in a store.
 
 ### What it does
 
@@ -979,6 +1175,13 @@ cd Cat-Intelligence-Agency && npm ci && npm run build      # → dist/
 ```
 
 `chrome://extensions` → **Developer mode** → **Load unpacked** → `Cat-Intelligence-Agency/dist`.
+The download, `cat-intelligence-agency-extension.zip`, is the same folder: unzip it and load
+that. Either way the extension is **Cat Intelligence Agency**, with CoinMarketCat, Snipurr,
+Popcat, CashCat and Crying Cat inside.
+
+**Popcat and Crying Cat** need only an RPC (below). **CashCat** needs the autopilot wallet
+(created, funded and unlocked in the popup), an RPC, and your Pinata JWT in **Options →
+CashCat**; drafting from a trend and auto mode need your Anthropic key too.
 
 **The agent.** Open **Options** (the popup's *Options* link, or the agent card's *Set up the
 agent*). In **The agent**: name it, write the strategy, tick the tokens (or add a custom mint
@@ -1042,8 +1245,15 @@ src/lib/xstock-lane.mjs  the second venue: new pools paired with a stock — its
 src/lib/xstock-discovery.mjs  the new-pool feeds: parsers, pair classification, dedupe, backoff
 src/lib/jupiter-swap.mjs the Jupiter client (0.5 requests a second, quotes, swaps and prices) and the check before signing (a port of the executor's), with the agent's pair allowlist
 fixtures/xstock-pools/   the feeds' and Jupiter's live answers, captured 2026-09-24, that the tests replay
-src/lib/session-wallet.mjs  the autopilot wallet: keystore, signer, fund and sweep builders — the one file that may hold a key
-src/popup/ src/options/  the UI
+src/lib/session-wallet.mjs  the autopilot wallet: keystore, signer, fund and sweep builders, and a CashCat launch's mint key (createMintKeys) — the one file that may hold a key
+src/lib/popcat-tab.mjs   Popcat in the extension: the bot's listing, cat test and twelve checks, the floor's validator, the pace and back-off
+src/lib/crying-cat.mjs   Crying Cat: the strict input, and the rug check of one mint from the chain
+src/lib/cashcat-draft.mjs   CashCat's drafts: typed or from a trend, through the bot's rules, ticker check and the model's review
+src/lib/cashcat-logo.mjs    CashCat's logo on an OffscreenCanvas, from the bot's art and layout, each sign measured as the bot measures it
+src/lib/cashcat-tab.mjs     CashCat's launch: the bot's create_v2 builder and pre-sign check, the simulation, Pinata, the mint's and the autopilot wallet's signatures, auto mode, the journal
+bots/lib/given-names.mjs    the long given-name list, as a module the bundle and Node both import
+bots/cashcat/logo-layout.mjs  the logo's kittens, backgrounds, sign measurement and drawing on any 2D canvas (the bot and the extension)
+src/popup/ src/options/  the UI: one tab per cat (cats.mjs draws Popcat, CashCat and Crying Cat as text only); Options for the agent, CashCat and Popcat, and Snipurr
 src/welcome/             the first-run setup page, opened once on install
 vendor/executor/         the executor's decision modules, verbatim, from PROVENANCE.json's commit
 scripts/sync-executor.mjs  --from <checkout> re-vendors; --check reports drift from upstream main
@@ -1107,10 +1317,15 @@ on every push to `main`.
 | `test-hawk-engine.mjs` §18 | autopilot with the real session wallet (a keystore over Maps, `createSessionSigner`): locked it does not arm; unlocked and funded it arms on the autopilot sentence; the buy and the sell reaching the chain carry ed25519 signatures by the autopilot key and Phantom is asked nothing; the key reaches no log, notification or store; a wallet short of one buy does not arm, and one that fell short since the last read is refused at `autopilot_balance_short`; switching to Phantom never strands a position; locked, a sell waits and says so; an unlock that runs out disarms |
 | `test-hawk-autopilot.mjs` | the running service worker under a `chrome` double and a JSON-RPC chain double that verifies every signature and applies the rent rule: install opens the setup page once; the three styles against the defaults dial by dial; only extension pages drive the wallet; create, fund (one Phantom approval, SOL and GLDx by TransferChecked), unlock with a TTL and its alarm, export, sweep to exactly the rent floor with every token and empty account, lock, an unlock that runs out; nothing logged or stored carries the passphrase or the key; no sweep while a position is held |
 | `test-hawk-session-wallet.mjs` | the keystore, the signer and the builders in isolation, including why a token sweep is TransferChecked: Token-2022 refuses a plain Transfer out of an xStock's pausable, hooked account |
-| `test-hawk-manifest.mjs` | the permissions, matches and resources above; the name and description (the agentic trading cat, and Snipurr); the setup page is built, not web-accessible, and opened only on install |
-| `test-hawk-no-key.mjs` | one file may hold a key and only the worker imports it; the agent's files name only their hosts, sign nothing and never reach the sweep, and its runner signs only through the engine's fences, after its own check; the autopilot messages, the passphrase and the exported key pinned to where they may appear; the xStock venue's code names only its four hosts, sends Jupiter the wallet's public key and nothing else of it, and reaches a signature only through the engine's `signSendConfirm`, each call after its own pre-sign check; in source and in the bundle |
+| `test-hawk-manifest.mjs` | the permissions, matches and resources above; the name (Cat Intelligence Agency) and the description naming the five cats; the agency's icons; the setup page is built, not web-accessible, opened only on install and names the five cats; every host permission's reason, in build.mjs and word for word in this README, and every fixed host the cats call listed with who calls it and why |
+| `test-hawk-no-key.mjs` | one file may hold a key and only the worker imports it; a CashCat launch's mint key made, used once and dropped there, in memory only, handed by the worker to CashCat's tab alone, which reaches a signature only after the bot's pre-sign check and a simulation of the same bytes; Popcat and Crying Cat sign nothing; the files of bots/ the bundles import hold no key; the agent's files name only their hosts, sign nothing and never reach the sweep, and its runner signs only through the engine's fences, after its own check; the autopilot messages, the passphrase and the exported key pinned to where they may appear; the xStock venue's code names only its four hosts, sends Jupiter the wallet's public key and nothing else of it, and reaches a signature only through the engine's `signSendConfirm`, each call after its own pre-sign check; in source and in the bundle |
 | `test-hawk-xstock-venue.mjs` | the second venue against a chain double that runs Jupiter's `route_v2` on a constant-product pool, a scripted Jupiter and scripted feeds, no network: the venue off by default and silent; the captured GeckoTerminal and DexScreener pages parsed and classified; the poller's backoff on the captured 429, dedupe and horizon; the Jupiter client's rate budget; the quote and transaction checks on the **live** GLDx → GAYMF bytes and every hostile edit of them; observe with each gate refusing by name; armed on Phantom: wait, follow-through, buy, 1.5× take, sell, booked in GLDx; ten hostile Jupiter transactions and two hostile pools refused before signing; the canary, full ticket, day caps and a short wallet; an unreadable buy blocking the stock; autopilot signing with nothing secret on the wire; the pump.fun lane unchanged |
-| `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does; the bundled agent limits decide exactly as their source |
+| `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does; the bundled agent limits decide exactly as their source; the five sprites and CashCat's art and font copied byte for byte; the size budgets (the build under 12 MB, the art under 7 MB, each bundle under its cap); the bundled content rules, trend check (the long given-name list included) and Crying Cat's input decide exactly as their source |
+| `test-cats-popcat.mjs` | Popcat's tab on the two recorded cat coins and coins added to be refused: the list and all twelve checks, the verdicts as the bot finds them, a red flag in the floor's words; text only (no picture, no link but pump.fun's and Solscan's, the popup never assigning innerHTML); the user's CashCat coins never listed, by mint, wallet or the creator the curve records; one step at a time, two coins a step, twenty seconds apart, a 429 resting and doubling, the public RPC's 403 resting half an hour, no RPC checking nothing; a young coin waiting; no trading code |
+| `test-cats-crying.mjs` | Crying Cat's input refused but for an address or a pump.fun coin link of that exact form; the report on the recorded coins (authorities, extensions, holders without the curve and pools, the creator's share, the curve, copycats) with plain words and only Solscan and pump.fun links; a live mint or freeze authority, a transfer fee, a creator's 10% as red flags; a wallet, a token account or nothing said to be one; a token too big to list read from its 20 largest accounts |
+| `test-cats-cashcat.mjs` | CashCat in the extension against the recorded trends and Jupiter list, a scripted Anthropic API with invented model ids, a scripted Pinata, a chain double that verifies every signature, the real autopilot wallet and the real engine's fences: the settings' fences (no dev buy by default, at most 0.05 SOL, at most 2 a day); drafts refused by the content rules, each by name, and the model's review; a trend draft with the model picked from `GET /v1/models`; the logo's layout, and the extension's renderer drawing the bot's logo pixel for pixel with each sign measured as recorded; a launch checked, simulated, pinned, signed by the new mint and the autopilot wallet and sent once, passing the bot's pre-sign check, with the user's disclosure and no claim of the agency; every refusal before a signature; the mint's key made, used once and dropped, nothing key-shaped left in storage; the dev buy as a checked second transaction; auto mode's sentence, checklist, schedule, day cap, minimum balance, no dev buy, and never a buy or a sell |
+| `test-cats-no-leak.mjs` | the cats' message tables; the Pinata JWT pinned in the source (one storage key, read in the worker's reader, save and clear only, handed to pinMetadata alone, a password field cleared at once), through the running worker — a whole launch with the logo drawn in the worker, and every request carrying the JWT to Pinata's upload API only, in one header, and nothing stored, logged, notified or answered carrying it — and in the bundles |
+| `test-cats-browser.mjs` | the built extension loaded in Chromium: the popup and Options opened, every tab clicked, no console or page error, the worker's logo drawn in the real browser; skips cleanly where no Chromium or Playwright is installed |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
 | `test-bots-content.mjs` | the content rules clause by clause: real people (by name and by the "Firstname Lastname" shape), brands and teams, endorsement and "official" claims, tragedy, minors, sex, hate (slurs by salted hash only), identity, financial promises, the formats; compounds caught without their false friends, look-alike digits read as letters, and the evasions: Cyrillic and Greek look-alikes, small capitals, invisible characters inside a word, letters spelt out one by one, a listed word split in two, nickname endings, a web address in a name; the trend gate on the recorded Google Trends and CoinGecko answers; the cat-word detector and its false friends (catch, category, scatter, muscat…) |
 | `test-bots-validators.mjs` | `launches.js` and `callouts.js`: every refusal (HTML, hidden characters (the soft hyphen and word joiners too), a link scheme in text, a bad address or signature (base58 that does not decode to 32 or 64 bytes too), an unknown field, an impossible time, a wrong venue, ticker or kitten, a dev buy over 0.05 SOL or without its transaction, a missing or repeated check, an "info" from a source never silent, stats that are not counts, a coin or a pick of CashCat's); a failed check listed as a red flag, not refused; every malformed pick (a window off the six-hour grid, a time outside it, checks too old, a draft too long, without its disclosure, not opening with its coin or saying "buy", a second pick for a window or a coin, a pick of a spotted coin); links only to Solscan, pump.fun and StonkFun; the data module newest first, one entry per coin, capped at 200 coins and 28 picks and validated whole; Popcat's queue read back only when well formed |

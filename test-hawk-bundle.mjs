@@ -74,8 +74,29 @@ if (built) {
     ok(`${out}: no node: specifier survived`, !/["']node:[a-z_]+["']/.test(text));
     ok(`${out}: no require() of a package survived`, !/\brequire\(["'][^"']+["']\)/.test(text.replace(/\/\*[\s\S]*?\*\//g, "")));
   }
-  for (const stat of ["manifest.json", "popup.html", "popup.css", "options.html", "welcome.html", "welcome.css", "icons/coinmarketcat-32.png", "icons/coinmarketcat-128.png", "icons/coinmarketcat-512.png"])
+  for (const stat of ["manifest.json", "popup.html", "popup.css", "options.html", "welcome.html", "welcome.css", "icons/cia-32.png", "icons/cia-128.png", "icons/cia-512.png"])
     ok(`${stat} was copied`, fs.existsSync(path.join(outdir, stat)));
+  /* The five cats' sprites and CashCat's art and font are copied byte for byte from the brand kit
+     and the bot, so the extension draws the bot's own logo with the bot's own files. */
+  const { STATIC, CAT_SPRITES, CASHCAT_KITTENS } = await import("./build.mjs");
+  const same = (a, b) => fs.existsSync(b) && fs.readFileSync(a).equals(fs.readFileSync(b));
+  ok("the five cats' sprites are the brand kit's, byte for byte", CAT_SPRITES.length === 5 && CAT_SPRITES.every((c) => same(path.join(here, "brand", "sprites", `${c}.png`), path.join(outdir, "sprites", `${c}.png`))));
+  ok("CashCat's eight kittens, their measured signs, and Press Start 2P with its licence are the bot's, byte for byte",
+    CASHCAT_KITTENS.length === 8 && [...CASHCAT_KITTENS.map((k) => `${k}.png`), "signs.json", "font/PressStart2P-Regular.ttf", "font/OFL.txt"].every((f) => same(path.join(here, "bots", "cashcat", "art", f), path.join(outdir, "art", f))));
+  ok("no coinmarketcat-named icon is shipped any more: the extension's icons are the agency's", !fs.existsSync(path.join(outdir, "icons", "coinmarketcat-128.png")));
+  /* THE SIZE BUDGETS. The art is the bulk (eight 1024 × 1024 PNGs, about 6.6 MB, kept byte for
+     byte so the logo is the bot's); the budgets say how much bigger the download may grow before
+     a change has to explain itself. */
+  const sizeOf = (dir) => fs.readdirSync(dir, { withFileTypes: true }).reduce((n, e) => n + (e.isDirectory() ? sizeOf(path.join(dir, e.name)) : fs.statSync(path.join(dir, e.name)).size), 0);
+  const MB = 1024 * 1024;
+  const total = sizeOf(outdir), art = sizeOf(path.join(outdir, "art"));
+  ok("the whole build is under 12 MB", total < 12 * MB, `${(total / MB).toFixed(2)} MB`);
+  ok("…of which CashCat's art is under 7 MB", art < 7 * MB, `${(art / MB).toFixed(2)} MB`);
+  for (const [name, cap] of [["background.js", 2.0], ["popup.js", 0.4], ["options.js", 1.2], ["welcome.js", 1.2], ["content.js", 0.2], ["injected.js", 1.0]]) {
+    const n = fs.statSync(path.join(outdir, name)).size;
+    ok(`${name} is under ${cap} MB`, n < cap * MB, `${(n / 1024).toFixed(0)} KB`);
+  }
+  ok("every static file the build names exists in the repository", STATIC.every(([from]) => fs.existsSync(path.join(here, from))));
 
   /* The manifest names files the build produced — a renamed entry would load as a blank
      popup, which is a bug a person notices only after installing. */
@@ -88,7 +109,8 @@ if (built) {
   ok("options.html loads options.js", /src="options\.js"/.test(optionsHtml));
   const welcomeHtml = fs.readFileSync(path.join(outdir, "welcome.html"), "utf8");
   ok("welcome.html, the first-run setup page, loads welcome.js and welcome.css by the built names", /src="welcome\.js"/.test(welcomeHtml) && /href="welcome\.css"/.test(welcomeHtml));
-  ok("…and the icon it shows was copied beside it", /src="icons\/coinmarketcat-128\.png"/.test(welcomeHtml) && fs.existsSync(path.join(outdir, "icons", "coinmarketcat-128.png")));
+  ok("…and the icon it shows was copied beside it", /src="icons\/cia-128\.png"/.test(welcomeHtml) && fs.existsSync(path.join(outdir, "icons", "cia-128.png")));
+  ok("the popup's tabs show each cat's sprite from the build", ["coinmarketcat", "snipurr", "popcat", "cashcat", "crying-cat"].every((c) => popupHtml.includes(`src="sprites/${c}.png"`) && fs.existsSync(path.join(outdir, "sprites", `${c}.png`))));
 
   console.log("\nTHE BUNDLE EVALUATES, AND DECIDES LIKE THE EXECUTOR\n──────────────────────────────────────────────────");
   /* A library bundle from the engine entry, built with the same options, so the decision
@@ -173,6 +195,28 @@ if (built) {
   ok("the worker bundle carries the agent: its runner, its brain's origin, its market's hosts", /coinmarketcat:agent:state/.test(bg) && bg.includes("https://api.anthropic.com") && bg.includes("https://api.dexscreener.com/tokens/v1/solana/") && bg.includes("https://api.geckoterminal.com/api/v2/networks/solana/pools/"));
   const popup = fs.readFileSync(path.join(outdir, "popup.js"), "utf8");
   ok("the popup bundle drives the agent through its own messages", popup.includes("hawk:agent:status") && popup.includes("hawk:agent:withdraw") && !popup.includes("coinmarketcat:agent:api-key"));
+  ok("the worker bundle carries the three new cats: Popcat's checks, Crying Cat's report, CashCat's launch and its content rules",
+    bg.includes("cia:popcat:tab") && bg.includes("NO RED FLAGS FOUND") && bg.includes("Instruction: CreateV2") && bg.includes("cia:cashcat:journal") && bg.includes("herbstreit") === false && bg.includes("\nzula\n"));
+  ok("the popup bundle drives them through their own messages, and never names a key's storage", popup.includes("cia:popcat:scan") && popup.includes("cia:crying:check") && popup.includes("cia:cashcat:launch") && !popup.includes("cia:cashcat:pinata-jwt"));
+
+  console.log("\nTHE CATS, BUNDLED, DECIDE LIKE THEIR SOURCE\n──────────────────────────────────────────");
+  const catLib = path.join(outdir, "cats-probe");
+  const copts = buildOptions({ outdir: catLib });
+  copts.entryPoints = { rules: path.join(here, "bots", "lib", "content-rules.mjs"), draft: path.join(here, "src", "lib", "cashcat-draft.mjs"), crying: path.join(here, "src", "lib", "crying-cat.mjs"), layout: path.join(here, "bots", "cashcat", "logo-layout.mjs") };
+  copts.logLevel = "silent";
+  const cr = await esbuild.build(copts);
+  ok("the content rules, the draft desk, Crying Cat and the logo layout bundle for the browser (no fs, no node: import)", cr.errors.length === 0, `${cr.errors.length} errors`);
+  fs.writeFileSync(path.join(catLib, "package.json"), JSON.stringify({ type: "module" }));
+  const bRules = await import(pathToFileURL(path.join(catLib, "rules.js")).href);
+  const sRules = await import("./bots/lib/content-rules.mjs");
+  const probes = [{ title: "kirk herbstreit" }, { title: "rainy weather" }, { title: "earthquake relief", news: ["a quake hit"] }, { title: "Tr\u200Bump cat" }];
+  ok("the bundled trend check refuses exactly what the bot's does, the long given-name list included", JSON.stringify(probes.map((t) => bRules.checkTrend(t))) === JSON.stringify(probes.map((t) => sRules.checkTrend(t))) && bRules.GIVEN_NAMES.size === sRules.GIVEN_NAMES.size && bRules.GIVEN_NAMES.size > 5_000);
+  const coin = { name: "Elon Cat", symbol: "ELON", tagline: "A cat with a slur hidden in it? no.", trend: "rain" };
+  ok("…and the proposal rules too, the salted slur hashes included (the node:crypto shim's sha256)", JSON.stringify(bRules.checkProposal(coin)) === JSON.stringify(sRules.checkProposal(coin)) && bRules.hashTerm("probe") === sRules.hashTerm("probe"));
+  const bCry = await import(pathToFileURL(path.join(catLib, "crying.js")).href);
+  const sCry = await import("./src/lib/crying-cat.mjs");
+  const inputs = ["", "abc", "64xwhN5Rshirb1rB6KAC5Qw26zhYhPEXGPxLkpNmpump", "https://pump.fun/coin/64xwhN5Rshirb1rB6KAC5Qw26zhYhPEXGPxLkpNmpump", "https://evil.example/coin/64xwhN5Rshirb1rB6KAC5Qw26zhYhPEXGPxLkpNmpump"];
+  ok("the bundled Crying Cat reads a pasted input exactly as its source does", JSON.stringify(inputs.map(bCry.parseMintInput)) === JSON.stringify(inputs.map(sCry.parseMintInput)));
 }
 fs.rmSync(outdir, { recursive: true, force: true });
 

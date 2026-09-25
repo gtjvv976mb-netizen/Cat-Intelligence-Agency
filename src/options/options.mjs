@@ -17,6 +17,7 @@ import {
   CONFIG_DEFAULTS, CONSOLE_URLS, normalizeConfig, RECORD, STOCK_FOCUS_CHOICES, STOCK_CANARY_RULE, MAX_QUOTE_MINTS,
   AUTOPILOT_UNLOCK_MINUTES, STYLE_PRESETS, XSTOCK_SOURCES, XSTOCK_UNMEASURED,
 } from "../lib/config.mjs";
+import { loadCatsOptions } from "./cats.mjs";
 
 const FIELDS = [
   ["Connection", [
@@ -302,4 +303,5 @@ async function loadAgent() {
 }
 
 loadAgent();
+loadCatsOptions();
 load();

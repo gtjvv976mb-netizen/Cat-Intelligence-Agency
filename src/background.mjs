@@ -46,6 +46,21 @@
  * and no status, log line or page ever carries it (test-agent-no-leak.mjs). WITHDRAW is the
  * owner's: it pauses the agent and runs the existing sweep to the connected Phantom address;
  * the model has no message, no action and no code path that reaches it.
+ *
+ * THE AGENCY'S OTHER CATS live here too, each reusing the bots' own code (bots/):
+ *   · POPCAT (src/lib/popcat-tab.mjs), the cat-coin scanner: a scan step when the popup's Popcat
+ *     tab asks, and on the half-minute alarm only if the owner switched background scanning on.
+ *     It reads pump.fun's listing and the chain, and signs nothing.
+ *   · CRYING CAT (src/lib/crying-cat.mjs), the rug check for one mint the owner pastes. Reads only.
+ *   · CASHCAT (src/lib/cashcat-tab.mjs), a cat coin of the owner's own on pump.fun: drafted by the
+ *     owner or from a trend through the brain (which alone holds the Anthropic key), its logo drawn
+ *     here on an OffscreenCanvas, its metadata pinned through the owner's Pinata JWT — kept in
+ *     chrome.storage.local under PINATA_JWT_STORAGE, read by this file alone and sent only to
+ *     Pinata's upload API — and its create transaction signed by the new mint's key (made, used once
+ *     and dropped in session-wallet.mjs's createMintKeys) and the autopilot wallet, through the
+ *     engine's fences. Auto mode ticks on the same alarm, armed by a typed sentence.
+ * Their network clients are the bots' (bots/lib/http.mjs): an allow-list of hosts per cat, a pace
+ * per host and a back-off, over this worker's own fetch.
  */
 import { createHawkEngine } from "./lib/engine.mjs";
 import { createRpc, createLogsFeed } from "./lib/rpc.mjs";
@@ -54,18 +69,27 @@ import { TOKEN_2022_PROGRAM, TOKEN_PROGRAM, describeMint, parseMintExtensions, a
 import {
   CONFIG_DEFAULTS, normalizeConfig, websocketUrlFor, ConfigError, quoteEntryFor, STOCK_FOCUS_CHOICES, AUTOPILOT_UNLOCK_MINUTES,
 } from "./lib/config.mjs";
-import { UI, BRIDGE, SIGN_ERRORS, BridgeError, nextId, AUTOPILOT, AGENT } from "./lib/protocol.mjs";
+import { UI, BRIDGE, SIGN_ERRORS, BridgeError, nextId, AUTOPILOT, AGENT, POPCAT, CRYING, CASHCAT } from "./lib/protocol.mjs";
 import { fromBase64, toBase64, sameMessage, signatureOf, transactionFeeLamports, unitsToRaw, rawToUnits } from "./lib/tx.mjs";
 import {
   createKeystore, createSessionSigner, buildFundTransaction, buildSweepTransaction, buildTokenSweepTransaction,
   buildTokenFundTransaction, buildCloseTokenAccountsTransaction, sweepableLamports, MAX_CLOSES_PER_TRANSACTION,
-  SYSTEM_ACCOUNT_RENT_EXEMPT_LAMPORTS,
+  SYSTEM_ACCOUNT_RENT_EXEMPT_LAMPORTS, createMintKeys,
 } from "./lib/session-wallet.mjs";
 import { createJupiterClient } from "./lib/jupiter-swap.mjs";
 import { createMarket } from "./lib/agent-market.mjs";
 import { createBrain } from "./lib/agent-brain.mjs";
 import { createAgentRunner } from "./lib/agent-runner.mjs";
 import { SETTLEMENT_TOKENS, SOLANA_MAJORS, SOLANA_MAJORS_VERIFIED, AGENT_BOUNDS, settlementByMint, settlementFor } from "./lib/agent-strategy.mjs";
+import { createHttp, HTTP_DEFAULTS } from "../bots/lib/http.mjs";
+import { createRpc as createCatRpc, PUBLIC_RPC } from "../bots/lib/rpc.mjs";
+import { HOSTS } from "../bots/lib/verified.mjs";
+import { pinMetadata } from "../bots/cashcat/metadata.mjs";
+import { createPopcatTab, POPCAT_TAB_HOSTS } from "./lib/popcat-tab.mjs";
+import { parseMintInput, cryingCatReport } from "./lib/crying-cat.mjs";
+import { createDraftDesk, DRAFT_HOSTS } from "./lib/cashcat-draft.mjs";
+import { workerLogoRenderer } from "./lib/cashcat-logo.mjs";
+import { createCashcatTab, CASHCAT_TAB_KEYS } from "./lib/cashcat-tab.mjs";
 
 const STATE_KEY = "hawk:state";
 const SHADOW_KEY = "hawk:shadow";
@@ -227,7 +251,7 @@ function log(line) { recentLog.unshift(`${new Date().toISOString().slice(11, 19)
 function notify({ kind, title, body, mint }) {
   try {
     chrome.notifications.create(`hawk-${kind}-${mint ?? ""}-${Date.now()}`, {
-      type: "basic", iconUrl: chrome.runtime.getURL("icons/coinmarketcat-128.png"), title, message: body,
+      type: "basic", iconUrl: chrome.runtime.getURL("icons/cia-128.png"), title, message: body,
       priority: kind === "sell" || kind === "attention" ? 2 : 1, requireInteraction: kind === "sell",
     });
   } catch (error) { console.warn("hawk: notification failed", error); }
@@ -722,6 +746,139 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true;
 });
 
+/* ── the agency's other cats: Popcat, Crying Cat, CashCat ─────────────────────────────────
+   Each cat's requests go through the bots' http client with its own allow-list of hosts, over
+   this worker's fetch (bound: a detached fetch is an illegal invocation in a worker). The RPC
+   host is added to a client when its JSON-RPC client is made: the owner's RPC, or with none set
+   the public mainnet endpoint, which refuses browser extensions (Popcat and Crying Cat say so). */
+const workerFetch = (url, init) => fetch(url, init);
+/* One retry, not three: a person is waiting on the popup, and the scanner rests on its own. */
+const catHttp = (hosts) => createHttp({ fetchImpl: workerFetch, allowedHosts: hosts, defaults: { ...HTTP_DEFAULTS, retries: 1 } });
+const popcatHttp = catHttp(POPCAT_TAB_HOSTS);
+const cryingHttp = catHttp([]);
+const draftHttp = catHttp(DRAFT_HOSTS);
+const pinataHttp = catHttp([HOSTS.pinataUpload, HOSTS.pinataGateway]);
+const catRpcs = new Map();      // http client → { url, rpc, isPublic }
+function catRpcFor(http) {
+  const url = config?.rpcUrl || PUBLIC_RPC;
+  const have = catRpcs.get(http);
+  if (have && have.url === url) return have;
+  let made;
+  try { const rpc = createCatRpc({ http, url }); made = { url, rpc, isPublic: rpc.isPublic }; }
+  catch { made = { url, rpc: null, isPublic: false }; }
+  catRpcs.set(http, made);
+  return made;
+}
+
+/* The Pinata JWT: kept in chrome.storage.local under its one key, read here and nowhere else,
+   handed only to pinMetadata, which sends it in one header to Pinata's upload API. */
+const PINATA_JWT_STORAGE = "cia:cashcat:pinata-jwt";
+async function readPinataJwt() {
+  const got = await chrome.storage.local.get(PINATA_JWT_STORAGE);
+  const jwt = got?.[PINATA_JWT_STORAGE];
+  return typeof jwt === "string" && jwt.length ? jwt : null;
+}
+async function hasPinataJwt() { return (await readPinataJwt()) !== null; }
+async function cashcatSetPinataJwt(msg) {
+  const typed = typeof msg.jwt === "string" ? msg.jwt.trim() : "";
+  if (!/^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/.test(typed) || typed.length > 4_000) throw new Error("that does not look like a Pinata JWT: paste the whole token (three parts separated by dots)");
+  await chrome.storage.local.set({ [PINATA_JWT_STORAGE]: typed });
+  log("cashcat: a Pinata key was saved in this browser; it is sent only to Pinata's upload API");
+  return { ok: true, pinataSaved: true };
+}
+async function cashcatClearPinataJwt() {
+  await chrome.storage.local.remove(PINATA_JWT_STORAGE);
+  log("cashcat: the Pinata key was removed from this browser");
+  return { ok: true, pinataSaved: false };
+}
+const pinata = {
+  hasJwt: hasPinataJwt,
+  async pin({ logoPng, coin, buildDoc }) {
+    const jwt = await readPinataJwt();
+    if (!jwt) throw new Error("no Pinata JWT is saved");
+    return pinMetadata({ http: pinataHttp, jwt, logoPng, coin, venue: "pumpfun", buildDoc });
+  },
+};
+
+/* CashCat's model: the brain's callTool, so the Anthropic key never leaves the brain. */
+async function cashcatModel() {
+  const got = await chrome.storage.local.get(CASHCAT_TAB_KEYS.settings);
+  const chosen = typeof got?.[CASHCAT_TAB_KEYS.settings]?.model === "string" ? got[CASHCAT_TAB_KEYS.settings].model : "";
+  return { hasKey: await hasApiKey(), callTool: async ({ tool, system, user }) => (await brain.callTool({ chosen, tool, system, user })).input };
+}
+const mintKeys = createMintKeys();
+const logoRenderer = workerLogoRenderer({ urlFor: (p) => chrome.runtime.getURL(p) });
+const draftDesk = createDraftDesk({ http: draftHttp, model: cashcatModel });
+const cashcatTab = createCashcatTab({
+  storage: chromeArea(chrome.storage.local), desk: draftDesk, renderLogo: (spec) => logoRenderer.render(spec), pinata,
+  fences: () => (engine && typeof engine.agentFences === "function" ? engine.agentFences() : null),
+  mintKeys, hasApiKey, log, notify,
+});
+const popcatTab = createPopcatTab({ http: popcatHttp, rpc: () => catRpcFor(popcatHttp), storage: chromeArea(chrome.storage.local), exclusions: () => cashcatTab.exclusions() });
+
+async function cashcatStatus() {
+  await ensureEngine();
+  const st = await cashcatTab.status();
+  return { ok: true, cashcat: st, pinataSaved: await hasPinataJwt(), apiKeySaved: await hasApiKey(), rpcConfigured: Boolean(config?.rpcUrl),
+    autopilot: { publicKey: keystore.snapshot().publicKey, unlocked: sessionSigner.isReady() } };
+}
+async function cashcatPreview() {
+  const stored = await cashcatTab.loadDraft();
+  if (!stored?.draft) throw new Error("type a coin or draft one from a trend first");
+  const { png, sign } = await logoRenderer.render({ ticker: stored.draft.symbol, kitten: stored.draft.kitten, background: stored.draft.background });
+  return { ok: true, dataUrl: `data:image/png;base64,${toBase64(png)}`, bytes: png.length, sign };
+}
+/** The cats' own work on the alarm: Popcat only when the owner switched background scanning on;
+ *  CashCat's auto mode only when armed and due. */
+function catsTick() {
+  popcatTab.backgroundScanOn().then((on) => (on ? popcatTab.step() : null)).catch((e) => log(`popcat scan failed: ${e?.message ?? e}`));
+  ensureEngine().then(() => cashcatTab.autoTick()).then((r) => { if (r?.ran) log(`cashcat auto mode: ${r.ok === false ? `refused (${r.clause})` : `launched ${r.mint}`}`); }).catch((e) => log(`cashcat auto tick failed: ${e?.message ?? e}`));
+}
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || typeof msg.type !== "string" || !msg.type.startsWith("cia:")) return false;
+  (async () => {
+    if (!fromExtensionPage(sender)) return { ok: false, error: "the cats answer the extension's own pages only" };
+    try {
+      switch (msg.type) {
+        case POPCAT.STATUS: { await ensureEngine(); return { ok: true, popcat: await popcatTab.status() }; }
+        case POPCAT.SCAN: { await ensureEngine(); const r = await popcatTab.step({ force: msg.force === true }); return { ok: true, step: r, popcat: await popcatTab.status() }; }
+        case POPCAT.SET_BACKGROUND: return { ok: true, backgroundScan: await popcatTab.setBackgroundScan(msg.on === true) };
+        case POPCAT.CLEAR: { await popcatTab.clear(); return { ok: true }; }
+        case CRYING.CHECK: {
+          const parsed = parseMintInput(msg.input);
+          if (!parsed.ok) return { ok: false, error: parsed.why, code: "bad_input" };
+          await ensureEngine();
+          const r = catRpcFor(cryingHttp);
+          try { return { ok: true, report: await cryingCatReport({ rpc: r.rpc, mint: parsed.mint }) }; }
+          catch (error) {
+            if (r.isPublic && (error?.detail?.code === 403 || /forbidden/i.test(String(error?.message)))) return { ok: false, error: "The public mainnet RPC refuses requests from browser extensions (it answered 403 \"Access forbidden\"). Set your own RPC in Options.", code: "public_rpc_refused" };
+            throw error;
+          }
+        }
+        case CASHCAT.STATUS: return await cashcatStatus();
+        case CASHCAT.SAVE_SETTINGS: return { ok: true, settings: await cashcatTab.saveSettings(msg.settings) };
+        case CASHCAT.SET_PINATA_JWT: return await cashcatSetPinataJwt(msg);
+        case CASHCAT.CLEAR_PINATA_JWT: return await cashcatClearPinataJwt();
+        /* `ok` says the message was answered; `passes` says whether the draft passed its rules. */
+        case CASHCAT.DRAFT: { const r = await cashcatTab.draftTyped(msg.idea && typeof msg.idea === "object" ? msg.idea : {}); return { ...r, ok: true, passes: r.ok === true }; }
+        case CASHCAT.DRAFT_FROM_TREND: { const r = await cashcatTab.draftFromTrend(); return { ...r, ok: true, passes: r.ok === true }; }
+        case CASHCAT.CLEAR_DRAFT: { await cashcatTab.clearDraft(); return { ok: true }; }
+        case CASHCAT.PREVIEW: return await cashcatPreview();
+        case CASHCAT.PREPARE: { await ensureEngine(); return { ok: true, plan: await cashcatTab.prepare() }; }
+        case CASHCAT.LAUNCH: { await ensureEngine(); return { ok: true, launch: await cashcatTab.launch({ confirmTicker: msg.confirmTicker }) }; }
+        case CASHCAT.MARK_CHECKED: return await cashcatTab.markChecked({ mint: msg.mint, landed: msg.landed === true });
+        case CASHCAT.ARM_AUTO: { await ensureEngine(); return await cashcatTab.armAuto({ sentence: msg.sentence }); }
+        case CASHCAT.DISARM_AUTO: return await cashcatTab.disarmAuto();
+        default: return { ok: false, error: `unknown message ${msg.type}` };
+      }
+    } catch (error) {
+      /* The message only: no cat's error carries the Pinata JWT or the API key, and nothing here is logged. */
+      return { ok: false, error: error?.message ?? String(error), code: error?.clause ?? error?.code };
+    }
+  })().then(sendResponse);
+  return true;
+});
+
 /* ── messages from the popup, the options page and the setup page ──────────────────── */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || typeof msg.type !== "string" || !msg.type.startsWith("hawk:autopilot:")) return false;
@@ -808,7 +965,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 chrome.runtime.onStartup.addListener(() => { chrome.alarms.create(ALARM, { periodInMinutes: 0.5 }); ensureEngine().catch((e) => log(`boot failed: ${e.message}`)); });
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ALARM) { ensureEngine().catch((e) => log(`wake failed: ${e.message}`)); agentTick(); }
+  if (alarm.name === ALARM) { ensureEngine().catch((e) => log(`wake failed: ${e.message}`)); agentTick(); catsTick(); }
   if (alarm.name === EXPIRY_ALARM) {
     /* The unlock ran out: the snapshot already says locked (it judges the clock); this
        re-reads the store, which removes the expired entry, and says so out loud. */
@@ -817,7 +974,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       if (!keystore.snapshot().unlocked) {
         log("the autopilot wallet's unlock ran out — it is locked and signs nothing until you unlock it");
         const held = e.status().autopilotHeld ?? 0;
-        notify({ kind: "attention", title: "COINMARKETCAT: the autopilot wallet locked itself", body: held
+        notify({ kind: "attention", title: "Cat Intelligence Agency: the autopilot wallet locked itself", body: held
           ? `Its unlock ran out while it holds ${held} live position${held === 1 ? "" : "s"}. Unlock it in the popup so the lane can sell.`
           : "Its unlock ran out. The lane buys nothing on autopilot until you unlock it again." });
       }

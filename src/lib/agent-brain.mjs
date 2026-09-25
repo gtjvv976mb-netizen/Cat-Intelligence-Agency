@@ -295,6 +295,49 @@ export function createBrain({
     }
   }
 
+  /**
+   * One forced tool call for another cat (CashCat's drafts and reviews), through the same key,
+   * the same origin and the same failures as decide(). Returns { input, usage, model } with the
+   * tool input unvalidated: the caller holds it to its own format. `chosen` is the model the
+   * owner picked for that cat ("" = the first the key lists).
+   */
+  async function callTool({ chosen = "", system, user, tool, maxTokens = 2_000 }) {
+    if (!isPlainObject(tool) || typeof tool.name !== "string" || !isPlainObject(tool.input_schema)) throw new BrainError("bad_request", "callTool needs a tool with a name and an input_schema");
+    counters.calls++;
+    try {
+      const model = await resolveModel(chosen);
+      const ask = async (forced) => call("/v1/messages", { method: "POST", body: {
+        model, max_tokens: Math.min(Math.max(256, Number(maxTokens) || 2_000), BRAIN_MAX_TOKENS), system: String(system ?? ""),
+        messages: [{ role: "user", content: String(user ?? "") + (forced ? "" : `\n\nAnswer by calling the ${tool.name} tool exactly once.`) }],
+        tools: [tool],
+        tool_choice: forced ? { type: "tool", name: tool.name } : { type: "auto" },
+      } });
+      let forced = !autoFor.has(model);
+      let body;
+      try { body = await ask(forced); }
+      catch (error) {
+        if (!(error instanceof BrainError) || error.clause !== "bad_request" || !forced || !/tool_choice/i.test(error.detail?.message ?? "")) throw error;
+        autoFor.add(model);
+        forced = false;
+        body = await ask(false);
+      }
+      const usage = usageOf(body);
+      const stopReason = typeof body.stop_reason === "string" ? body.stop_reason : null;
+      if (stopReason === "refusal") throw new BrainError("refused", "the model declined to answer", { usage });
+      if (stopReason === "max_tokens") throw new BrainError("truncated", "the answer ran out of room", { usage });
+      const calls = (Array.isArray(body.content) ? body.content : []).filter((b) => isPlainObject(b) && b.type === "tool_use" && b.name === tool.name);
+      if (calls.length !== 1) throw new BrainError(calls.length ? "malformed_output" : "no_tool_call", `the model called ${tool.name} ${calls.length} times`, { usage });
+      if (!isPlainObject(calls[0].input)) throw new BrainError("malformed_output", "the tool input is not an object", { usage });
+      counters.ok++; counters.lastError = null; counters.lastClause = null;
+      return Object.freeze({ input: calls[0].input, usage, model: typeof body.model === "string" ? body.model : model });
+    } catch (error) {
+      counters.failures++;
+      const e = error instanceof BrainError ? error : new BrainError("error", String(error?.message ?? error));
+      counters.lastError = e.message; counters.lastClause = e.clause;
+      throw e;
+    }
+  }
+
   function status() { return { ...counters, modelsListed: models ? models.list.length : null, modelsAt: models?.at ?? null, autoToolChoice: [...autoFor] }; }
-  return Object.freeze({ listModels, resolveModel, decide, status });
+  return Object.freeze({ listModels, resolveModel, decide, callTool, status });
 }

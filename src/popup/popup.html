@@ -2,21 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>COINMARKETCAT</title>
+<title>Cat Intelligence Agency</title>
 <link rel="stylesheet" href="popup.css">
 </head>
 <body data-tab="agent">
 <header class="top">
-  <div class="brand">COINMARKET<em>CAT</em> <span class="sub">agentic trading cat</span></div>
+  <div class="brand">Cat <em>Intelligence</em> Agency <span class="sub">five cats, one extension</span></div>
   <span id="lanePill" class="pill">off</span>
 </header>
 
-<nav class="tabs" id="tabs" aria-label="Lanes">
-  <button type="button" data-tab="agent" class="on">Agent</button>
-  <button type="button" data-tab="snipurr">Snipurr · sniper lane</button>
+<nav class="tabs" id="tabs" aria-label="The cats">
+  <button type="button" data-tab="agent" class="on" title="CoinMarketCat: the agentic trading cat"><img src="sprites/coinmarketcat.png" alt=""><span>CoinMarketCat</span></button>
+  <button type="button" data-tab="snipurr" title="Snipurr: the pump.fun sniper lane"><img src="sprites/snipurr.png" alt=""><span>Snipurr</span></button>
+  <button type="button" data-tab="popcat" title="Popcat: new cat coins on pump.fun, checked"><img src="sprites/popcat.png" alt=""><span>Popcat</span></button>
+  <button type="button" data-tab="cashcat" title="CashCat: launch a cat coin of your own"><img src="sprites/cashcat.png" alt=""><span>CashCat</span></button>
+  <button type="button" data-tab="crying" title="Crying Cat: a rug check for any mint"><img src="sprites/crying-cat.png" alt=""><span>Crying Cat</span></button>
 </nav>
 
-<section class="card agent" id="agentCard" data-tab="agent">
+<section class="card agent" id="agentCard" data-tabs="agent">
   <div class="row">
     <div><div class="k">The agent</div><div class="v" id="agName">not set up yet</div></div>
     <div class="pills"><span id="agModePill" class="pill">paper</span><span id="agStatusPill" class="pill">stopped</span></div>
@@ -58,21 +61,21 @@
   <p class="hint"><a href="#" id="lnkAgentOptions">Set up the agent in Options</a> — name, strategy, tokens, limits, your API key and the model.</p>
 </section>
 
-<section class="card" id="agJournalCard" data-tab="agent">
+<section class="card" id="agJournalCard" data-tabs="agent">
   <details id="agJournalBox">
     <summary class="k">The agent's journal</summary>
     <div id="agJournal" class="log mono"></div>
   </details>
 </section>
 
-<section class="card setup hidden" id="setupCard">
+<section class="card setup hidden" id="setupCard" data-tabs="agent snipurr">
   <div class="row">
     <div><div class="k">First run</div><div class="v">Set your limits, stocks and signer before anything else.</div></div>
     <button id="btnSetup" class="btn">Set up</button>
   </div>
 </section>
 
-<section class="card" id="walletCard">
+<section class="card" id="walletCard" data-tabs="agent snipurr">
   <div class="row">
     <div>
       <div class="k">Phantom</div>
@@ -89,8 +92,9 @@
   </div>
 </section>
 
-<section class="card" id="autopilotCard">
-  <div class="k">Who signs Snipurr's trades</div>
+<section class="card" id="autopilotCard" data-tabs="agent snipurr cashcat">
+  <div class="k lanes-only">Who signs Snipurr's trades</div>
+  <div class="k cc-only">The autopilot wallet: it signs CashCat's launches</div>
   <div class="seg two" id="signerSeg">
     <button data-signer="phantom" title="One Phantom approval window per trade. The extension holds no key.">Phantom per trade</button>
     <button data-signer="autopilot" title="The autopilot wallet signs each trade without a window.">Autopilot</button>
@@ -155,7 +159,7 @@
   <p class="hint posture">A key in a browser is a bigger attack surface than Phantom: while the autopilot wallet is unlocked, malware on this machine or a hostile extension could read it. Your exposure is what you fund it with. Lock clears the unlocked key. Sweep back when you are done.</p>
 </section>
 
-<section class="card" data-tab="snipurr">
+<section class="card" data-tabs="snipurr">
   <div class="k">Snipurr (sniper lane)</div>
   <div class="seg" id="laneSeg">
     <button data-lane="off">Off</button>
@@ -177,7 +181,7 @@
   <ul id="warnings" class="warnings"></ul>
 </section>
 
-<section class="card" id="venueCard" data-tab="snipurr">
+<section class="card" id="venueCard" data-tabs="snipurr">
   <div class="k">Venues</div>
   <div class="row small"><span class="v">pump.fun launches, from the program's own logs</span><span class="pill observe">always</span></div>
   <label class="venue"><input type="checkbox" id="chkXstock"> New pools paired with an xStock, through Jupiter <span id="xstockPill" class="pill">off</span></label>
@@ -194,7 +198,7 @@
   </div>
 </section>
 
-<section class="card" data-tab="snipurr">
+<section class="card" data-tabs="snipurr">
   <div class="row">
     <div><div class="k">Today</div><div class="v" id="dayLine">0 / 0 SOL</div></div>
     <div><div class="k">Ticket</div><div class="v" id="ticketLine">—</div></div>
@@ -213,7 +217,7 @@
   </div>
 </section>
 
-<section class="card" data-tab="snipurr">
+<section class="card" data-tabs="snipurr">
   <div class="row">
     <div><div class="k">Book</div><div class="v" id="bookLine">no live trades</div></div>
     <div><div class="k">Realized</div><div class="v mono" id="realizedLine">—</div><div class="v mono small" id="realizedQuoteLine"></div></div>
@@ -221,7 +225,7 @@
   <div id="closes" class="list"></div>
 </section>
 
-<section class="card" data-tab="snipurr">
+<section class="card" data-tabs="snipurr">
   <div class="row">
     <div><div class="k">Shadow book</div><div class="v" id="shadowLine">0 rows</div></div>
     <button id="btnExport" class="btn ghost" title="One JSON row per line — the file vendor/executor/grade-entry-gates.mjs --file reads">Export</button>
@@ -232,16 +236,114 @@
   <div id="refusals" class="list small"></div>
 </section>
 
-<section class="card" data-tab="snipurr">
+<section class="card" data-tabs="snipurr">
   <details>
     <summary class="k">What Snipurr's record says</summary>
     <div id="record" class="record"></div>
   </details>
 </section>
 
-<section class="card" data-tab="snipurr">
+<section class="card" data-tabs="snipurr">
   <div class="k">Snipurr's log</div>
   <div id="log" class="log mono"></div>
+</section>
+
+<!-- ── POPCAT: the cat-coin scanner. Text only: no coin's picture, no link the coin supplied. ── -->
+<section class="card cat popcat" id="popcatCard" data-tabs="popcat">
+  <div class="row">
+    <div><div class="k">Popcat</div><div class="v">New cat coins on pump.fun, each with Popcat's twelve checks</div></div>
+    <button id="btnPopScan" class="btn">Scan now</button>
+  </div>
+  <p class="hint" id="popLine">While this tab is open, Popcat reads pump.fun's newest coins every half minute, keeps the cat ones, and checks each once it is 15 minutes old.</p>
+  <div class="row small"><span class="k">RPC</span> <span id="popRpc" class="v small">—</span> <span class="k">Last scan</span> <span id="popLast" class="v small mono">—</span></div>
+  <label class="venue"><input type="checkbox" id="chkPopBackground"> Keep scanning on the half-minute alarm while Chrome is open <span id="popBgPill" class="pill">off</span></label>
+  <p class="hint warnline hidden" id="popError"></p>
+  <div class="k" style="margin-top:10px">Checked, newest first</div>
+  <div id="popResults" class="list"><div class="empty">nothing checked yet</div></div>
+  <div class="k" style="margin-top:10px">Waiting to be 15 minutes old</div>
+  <div id="popWaiting" class="list small"><div class="empty">none</div></div>
+  <p class="hint posture" id="popRules"></p>
+</section>
+
+<!-- ── CASHCAT: launch a cat coin of your own ── -->
+<section class="card cat cashcat" id="cashcatDraftCard" data-tabs="cashcat">
+  <div class="row">
+    <div><div class="k">CashCat</div><div class="v">Launch a cat coin of your own on pump.fun</div></div>
+    <span id="ccAutoPill" class="pill">auto off</span>
+  </div>
+  <p class="hint" id="ccSignerNote"></p>
+  <div class="k" style="margin-top:10px">Your coin</div>
+  <div class="formgrid">
+    <label>Name <input id="ccName" type="text" maxlength="32" spellcheck="false" placeholder="3 to 32 characters, with a cat word"></label>
+    <label>Ticker <input id="ccSymbol" type="text" maxlength="11" spellcheck="false" placeholder="2 to 10 of A–Z, 0–9"></label>
+    <label class="wide">One line <input id="ccTagline" type="text" maxlength="160" spellcheck="false" placeholder="10 to 160 characters: no promises, no prices"></label>
+    <label class="wide">Topic it riffs on <input id="ccTopic" type="text" maxlength="80" spellcheck="false" placeholder="written into its disclosure: not affiliated with it"></label>
+    <label>Kitten <select id="ccKitten"></select></label>
+    <label>Background <select id="ccBackground"></select></label>
+  </div>
+  <div class="agbtns">
+    <button id="btnCcCheck" class="btn">Check my coin</button>
+    <button id="btnCcTrend" class="btn ghost" title="Needs your Anthropic API key (Options → Agent). Billed to it.">Draft one from a trend</button>
+  </div>
+  <ul id="ccRefusals" class="warnings"></ul>
+  <p class="hint" id="ccReviewLine"></p>
+</section>
+
+<section class="card cat cashcat" id="cashcatCoinCard" data-tabs="cashcat">
+  <div class="k">The draft</div>
+  <div class="coinrow">
+    <img id="ccLogo" class="logo hidden" alt="The draft's logo, drawn by CashCat in this browser" width="120" height="120">
+    <div class="coinfacts">
+      <div class="v" id="ccCoinLine">no draft yet</div>
+      <div class="hint" id="ccTaglineLine"></div>
+      <div class="hint" id="ccDisclosure"></div>
+    </div>
+  </div>
+  <div class="agbtns">
+    <button id="btnCcPreview" class="btn ghost">Draw the logo</button>
+    <button id="btnCcPrepare" class="btn ghost" title="Every check and a simulation. Nothing is pinned, signed or sent.">Check the launch</button>
+  </div>
+  <div id="ccPlan" class="plan hidden"></div>
+  <div id="ccLaunchBox" class="armbox hidden">
+    <div class="k">Launch — this cannot be undone</div>
+    <p class="hint" id="ccLaunchHint"></p>
+    <div class="ackrow"><input id="ccConfirm" type="text" spellcheck="false" placeholder="type the ticker to confirm"><button id="btnCcLaunch" class="btn danger-inline">Launch</button></div>
+  </div>
+</section>
+
+<section class="card cat cashcat" id="cashcatAutoCard" data-tabs="cashcat">
+  <div class="k">Auto mode (off by default)</div>
+  <p class="hint" id="ccAutoLine">Auto mode drafts a coin from a trend, has the model review it, and launches it from the autopilot wallet on a schedule while Chrome is open: at most 2 a day, never below your minimum balance, no dev buy, and it never buys or sells the coins it launched. Its caps are set in Options → CashCat.</p>
+  <ul id="ccChecklist" class="checklist"></ul>
+  <div class="k">Type the sentence to arm it</div>
+  <div class="mono expected" id="ccExpected">—</div>
+  <div class="ackrow">
+    <textarea id="ccAckInput" rows="3" spellcheck="false" placeholder="I arm CashCat auto mode …"></textarea>
+    <button id="btnCcCopyAck" class="btn ghost" title="Put the sentence in the box exactly as CashCat prints it">Copy</button>
+  </div>
+  <div class="agbtns">
+    <button id="btnCcArm" class="btn danger-inline">Arm auto mode</button>
+    <button id="btnCcDisarm" class="btn ghost">Disarm</button>
+  </div>
+</section>
+
+<section class="card cat cashcat" id="cashcatJournalCard" data-tabs="cashcat">
+  <div class="row"><div class="k">CashCat's journal</div><span id="ccToday" class="v small mono">—</span></div>
+  <div id="ccJournal" class="list small"><div class="empty">no launch yet</div></div>
+  <p class="hint posture" id="ccNotes"></p>
+</section>
+
+<!-- ── CRYING CAT: a rug check for one mint ── -->
+<section class="card cat crying" id="cryingCard" data-tabs="crying">
+  <div class="k">Crying Cat</div>
+  <div class="v">A rug check for any Solana token: paste its mint address or its pump.fun coin link</div>
+  <div class="ackrow" style="margin-top:8px">
+    <input id="cryInput" type="text" spellcheck="false" autocomplete="off" maxlength="120" placeholder="mint address, or https://pump.fun/coin/…">
+    <button id="btnCry" class="btn">Check</button>
+  </div>
+  <p class="hint warnline hidden" id="cryError"></p>
+  <div id="cryReport" class="report hidden"></div>
+  <p class="hint posture" id="cryRules">What the chain said when it was read, not an accusation and not advice. Grumpy Cat (fake hype) is not in the extension: telling real hype from fake needs social data it does not have.</p>
 </section>
 
 <footer class="foot">

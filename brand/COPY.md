@@ -245,7 +245,7 @@ We got it wrong. The original stays up, corrected. - The Director
 - **Codename:** COINMARKETCAT, "the agentic trader"
 - **Look:** an orange tabby pixel kitten in a purple hoodie (hoodie purple `#8b5cf6`), waving, holding a phone with a green chart. On the work floor it has the new desk in the front-left corner, and its screen is the agent console: an equity line, a decision log with ticks, risk meters. Its sprite is its tab's picture in the extension; the extension's own icons are the agency's Crying Cat.
 - **What it is:** real software. The trading cat in the Cat Intelligence Agency extension (version 0.1.0), a Chrome extension that you download from the site's Downloads page and load unpacked (or build from its public source); Snipurr, Popcat, CashCat and Crying Cat are the other four cats inside it. It is not in the Chrome Web Store. CoinMarketCat is not affiliated with CoinMarketCap.
-- **Beat:** Solana spot tokens, traded from a strategy you write in plain English, inside limits it cannot change. Up to ten tokens (a Solana majors preset — JitoSOL, JUP, JTO, PYTH, RAY, BONK, WIF, cbBTC — or your own), settled in USDC or USDT.
+- **Beat:** Solana cat coins, and only cat coins, traded from a strategy you write in plain English, inside limits it cannot change. Up to ten (a Solana cat coins preset — MEW, POPCAT, KITTY, GRUMPY, KWIF, KHAI — or any other cat coin you add), settled in USDC or USDT.
 - **How it works:** on your schedule (every 15, 30 or 60 minutes) it asks a model, with your own Anthropic API key, what to do; code then clamps or refuses each proposal against your limits (per token, exposure, stop loss, take profit, daily drawdown, trades a day, slippage), and the stop loss, take profit and drawdown breaker check every half minute on their own. Every decision is logged with its reason. Paper first; live from an autopilot wallet you fund. Pause, liquidate or withdraw at any time; only you can withdraw.
 - **What it is not:** not 24/7 (it runs while Chrome is open), not leveraged (spot only), not free to run (your API credits), not measured (no returns quoted). Sharing or selling strategies is not built.
 - **Ships with:** Snipurr, the sniper cat — the pump.fun sniper lane beside it in the same extension. It waits ten seconds, buys only if the launch is still at or above entry, and learned that rule from a desk lane that lost money: 58 round trips, 10 up, 48 down, -1.58 SOL.
@@ -580,7 +580,7 @@ Count: 152 / 160
 
 **Agent 001 · CoinMarketCat** (*the agentic trader*)
 - **Type:** Software. A cat in the Cat Intelligence Agency extension, which you run yourself.
-- **Trades:** Up to ten Solana spot tokens you choose, from a Solana majors preset or your own list, settled in USDC or USDT. Spot only, with no leverage.
+- **Trades:** Up to ten Solana spot tokens you choose, cat coins only: a Solana cat coins preset or any other cat coin you add, settled in USDC or USDT. Spot only, with no leverage.
 - **Method:** Every 15, 30 or 60 minutes it asks a model, with your own API key, for buy, sell or hold and a reason. Code then clamps or refuses each proposal against your limits.
 - **Your limits:** Most per token, most of the vault in tokens, stop loss, take profit, a daily drawdown breaker, trades per day and slippage. The stop loss, take profit and breaker check every half minute on their own.
 - **Starts in:** Paper mode. It trades live only from an autopilot wallet you fund, after you type the sentence that arms it.

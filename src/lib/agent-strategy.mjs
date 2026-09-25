@@ -9,16 +9,16 @@
  *     it says can widen a number below, because the numbers below are read by agent-risk.mjs
  *     and never by the model (agent-brain.mjs shows them to it, read-only).
  *
- *   · A UNIVERSE of at most ten SPL tokens: the "Solana majors" preset, custom mints, or
- *     both. Every preset mint below was read live on 2026-09-24 (see SOLANA_MAJORS_VERIFIED)
+ *   · A UNIVERSE of at most ten CAT COINS: the "Solana cat coins" preset, other cat coins
+ *     added as custom mints, or both. Every preset mint below was read live on 2026-09-25
+ *     (see SOLANA_CATS_VERIFIED)
  *     and never typed from memory; a custom mint is read on chain by the worker, over the
  *     owner's RPC, before it can be saved, and its decimals and token program come from
  *     that read. SOL ITSELF IS NOT IN v1. Buying SOL through Jupiter delivers wrapped SOL,
  *     and the check before signing (jupiter-swap.mjs) is a port that dropped the executor's
  *     wrapped-SOL branches: a native-SOL leg would mix the position with the SOL that pays
  *     the network fees, and the fill reader refuses exactly that. So the wrapped-SOL mint is
- *     refused by name (`sol_not_in_v1`). JitoSOL, in the preset, is a liquid-staking token
- *     whose price follows SOL's; it is not SOL.
+ *     refused by name (`sol_not_in_v1`). SOL is not a cat coin in any case.
  *
  *   · A SETTLEMENT TOKEN: USDC by default, or USDT. Every buy spends it and every sell
  *     returns it, so every trade is a token-to-token swap — the one kind the existing check
@@ -45,14 +45,15 @@
 import { PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM, TOKEN_2022_PROGRAM } from "../../vendor/executor/token2022.mjs";
 import { WSOL } from "./tx.mjs";
+import { detectCat } from "../../bots/lib/catdetect.mjs";
 
 export const AGENT_SPEC_VERSION = 1;
 
 /**
- * THE SETTLEMENT TOKENS, each read live on 2026-09-24T19:27Z at slot 450,123,200: the mint
+ * THE SETTLEMENT TOKENS, each read live on 2026-09-24T19:27Z at slot 450,123,200 and again with the cat coins on 2026-09-25: the mint
  * account over https://api.mainnet-beta.solana.com (getMultipleAccounts, base64, confirmed)
  * and Jupiter's token API (https://api.jup.ag/tokens/v2/search?query=<mint>) agree on the
- * decimals and the token program. The reads are in fixtures/agent/mints-verified.json and
+ * decimals and the token program. The latest reads are in fixtures/agent/cats-verified.json and
  * test-agent-strategy.mjs re-derives every field below from those bytes. Both mints carry a
  * live freeze authority held by their issuer; that is said in the UI, not hidden.
  */
@@ -63,29 +64,32 @@ export const SETTLEMENT_TOKENS = Object.freeze([
 export const DEFAULT_SETTLEMENT_MINT = SETTLEMENT_TOKENS[0].mint;
 
 /**
- * THE "SOLANA MAJORS" PRESET. Each mint was found by symbol on Jupiter's token API, taken
- * only where Jupiter marks it verified with the strict tag, then read back as a mint
- * account on mainnet: owner, decimals and authorities. Read 2026-09-24T19:27Z, slot
- * 450,123,200, recorded in fixtures/agent/mints-verified.json. All eight are classic SPL
- * Token mints (no Token-2022 extensions). JitoSOL keeps a mint authority (its stake pool
- * mints it) and cbBTC keeps a mint and a freeze authority (its issuer's); the rest have
- * neither. The order is the order the popup lists them.
+ * CAT COINS ONLY. CoinMarketCat trades cat coins and nothing else: this preset, and any
+ * other cat coin on Solana the owner adds as a custom mint (its name or ticker must be a
+ * cat by bots/lib/catdetect.mjs, the check Popcat uses, as Jupiter's token API names it).
+ *
+ * THE "SOLANA CAT COINS" PRESET. Every cat coin Jupiter's token API marks verified, found
+ * by searching it for cat words and kept only where it is a classic SPL Token mint with NO
+ * mint authority and NO freeze authority (nobody can print more of it or freeze a holder),
+ * then read back as a mint account on mainnet. Read 2026-09-25T09:48Z, slot 450,316,711, recorded in
+ * fixtures/agent/cats-verified.json with each coin's pool liquidity that day: MEW about
+ * $10.6M and POPCAT about $5.0M; the other four between $22k and $221k, thin enough that
+ * the 2% buy-impact cap and a small per-token cap matter. Simon's Cat (CAT) was left out:
+ * it keeps a mint authority. The order is the order the popup lists them.
  */
-export const SOLANA_MAJORS = Object.freeze([
-  ["J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn", "JitoSOL", "Jito Staked SOL", 9],
-  ["JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN", "JUP", "Jupiter", 6],
-  ["jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL", "JTO", "JITO", 9],
-  ["HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3", "PYTH", "Pyth Network", 6],
-  ["4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", "RAY", "Raydium", 6],
-  ["DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", "BONK", "Bonk", 5],
-  ["EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", "WIF", "dogwifhat", 6],
-  ["cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij", "cbBTC", "Coinbase Wrapped BTC", 8],
-].map(([mint, symbol, name, decimals]) => Object.freeze({ mint, symbol, name, decimals, program: TOKEN_PROGRAM, source: "majors" })));
-export const SOLANA_MAJORS_VERIFIED = Object.freeze({
-  at: "2026-09-24T19:27Z",
-  slot: 450_123_200,
-  how: "each mint account read over https://api.mainnet-beta.solana.com (owner, decimals, authorities) and matched to https://api.jup.ag/tokens/v2/search (verified, strict)",
-  fixture: "fixtures/agent/mints-verified.json",
+export const SOLANA_CATS = Object.freeze([
+  ["MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5", "MEW", "cat in a dogs world", 5],
+  ["7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr", "POPCAT", "Popcat", 9],
+  ["4N4DnNo3qpPks9aQCkcWkzoir8tnvT6diS4TnnZibonk", "KITTY", "Hello Kitty", 9],
+  ["GRUmPYbiTpq9ZPy5LAqBMMze7kErf5dEX2i9qYfwoSmR", "GRUMPY", "Grumpy Cat", 9],
+  ["6Rwcmkz9yiYVM5EzyMcr4JsQPGEAWhcUvLvfBperYnUt", "KWIF", "Kitten Wif Hat", 6],
+  ["3TWgDvYBL2YPET2LxnWAwsMeoA8aL4DutNuwat2pKCjC", "KHAI", "Kitten Haimer", 8],
+].map(([mint, symbol, name, decimals]) => Object.freeze({ mint, symbol, name, decimals, program: TOKEN_PROGRAM, source: "cats" })));
+export const SOLANA_CATS_VERIFIED = Object.freeze({
+  at: "2026-09-25T09:48Z",
+  slot: 450_316_711,
+  how: "each mint account read over https://api.mainnet-beta.solana.com (owner, decimals, authorities) and matched to https://lite-api.jup.ag/tokens/v2/search (verified)",
+  fixture: "fixtures/agent/cats-verified.json",
 });
 
 /** The fences every dial is held inside, and the two numbers that are not dials. */
@@ -112,7 +116,7 @@ export const AGENT_BOUNDS = Object.freeze({
 export const AGENT_MAX_BUY_IMPACT_PCT = 2;
 /** The priority fee a swap between the settlement token and a major may carry, in
  *  lamports: written into Jupiter's request as the cap, and the check before signing
- *  refuses a transaction whose compute budget implies more. A swap between majors is not a
+ *  refuses a transaction whose compute budget implies more. A swap between the settlement token and a cat coin is not a
  *  race with a launch's insiders; this lands it under ordinary load. */
 export const AGENT_PRIORITY_FEE_LAMPORTS = 50_000;
 /** SOL the autopilot wallet must hold for network fees and token-account rent before the
@@ -127,7 +131,7 @@ export const AGENT_SPEC_DEFAULTS = Object.freeze({
   v: AGENT_SPEC_VERSION,
   name: "",
   strategy: "",
-  universe: Object.freeze(SOLANA_MAJORS.map((m) => m.mint)),   // mints; a preset mint by address, a custom one also in `custom`
+  universe: Object.freeze(SOLANA_CATS.map((m) => m.mint)),   // mints; a preset mint by address, a custom one also in `custom`
   custom: Object.freeze([]),                                    // [{ mint, symbol, decimals, program, verifiedAt }] — read on chain by the worker
   settlementMint: DEFAULT_SETTLEMENT_MINT,
   scheduleMinutes: 30,
@@ -156,7 +160,7 @@ export class AgentSpecError extends Error {
 
 const isPlainObject = (v) => v != null && typeof v === "object" && !Array.isArray(v);
 const refuse = (key, clause, message) => { throw new AgentSpecError(key, clause, message); };
-const MAJOR_BY_MINT = new Map(SOLANA_MAJORS.map((m) => [m.mint, m]));
+const CAT_BY_MINT = new Map(SOLANA_CATS.map((m) => [m.mint, m]));
 const SETTLEMENT_BY_MINT = new Map(SETTLEMENT_TOKENS.map((s) => [s.mint, s]));
 /** Control characters, except tab and newline, are stripped from free text. */
 const cleanText = (v) => String(v ?? "").replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").trim();
@@ -181,9 +185,9 @@ function normalizeCustom(entry, i) {
   if (!isPlainObject(entry)) refuse("custom", "custom_malformed", `${at} is not an object`);
   const mint = String(entry.mint ?? "").trim();
   if (!isPublicKey(mint)) refuse("custom", "mint_malformed", `${at}: "${mint}" is not a mint address`);
-  if (mint === WSOL) refuse("custom", "sol_not_in_v1", "SOL (the wrapped-SOL mint) is not in v1: the check before signing handles token-to-token swaps only. JitoSOL, in the preset, follows SOL's price");
+  if (mint === WSOL) refuse("custom", "sol_not_in_v1", "SOL (the wrapped-SOL mint) is not in v1: the check before signing handles token-to-token swaps only, and SOL is not a cat coin");
   if (SETTLEMENT_BY_MINT.has(mint)) refuse("custom", "settlement_in_universe", `${at}: ${SETTLEMENT_BY_MINT.get(mint).symbol} is a settlement token, not something to trade into`);
-  if (MAJOR_BY_MINT.has(mint)) refuse("custom", "custom_is_a_major", `${at}: ${MAJOR_BY_MINT.get(mint).symbol} is in the majors preset; tick it there`);
+  if (CAT_BY_MINT.has(mint)) refuse("custom", "custom_in_preset", `${at}: ${CAT_BY_MINT.get(mint).symbol} is in the cat coins preset; tick it there`);
   const symbol = cleanText(entry.symbol);
   if (!/^[A-Za-z0-9$._-]{1,12}$/.test(symbol)) refuse("custom", "symbol_malformed", `${at}: a symbol is 1 to ${AGENT_BOUNDS.customSymbolMax} letters, digits or $._- (got ${JSON.stringify(symbol)})`);
   const decimals = Number(entry.decimals);
@@ -191,7 +195,13 @@ function normalizeCustom(entry, i) {
   if (entry.program !== TOKEN_PROGRAM && entry.program !== TOKEN_2022_PROGRAM) refuse("custom", "custom_unverified", `${at} (${symbol}): its token program was not read on chain`);
   const verifiedAt = Number(entry.verifiedAt);
   if (!(Number.isFinite(verifiedAt) && verifiedAt > 0)) refuse("custom", "custom_unverified", `${at} (${symbol}): no record of when it was read on chain`);
-  return Object.freeze({ mint, symbol, name: symbol, decimals, program: entry.program, source: "custom", verifiedAt,
+  /* CAT COINS ONLY. The name is the token's own as Jupiter's token API gives it, which the
+     worker looks up when the mint is saved; the ticker the owner typed is not enough alone. */
+  const name = cleanText(entry.name ?? "").slice(0, 80);
+  if (!name) refuse("custom", "custom_unverified", `${at} (${symbol}): its name was not looked up on Jupiter's token list`);
+  if (!detectCat({ name, symbol: entry.jupiterSymbol ?? symbol }).isCat) refuse("custom", "not_a_cat_coin", `${at}: "${name}" (${symbol}) is not a cat coin. CoinMarketCat trades cat coins only`);
+  return Object.freeze({ mint, symbol, name, decimals, program: entry.program, source: "custom", verifiedAt,
+    ...(entry.jupiterSymbol ? { jupiterSymbol: cleanText(entry.jupiterSymbol).slice(0, 20) } : {}),
     ...(entry.freezeAuthority ? { freezeAuthority: String(entry.freezeAuthority) } : {}), ...(entry.mintAuthority ? { mintAuthority: String(entry.mintAuthority) } : {}) });
 }
 
@@ -226,10 +236,10 @@ export function normalizeAgentSpec(input = {}) {
   const seen = new Set();
   for (const raw of universe) {
     const mint = String(raw ?? "").trim();
-    if (mint === WSOL) refuse("universe", "sol_not_in_v1", "SOL (the wrapped-SOL mint) is not in v1: the check before signing handles token-to-token swaps only. JitoSOL, in the preset, follows SOL's price");
+    if (mint === WSOL) refuse("universe", "sol_not_in_v1", "SOL (the wrapped-SOL mint) is not in v1: the check before signing handles token-to-token swaps only, and SOL is not a cat coin");
     if (!isPublicKey(mint)) refuse("universe", "mint_malformed", `"${mint}" is not a mint address`);
     if (SETTLEMENT_BY_MINT.has(mint)) refuse("universe", "settlement_in_universe", `${SETTLEMENT_BY_MINT.get(mint).symbol} is a settlement token, not something to trade into`);
-    if (!MAJOR_BY_MINT.has(mint) && !customByMint.has(mint)) refuse("universe", "mint_unverified", `${mint} is neither in the majors preset nor a custom mint read on chain`);
+    if (!CAT_BY_MINT.has(mint) && !customByMint.has(mint)) refuse("universe", "mint_unverified", `${mint} is neither in the cat coins preset nor a custom mint read on chain`);
     if (seen.has(mint)) refuse("universe", "duplicate_mint", `${mint} is listed twice`);
     seen.add(mint);
   }
@@ -270,10 +280,10 @@ export function normalizeAgentSpec(input = {}) {
 /** The universe as entries — symbol, decimals, program — in the spec's order. */
 export function universeEntries(spec) {
   const custom = new Map((spec.custom ?? []).map((c) => [c.mint, c]));
-  return Object.freeze((spec.universe ?? []).map((mint) => MAJOR_BY_MINT.get(mint) ?? custom.get(mint)).filter(Boolean));
+  return Object.freeze((spec.universe ?? []).map((mint) => CAT_BY_MINT.get(mint) ?? custom.get(mint)).filter(Boolean));
 }
 export function settlementFor(spec) { return SETTLEMENT_BY_MINT.get(spec.settlementMint) ?? SETTLEMENT_TOKENS[0]; }
-export const majorFor = (mint) => MAJOR_BY_MINT.get(mint) ?? null;
+export const catFor = (mint) => CAT_BY_MINT.get(mint) ?? null;
 export const settlementByMint = (mint) => SETTLEMENT_BY_MINT.get(mint) ?? null;
 
 /**

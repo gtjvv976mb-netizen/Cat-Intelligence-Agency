@@ -241,7 +241,7 @@ console.log("\nTHE AGENT'S NETWORK AND SIGNING\n──────────�
     [path.join("src", "lib", "agent-risk.mjs")]: [],
     [path.join("src", "lib", "agent-runner.mjs")]: [],
     /* two URLs in a string that SAYS where the preset mints were read; this file fetches nothing */
-    [path.join("src", "lib", "agent-strategy.mjs")]: ["api.mainnet-beta.solana.com", "api.jup.ag"],
+    [path.join("src", "lib", "agent-strategy.mjs")]: ["api.mainnet-beta.solana.com", "api.jup.ag", "lite-api.jup.ag"],
   };
   for (const [rel, allowed] of Object.entries(AGENT_FILES)) {
     const code = strip(fs.readFileSync(path.join(here, rel), "utf8"));

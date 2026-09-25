@@ -1,0 +1,274 @@
+{
+ "readAt": "2026-09-25T09:48:11.460Z",
+ "rpc": "https://api.mainnet-beta.solana.com",
+ "rpcMethod": "getMultipleAccounts (base64, confirmed)",
+ "slot": 450316711,
+ "jupiter": "https://lite-api.jup.ag/tokens/v2/search?query=<mint>",
+ "tokens": [
+  {
+   "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+   "symbol": "USDC",
+   "name": "USD Coin",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "moonshot-verified",
+     "strict",
+     "verified",
+     "stable"
+    ],
+    "liquidityUsd": 467377762,
+    "holderCount": 5248202
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 534788257985,
+    "dataLength": 82,
+    "data": [
+     "AQAAAJj+huiNm+Lqi8HMpIeLKYjCQPUrhCS/tA7Rot3LXhmbgZHLY1ghHQAGAQEAAABicKqKWcWUBbRShshncubNEm6bil06OFNtN/e0FOi2Zw==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "decimals": 6,
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+    "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar"
+   }
+  },
+  {
+   "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+   "symbol": "USDT",
+   "name": "USDT",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "verified",
+     "stable",
+     "community",
+     "moonshot-verified",
+     "strict"
+    ],
+    "liquidityUsd": 33282614,
+    "holderCount": 2305507
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 212997744866,
+    "dataLength": 82,
+    "data": [
+     "AQAAAAXqnPFs5BGY8aSZN8iMNwqU1K//ibW6y470XmMku3j3HTKrPl+kDQAGAQEAAAAF6pzxbOQRmPGkmTfIjDcKlNSv/4m1usuO9F5jJLt49w==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "decimals": 6,
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": "Q6XprfkF8RQQKoQVG33xT88H7wi8Uk1B1CC7YAs69Gi",
+    "freezeAuthority": "Q6XprfkF8RQQKoQVG33xT88H7wi8Uk1B1CC7YAs69Gi"
+   }
+  },
+  {
+   "mint": "MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5",
+   "symbol": "MEW",
+   "name": "cat in a dogs world",
+   "jupiter": {
+    "decimals": 5,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "moonshot-verified",
+     "strict",
+     "verified",
+     "meme"
+    ],
+    "liquidityUsd": 10616684,
+    "holderCount": 158862
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 673938019286,
+    "dataLength": 82,
+    "data": [
+     "AAAAADEpM9Ord5wKt0MA0ymbKmWB1PDhkGKl7XrsRv9HzYC+s7kCTRaUHwAFAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "decimals": 5,
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null
+   }
+  },
+  {
+   "mint": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+   "symbol": "POPCAT",
+   "name": "Popcat",
+   "jupiter": {
+    "decimals": 9,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "birdeye-trending",
+     "community",
+     "moonshot-verified",
+     "strict",
+     "verified",
+     "meme"
+    ],
+    "liquidityUsd": 5016064,
+    "holderCount": 142846
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 344968209901,
+    "dataLength": 82,
+    "data": [
+     "AAAAAOg9lVcy2uaPaJ611b3Ts1m9las57vKmfic0jKiDebj0EANpgYdrmQ0JAQAAAADoPZVXMtrmj2ietdW907NZvZWrOe7ypn4nNIyog3m49A==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "decimals": 9,
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null
+   }
+  },
+  {
+   "mint": "4N4DnNo3qpPks9aQCkcWkzoir8tnvT6diS4TnnZibonk",
+   "symbol": "KITTY",
+   "name": "Hello Kitty",
+   "jupiter": {
+    "decimals": 9,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "meme",
+     "verified"
+    ],
+    "liquidityUsd": 221300,
+    "holderCount": 3821
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 1461600,
+    "dataLength": 82,
+    "data": [
+     "AAAAAFVZGCvh1mZYaboqjfb6hLWXsMEgXOQHv+rem6Q9STXSotbYSkb13g0JAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "decimals": 9,
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null
+   }
+  },
+  {
+   "mint": "GRUmPYbiTpq9ZPy5LAqBMMze7kErf5dEX2i9qYfwoSmR",
+   "symbol": "GRUMPY",
+   "name": "Grumpy Cat",
+   "jupiter": {
+    "decimals": 9,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "verified",
+     "meme"
+    ],
+    "liquidityUsd": 28574,
+    "holderCount": 78056
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 6471601,
+    "dataLength": 82,
+    "data": [
+     "AAAAADLRsT/WDktjvHdCJ92XL2BKFmLCHd5oEmEhHILhcg1f5qWTRf+TV38JAQAAAAAy0bE/1g5LY7x3Qifdly9gShZiwh3eaBJhIRyC4XINXw==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "decimals": 9,
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null
+   }
+  },
+  {
+   "mint": "6Rwcmkz9yiYVM5EzyMcr4JsQPGEAWhcUvLvfBperYnUt",
+   "symbol": "KWIF",
+   "name": "Kitten Wif Hat",
+   "jupiter": {
+    "decimals": 6,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "verified",
+     "meme"
+    ],
+    "liquidityUsd": 42435,
+    "holderCount": 3223
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 13498193777,
+    "dataLength": 82,
+    "data": [
+     "AAAAAAbFwc5jjSVn0mRosF65UdGijcxuEjSCtcZ1FJdw5ivyiMr7N++JAwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "decimals": 6,
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null
+   }
+  },
+  {
+   "mint": "3TWgDvYBL2YPET2LxnWAwsMeoA8aL4DutNuwat2pKCjC",
+   "symbol": "KHAI",
+   "name": "Kitten Haimer",
+   "jupiter": {
+    "decimals": 8,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "isVerified": true,
+    "tags": [
+     "community",
+     "strict",
+     "verified",
+     "meme"
+    ],
+    "liquidityUsd": 22699,
+    "holderCount": 16927
+   },
+   "rpc": {
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "lamports": 54418445946,
+    "dataLength": 82,
+    "data": [
+     "AAAAAEmIXxKkBCZpeEElE+/8kx0MhznvJymyOu78NLgTDjUOSKiNDcouEwAIAQAAAABJiF8SpAQmaXhBJRPv/JMdDIc57ycpsjru/DS4Ew41Dg==",
+     "base64"
+    ]
+   },
+   "facts": {
+    "decimals": 8,
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null
+   }
+  }
+ ]
+}

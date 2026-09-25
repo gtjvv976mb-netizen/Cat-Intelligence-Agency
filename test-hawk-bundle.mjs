@@ -180,7 +180,7 @@ if (built) {
   const bRunner = await import(pathToFileURL(path.join(agentLib, "runner.js")).href);
   const sRisk = await import("./src/lib/agent-risk.mjs");
   const sStrategy = await import("./src/lib/agent-strategy.mjs");
-  const JUPM = sStrategy.SOLANA_MAJORS[1].mint;
+  const JUPM = sStrategy.SOLANA_CATS[1].mint;
   const probe = (R, S) => {
     const spec = S.normalizeAgentSpec({ name: "Probe", strategy: "a probe of the bundle, no more than that", maxPositionUsd: 25 });
     const day = R.rollDay(null, { now: Date.UTC(2026, 8, 24, 12), equityUsd: 100 });
@@ -189,7 +189,7 @@ if (built) {
     return JSON.stringify({ orders: plan.orders, refusals: plan.refusals.map((x) => x.clause), exits: prot.exits.map((x) => x.reason), sentence: S.agentArmSentence(spec, JUPM) });
   };
   ok("the bundled limits clamp, refuse and stop exactly as the source does", probe(bRisk, bStrategy) === probe(sRisk, sStrategy), probe(bRisk, bStrategy).slice(0, 120));
-  ok("the bundled preset is the verified one, SOL still refused", bStrategy.SOLANA_MAJORS.map((m) => m.mint).join() === sStrategy.SOLANA_MAJORS.map((m) => m.mint).join() && (() => { try { bStrategy.normalizeAgentSpec({ universe: ["So11111111111111111111111111111111111111112"] }); return false; } catch (e) { return e.clause === "sol_not_in_v1"; } })());
+  ok("the bundled preset is the verified one, SOL still refused", bStrategy.SOLANA_CATS.map((m) => m.mint).join() === sStrategy.SOLANA_CATS.map((m) => m.mint).join() && (() => { try { bStrategy.normalizeAgentSpec({ universe: ["So11111111111111111111111111111111111111112"] }); return false; } catch (e) { return e.clause === "sol_not_in_v1"; } })());
   ok("the bundled runner builds", typeof bRunner.createAgentRunner === "function" && bRunner.JOURNAL_MAX === 300);
   const bg = fs.readFileSync(path.join(outdir, "background.js"), "utf8");
   ok("the worker bundle carries the agent: its runner, its brain's origin, its market's hosts", /coinmarketcat:agent:state/.test(bg) && bg.includes("https://api.anthropic.com") && bg.includes("https://api.dexscreener.com/tokens/v1/solana/") && bg.includes("https://api.geckoterminal.com/api/v2/networks/solana/pools/"));

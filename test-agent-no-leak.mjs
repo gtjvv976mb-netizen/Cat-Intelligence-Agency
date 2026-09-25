@@ -119,9 +119,9 @@ section("3. THE RUNNING WORKER");
   const EXT = "coinmarketcatagentextid";
   const PAGE = { id: EXT, url: `chrome-extension://${EXT}/options.html` };
   const WEB = { id: EXT, url: "https://catintelligenceagency.com/console/", tab: { id: 3 } };
-  const DS = JSON.parse(src(path.join("fixtures", "agent", "dexscreener-tokens-majors.json")));
+  const DS = JSON.parse(src(path.join("fixtures", "agent", "dexscreener-tokens-cats.json")));
   const GT = JSON.parse(src(path.join("fixtures", "agent", "geckoterminal-ohlcv-jup-15m.json")));
-  const JUP = "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN", USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+  const POPCAT = "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr", USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
   const wire = [];
   const response = (status, body) => ({ ok: status >= 200 && status < 300, status, headers: { get: () => null }, async text() { return JSON.stringify(body); }, async json() { return body; } });
   let decided = 0;
@@ -132,13 +132,13 @@ section("3. THE RUNNING WORKER");
     if (u.host === "api.anthropic.com" && u.pathname === "/v1/messages") {
       decided++;
       return response(200, { id: "msg_w", type: "message", role: "assistant", model: "model-a", stop_reason: "tool_use", usage: { input_tokens: 10, output_tokens: 5 },
-        content: [{ type: "tool_use", id: "t", name: "submit_decisions", input: { rationale: "A small paper buy of JUP.", actions: [{ action: "buy", mint: JUP, usd: 20, confidence: 0.6, reason: "trend" }] } }] });
+        content: [{ type: "tool_use", id: "t", name: "submit_decisions", input: { rationale: "A small paper buy of POPCAT.", actions: [{ action: "buy", mint: POPCAT, usd: 20, confidence: 0.6, reason: "trend" }] } }] });
     }
     if (u.host === "api.dexscreener.com") return response(200, DS.body);
     if (u.host === "api.geckoterminal.com") return response(200, GT.body);
     if (u.host === "api.jup.ag" && u.pathname === "/swap/v1/quote") {
       const q = Object.fromEntries(u.searchParams);
-      const out = BigInt(Math.floor(Number(q.amount) / 0.3044 * 0.999));
+      const out = BigInt(Math.floor(Number(q.amount) / 0.0574 * 1_000 * 0.999));   // USDC (6 decimals) into POPCAT (9) at about $0.0574
       return response(200, { inputMint: q.inputMint, inAmount: q.amount, outputMint: q.outputMint, outAmount: out.toString(), otherAmountThreshold: ((out * 9_900n + 9_999n) / 10_000n).toString(),
         swapMode: "ExactIn", slippageBps: Number(q.slippageBps), platformFee: null, priceImpactPct: "0.0004", routePlan: [{ swapInfo: { ammKey: "x", label: "X", inputMint: q.inputMint, outputMint: q.outputMint, inAmount: q.amount, outAmount: out.toString() }, bps: 10_000 }] });
     }
@@ -177,13 +177,13 @@ section("3. THE RUNNING WORKER");
   ok("STATUS says a key is saved, and does not carry it", st?.ok === true && st.apiKeySaved === true && !JSON.stringify(st).includes(KEY));
   const models = await send({ type: P.AGENT.LIST_MODELS });
   ok("the model list comes from the API with the key", models?.ok === true && models.models[0].id === "model-a" && wire.some((w) => w.url === "https://api.anthropic.com/v1/models?limit=100" && w.headers["x-api-key"] === KEY));
-  const spec = await send({ type: P.AGENT.SAVE_SPEC, spec: { name: "Worker cat", strategy: "Buy JUP on strength; keep it small; cut losers.", universe: [JUP], mode: "paper" } });
+  const spec = await send({ type: P.AGENT.SAVE_SPEC, spec: { name: "Worker cat", strategy: "Buy POPCAT on strength; keep it small; cut losers.", universe: [POPCAT], mode: "paper" } });
   ok("the spec is saved", spec?.ok === true && spec.spec.universe.length === 1);
   const started = await send({ type: P.AGENT.START });
   ok("the agent starts on paper through the worker", started?.ok === true && started.agent.status === "running" && started.agent.mode === "paper");
   for (let i = 0; i < 200 && !(await send({ type: P.AGENT.STATUS })).agent.journal.some((j) => j.kind === "fill"); i++) await new Promise((r) => setTimeout(r, 25));
   const after = await send({ type: P.AGENT.STATUS });
-  ok("its first tick asked the model and filled a paper buy at Jupiter's quote", decided === 1 && after.agent.journal.some((j) => j.kind === "fill" && j.paper === true && j.symbol === "JUP"), `${decided} decisions`);
+  ok("its first tick asked the model and filled a paper buy at Jupiter's quote", decided === 1 && after.agent.journal.some((j) => j.kind === "fill" && j.paper === true && j.symbol === "POPCAT"), `${decided} decisions`);
   const carrying = wire.filter((w) => JSON.stringify(w).includes(KEY));
   ok("every request that carried the key went to https://api.anthropic.com, in the x-api-key header", carrying.length >= 2 && carrying.every((w) => w.url.startsWith("https://api.anthropic.com/v1/") && w.headers["x-api-key"] === KEY && !w.url.includes(KEY) && !w.body.includes(KEY)), `${carrying.length} of ${wire.length} requests`);
   ok("…and DexScreener, GeckoTerminal and Jupiter were asked without it", wire.filter((w) => w.host !== "api.anthropic.com").length >= 3 && wire.filter((w) => w.host !== "api.anthropic.com").every((w) => !JSON.stringify(w).includes(KEY)));

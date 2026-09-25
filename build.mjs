@@ -143,7 +143,7 @@ export const HOSTS_CALLED = Object.freeze([
   ["uploads.pinata.cloud", "CashCat", "pins the logo and metadata of the user's coin, with the user's own Pinata JWT"],
   ["trends.google.com", "CashCat", "Google Trends' US trending-searches feed, for drafting from a trend"],
   ["api.coingecko.com", "CashCat", "CoinGecko's trending categories, for drafting from a trend"],
-  ["lite-api.jup.ag", "CashCat", "Jupiter's verified-token list: no draft may take a verified token's ticker or name"],
+  ["lite-api.jup.ag", "CashCat, CoinMarketCat", "Jupiter's token list: no CashCat draft may take a verified token's ticker or name, and a custom CoinMarketCat mint must be a cat coin by its name there"],
 ]);
 
 export function buildOptions({ outdir = DIST } = {}) {

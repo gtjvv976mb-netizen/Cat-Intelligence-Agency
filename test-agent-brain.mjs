@@ -29,7 +29,7 @@ import {
   createBrain, validateDecision, parseModels, usageOf, buildSystemPrompt, buildUserMessage, BrainError,
   ANTHROPIC_API, ANTHROPIC_VERSION, DECISION_TOOL, DECISION_TOOL_NAME, BRAIN_ACTIONS, MAX_ACTIONS, BRAIN_MAX_TOKENS,
 } from "./src/lib/agent-brain.mjs";
-import { normalizeAgentSpec, SOLANA_MAJORS } from "./src/lib/agent-strategy.mjs";
+import { normalizeAgentSpec, SOLANA_CATS } from "./src/lib/agent-strategy.mjs";
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = "") => {
@@ -39,14 +39,14 @@ const ok = (name, cond, detail = "") => {
 const section = (title) => console.log(`\n${title}\n${"─".repeat(title.length)}`);
 
 const KEY = "sk-test-DO-NOT-LEAK-0123456789abcdefghij";
-const [JITO, JUP, JTO] = SOLANA_MAJORS.map((m) => m.mint);
-const UNIVERSE = SOLANA_MAJORS.map((m) => m.mint);
-const spec = normalizeAgentSpec({ name: "Brain test", strategy: "Buy JUP when its 4 h return is positive and RSI is under 70; sell on RSI over 80." });
-const context = { now: "2026-09-24T19:30:00.000Z", market: [{ mint: JUP, symbol: "JUP", priceUsd: 0.3044, indicators: { rsi14: 55.2 }, missing: [] }], vault: { equityUsd: 100 } };
+const [MEW, POPCAT, KITTY] = SOLANA_CATS.map((m) => m.mint);
+const UNIVERSE = SOLANA_CATS.map((m) => m.mint);
+const spec = normalizeAgentSpec({ name: "Brain test", strategy: "Buy POPCAT when its 4 h return is positive and RSI is under 70; sell on RSI over 80." });
+const context = { now: "2026-09-24T19:30:00.000Z", market: [{ mint: POPCAT, symbol: "POPCAT", priceUsd: 0.3044, indicators: { rsi14: 55.2 }, missing: [] }], vault: { equityUsd: 100 } };
 const MODELS = { data: [{ type: "model", id: "model-a", display_name: "Model A", created_at: "2026-09-01T00:00:00Z" }, { type: "model", id: "model-b", display_name: "Model B", created_at: "2026-06-01T00:00:00Z" }], has_more: false, first_id: "model-a", last_id: "model-b" };
-const goodInput = { rationale: "JUP's 4 h return is positive and RSI is 55: a small buy. The rest: hold.", actions: [
-  { action: "buy", mint: JUP, usd: 20, confidence: 0.62, reason: "Momentum with room below the RSI ceiling." },
-  { action: "hold", mint: JTO, confidence: 0.5, reason: "No signal." },
+const goodInput = { rationale: "POPCAT's 4 h return is positive and RSI is 55: a small buy. The rest: hold.", actions: [
+  { action: "buy", mint: POPCAT, usd: 20, confidence: 0.62, reason: "Momentum with room below the RSI ceiling." },
+  { action: "hold", mint: KITTY, confidence: 0.5, reason: "No signal." },
 ] };
 const message = (input, extra = {}) => ({ id: "msg_test_1", type: "message", role: "assistant", model: "model-a", stop_reason: "tool_use",
   content: [{ type: "text", text: "Deciding." }, { type: "tool_use", id: "toolu_1", name: DECISION_TOOL_NAME, input }],
@@ -122,20 +122,20 @@ section("3. THE ANSWER, HELD TO THE FORMAT");
   ok("no rationale", v({ actions: [] }) === "rationale_missing" && v({ rationale: "  ", actions: [] }) === "rationale_missing");
   ok("no action list", v({ rationale: "x" }) === "actions_missing" && v({ rationale: "x", actions: "buy" }) === "actions_missing");
   ok(`more than ${MAX_ACTIONS} actions`, v({ rationale: "x", actions: Array.from({ length: MAX_ACTIONS + 1 }, () => goodInput.actions[1]) }) === "too_many_actions");
-  ok("not an object at all", v("buy JUP") === "malformed_output" && v(null) === "malformed_output" && v([goodInput]) === "malformed_output");
+  ok("not an object at all", v("buy POPCAT") === "malformed_output" && v(null) === "malformed_output" && v([goodInput]) === "malformed_output");
   const mixed = validateDecision({ rationale: "mixed", actions: [
     goodInput.actions[0],
-    { action: "withdraw", mint: JUP, usd: 100, confidence: 1, reason: "send it home" },
+    { action: "withdraw", mint: POPCAT, usd: 100, confidence: 1, reason: "send it home" },
     { action: "buy", mint: "So11111111111111111111111111111111111111112", usd: 20, confidence: 0.9, reason: "SOL" },
-    { action: "buy", mint: JTO, usd: 20, confidence: 1.5, reason: "sure" },
-    { action: "buy", mint: JTO, usd: 20, confidence: 0.5, reason: "" },
-    { action: "buy", mint: JTO, fraction: 0.5, confidence: 0.5, reason: "wrong size" },
-    { action: "sell", mint: JTO, usd: 20, confidence: 0.5, reason: "wrong size" },
-    { action: "sell", mint: JTO, fraction: 1.5, confidence: 0.5, reason: "too much" },
-    { action: "buy", mint: JITO, usd: 20, confidence: 0.5, reason: "x", maxPositionUsd: 1e6 },
+    { action: "buy", mint: KITTY, usd: 20, confidence: 1.5, reason: "sure" },
+    { action: "buy", mint: KITTY, usd: 20, confidence: 0.5, reason: "" },
+    { action: "buy", mint: KITTY, fraction: 0.5, confidence: 0.5, reason: "wrong size" },
+    { action: "sell", mint: KITTY, usd: 20, confidence: 0.5, reason: "wrong size" },
+    { action: "sell", mint: KITTY, fraction: 1.5, confidence: 0.5, reason: "too much" },
+    { action: "buy", mint: MEW, usd: 20, confidence: 0.5, reason: "x", maxPositionUsd: 1e6 },
     "sell all",
   ] }, { universeMints: UNIVERSE });
-  ok("one bad action is refused by name and the good one stands", mixed.actions.length === 1 && mixed.actions[0].mint === JUP);
+  ok("one bad action is refused by name and the good one stands", mixed.actions.length === 1 && mixed.actions[0].mint === POPCAT);
   ok("…withdraw is not an action (action_unknown)", mixed.rejected.some((x) => x.clause === "action_unknown" && x.action === "withdraw"));
   ok("…a mint outside the universe, SOL included (not_in_universe)", mixed.rejected.some((x) => x.clause === "not_in_universe"));
   ok("…confidence outside 0..1, an empty reason, a buy by fraction, a sell by usd, a fraction over 1, an extra field, a string",
@@ -148,11 +148,11 @@ section("3. THE ANSWER, HELD TO THE FORMAT");
   /* Regression: sizes and confidences were coerced with Number(), so [25] bought $25 and
      true was full confidence. A number in the format is a JSON number. */
   const loose = validateDecision({ rationale: "loose types", actions: [
-    { action: "buy", mint: JUP, usd: [25], confidence: 0.5, reason: "an array" },
-    { action: "buy", mint: JTO, usd: "25", confidence: 0.5, reason: "a string" },
-    { action: "buy", mint: JITO, usd: 25, confidence: true, reason: "a boolean" },
-    { action: "sell", mint: JUP, fraction: "1", confidence: 0.5, reason: "a string" },
-    { action: "sell", mint: JTO, fraction: [0.5], confidence: "0.9", reason: "both" },
+    { action: "buy", mint: POPCAT, usd: [25], confidence: 0.5, reason: "an array" },
+    { action: "buy", mint: KITTY, usd: "25", confidence: 0.5, reason: "a string" },
+    { action: "buy", mint: MEW, usd: 25, confidence: true, reason: "a boolean" },
+    { action: "sell", mint: POPCAT, fraction: "1", confidence: 0.5, reason: "a string" },
+    { action: "sell", mint: KITTY, fraction: [0.5], confidence: "0.9", reason: "both" },
   ] }, { universeMints: UNIVERSE });
   ok("a size or confidence that is not a JSON number is refused, never coerced ([25], \"25\", true, \"1\")",
     loose.actions.length === 0 && loose.rejected.length === 5 && loose.rejected.every((x) => ["size_invalid", "confidence_invalid"].includes(x.clause)), JSON.stringify(loose.actions));
@@ -169,10 +169,10 @@ section("4. EVERY FAILURE HAS A CLAUSE");
     ["400", response(400, errorBody("invalid_request_error", "messages: bad")), "bad_request"],
     ["a body that is not JSON", response(200, "<html>proxy</html>"), "malformed"],
     ["a refusal", response(200, message(goodInput, { stop_reason: "refusal", content: [] })), "refused"],
-    ["no tool call", response(200, message(goodInput, { stop_reason: "end_turn", content: [{ type: "text", text: "I would buy JUP." }] })), "no_tool_call"],
+    ["no tool call", response(200, message(goodInput, { stop_reason: "end_turn", content: [{ type: "text", text: "I would buy POPCAT." }] })), "no_tool_call"],
     ["an answer that ran out of room", response(200, message(goodInput, { stop_reason: "max_tokens", content: [{ type: "text", text: "Thinking…" }] })), "truncated"],
     /* Regression: a tool call cut off at max_tokens was executed — the actions after the cut (a sell, say) lost */
-    ["a decision cut off mid-call at max_tokens, its tool call present", response(200, message({ rationale: "Buy JUP, then sell", actions: [goodInput.actions[0]] }, { stop_reason: "max_tokens" })), "truncated"],
+    ["a decision cut off mid-call at max_tokens, its tool call present", response(200, message({ rationale: "Buy POPCAT, then sell", actions: [goodInput.actions[0]] }, { stop_reason: "max_tokens" })), "truncated"],
     ["two tool calls", response(200, message(goodInput, { content: [{ type: "tool_use", id: "a", name: DECISION_TOOL_NAME, input: goodInput }, { type: "tool_use", id: "b", name: DECISION_TOOL_NAME, input: goodInput }] })), "malformed_output"],
     ["a call to another tool", response(200, message(goodInput, { content: [{ type: "tool_use", id: "a", name: "withdraw", input: {} }] })), "no_tool_call"],
   ];

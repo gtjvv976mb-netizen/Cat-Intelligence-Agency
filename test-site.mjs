@@ -69,7 +69,7 @@ import {
 import { SNIPE_DEFAULTS as POLICY_DEFAULTS } from "./vendor/executor/snipe-policy.mjs";
 import { CHANNEL, BRIDGE } from "./src/lib/protocol.mjs";
 import { MIN_PASSPHRASE_LENGTH, DEFAULT_UNLOCK_TTL_MS } from "./src/lib/session-wallet.mjs";
-import { AGENT_SPEC_DEFAULTS, AGENT_BOUNDS, SOLANA_MAJORS, SETTLEMENT_TOKENS } from "./src/lib/agent-strategy.mjs";
+import { AGENT_SPEC_DEFAULTS, AGENT_BOUNDS, SOLANA_CATS, SETTLEMENT_TOKENS } from "./src/lib/agent-strategy.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = path.join(here, "site");
@@ -320,8 +320,8 @@ section("THE AGENT'S NUMBERS ARE THE CODE'S");
   pinned("the model is asked every 15, 30 or 60 minutes", JSON.stringify(AGENT_BOUNDS.schedules) === "[15,30,60]" && d.scheduleMinutes === 30,
     has("cat", "every 15, 30 or 60 minutes") && has("agency", "Every 15, 30 or 60 minutes"));
   pinned("up to ten tokens", AGENT_BOUNDS.universeMax === 10, has("cat", "up to ten tokens") && has("agency", "Up to ten Solana spot tokens"));
-  pinned("the Solana majors preset, by symbol", SOLANA_MAJORS.map((m) => m.symbol).join(", ") === "JitoSOL, JUP, JTO, PYTH, RAY, BONK, WIF, cbBTC",
-    has("cat", "JitoSOL, JUP, JTO, PYTH, RAY, BONK, WIF and cbBTC"));
+  pinned("cat coins only: the Solana cat coins preset, by symbol", SOLANA_CATS.map((m) => m.symbol).join(", ") === "MEW, POPCAT, KITTY, GRUMPY, KWIF, KHAI",
+    has("cat", "MEW, POPCAT, KITTY, GRUMPY, KWIF and KHAI") && has("cat", "It trades cat coins only") && has("agency", "cat coins only"));
   pinned("settled in USDC by default, or USDT", SETTLEMENT_TOKENS.map((t) => t.symbol).join() === "USDC,USDT" && d.settlementMint === SETTLEMENT_TOKENS[0].mint,
     has("cat", "settled in USDC by default, or USDT") && has("agency", "settled in USDC or USDT"));
   pinned("the limits' defaults: $25 a token, 60% in tokens, 8% stop loss, 15% take profit, 5% daily drawdown, 6 trades a day, 100 bps",
@@ -335,7 +335,7 @@ section("THE AGENT'S NUMBERS ARE THE CODE'S");
     has("cat", "every half minute") && has("agency", "every half minute"));
   pinned("the model is chosen at run time: the newest the key lists, unless the owner picks one", d.model === "",
     has("cat", "by default, the newest one the API lists for your key"));
-  pinned("SOL itself is not in this version", !SOLANA_MAJORS.some((m) => m.mint === "So11111111111111111111111111111111111111112"), has("cat", "SOL itself is not tradable in this version"));
+  pinned("SOL itself is not in this version", !SOLANA_CATS.some((m) => m.mint === "So11111111111111111111111111111111111111112"), has("cat", "SOL itself is not tradable in this version"));
   for (const phrase of [
     "It runs while Chrome is open on this computer, not in a cloud around the clock.",
     "It is spot only, with no leverage.",

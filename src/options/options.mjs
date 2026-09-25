@@ -11,7 +11,7 @@
  */
 import { UI, AGENT } from "../lib/protocol.mjs";
 import {
-  normalizeAgentSpec, SOLANA_MAJORS, SETTLEMENT_TOKENS, AGENT_BOUNDS, AGENT_UNMEASURED, AGENT_RUNS_WHERE, SOLANA_MAJORS_VERIFIED,
+  normalizeAgentSpec, SOLANA_CATS, SETTLEMENT_TOKENS, AGENT_BOUNDS, AGENT_UNMEASURED, AGENT_RUNS_WHERE, SOLANA_CATS_VERIFIED,
 } from "../lib/agent-strategy.mjs";
 import {
   CONFIG_DEFAULTS, CONSOLE_URLS, normalizeConfig, RECORD, STOCK_FOCUS_CHOICES, STOCK_CANARY_RULE, MAX_QUOTE_MINTS,
@@ -215,10 +215,10 @@ function buildAgent(res) {
     ${field("Name", "name", `<input type="text" id="agName" maxlength="${AGENT_BOUNDS.nameMax}" value="${esc(spec.name)}" spellcheck="false">`, "What the journal and the arm sentence call it.")}
     ${field("Strategy", "strategy", `<textarea id="agStrategy" maxlength="${AGENT_BOUNDS.strategyMax}" placeholder="For example: hold at most three tokens. Buy a token whose 4-hour return is positive and whose RSI is under 70; sell half when RSI goes over 80. Never buy after a 24-hour move of more than 15%.">${esc(spec.strategy)}</textarea><div class="counter" id="agCount"></div>`,
       "In plain English (any language). The model is told to follow it inside the rules; where they conflict, the rules win. It is not a limit: nothing written here can widen one.")}
-    ${field("Tokens", "universe", `<div class="majors">${SOLANA_MAJORS.map((m) => `<label><input type="checkbox" data-major="${esc(m.mint)}" ${inUniverse.has(m.mint) ? "checked" : ""}> ${esc(m.symbol)} <small>${esc(m.name)}</small></label>`).join("")}</div>
+    ${field("Tokens", "universe", `<div class="majors">${SOLANA_CATS.map((m) => `<label><input type="checkbox" data-major="${esc(m.mint)}" ${inUniverse.has(m.mint) ? "checked" : ""}> ${esc(m.symbol)} <small>${esc(m.name)}</small></label>`).join("")}</div>
       <table class="stocks" style="margin-top:8px"><thead><tr><th>Custom mint</th><th>Symbol</th><th></th><th></th></tr></thead><tbody id="agCustom">${(spec.custom ?? []).map(customRow).join("")}</tbody></table>
       <div class="stockadd"><button type="button" class="btn ghost" id="btnAgAddCustom">+ a custom mint</button></div>`,
-      `At most ${AGENT_BOUNDS.universeMax}. The Solana majors preset: each mint was read on chain and on Jupiter's token list on ${esc(SOLANA_MAJORS_VERIFIED.at.slice(0, 10))}. A custom mint is read over your RPC when you save — its decimals and token program come from the chain. SOL itself is not tradable in this version (the wrapped-SOL leg is not built); JitoSOL follows SOL's price but is not SOL.`)}
+      `At most ${AGENT_BOUNDS.universeMax}. Cat coins only. The Solana cat coins preset: verified on Jupiter's token list, no mint or freeze authority, each mint read on chain on ${esc(SOLANA_CATS_VERIFIED.at.slice(0, 10))}. Any other cat coin on Solana can be added as a custom mint: it is read over your RPC when you save (its decimals and token program come from the chain) and its name is looked up on Jupiter's token list; one that is not a cat coin is refused. Most cat coins are thin: MEW and POPCAT had millions in their pools that day, the rest tens to hundreds of thousands.`)}
     ${field("Settlement token", "settlementMint", `<select id="agSettlement">${SETTLEMENT_TOKENS.map((t) => `<option value="${esc(t.mint)}" ${t.mint === spec.settlementMint ? "selected" : ""}>${esc(t.symbol)} — ${esc(t.mint)}</option>`).join("")}</select>`,
       `Every buy spends it and every sell returns it; the vault is counted in it, at $1 a unit. The vault minimum is $${AGENT_BOUNDS.minVaultUsd} and the minimum trade $${AGENT_BOUNDS.minTradeUsd}. Its issuer keeps a freeze authority over it.`)}
     ${field("Ask the model every", "scheduleMinutes", `<select id="agSchedule">${AGENT_BOUNDS.schedules.map((m) => `<option value="${m}" ${m === spec.scheduleMinutes ? "selected" : ""}>${m} minutes</option>`).join("")}</select>`,
@@ -261,7 +261,7 @@ async function saveAgent() {
   const draft = readAgent();
   /* The page's own check, on everything the chain does not have to answer; the worker reads
      each custom mint on chain and runs the same normalizer again before it stores anything. */
-  try { normalizeAgentSpec({ ...draft, custom: [], universe: draft.universe.filter((m) => SOLANA_MAJORS.some((x) => x.mint === m)) }); }
+  try { normalizeAgentSpec({ ...draft, custom: [], universe: draft.universe.filter((m) => SOLANA_CATS.some((x) => x.mint === m)) }); }
   catch (error) {
     agentMsg(error.message, "bad");
     const el = error.key === "strategy" ? $("agStrategy") : error.key === "name" ? $("agName") : $(`ag_${error.key}`);

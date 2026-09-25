@@ -80,7 +80,7 @@ import { createJupiterClient } from "./lib/jupiter-swap.mjs";
 import { createMarket } from "./lib/agent-market.mjs";
 import { createBrain } from "./lib/agent-brain.mjs";
 import { createAgentRunner } from "./lib/agent-runner.mjs";
-import { SETTLEMENT_TOKENS, SOLANA_MAJORS, SOLANA_MAJORS_VERIFIED, AGENT_BOUNDS, settlementByMint, settlementFor } from "./lib/agent-strategy.mjs";
+import { SETTLEMENT_TOKENS, SOLANA_CATS, SOLANA_CATS_VERIFIED, AGENT_BOUNDS, settlementByMint, settlementFor } from "./lib/agent-strategy.mjs";
 import { createHttp, HTTP_DEFAULTS } from "../bots/lib/http.mjs";
 import { createRpc as createCatRpc, PUBLIC_RPC } from "../bots/lib/rpc.mjs";
 import { HOSTS } from "../bots/lib/verified.mjs";
@@ -654,7 +654,7 @@ async function verifyCustomMints(list) {
   const fresh = list.filter((c) => !(known.has(String(c?.mint ?? "").trim())));
   let read = { accounts: [] };
   if (fresh.length) read = await hostRpc().getMultipleAccounts(fresh.map((c) => String(c.mint).trim()));
-  return list.map((c) => {
+  const out = list.map((c) => {
     const mint = String(c?.mint ?? "").trim();
     if (known.has(mint)) return { ...known.get(mint), symbol: c.symbol ?? known.get(mint).symbol };
     const account = read.accounts?.[fresh.indexOf(c)] ?? null;
@@ -668,6 +668,20 @@ async function verifyCustomMints(list) {
     if (facts.paused) throw new Error(`${c.symbol ?? mint} is paused by its issuer`);
     return { mint, symbol: String(c.symbol ?? "").trim(), decimals: facts.decimals, program: facts.program, verifiedAt: Date.now(), freezeAuthority: facts.freezeAuthority, mintAuthority: facts.mintAuthority };
   });
+  /* Cat coins only: each new mint's own name and ticker, as Jupiter's token list gives them,
+     go with it, and normalizeAgentSpec refuses one that is not a cat (not_a_cat_coin). */
+  for (const row of out) {
+    if (known.has(row.mint)) continue;
+    let listed = null;
+    try {
+      const res = await fetch(`https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(row.mint)}`);
+      if (res.ok) listed = (await res.json()).find?.((t) => t?.id === row.mint) ?? null;
+    } catch { /* said below */ }
+    if (!listed) throw new Error(`${row.symbol || row.mint}: Jupiter's token list does not know this mint, so it cannot be checked as a cat coin`);
+    row.name = String(listed.name ?? "");
+    row.jupiterSymbol = String(listed.symbol ?? "");
+  }
+  return out;
 }
 async function agentStatus() {
   await ensureEngine();
@@ -677,7 +691,7 @@ async function agentStatus() {
   return {
     ok: true, agent: a.status(), apiKeySaved: await hasApiKey(), withdrawTo: bridge.wallet() ?? meta.sweepTo ?? null,
     autopilot: { publicKey: keystore.snapshot().publicKey, unlocked: sessionSigner.isReady() },
-    settlementTokens: SETTLEMENT_TOKENS, majors: SOLANA_MAJORS, majorsVerified: SOLANA_MAJORS_VERIFIED, bounds: AGENT_BOUNDS, rpcConfigured: Boolean(config?.rpcUrl),
+    settlementTokens: SETTLEMENT_TOKENS, majors: SOLANA_CATS, majorsVerified: SOLANA_CATS_VERIFIED, bounds: AGENT_BOUNDS, rpcConfigured: Boolean(config?.rpcUrl),
   };
 }
 async function agentSaveSpec(msg) {

@@ -38,7 +38,7 @@
  *       a SOL drain, the wrong output mint, a second signer — the chain is sent nothing;
  *   12. a take profit sells back to USDC live, signed the same way; a locked wallet cannot sell
  *       and says so;
- *   13. the pair allowlist, on the LIVE recorded USDC → JUP transaction: allowed when JUP is in
+ *   13. the pair allowlist, on the LIVE recorded USDC → POPCAT transaction: allowed when POPCAT is in
  *       the universe, refused at pair_not_allowed when it is not.
  *   REGRESSIONS (the money paths under failure)
  *   14. liquidate all sells, tick after tick, what it could not sell at once, until nothing is
@@ -64,7 +64,7 @@ import { createBrain, DECISION_TOOL_NAME } from "./src/lib/agent-brain.mjs";
 import {
   createJupiterClient, checkSwapTransaction, loadLookupTables, lookupTableKeysOf, SwapCheckError, JUPITER_PROGRAM, JUPITER_EVENT_AUTHORITY, LOOKUP_TABLE_PROGRAM,
 } from "./src/lib/jupiter-swap.mjs";
-import { SOLANA_MAJORS, normalizeAgentSpec, agentArmSentence, allowedPairsFor, DEFAULT_SETTLEMENT_MINT } from "./src/lib/agent-strategy.mjs";
+import { SOLANA_CATS, normalizeAgentSpec, agentArmSentence, allowedPairsFor, DEFAULT_SETTLEMENT_MINT } from "./src/lib/agent-strategy.mjs";
 import { createHawkEngine, memoryStore } from "./src/lib/engine.mjs";
 import { createKeystore, createSessionSigner } from "./src/lib/session-wallet.mjs";
 import { associatedTokenAddress, fromBase64, toBase64, ATA_PROGRAM } from "./src/lib/tx.mjs";
@@ -77,15 +77,15 @@ const ok = (name, cond, detail = "") => {
 };
 const section = (title) => console.log(`\n${title}\n${"─".repeat(title.length)}`);
 const read = (p) => JSON.parse(fs.readFileSync(new URL(p, import.meta.url), "utf8"));
-const DS = read("./fixtures/agent/dexscreener-tokens-majors.json");
+const DS = read("./fixtures/agent/dexscreener-tokens-cats.json");
 const GT = read("./fixtures/agent/geckoterminal-ohlcv-jup-15m.json");
-const MINTS = read("./fixtures/agent/mints-verified.json");
-const JLIVE = read("./fixtures/agent/jupiter-usdc-jup-swap.json");
+const MINTS = read("./fixtures/agent/cats-verified.json");
+const JLIVE = read("./fixtures/agent/jupiter-usdc-popcat-swap.json");
 
 const USDC = DEFAULT_SETTLEMENT_MINT;
-const [JITO, JUP, JTO, PYTH] = SOLANA_MAJORS.map((m) => m.mint);
+const [MEW, POPCAT, KITTY, GRUMPY] = SOLANA_CATS.map((m) => m.mint);
 const WSOL = "So11111111111111111111111111111111111111112";
-const DECIMALS = { [USDC]: 6, [JUP]: 6, [JTO]: 9, [PYTH]: 6, [JITO]: 9 };
+const DECIMALS = { [USDC]: 6, [POPCAT]: 9, [MEW]: 5, [KITTY]: 9, [GRUMPY]: 9 };
 const KEY = "sk-test-RUNNER-KEY-never-stored-0123456789";
 const MODELS = { data: [{ type: "model", id: "model-a", display_name: "Model A", created_at: "2026-09-01T00:00:00Z" }], has_more: false };
 const TK = TOKEN_PROGRAM;
@@ -107,7 +107,7 @@ const hold = (mint) => ({ action: "hold", mint, confidence: 0.5, reason: "nothin
 function createWorld({ start = Date.UTC(2026, 8, 24, 12, 0, 0), wallet = null } = {}) {
   let now = start;
   const w = {
-    prices: { [JUP]: 0.30, [JTO]: 0.50, [PYTH]: 0.07, [JITO]: 150 }, decisions: [], fetched: [], anthropic: [], logs: [], notes: [], store: new Map(),
+    prices: { [POPCAT]: 0.30, [MEW]: 0.50, [KITTY]: 0.07, [GRUMPY]: 150 }, decisions: [], fetched: [], anthropic: [], logs: [], notes: [], store: new Map(),
     key: KEY, jupMode: null, chain: null,
   };
   w.clock = () => now;
@@ -156,7 +156,7 @@ function createWorld({ start = Date.UTC(2026, 8, 24, 12, 0, 0), wallet = null } 
     hasApiKey: async () => Boolean(w.key), log: (l) => w.logs.push(l), notify: (n) => w.notes.push(n) });
   return w;
 }
-const SPEC = { name: "Paper cat", strategy: "Buy strength in JUP and JTO on a positive 4 h return, keep it small, cut losers fast.", universe: [JUP, JTO, PYTH],
+const SPEC = { name: "Paper cat", strategy: "Buy strength in POPCAT and MEW on a positive 4 h return, keep it small, cut losers fast.", universe: [POPCAT, MEW, KITTY],
   maxPositionUsd: 25, maxExposurePct: 60, stopLossPct: 8, takeProfitPct: 15, maxDailyDrawdownPct: 5, maxTradesPerDay: 6, slippageBps: 100, paperVaultUsd: 100, scheduleMinutes: 30 };
 const journalOf = (runner, kind) => runner.status().journal.filter((j) => j.kind === kind);
 async function clauseOf(p) { try { await p; return "resolved"; } catch (e) { return e.clause ?? e.message; } }
@@ -175,7 +175,7 @@ section("1. IT WILL NOT START UNNAMED, UNDESCRIBED, OR WITHOUT THE OWNER'S KEY")
   w.key = KEY;
   const st = await r.start();
   ok("with both it starts, in PAPER, with a $100 paper vault", st.status === "running" && st.mode === "paper" && r.state().paper.settlementUsd === 100);
-  ok("the spec it saved is the owner's, and the stored copy matches", w.store.get(AGENT_SPEC_STORAGE_KEY).name === "Paper cat" && JSON.stringify(w.store.get(AGENT_SPEC_STORAGE_KEY).universe) === JSON.stringify([JUP, JTO, PYTH]));
+  ok("the spec it saved is the owner's, and the stored copy matches", w.store.get(AGENT_SPEC_STORAGE_KEY).name === "Paper cat" && JSON.stringify(w.store.get(AGENT_SPEC_STORAGE_KEY).universe) === JSON.stringify([POPCAT, MEW, KITTY]));
 }
 
 section("2. A TICK: SNAPSHOT, THE MODEL, THE LIMITS, PAPER FILLS, THE JOURNAL");
@@ -184,24 +184,24 @@ const paper = P.makeRunner();
 {
   await paper.saveSpec(SPEC);
   await paper.start();
-  P.decisions.push({ rationale: "JUP and JTO trend up on the 4 h; PYTH is flat. Small buys; SOL is not mine to trade.", actions: [
-    buy(JUP, 20, "4 h return positive, RSI 55"), buy(JTO, 100, "strongest trend"), hold(PYTH), buy(WSOL, 20, "SOL"),
+  P.decisions.push({ rationale: "POPCAT and MEW trend up on the 4 h; KITTY is flat. Small buys; SOL is not mine to trade.", actions: [
+    buy(POPCAT, 20, "4 h return positive, RSI 55"), buy(MEW, 100, "strongest trend"), hold(KITTY), buy(WSOL, 20, "SOL"),
   ] });
   const t = await paper.tick();
   const st = paper.status();
   const decision = journalOf(paper, "decision")[0];
-  ok("the model was asked on the first tick, and its rationale is journaled", t.asked === true && decision?.rationale.startsWith("JUP and JTO trend up") && decision.model === "model-a" && decision.toolChoice === "forced");
+  ok("the model was asked on the first tick, and its rationale is journaled", t.asked === true && decision?.rationale.startsWith("POPCAT and MEW trend up") && decision.model === "model-a" && decision.toolChoice === "forced");
   const req = P.anthropic.find((a) => a.path === "/v1/messages");
   const ctx = JSON.parse(req.body.messages[0].content.replace(/^[^\n]*\n/, ""));
-  ok("the model saw the snapshot: every universe token with its price, changes, liquidity and indicators", ctx.market.length === 3 && ctx.market.every((m) => m.priceUsd > 0 && m.indicators?.bars === 100) && ctx.market[0].symbol === "JUP");
+  ok("the model saw the snapshot: every universe token with its price, changes, liquidity and indicators", ctx.market.length === 3 && ctx.market.every((m) => m.priceUsd > 0 && m.indicators?.bars === 100) && ctx.market[0].symbol === "POPCAT");
   ok("…the vault, the limits (read-only), the day and no positions yet", ctx.vault.equityUsd === 100 && ctx.limits.maxPositionUsd === 25 && ctx.limits.minTradeUsd === 10 && ctx.vault.tradesLeftToday === 6 && ctx.positions.length === 0);
   ok("…and the owner's strategy in the system prompt", req.body.system.includes(SPEC.strategy));
   ok("…the agency's lessons in the system prompt, and no buy-and-hold figure before a start price exists", req.body.system.includes("The bar is buy-and-hold") && ctx.versusBuyAndHold === null && ctx.limits.minBuyConfidence === 0.6);
   const fills = journalOf(paper, "fill");
-  ok("two paper buys filled at Jupiter's quotes: JUP $20, and JTO clamped from $100 to the $25 per-token cap", fills.length === 2 && fills.some((f) => f.symbol === "JUP" && f.usd === 20 && f.paper) && fills.some((f) => f.symbol === "JTO" && f.usd === 25 && f.paper && f.signature === null));
-  ok("…the JUP fill is the quote's: $20 at $0.30 less 0.1% is 66.6 JUP", st.positions.find((p) => p.symbol === "JUP")?.qty === 66.6);
+  ok("two paper buys filled at Jupiter's quotes: POPCAT $20, and MEW clamped from $100 to the $25 per-token cap", fills.length === 2 && fills.some((f) => f.symbol === "POPCAT" && f.usd === 20 && f.paper) && fills.some((f) => f.symbol === "MEW" && f.usd === 25 && f.paper && f.signature === null));
+  ok("…the POPCAT fill is the quote's: $20 at $0.30 less 0.1% is 66.6 POPCAT", st.positions.find((p) => p.symbol === "POPCAT")?.qty === 66.6);
   ok("the SOL buy was refused by the format (not_in_universe) and journaled", journalOf(paper, "refusal").some((x) => x.clause === "not_in_universe" && x.from === "format"));
-  ok("the decision's outcomes say what became of each action", ["JUP buy: filled", "JTO buy: filled", "PYTH hold: held"].every((o) => decision.outcomes.some((x) => `${x.symbol} ${x.action}: ${x.outcome}` === o)) && decision.outcomes.find((x) => x.symbol === "JTO").clampedBy.join() === "position_cap");
+  ok("the decision's outcomes say what became of each action", ["POPCAT buy: filled", "MEW buy: filled", "KITTY hold: held"].every((o) => decision.outcomes.some((x) => `${x.symbol} ${x.action}: ${x.outcome}` === o)) && decision.outcomes.find((x) => x.symbol === "MEW").clampedBy.join() === "position_cap");
   ok("the paper vault paid $45: $55 of USDC left, $100 of equity less the 0.1%", st.vault.settlementUsd === 55 && Math.abs(st.vault.equityUsd - 99.955) < 0.01, JSON.stringify(st.vault));
   ok("the token usage is recorded: one call, its tokens", st.usage.calls === 1 && st.usage.inputTokens === 2_000 && st.usage.outputTokens === 150 && decision.usage.inputTokens === 2_000);
   ok("two trades counted today; the next decision is 30 minutes after this one", st.day.trades === 2 && paper.state().nextBrainAt - paper.state().lastBrainAt === 30 * 60_000);
@@ -214,20 +214,20 @@ const paper = P.makeRunner();
 
 section("3. THE PROTECTIONS FIRE BETWEEN THE MODEL'S TURNS");
 {
-  P.prices[JUP] = 0.35;                     // +16.7% on a $0.3003 entry: over the 15% take profit
+  P.prices[POPCAT] = 0.35;                     // +16.7% on a $0.3003 entry: over the 15% take profit
   P.advance(30_000);
   await paper.tick();
-  const tp = journalOf(paper, "fill").find((f) => f.side === "sell" && f.symbol === "JUP");
-  ok("JUP up 16.7%: sold at the take profit, on the half-minute tick, the model not asked", tp?.protection === "take_profit" && journalOf(paper, "decision").length === 1);
+  const tp = journalOf(paper, "fill").find((f) => f.side === "sell" && f.symbol === "POPCAT");
+  ok("POPCAT up 16.7%: sold at the take profit, on the half-minute tick, the model not asked", tp?.protection === "take_profit" && journalOf(paper, "decision").length === 1);
   const st = paper.status();
   ok("the round trip is booked: a win, realized P&L positive, win rate 100%", st.pnl.wins === 1 && st.pnl.losses === 0 && st.pnl.realizedUsd > 3 && st.pnl.winRatePct === 100, `${st.pnl.realizedUsd}`);
   ok("the protection's sell did not use up a model trade", st.day.trades === 2);
-  P.prices[JTO] = 0.455;                    // −9% on the $0.5005 entry: past the 8% stop
+  P.prices[MEW] = 0.455;                    // −9% on the $0.5005 entry: past the 8% stop
   P.advance(30_000);
   await paper.tick();
-  const sl = journalOf(paper, "fill").find((f) => f.side === "sell" && f.symbol === "JTO");
+  const sl = journalOf(paper, "fill").find((f) => f.side === "sell" && f.symbol === "MEW");
   const st2 = paper.status();
-  ok("JTO down 9%: sold at the stop loss", sl?.protection === "stop_loss" && st2.positions.length === 0);
+  ok("MEW down 9%: sold at the stop loss", sl?.protection === "stop_loss" && st2.positions.length === 0);
   ok("a win and a loss: win rate 50%, and the max drawdown recorded", st2.pnl.wins === 1 && st2.pnl.losses === 1 && st2.pnl.winRatePct === 50 && st2.pnl.maxDrawdownPct > 0, `max DD ${st2.pnl.maxDrawdownPct}%`);
   ok("the closed trades carry their reasons", st2.pnl.closed.map((c) => c.reason).sort().join() === "stop_loss,take_profit");
   const vs = st2.pnl.versusBuyAndHold;
@@ -237,25 +237,25 @@ section("3. THE PROTECTIONS FIRE BETWEEN THE MODEL'S TURNS");
 
 section("4. THE MODEL FAILING MEANS NO NEW ENTRIES, AND THE PROTECTIONS STILL RUN");
 {
-  P.prices[JTO] = 0.50;
-  P.decisions.push({ rationale: "Buy JTO again.", actions: [buy(JTO, 20)] });
+  P.prices[MEW] = 0.50;
+  P.decisions.push({ rationale: "Buy MEW again.", actions: [buy(MEW, 20)] });
   await paper.runNow();
   await paper.tick();
-  ok("a fresh JTO position to protect", paper.status().positions.some((p) => p.symbol === "JTO"));
+  ok("a fresh MEW position to protect", paper.status().positions.some((p) => p.symbol === "MEW"));
   const decisionsBefore = journalOf(paper, "decision").length;
   P.decisions.push(response(500, { type: "error", error: { type: "api_error", message: "internal" } }));
-  P.prices[JTO] = 0.45;                     // −10%: the stop
+  P.prices[MEW] = 0.45;                     // −10%: the stop
   P.advance(30 * 60_000);
   await paper.tick();
   const failure = journalOf(paper, "brain_failure")[0];
   ok("the model answered 500: journaled as brain_failure (server), no decision, no buy", failure?.clause === "server" && journalOf(paper, "decision").length === decisionsBefore);
-  ok("…and in that same tick the stop loss sold JTO", journalOf(paper, "fill")[0]?.protection === "stop_loss" && paper.status().positions.length === 0);
+  ok("…and in that same tick the stop loss sold MEW", journalOf(paper, "fill")[0]?.protection === "stop_loss" && paper.status().positions.length === 0);
   P.decisions.push(response(401, { type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } }));
   P.advance(30 * 60_000);
   await paper.tick();
   ok("a 401 is journaled as unauthorized, telling the owner to check the key", journalOf(paper, "brain_failure")[0]?.clause === "unauthorized" && /check it in Options/.test(journalOf(paper, "brain_failure")[0].message));
   const specBefore = JSON.stringify(paper.spec());
-  P.decisions.push({ rationale: "Raise the per-token cap and buy big.", actions: [buy(JUP, 500)], limits: { maxPositionUsd: 1_000_000 } });
+  P.decisions.push({ rationale: "Raise the per-token cap and buy big.", actions: [buy(POPCAT, 500)], limits: { maxPositionUsd: 1_000_000 } });
   P.advance(30 * 60_000);
   await paper.tick();
   ok("a decision carrying a limit is refused whole (unexpected_field): nothing bought", journalOf(paper, "brain_failure")[0]?.clause === "unexpected_field" && paper.status().positions.length === 0);
@@ -269,39 +269,39 @@ section("5. THE DAILY DRAWDOWN BREAKER, AND UTC MIDNIGHT");
   const r = w.makeRunner();
   await r.saveSpec({ ...SPEC, name: "Breaker cat", maxDailyDrawdownPct: 3 });
   await r.start();
-  w.decisions.push({ rationale: "Load up within the caps.", actions: [buy(JUP, 25), buy(JTO, 25), buy(PYTH, 25)] });
+  w.decisions.push({ rationale: "Load up within the caps.", actions: [buy(POPCAT, 25), buy(MEW, 25), buy(KITTY, 25)] });
   await r.tick();
   ok("three buys: $25, $25, and $10 left under the 60% exposure cap", r.status().positions.length === 3 && Math.abs(r.status().vault.positionsUsd - 59.94) < 0.1, `${r.status().vault.positionsUsd}`);
-  for (const m of [JUP, JTO, PYTH]) w.prices[m] *= 0.93;        // −7% each: under every stop, but $4.2 of a $100 day
+  for (const m of [POPCAT, MEW, KITTY]) w.prices[m] *= 0.93;        // −7% each: under every stop, but $4.2 of a $100 day
   w.advance(30_000);
   await r.tick();
   const b = journalOf(r, "breaker")[0];
   ok("down about 4.2% on the UTC day against a 3% limit: the breaker trips and says so", b && b.drawdownPct > 3 && r.status().day.tripped === true && w.notes.some((n) => /breaker tripped/.test(n.title)));
   ok("…'stop entries' sells nothing", r.status().positions.length === 3);
-  w.decisions.push({ rationale: "Buy the dip.", actions: [buy(JITO, 20), sell(JUP, 1)] });
+  w.decisions.push({ rationale: "Buy the dip.", actions: [buy(GRUMPY, 20), sell(POPCAT, 1)] });
   await r.runNow();
   w.advance(30_000);
   await r.tick();
-  ok("after the trip the model's sell still goes through; its buy of JitoSOL, outside this universe, is refused first at not_in_universe",
+  ok("after the trip the model's sell still goes through; its buy of GRUMPY, outside this universe, is refused first at not_in_universe",
     journalOf(r, "fill")[0]?.side === "sell" && journalOf(r, "refusal")[0]?.clause === "not_in_universe");
-  w.decisions.push({ rationale: "Buy the dip in JUP.", actions: [buy(JUP, 15)] });
+  w.decisions.push({ rationale: "Buy the dip in POPCAT.", actions: [buy(POPCAT, 15)] });
   await r.runNow();
   w.advance(30_000);
   await r.tick();
   ok("a buy of a listed token after the trip: refused at drawdown_breaker, naming UTC midnight", journalOf(r, "refusal")[0]?.clause === "drawdown_breaker" && /UTC midnight/.test(journalOf(r, "refusal")[0].message));
   w.advance(Date.UTC(2026, 8, 25, 0, 0, 5) - w.clock());           // past UTC midnight
-  w.decisions.push({ rationale: "A new day.", actions: [buy(JUP, 15)] });
+  w.decisions.push({ rationale: "A new day.", actions: [buy(POPCAT, 15)] });
   await r.runNow();
   await r.tick();
-  ok("after UTC midnight the day starts over: the breaker is reset and the buy fills", journalOf(r, "day").length === 1 && r.status().day.tripped === false && journalOf(r, "fill")[0]?.side === "buy" && journalOf(r, "fill")[0].symbol === "JUP");
+  ok("after UTC midnight the day starts over: the breaker is reset and the buy fills", journalOf(r, "day").length === 1 && r.status().day.tripped === false && journalOf(r, "fill")[0]?.side === "buy" && journalOf(r, "fill")[0].symbol === "POPCAT");
 
   const w2 = createWorld();
   const r2 = w2.makeRunner();
   await r2.saveSpec({ ...SPEC, name: "Liquidating cat", maxDailyDrawdownPct: 3, drawdownAction: "liquidate" });
   await r2.start();
-  w2.decisions.push({ rationale: "Buy.", actions: [buy(JUP, 25), buy(JTO, 25)] });
+  w2.decisions.push({ rationale: "Buy.", actions: [buy(POPCAT, 25), buy(MEW, 25)] });
   await r2.tick();
-  for (const m of [JUP, JTO]) w2.prices[m] *= 0.93;
+  for (const m of [POPCAT, MEW]) w2.prices[m] *= 0.93;
   w2.advance(30 * 60_000);
   const asked = w2.anthropic.length;
   await r2.tick();
@@ -315,28 +315,28 @@ section("6. PAUSE, RESUME, LIQUIDATE ALL, STOP");
   const r = w.makeRunner();
   await r.saveSpec({ ...SPEC, name: "Control cat" });
   await r.start();
-  w.decisions.push({ rationale: "Buy two.", actions: [buy(JUP, 20), buy(JTO, 20)] });
+  w.decisions.push({ rationale: "Buy two.", actions: [buy(POPCAT, 20), buy(MEW, 20)] });
   await r.tick();
   await r.pause();
   w.advance(60 * 60_000);
   const asked = w.anthropic.length;
-  w.prices[JTO] = 0.40;                                          // −20%
+  w.prices[MEW] = 0.40;                                          // −20%
   await r.tick();
   ok("paused: the model is not asked, however late the schedule", r.status().status === "paused" && w.anthropic.length === asked);
-  ok("…and the stop loss still fires", journalOf(r, "fill")[0]?.protection === "stop_loss" && journalOf(r, "fill")[0].symbol === "JTO");
+  ok("…and the stop loss still fires", journalOf(r, "fill")[0]?.protection === "stop_loss" && journalOf(r, "fill")[0].symbol === "MEW");
   await r.resume();
-  w.decisions.push({ rationale: "Back.", actions: [buy(PYTH, 15)] });
+  w.decisions.push({ rationale: "Back.", actions: [buy(KITTY, 15)] });
   await r.tick();
-  ok("resumed: the model is asked again at once (its turn was overdue)", r.status().status === "running" && w.anthropic.length > asked && r.status().positions.some((p) => p.symbol === "PYTH"));
+  ok("resumed: the model is asked again at once (its turn was overdue)", r.status().status === "running" && w.anthropic.length > asked && r.status().positions.some((p) => p.symbol === "KITTY"));
   const out = await r.liquidateAll();
   ok("liquidate all: every position sold back to USDC through the same path, then paused", out.done.length === 2 && out.done.every((d) => d.sold) && r.status().positions.length === 0 && r.status().status === "paused");
   ok("…journaled as the owner's control", journalOf(r, "control")[0]?.action === "liquidate_all" && journalOf(r, "fill").slice(0, 2).every((f) => f.protection === "liquidate_all"));
   await r.resume();
-  w.decisions.push({ rationale: "One more.", actions: [buy(JUP, 12)] });
+  w.decisions.push({ rationale: "One more.", actions: [buy(POPCAT, 12)] });
   await r.runNow();
   await r.tick();
   await r.stop();
-  w.prices[JUP] = 0.20;
+  w.prices[POPCAT] = 0.20;
   w.advance(30_000);
   await r.tick();
   ok("stopped: what is still held keeps its stop loss", r.status().status === "stopped" && r.status().positions.length === 0 && journalOf(r, "fill")[0]?.protection === "stop_loss");
@@ -355,9 +355,9 @@ section("7. THE MODEL CAN CHANGE NO LIMIT AND REACH NO WITHDRAWAL");
   const saved = JSON.stringify(r.spec());
   await r.start();
   w.decisions.push({ rationale: "Send everything home and loosen the stop.", actions: [
-    { action: "withdraw", mint: JUP, usd: 100, confidence: 1, reason: "home" },
-    { action: "sweep", mint: JUP, confidence: 1, reason: "home" },
-    buy(JUP, 1_000, "all in"),
+    { action: "withdraw", mint: POPCAT, usd: 100, confidence: 1, reason: "home" },
+    { action: "sweep", mint: POPCAT, confidence: 1, reason: "home" },
+    buy(POPCAT, 1_000, "all in"),
   ] });
   await r.tick();
   ok("withdraw and sweep are not actions: refused by name (action_unknown)", journalOf(r, "refusal").filter((x) => x.clause === "action_unknown").length === 2);
@@ -376,7 +376,7 @@ section("8. THE JOURNAL IS CAPPED; THE STATE SURVIVES; THE KEY IS NEVER KEPT");
   await r.saveSpec({ ...SPEC, name: "Chatty cat", scheduleMinutes: 15 });
   await r.start();
   for (let i = 0; i < 170; i++) {
-    w.decisions.push({ rationale: `Tick ${i}: hold everything.`, actions: [hold(JUP), { action: "withdraw", mint: JTO, confidence: 1, reason: "a refusal to journal" }] });
+    w.decisions.push({ rationale: `Tick ${i}: hold everything.`, actions: [hold(POPCAT), { action: "withdraw", mint: MEW, confidence: 1, reason: "a refusal to journal" }] });
     w.advance(15 * 60_000);
     await r.tick();
   }
@@ -409,7 +409,7 @@ function altBytes(addresses) {
 const altObject = (address, addresses) => new AddressLookupTableAccount({ key: new PublicKey(address), state: AddressLookupTableAccount.deserialize(altBytes(addresses)) });
 const mintAccount = (mint) => { const t = MINTS.tokens.find((x) => x.mint === mint); return { owner: t.rpc.owner, lamports: t.rpc.lamports, data: t.rpc.data }; };
 
-/** The chain: the recorded live mint accounts of USDC, JUP and JTO, the wallet, two pools, Jupiter. */
+/** The chain: the recorded live mint accounts of USDC, POPCAT and MEW, the wallet, two pools, Jupiter. */
 function createChain(w, { wallet, usdcRaw = 100_000_000n, lamports = 100_000_000n }) {
   const ATTACKER = newKey();
   const st = { lamports: new Map([[wallet, lamports]]), tokens: new Map(), pools: new Map(), alts: new Map(), sent: new Map(), calls: [], slot: 451_000_000, blockHeight: 429_000_000 };
@@ -426,11 +426,11 @@ function createChain(w, { wallet, usdcRaw = 100_000_000n, lamports = 100_000_000
     st.pools.set(address, { token, usdcReserve, tokenReserve, vUsdc, vToken, feeBps: 25 });
     st.alts.set(ALT, [...st.alts.get(ALT), address, vUsdc, vToken]);
   };
-  addPool(JUP, 0.30); addPool(JTO, 0.50);
+  addPool(POPCAT, 0.30); addPool(MEW, 0.50);
   const clone = () => ({ ...st, lamports: new Map(st.lamports), tokens: new Map([...st.tokens].map(([k, v]) => [k, { ...v }])), pools: new Map([...st.pools].map(([k, v]) => [k, { ...v }])) });
   const accountOf = (address, s = st) => {
     const a = String(address);
-    if ([USDC, JUP, JTO].includes(a)) return mintAccount(a);
+    if ([USDC, POPCAT, MEW].includes(a)) return mintAccount(a);
     if (s.alts.has(a)) return { owner: LOOKUP_TABLE_PROGRAM, lamports: 1_000_000, data: [altBytes(s.alts.get(a)).toString("base64"), "base64"] };
     if (s.tokens.has(a)) { const t = s.tokens.get(a); return { owner: TK, lamports: Number(t.lamports), data: [tokenAccountBytes(t).toString("base64"), "base64"] }; }
     if (s.lamports.has(a)) return { owner: SYSTEM, lamports: Number(s.lamports.get(a)), data: ["", "base64"] };
@@ -551,7 +551,7 @@ function createChain(w, { wallet, usdcRaw = 100_000_000n, lamports = 100_000_000
     const q = body.quoteResponse, user = body.userPublicKey, mode = w.jupMode;
     const [poolAddress, p] = poolOf(q.inputMint, q.outputMint);
     let inMint = q.inputMint, outMint = q.outputMint;
-    if (mode === "wrong_output") outMint = outMint === USDC ? JUP : (outMint === JUP ? JTO : JUP);
+    if (mode === "wrong_output") outMint = outMint === USDC ? POPCAT : (outMint === POPCAT ? MEW : POPCAT);
     const srcAta = ataOf(user, inMint);
     const dstAta = mode === "other_destination" || mode === "steal_output" ? ataOf(ATTACKER, outMint) : ataOf(user, outMint);
     const limit = 1_400_000;
@@ -589,7 +589,7 @@ const phantom = { isReady: () => true, wallet: () => newKey(), async signTransac
 const engine = createHawkEngine({ rpc: L.chain.rpc, bridge: phantom, sessionSigner: signer, store: memoryStore(), clock: L.clock, timers: L.engineTimers, fetchImpl: L.fetchImpl, config: { rpcUrl: "https://chain.double" } });
 await signer.refresh();
 const live = L.makeRunner(() => engine.agentFences());
-const LIVE_SPEC = { ...SPEC, name: "Live cat", universe: [JUP, JTO], mode: "live" };
+const LIVE_SPEC = { ...SPEC, name: "Live cat", universe: [POPCAT, MEW], mode: "live" };
 {
   await live.saveSpec(LIVE_SPEC);
   let e = null; try { await live.start({ liveAck: "I arm it, whatever" }); } catch (x) { e = x; }
@@ -609,7 +609,7 @@ const LIVE_SPEC = { ...SPEC, name: "Live cat", universe: [JUP, JTO], mode: "live
 
 section("10. A LIVE BUY: CHECKED, SIGNED BY THE AUTOPILOT KEY, SENT, READ BACK");
 {
-  L.decisions.push({ rationale: "JUP trends up: a $20 buy.", actions: [buy(JUP, 20, "4 h return positive")] });
+  L.decisions.push({ rationale: "POPCAT trends up: a $20 buy.", actions: [buy(POPCAT, 20, "4 h return positive")] });
   const calls = L.chain.st.calls.length;
   await live.tick();
   const fill = journalOf(live, "fill")[0];
@@ -619,10 +619,10 @@ section("10. A LIVE BUY: CHECKED, SIGNED BY THE AUTOPILOT KEY, SENT, READ BACK")
   ok("the bytes on chain carry the autopilot key's signature, and Phantom was asked nothing", tx && ed25519.verify(tx.signatures[0], tx.message.serialize(), new PublicKey(AUTO).toBytes()) && phantomAsked.length === 0);
   const seq = L.chain.st.calls.slice(calls).join(",");
   ok("the check ran before the send: tables read, custody read, the simulation, then the send", /gma.*sim.*send/.test(seq) && seq.indexOf("sim") < seq.indexOf("send"), seq);
-  const usdc = L.chain.st.tokens.get(L.chain.ataOf(AUTO, USDC)).amount, jup = L.chain.st.tokens.get(L.chain.ataOf(AUTO, JUP))?.amount ?? 0n;
-  ok("the chain moved exactly $20 of USDC, and the book holds exactly the JUP the chain delivered", usdc === 80_000_000n && live.status().positions[0]?.qty === Number(jup) / 1e6 && fill.usd === 20);
+  const usdc = L.chain.st.tokens.get(L.chain.ataOf(AUTO, USDC)).amount, jup = L.chain.st.tokens.get(L.chain.ataOf(AUTO, POPCAT))?.amount ?? 0n;
+  ok("the chain moved exactly $20 of USDC, and the book holds exactly the POPCAT the chain delivered", usdc === 80_000_000n && Math.abs(live.status().positions[0]?.qty - Number(jup) / 1e9) < 1e-8 && fill.usd === 20);
   ok("the fee and rent are counted in SOL, beside the P&L", live.status().pnl.feesSol > 0.002 && live.status().pnl.feesSol < 0.003, `${live.status().pnl.feesSol} SOL`);
-  ok("a live fill notifies the owner", L.notes.some((n) => /bought JUP/.test(n.title)));
+  ok("a live fill notifies the owner", L.notes.some((n) => /bought POPCAT/.test(n.title)));
 }
 
 section("11. HOSTILE TRANSACTIONS ARE REFUSED BEFORE SIGNING");
@@ -637,34 +637,34 @@ section("11. HOSTILE TRANSACTIONS ARE REFUSED BEFORE SIGNING");
   for (const [mode, clause, what] of hostile) {
     L.jupMode = mode;
     const sends = L.chain.st.sent.size;
-    L.decisions.push({ rationale: `Buy JTO (${mode}).`, actions: [buy(JTO, 15)] });
+    L.decisions.push({ rationale: `Buy MEW (${mode}).`, actions: [buy(MEW, 15)] });
     await live.runNow();
     await live.tick();
     const refusal = journalOf(live, "refusal")[0];
     ok(`${what}: refused at ${clause}, before signing — nothing sent, Phantom not asked`, refusal?.clause === clause && refusal.from === "execution" && L.chain.st.sent.size === sends && phantomAsked.length === 0, `${refusal?.clause}: ${refusal?.message?.slice(0, 90)}`);
   }
   L.jupMode = null;
-  ok("…and the vault still holds only what the good buy left", L.chain.st.tokens.get(L.chain.ataOf(AUTO, USDC)).amount === 80_000_000n && !L.chain.st.tokens.has(L.chain.ataOf(AUTO, JTO)));
+  ok("…and the vault still holds only what the good buy left", L.chain.st.tokens.get(L.chain.ataOf(AUTO, USDC)).amount === 80_000_000n && !L.chain.st.tokens.has(L.chain.ataOf(AUTO, MEW)));
 }
 
 section("12. A LIVE TAKE PROFIT, AND A LOCKED WALLET THAT CANNOT SELL");
 {
-  L.chain.movePool(JUP, 1.25);                 // the pool's USDC side up 25%: JUP marks about +25%
-  L.prices[JUP] = 0.375;
+  L.chain.movePool(POPCAT, 1.25);                 // the pool's USDC side up 25%: POPCAT marks about +25%
+  L.prices[POPCAT] = 0.375;
   L.advance(30_000);
   await live.tick();
   const tp = journalOf(live, "fill")[0];
-  ok("JUP up 25%: sold at the take profit, live, signed by the autopilot wallet", tp?.side === "sell" && tp.protection === "take_profit" && tp.paper === false && tp.signature && phantomAsked.length === 0);
+  ok("POPCAT up 25%: sold at the take profit, live, signed by the autopilot wallet", tp?.side === "sell" && tp.protection === "take_profit" && tp.paper === false && tp.signature && phantomAsked.length === 0);
   const usdc = L.chain.st.tokens.get(L.chain.ataOf(AUTO, USDC)).amount;
   ok("the USDC came back to the vault, more than was spent", usdc > 100_000_000n && live.status().pnl.realizedUsd > 4 && live.status().pnl.wins === 1, `${Number(usdc) / 1e6} USDC`);
-  L.prices[JUP] = 0.30;
-  L.decisions.push({ rationale: "Buy JUP again.", actions: [buy(JUP, 20)] });
+  L.prices[POPCAT] = 0.30;
+  L.decisions.push({ rationale: "Buy POPCAT again.", actions: [buy(POPCAT, 20)] });
   await live.runNow();
   await live.tick();
   ok("bought again", live.status().positions.length === 1);
   await keystore.lock();
   await signer.refresh();
-  L.prices[JUP] = 0.20;                        // −33%: the stop says sell
+  L.prices[POPCAT] = 0.20;                        // −33%: the stop says sell
   L.advance(30_000);
   await live.tick();
   const locked = journalOf(live, "refusal")[0];
@@ -672,16 +672,16 @@ section("12. A LIVE TAKE PROFIT, AND A LOCKED WALLET THAT CANNOT SELL");
   ok("…and a locked wallet disarms the live agent", live.status().armed === false);
 }
 
-section("13. THE PAIR ALLOWLIST, ON THE LIVE RECORDED USDC → JUP TRANSACTION");
+section("13. THE PAIR ALLOWLIST, ON THE LIVE RECORDED USDC → POPCAT TRANSACTION");
 {
   const alts = JLIVE.lookupTables.map((t) => ({ owner: t.owner, data: t.data }));
   const tables = await loadLookupTables({ async getMultipleAccounts(a) { return { accounts: a.map((x) => alts[JLIVE.lookupTables.findIndex((t) => t.address === x)]) }; } }, lookupTableKeysOf(JLIVE.swapBuy.swapTransaction));
-  const args = (spec) => ({ txBase64: JLIVE.swapBuy.swapTransaction, wallet: JLIVE.user, inputMint: USDC, outputMint: JUP, inputProgram: TK, outputProgram: TK, amountRaw: JLIVE.quoteBuy.inAmount,
+  const args = (spec) => ({ txBase64: JLIVE.swapBuy.swapTransaction, wallet: JLIVE.user, inputMint: USDC, outputMint: POPCAT, inputProgram: TK, outputProgram: TK, amountRaw: JLIVE.quoteBuy.inAmount,
     quote: JLIVE.quoteBuy, slippageCapBps: 100, lookupTables: tables, maxPriorityFeeLamports: 50_000, allowedPairs: allowedPairsFor(spec) });
   const clause = (spec) => { try { checkSwapTransaction(args(spec)); return "passed"; } catch (e) { return e instanceof SwapCheckError ? e.clause : e.message; } };
-  ok("with JUP in the universe, Jupiter's live transaction passes the check (route_v2, one account create)", clause(normalizeAgentSpec({ universe: [JUP] })) === "passed");
-  ok("with JUP not in the universe, the same bytes are refused at pair_not_allowed", clause(normalizeAgentSpec({ universe: [JTO, PYTH] })) === "pair_not_allowed");
-  ok("…and a swap between two listed tokens is never a pair (JUP → JTO)", (() => { try { checkSwapTransaction({ ...args(normalizeAgentSpec({ universe: [JUP, JTO] })), inputMint: JUP, outputMint: JTO }); return false; } catch (e) { return e.clause === "pair_not_allowed"; } })());
+  ok("with POPCAT in the universe, Jupiter's live transaction passes the check (route_v2, one account create)", clause(normalizeAgentSpec({ universe: [POPCAT] })) === "passed");
+  ok("with POPCAT not in the universe, the same bytes are refused at pair_not_allowed", clause(normalizeAgentSpec({ universe: [MEW, KITTY] })) === "pair_not_allowed");
+  ok("…and a swap between two listed tokens is never a pair (POPCAT → MEW)", (() => { try { checkSwapTransaction({ ...args(normalizeAgentSpec({ universe: [POPCAT, MEW] })), inputMint: POPCAT, outputMint: MEW }); return false; } catch (e) { return e.clause === "pair_not_allowed"; } })());
 }
 
 /* ═══ REGRESSIONS: THE MONEY PATHS UNDER FAILURE ═══════════════════════════════════════════ */
@@ -697,7 +697,7 @@ async function liveRig({ usdcRaw = 100_000_000n, spec = {} } = {}) {
   await sg.refresh();
   const fences = () => eng.agentFences();
   const r = w.makeRunner(fences);
-  await r.saveSpec({ ...SPEC, name: "Rig cat", universe: [JUP, JTO], mode: "live", ...spec });
+  await r.saveSpec({ ...SPEC, name: "Rig cat", universe: [POPCAT, MEW], mode: "live", ...spec });
   await r.start({ liveAck: agentArmSentence(r.spec(), publicKey) });
   const held = (mint) => w.chain.st.tokens.get(w.chain.ataOf(publicKey, mint))?.amount ?? 0n;
   const setHeld = (mint, amount) => { w.chain.st.tokens.get(w.chain.ataOf(publicKey, mint)).amount = amount; };
@@ -713,28 +713,28 @@ section("14. LIQUIDATE ALL KEEPS SELLING WHAT IT COULD NOT SELL AT ONCE");
   const r = w.makeRunner();
   await r.saveSpec({ ...SPEC, name: "Stubborn cat" });
   await r.start();
-  w.decisions.push({ rationale: "Buy two.", actions: [buy(JUP, 20), buy(JTO, 20)] });
+  w.decisions.push({ rationale: "Buy two.", actions: [buy(POPCAT, 20), buy(MEW, 20)] });
   await r.tick();
-  w.prices[JTO] = null;                                          // no route for JTO, and no price
+  w.prices[MEW] = null;                                          // no route for MEW, and no price
   const out = await r.liquidateAll();
-  ok("liquidate all with JTO unroutable: JUP sold, JTO not, the agent paused and still liquidating",
-    out.done.find((d) => d.mint === JUP)?.sold === true && out.done.find((d) => d.mint === JTO)?.sold === false && r.status().status === "paused" && r.status().liquidating === true);
-  w.prices[JTO] = 0.50;                                          // inside its stop and its take: no protection would sell it
+  ok("liquidate all with MEW unroutable: POPCAT sold, MEW not, the agent paused and still liquidating",
+    out.done.find((d) => d.mint === POPCAT)?.sold === true && out.done.find((d) => d.mint === MEW)?.sold === false && r.status().status === "paused" && r.status().liquidating === true);
+  w.prices[MEW] = 0.50;                                          // inside its stop and its take: no protection would sell it
   w.advance(30_000);
   await r.tick();
-  ok("the next tick sells JTO for liquidate all, not for a stop or a take", r.status().positions.length === 0 && journalOf(r, "fill")[0]?.protection === "liquidate_all" && journalOf(r, "fill")[0].symbol === "JTO");
+  ok("the next tick sells MEW for liquidate all, not for a stop or a take", r.status().positions.length === 0 && journalOf(r, "fill")[0]?.protection === "liquidate_all" && journalOf(r, "fill")[0].symbol === "MEW");
   ok("…and says it is finished; nothing is left to liquidate", r.status().liquidating === false && journalOf(r, "control")[0]?.action === "liquidated");
 
   const w2 = createWorld();
   const r2 = w2.makeRunner();
   await r2.saveSpec({ ...SPEC, name: "Changed-mind cat" });
   await r2.start();
-  w2.decisions.push({ rationale: "Buy one.", actions: [buy(JTO, 20)] });
+  w2.decisions.push({ rationale: "Buy one.", actions: [buy(MEW, 20)] });
   await r2.tick();
-  w2.prices[JTO] = null;
+  w2.prices[MEW] = null;
   await r2.liquidateAll();
   await r2.resume();
-  w2.prices[JTO] = 0.50;
+  w2.prices[MEW] = 0.50;
   w2.advance(30_000);
   await r2.tick();
   ok("resuming ends the liquidation: what is held is the model's again", r2.status().liquidating === false && r2.status().positions.length === 1);
@@ -743,17 +743,17 @@ section("14. LIQUIDATE ALL KEEPS SELLING WHAT IT COULD NOT SELL AT ONCE");
 section("15. A LIVE BUY SENT WITHOUT A READABLE OUTCOME PAUSES THE AGENT");
 {
   /* Regression: a live buy whose confirmation timed out ("ambiguous") was journaled as failed
-     and the agent kept running — while the buy had landed, as JUP no stop loss watched. */
+     and the agent kept running — while the buy had landed, as POPCAT no stop loss watched. */
   const { w, r, held } = await liveRig();
   const status = w.chain.rpc.getSignatureStatus;
   w.chain.rpc.getSignatureStatus = async () => null;            // the RPC never reports it
-  w.decisions.push({ rationale: "Buy JUP.", actions: [buy(JUP, 20)] });
+  w.decisions.push({ rationale: "Buy POPCAT.", actions: [buy(POPCAT, 20)] });
   await r.tick();
   w.chain.rpc.getSignatureStatus = status;
-  ok("the buy landed on chain, and the book could not know it", held(JUP) > 0n && r.status().positions.length === 0 && journalOf(r, "refusal")[0]?.clause === "ambiguous");
+  ok("the buy landed on chain, and the book could not know it", held(POPCAT) > 0n && r.status().positions.length === 0 && journalOf(r, "refusal")[0]?.clause === "ambiguous");
   const halt = journalOf(r, "control")[0];
   ok("the agent is PAUSED, saying the tokens may be in the wallet with no stop loss", r.status().status === "paused" && halt?.action === "paused" && /no stop loss or take profit watches it/.test(halt.message));
-  ok("…and the owner is told", w.notes.some((n) => n.kind === "attention" && /sell JUP by hand/.test(n.body)));
+  ok("…and the owner is told", w.notes.some((n) => n.kind === "attention" && /sell POPCAT by hand/.test(n.body)));
   ok("…and the pause is already in storage", w.store.get(AGENT_STATE_STORAGE_KEY).status === "paused");
 }
 
@@ -769,13 +769,13 @@ section("16. THE BOOK IS WRITTEN AS IT CHANGES, NOT ONLY WHEN A TICK ENDS");
   const jupiter = createJupiterClient({ fetchImpl: hanging, clock: w.clock, sleep: w.sleep, timers: w.timers });
   const dying = createAgentRunner({ clock: w.clock, storage: w.storage, market: w.market, brain: w.brain, jupiter, hasApiKey: async () => true });
   await dying.start();
-  w.decisions.push({ rationale: "Buy two.", actions: [buy(JUP, 20), buy(JTO, 20)] });
+  w.decisions.push({ rationale: "Buy two.", actions: [buy(POPCAT, 20), buy(MEW, 20)] });
   dying.tick();                                                  // the second quote never answers: the worker "dies" there
-  for (let i = 0; i < 200 && !dying.state().positions[JUP]; i++) await settle();
+  for (let i = 0; i < 200 && !dying.state().positions[POPCAT]; i++) await settle();
   const asked = w.anthropic.length;
   const woken = w.makeRunner();
   await woken.load();
-  ok("a new worker finds the JUP fill made before the old one died", woken.state().positions[JUP]?.qtyRaw === dying.state().positions[JUP]?.qtyRaw && woken.status().vault.settlementUsd === 80);
+  ok("a new worker finds the POPCAT fill made before the old one died", woken.state().positions[POPCAT]?.qtyRaw === dying.state().positions[POPCAT]?.qtyRaw && woken.status().vault.settlementUsd === 80);
   ok("…and the model's turn it had taken", woken.state().nextBrainAt === dying.state().nextBrainAt && woken.state().nextBrainAt > w.clock());
   await woken.tick();
   ok("…so it does not ask the model again, or buy again, on waking", w.anthropic.length === asked && journalOf(woken, "fill").length === 1);
@@ -784,38 +784,38 @@ section("16. THE BOOK IS WRITTEN AS IT CHANGES, NOT ONLY WHEN A TICK ENDS");
   const L2 = await liveRig();
   const send = L2.w.chain.rpc.sendTransaction;
   L2.w.chain.rpc.sendTransaction = async (tx) => { await send(tx); return new Promise(() => {}); };   // lands, then the worker dies
-  L2.w.decisions.push({ rationale: "Buy JUP.", actions: [buy(JUP, 20)] });
+  L2.w.decisions.push({ rationale: "Buy POPCAT.", actions: [buy(POPCAT, 20)] });
   L2.r.tick();
-  for (let i = 0; i < 400 && L2.held(JUP) === 0n; i++) await settle();
-  ok("(the buy landed while the old worker waited)", L2.held(JUP) > 0n && L2.w.store.get(AGENT_STATE_STORAGE_KEY).inflight?.side === "buy");
+  for (let i = 0; i < 400 && L2.held(POPCAT) === 0n; i++) await settle();
+  ok("(the buy landed while the old worker waited)", L2.held(POPCAT) > 0n && L2.w.store.get(AGENT_STATE_STORAGE_KEY).inflight?.side === "buy");
   const next = L2.w.makeRunner(L2.fences);
   await next.load();
   const said = journalOf(next, "control")[0];
-  ok("a new worker that finds a live buy in flight pauses the agent and says why", next.status().status === "paused" && said?.action === "paused" && /stopped while a live buy of JUP/.test(said.message) && next.state().inflight === null);
+  ok("a new worker that finds a live buy in flight pauses the agent and says why", next.status().status === "paused" && said?.action === "paused" && /stopped while a live buy of POPCAT/.test(said.message) && next.state().inflight === null);
   ok("…and tells the owner to check the wallet", L2.w.notes.some((n) => n.kind === "attention" && /may have landed unbooked/.test(n.title)));
 }
 
 section("17. WITHDRAW: THE TICKS STAND ASIDE, AND THE BREAKER JUDGES TRADING, NOT THE WITHDRAWAL");
 {
   /* Regression: a tick during the sweep saw the USDC gone, tripped the breaker and, set to
-     liquidate, sold the JUP the sweep was about to move; and a clean withdrawal tripped the
+     liquidate, sold the POPCAT the sweep was about to move; and a clean withdrawal tripped the
      breaker at 100% the tick after, notified the owner, and wrote a 100% max drawdown. */
   const { w, r, held, setHeld } = await liveRig({ spec: { drawdownAction: "liquidate" } });
-  w.decisions.push({ rationale: "Buy JUP.", actions: [buy(JUP, 20)] });
+  w.decisions.push({ rationale: "Buy POPCAT.", actions: [buy(POPCAT, 20)] });
   await r.tick();
-  const jup = held(JUP);
-  ok("(a live JUP position, $80 of USDC beside it)", r.status().positions.length === 1 && jup > 0n && held(USDC) === 80_000_000n);
+  const jup = held(POPCAT);
+  ok("(a live POPCAT position, $80 of USDC beside it)", r.status().positions.length === 1 && jup > 0n && held(USDC) === 80_000_000n);
   await r.pauseForWithdraw();
   setHeld(USDC, 0n);                                             // the sweep has moved the USDC…
   const sends = w.chain.st.sent.size;
   w.advance(30_000);
   const mid = await r.tick();                                    // …and the alarm fires mid-sweep
-  ok("a tick during the sweep stands aside: no breaker, nothing sold", mid.skipped === "withdrawing" && w.chain.st.sent.size === sends && journalOf(r, "breaker").length === 0 && held(JUP) === jup);
-  setHeld(JUP, 0n);                                              // …then the JUP
-  await r.markWithdrawn({ to: "PhantomOwner1111111111111111111111111111111", tokens: [{ mint: USDC, symbol: "USDC", ui: "80" }, { mint: JUP, symbol: "JUP", ui: "66" }], sol: null });
+  ok("a tick during the sweep stands aside: no breaker, nothing sold", mid.skipped === "withdrawing" && w.chain.st.sent.size === sends && journalOf(r, "breaker").length === 0 && held(POPCAT) === jup);
+  setHeld(POPCAT, 0n);                                              // …then the POPCAT
+  await r.markWithdrawn({ to: "PhantomOwner1111111111111111111111111111111", tokens: [{ mint: USDC, symbol: "USDC", ui: "80" }, { mint: POPCAT, symbol: "POPCAT", ui: "66" }], sol: null });
   w.advance(30_000);
   await r.tick();
-  ok("after it, the ticks run again; the JUP row is closed as withdrawn, not sold", r.status().positions.length === 0 && r.status().pnl.closed[0]?.reason.startsWith("withdrawn to") && r.status().pnl.closed[0].pnlUsd === null);
+  ok("after it, the ticks run again; the POPCAT row is closed as withdrawn, not sold", r.status().positions.length === 0 && r.status().pnl.closed[0]?.reason.startsWith("withdrawn to") && r.status().pnl.closed[0].pnlUsd === null);
   ok("…and the breaker does not trip on money the owner took out", journalOf(r, "breaker").length === 0 && r.status().day.tripped === false && r.status().day.drawdownPct < 1 && !w.notes.some((n) => /breaker tripped/.test(n.title)), `drawdown ${r.status().day.drawdownPct}%`);
   ok("…nor does it write a max drawdown the trading never had", r.status().pnl.maxDrawdownPct < 1, `${r.status().pnl.maxDrawdownPct}%`);
   ok("…and the journal says what left, as flows, not trades", journalOf(r, "flow").length === 2 && journalOf(r, "flow").every((f) => f.usd < 0));
@@ -833,12 +833,12 @@ section("18. A DEPOSIT MOVES THE DAY'S BASE: THE BREAKER IS NOT BLUNTED");
   await r.tick();
   ok("(the UTC day starts at the $100 vault)", r.status().day.startEquityUsd === 100);
   setHeld(USDC, held(USDC) + 1_000_000_000n);                   // the owner funds $1,000 more from Phantom
-  w.decisions.push({ rationale: "Buy JUP big.", actions: [buy(JUP, 400)] });
+  w.decisions.push({ rationale: "Buy POPCAT big.", actions: [buy(POPCAT, 400)] });
   await r.runNow();
   w.advance(30_000);
   await r.tick();
   ok("the deposit is a flow: the day's base is now $1,100, and the $400 buy fills", r.status().day.startEquityUsd === 1_100 && journalOf(r, "flow")[0]?.usd === 1_000 && r.status().positions[0]?.costUsd > 399, `${r.status().day.startEquityUsd}`);
-  w.prices[JUP] = 0.30 * 0.84;                                   // −16% on $400: about 5.9% of $1,100
+  w.prices[POPCAT] = 0.30 * 0.84;                                   // −16% on $400: about 5.9% of $1,100
   w.advance(30_000);
   await r.tick();
   ok("a 5.9% loss on the funded vault trips the 5% breaker", r.status().day.tripped === true && journalOf(r, "breaker").length === 1, `${r.status().day.drawdownPct}% of ${r.status().day.startEquityUsd}`);
@@ -855,7 +855,7 @@ section("19. PAUSE PRESSED WHILE THE MODEL IS DECIDING: NO BUY FROM THAT DECISIO
   const r = createAgentRunner({ clock: w.clock, storage: w.storage, market: w.market, brain: slowBrain, jupiter: w.jupiter, hasApiKey: async () => true });
   await r.saveSpec({ ...SPEC, name: "Slow cat" });
   await r.start();
-  w.decisions.push({ rationale: "Buy JUP.", actions: [buy(JUP, 20)] });
+  w.decisions.push({ rationale: "Buy POPCAT.", actions: [buy(POPCAT, 20)] });
   const t = r.tick();
   for (let i = 0; i < 50; i++) await settle();
   const paused = r.pause();                                      // the owner presses Pause while the model thinks

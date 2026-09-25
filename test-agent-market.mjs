@@ -23,7 +23,7 @@ import {
   parseDexScreenerTokens, parseGeckoOhlcv, parseJupiterPrices, ema, rsi, pctChange, indicatorsFrom, createMarket, finiteOrNull,
   DEXSCREENER_TOKENS_API, GECKOTERMINAL_POOLS_API, MARKET_HOST_INTERVAL_MS, CANDLE_TTL_MS, MARKET_BACKOFF,
 } from "./src/lib/agent-market.mjs";
-import { SOLANA_MAJORS } from "./src/lib/agent-strategy.mjs";
+import { SOLANA_CATS } from "./src/lib/agent-strategy.mjs";
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = "") => {
@@ -36,8 +36,12 @@ const DS = read("./fixtures/agent/dexscreener-tokens-majors.json");
 const GT = read("./fixtures/agent/geckoterminal-ohlcv-jup-15m.json");
 const JP = read("./fixtures/agent/jupiter-price-majors.json");
 const GT429 = read("./fixtures/xstock-pools/geckoterminal-429.json");
-const MAJORS = SOLANA_MAJORS.map((m) => ({ mint: m.mint, symbol: m.symbol }));
-const JUP = SOLANA_MAJORS.find((m) => m.symbol === "JUP").mint;
+const DSCATS = read("./fixtures/agent/dexscreener-tokens-cats.json");
+/* The parser and the client are token-blind, so they are still proven on the eight tokens
+   recorded 2026-09-24 (the agent's old majors preset); the cat coins it trades now are
+   recorded too, and section 1b parses them. */
+const MAJORS = DS.mints.map((mint) => ({ mint, symbol: DS.body.find((p) => p.baseToken.address === mint)?.baseToken.symbol ?? mint }));
+const JUP = "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN";
 const close = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
 
 const response = (status, body, headers = {}) => ({ ok: status >= 200 && status < 300, status, headers: { get: (n) => headers[String(n).toLowerCase()] ?? null }, async text() { return JSON.stringify(body); } });
@@ -85,12 +89,22 @@ section("1. THE PARSERS, ON THE RECORDED ANSWERS");
   ok("Jupiter's price answer: every major priced, an absent mint null", MAJORS.every((m) => jp[m.mint] === JP.body[m.mint].usdPrice) && jp.missing === null);
 }
 
+section("1b. THE CAT COINS IT TRADES, PRICED FROM THEIR OWN RECORDED ANSWER");
+{
+  ok("the recording is of the six preset cat coins", JSON.stringify(DSCATS.mints) === JSON.stringify(SOLANA_CATS.map((m) => m.mint)) && DSCATS.status === 200);
+  const cats = parseDexScreenerTokens(DSCATS.body, DSCATS.mints);
+  for (const m of SOLANA_CATS) {
+    const t = cats[m.mint];
+    ok(`${m.symbol}: priced, with its liquidity and 24 h volume`, t?.priceUsd > 0 && t.liquidityUsd > 0 && Number.isFinite(t.volume24hUsd), `$${t?.priceUsd} · liquidity $${Math.round(t?.liquidityUsd ?? 0)}`);
+  }
+}
+
 section("2. MISSING IS MISSING");
 {
   const odd = [{ ...DS.body[1], priceUsd: "not a price", priceChange: { h24: 3 }, volume: {}, liquidity: null }];
-  const p = parseDexScreenerTokens(odd, [JUP, SOLANA_MAJORS[0].mint])[JUP];
+  const p = parseDexScreenerTokens(odd, [JUP, MAJORS[0].mint])[JUP];
   ok("an unparseable price, an absent 1 h change, volume and liquidity are null — not zero, not carried", p.priceUsd === null && p.change1hPct === null && p.change24hPct === 3 && p.volume24hUsd === null && p.liquidityUsd === null);
-  const none = parseDexScreenerTokens(odd, [SOLANA_MAJORS[0].mint])[SOLANA_MAJORS[0].mint];
+  const none = parseDexScreenerTokens(odd, [MAJORS[0].mint])[MAJORS[0].mint];
   ok("a mint the answer did not mention is present with every figure null", none.priceUsd === null && none.pair === null);
   ok("a zero or negative price is not a price", parseDexScreenerTokens([{ ...DS.body[1], priceUsd: "0" }], [JUP])[JUP].priceUsd === null);
   ok("finiteOrNull: numbers and numeric strings pass; '', null, true, NaN do not", finiteOrNull("1.5") === 1.5 && finiteOrNull(0) === 0 && [null, undefined, "", true, NaN, "abc", Infinity].every((v) => finiteOrNull(v) === null));
@@ -185,7 +199,7 @@ section("5. A 429 RESTS THE HOST");
 section("6. JUPITER PRICES WHAT DEXSCREENER DID NOT");
 {
   const w = world();
-  const jito = SOLANA_MAJORS[0].mint;
+  const jito = MAJORS[0].mint;
   w.dex = DS.body.filter((p) => p.baseToken.address !== jito);
   const p = await w.market.prices(MAJORS);
   ok("the one mint DexScreener left out is asked of Jupiter, alone", w.jupiterAsked.length === 1 && JSON.stringify(w.jupiterAsked[0]) === JSON.stringify([jito]));

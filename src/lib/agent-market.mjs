@@ -8,7 +8,8 @@
  *
  * THE SOURCES, CHECKED LIVE ON 2026-09-24 (the answers are in fixtures/agent/):
  *   · DexScreener, GET https://api.dexscreener.com/tokens/v1/solana/{mint,mint,…}: up to 30
- *     mints in ONE request. For the eight majors it answered one pair each (the pair whose
+ *     mints in ONE request. For the eight tokens recorded 2026-09-24 (and the six cat coins on
+ *     2026-09-25) it answered one pair each (the pair whose
  *     base is the mint): priceUsd, priceChange {m5,h1,h6,h24} in percent, volume {h24,…} in
  *     USD, liquidity.usd, pairAddress, dexId. Cached 30 s (cache-control: max-age=30); its
  *     API reference allows 300 requests a minute. One call per half-minute tick prices every

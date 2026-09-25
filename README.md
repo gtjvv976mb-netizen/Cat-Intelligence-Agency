@@ -640,7 +640,7 @@ Every fixed host the extension calls, which cat calls it, and why:
 | `uploads.pinata.cloud` | CashCat | pins the logo and metadata of the user's coin, with the user's own Pinata JWT |
 | `trends.google.com` | CashCat | Google Trends' US trending-searches feed, for drafting from a trend |
 | `api.coingecko.com` | CashCat | CoinGecko's trending categories, for drafting from a trend |
-| `lite-api.jup.ag` | CashCat | Jupiter's verified-token list: no draft may take a verified token's ticker or name |
+| `lite-api.jup.ag` | CashCat, CoinMarketCat | Jupiter's token list: no CashCat draft may take a verified token's ticker or name, and a custom CoinMarketCat mint must be a cat coin by its name there |
 | `api.mainnet-beta.solana.com` | Popcat, Crying Cat | tried for reads only when no RPC is set; it answers 403 to the extension, and both then ask for an RPC |
 | a new coin's metadata host (usually an IPFS gateway) | Snipurr | its socials check (on by default): one read of the document its creator named, with a deadline and a size cap; its links are never followed |
 
@@ -754,16 +754,23 @@ universe may be traded (`not_in_universe`); the settlement token cannot be trade
 a second action for one token in one tick is refused; no buys while paused (`paused`) or
 after the breaker trips. The proceeds of a sell are not spent by a buy in the same tick.
 
-**The universe** is at most ten tokens: the **Solana majors** preset — JitoSOL, JUP, JTO,
-PYTH, RAY, BONK, WIF and cbBTC — and custom mints. Every preset mint was found on
-Jupiter's token API (verified, strict) and read back as a mint account on mainnet on
-2026-09-24 at slot 450,123,200; the bytes are in `fixtures/agent/mints-verified.json` and
-`test-agent-strategy.mjs` re-derives every decimals and token-program figure from them. A
-custom mint is read over your RPC when you save it (its decimals and program come from the
-chain; a Token-2022 mint with a transfer fee, a live hook or a pause is refused). **SOL
-itself is not in this version**: buying SOL delivers wrapped SOL, and the check before
-signing is a port that dropped the executor's wrapped-SOL branches, so the wrapped-SOL mint
-is refused by name (`sol_not_in_v1`). JitoSOL follows SOL's price; it is not SOL.
+**The universe is cat coins only**, at most ten: the **Solana cat coins** preset — MEW,
+POPCAT, KITTY, GRUMPY, KWIF and KHAI — and any other cat coin on Solana added as a custom
+mint. The preset is every cat coin Jupiter's token API marks verified that is a classic SPL
+Token mint with no mint authority and no freeze authority, read back as a mint account on
+mainnet on 2026-09-25; the bytes and each coin's pool liquidity that day are in
+`fixtures/agent/cats-verified.json`, and `test-agent-strategy.mjs` re-derives every decimals
+and token-program figure from them. Simon's Cat (CAT) was left out: it keeps a mint
+authority. A custom mint is read over your RPC when you save it (its decimals and program
+come from the chain; a Token-2022 mint with a transfer fee, a live hook or a pause is
+refused), and its name and ticker are looked up on Jupiter's token list: one that is not a
+cat by the check Popcat uses (`bots/lib/catdetect.mjs`) is refused at `not_a_cat_coin`.
+**Most cat coins are thin.** On 2026-09-25 MEW had about $10.6M in its pools and POPCAT
+about $5.0M; KITTY about $220k and the other three $22k–$43k, where the 2% buy-impact cap
+and a small per-token cap decide what can be bought. **SOL itself is not in this version**:
+buying SOL delivers wrapped SOL, and the check before signing is a port that dropped the
+executor's wrapped-SOL branches, so the wrapped-SOL mint is refused by name
+(`sol_not_in_v1`). It is not a cat coin in any case.
 
 **The settlement token** is USDC by default, or USDT, counted at face value. Every buy
 spends it and every sell returns it, so every trade is a token-to-token swap — the kind the
@@ -789,8 +796,8 @@ their issuers.
   token accounts untouched; the engine's simulation guard on the settlement-token and token
   deltas; the exact input; both accounts safe after the simulation. Then the engine's
   `signSendConfirm`, bound to the autopilot wallet, signs without a window, sends, confirms,
-  and the fill is read back from the chain. A live USDC → JUP transaction Jupiter built on
-  2026-09-24 passes that check (`fixtures/agent/jupiter-usdc-jup-swap.json`).
+  and the fill is read back from the chain. A live USDC → POPCAT transaction Jupiter built
+  on 2026-09-25 passes that check (`fixtures/agent/jupiter-usdc-popcat-swap.json`).
 
 ### Your API key, and what the model costs
 
@@ -1293,7 +1300,7 @@ which sets up Snipurr's lane and the parts both lanes share.
 manifest.json            MV3; permissions pinned by test-hawk-manifest.mjs
 build.mjs                esbuild; a plugin swaps node:crypto and jupiter.mjs for src/shims/
 src/background.mjs       the service worker: hosts the agent and Snipurr's engine, the bridge, the autopilot wallet's keystore, fund and sweep, the agent's API key, the badge, notifications
-src/lib/agent-strategy.mjs  the agent's spec: name, strategy, universe (the verified majors, custom mints), settlement, schedule, limits, the arm sentence
+src/lib/agent-strategy.mjs  the agent's spec: name, strategy, universe (cat coins only: the verified cat coins, custom cat mints), settlement, schedule, limits, the arm sentence
 src/lib/agent-market.mjs    the snapshot: DexScreener prices, GeckoTerminal candles, Jupiter's fallback price, the indicators, rate limits and backoff
 src/lib/agent-brain.mjs     the model call: the Messages API with the owner's key, the submit_decisions tool, the decision format, every failure by clause
 src/lib/agent-risk.mjs      the hard limits: pure functions — the protections, the breaker and its UTC reset, clamps and refusals

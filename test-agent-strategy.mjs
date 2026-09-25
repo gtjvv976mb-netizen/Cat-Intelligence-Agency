@@ -2,12 +2,12 @@
  * THE AGENT'S SPEC, AND THE MINTS IT MAY TRADE — CHECKED AGAINST WHAT THE CHAIN SAID.
  *
  * What is proved:
- *   1. every preset mint — the eight majors and both settlement tokens — is the one read live
- *      on 2026-09-24 (fixtures/agent/mints-verified.json): the recorded mint account bytes,
+ *   1. every preset mint — the six cat coins and both settlement tokens — is the one read live
+ *      on 2026-09-25 (fixtures/agent/cats-verified.json): the recorded mint account bytes,
  *      decoded here by the executor's own describeMint, give the decimals and the token
  *      program the constants carry, and Jupiter's token API agrees and marks each verified;
  *      none is Token-2022, none is the wrapped-SOL mint, none repeats;
- *   2. the defaults: paper, USDC, every 30 minutes, the majors, the $10 trade and $50 vault
+ *   2. the defaults: paper, USDC, every 30 minutes, the cat coins, the $10 trade and $50 vault
  *      fixed, the model left to run time, no model identifier anywhere in the defaults;
  *   3. normalizeAgentSpec refuses by name: SOL (sol_not_in_v1), a settlement token in the
  *      universe, an unverified or malformed mint, more than ten tokens, a duplicate, an
@@ -20,11 +20,12 @@
 import fs from "node:fs";
 import { describeMint, TOKEN_PROGRAM, TOKEN_2022_PROGRAM } from "./vendor/executor/token2022.mjs";
 import {
-  SOLANA_MAJORS, SOLANA_MAJORS_VERIFIED, SETTLEMENT_TOKENS, DEFAULT_SETTLEMENT_MINT, AGENT_SPEC_DEFAULTS, AGENT_BOUNDS, AGENT_MODES,
+  SOLANA_CATS, SOLANA_CATS_VERIFIED, SETTLEMENT_TOKENS, DEFAULT_SETTLEMENT_MINT, AGENT_SPEC_DEFAULTS, AGENT_BOUNDS, AGENT_MODES,
   normalizeAgentSpec, universeEntries, allowedPairsFor, agentArmSentence, agentStartProblems, AgentSpecError, settlementFor,
   AGENT_UNMEASURED, AGENT_RUNS_WHERE,
 } from "./src/lib/agent-strategy.mjs";
 import { WSOL } from "./src/lib/tx.mjs";
+import { detectCat } from "./bots/lib/catdetect.mjs";
 import { PublicKey } from "@solana/web3.js";
 
 /** Synthetic addresses for custom-mint tests: 32 repeated bytes, obviously not anyone's mint. */
@@ -37,13 +38,13 @@ const ok = (name, cond, detail = "") => {
 };
 const section = (title) => console.log(`\n${title}\n${"─".repeat(title.length)}`);
 const clauseOf = (input) => { try { normalizeAgentSpec(input); return "accepted"; } catch (e) { return e instanceof AgentSpecError ? e.clause : `threw ${e.message}`; } };
-const FIX = JSON.parse(fs.readFileSync(new URL("./fixtures/agent/mints-verified.json", import.meta.url), "utf8"));
-const CUSTOM = { mint: synthetic(41), symbol: "TESTC", decimals: 6, program: TOKEN_PROGRAM, verifiedAt: 1_790_000_000_000 };
+const FIX = JSON.parse(fs.readFileSync(new URL("./fixtures/agent/cats-verified.json", import.meta.url), "utf8"));
+const CUSTOM = { mint: synthetic(41), symbol: "TESTC", name: "Test Cat", decimals: 6, program: TOKEN_PROGRAM, verifiedAt: 1_790_000_000_000 };
 
 section("1. EVERY PRESET MINT IS THE ONE THE CHAIN DESCRIBED");
 {
-  ok("the fixture is the live read the constants cite", FIX.readAt.startsWith("2026-09-24T19:27") && FIX.slot === SOLANA_MAJORS_VERIFIED.slot && SOLANA_MAJORS_VERIFIED.fixture === "fixtures/agent/mints-verified.json", `${FIX.readAt}, slot ${FIX.slot}`);
-  for (const t of [...SETTLEMENT_TOKENS, ...SOLANA_MAJORS]) {
+  ok("the fixture is the live read the constants cite", FIX.readAt.startsWith(SOLANA_CATS_VERIFIED.at.slice(0, 16)) && FIX.slot === SOLANA_CATS_VERIFIED.slot && SOLANA_CATS_VERIFIED.fixture === "fixtures/agent/cats-verified.json", `${FIX.readAt}, slot ${FIX.slot}`);
+  for (const t of [...SETTLEMENT_TOKENS, ...SOLANA_CATS]) {
     const rec = FIX.tokens.find((x) => x.mint === t.mint);
     if (!rec) { ok(`${t.symbol}: recorded in the fixture`, false); continue; }
     const facts = describeMint({ owner: rec.rpc.owner, data: rec.rpc.data }, t.mint);
@@ -52,18 +53,20 @@ section("1. EVERY PRESET MINT IS THE ONE THE CHAIN DESCRIBED");
     ok(`${t.symbol}: Jupiter's token API agrees on decimals and program, and marks it verified`,
       rec.jupiter?.decimals === t.decimals && rec.jupiter?.tokenProgram === t.program && rec.jupiter?.isVerified === true, (rec.jupiter?.tags ?? []).join("|"));
   }
-  const all = [...SETTLEMENT_TOKENS, ...SOLANA_MAJORS].map((t) => t.mint);
-  ok("ten distinct mints, none of them wrapped SOL, none Token-2022", new Set(all).size === 10 && !all.includes(WSOL) && [...SETTLEMENT_TOKENS, ...SOLANA_MAJORS].every((t) => t.program !== TOKEN_2022_PROGRAM));
-  ok("the majors are eight, and fit the ten-token universe", SOLANA_MAJORS.length === 8 && SOLANA_MAJORS.length <= AGENT_BOUNDS.universeMax);
-  ok("the issuer controls the constants' comment names are the ones the chain shows (USDC, USDT and cbBTC keep a freeze authority)",
-    ["USDC", "USDT", "cbBTC"].every((s) => FIX.tokens.find((x) => x.symbol === s)?.facts.freezeAuthority) && ["JUP", "JTO", "PYTH", "RAY", "Bonk", "$WIF", "JitoSOL"].every((s) => FIX.tokens.find((x) => x.symbol === s)?.facts.freezeAuthority === null));
+  const all = [...SETTLEMENT_TOKENS, ...SOLANA_CATS].map((t) => t.mint);
+  ok("eight distinct mints, none of them wrapped SOL, none Token-2022", new Set(all).size === 8 && !all.includes(WSOL) && [...SETTLEMENT_TOKENS, ...SOLANA_CATS].every((t) => t.program !== TOKEN_2022_PROGRAM));
+  ok("the cat coins are six, and fit the ten-token universe", SOLANA_CATS.length === 6 && SOLANA_CATS.length <= AGENT_BOUNDS.universeMax);
+  ok("every preset coin is a cat by the check Popcat uses, and has no mint and no freeze authority", SOLANA_CATS.every((t) => detectCat({ name: t.name, symbol: t.symbol }).isCat
+    && FIX.tokens.find((x) => x.mint === t.mint)?.facts.mintAuthority === null && FIX.tokens.find((x) => x.mint === t.mint)?.facts.freezeAuthority === null));
+  ok("the issuer controls the constants' comment names are the ones the chain shows (USDC and USDT keep a freeze authority)",
+    ["USDC", "USDT"].every((s) => FIX.tokens.find((x) => x.symbol === s)?.facts.freezeAuthority));
 }
 
 section("2. THE DEFAULTS");
 {
   const d = normalizeAgentSpec({});
   ok("paper by default, settled in USDC, asked every 30 minutes", d.mode === "paper" && d.settlementMint === DEFAULT_SETTLEMENT_MINT && settlementFor(d).symbol === "USDC" && d.scheduleMinutes === 30);
-  ok("the universe defaults to the eight majors", JSON.stringify(d.universe) === JSON.stringify(SOLANA_MAJORS.map((m) => m.mint)) && universeEntries(d).length === 8);
+  ok("the universe defaults to the six cat coins", JSON.stringify(d.universe) === JSON.stringify(SOLANA_CATS.map((m) => m.mint)) && universeEntries(d).length === 6);
   ok("the schedules are 15, 30 and 60 minutes; the modes paper and live", JSON.stringify(AGENT_BOUNDS.schedules) === "[15,30,60]" && JSON.stringify(AGENT_MODES) === '["paper","live"]');
   ok("the limits default inside their fences: $25 a token, 60% exposure, −8% stop, +15% take, 5% daily drawdown that stops entries, 6 trades, 100 bps",
     d.maxPositionUsd === 25 && d.maxExposurePct === 60 && d.stopLossPct === 8 && d.takeProfitPct === 15 && d.maxDailyDrawdownPct === 5 && d.drawdownAction === "stop_entries" && d.maxTradesPerDay === 6 && d.slippageBps === 100);
@@ -81,16 +84,22 @@ section("3. REFUSALS BY NAME");
   ok("SOL is not in v1: the wrapped-SOL mint is refused in the universe", clauseOf({ universe: [WSOL] }) === "sol_not_in_v1");
   ok("…and as a custom mint", clauseOf({ custom: [{ ...CUSTOM, mint: WSOL }] }) === "sol_not_in_v1");
   ok("the settlement token cannot be traded into", clauseOf({ universe: [DEFAULT_SETTLEMENT_MINT] }) === "settlement_in_universe");
-  ok("a mint that is neither a major nor a verified custom one is refused", clauseOf({ universe: [CUSTOM.mint] }) === "mint_unverified");
+  ok("a mint that is neither a preset cat nor a verified custom one is refused", clauseOf({ universe: [CUSTOM.mint] }) === "mint_unverified");
   ok("a malformed address is refused", clauseOf({ universe: ["not-a-mint"] }) === "mint_malformed" && clauseOf({ custom: [{ ...CUSTOM, mint: "0OIl" }] }) === "mint_malformed");
-  ok("a mint listed twice is refused", clauseOf({ universe: [SOLANA_MAJORS[0].mint, SOLANA_MAJORS[0].mint] }) === "duplicate_mint");
-  const customs = Array.from({ length: 3 }, (_, i) => ({ ...CUSTOM, mint: synthetic(50 + i), symbol: `C${i}` }));
-  ok("eight majors and three custom mints is eleven: over the ten-token universe", clauseOf({ custom: customs }) === "universe_too_big");
-  ok("…seven majors and three custom is ten, and saves", clauseOf({ universe: SOLANA_MAJORS.slice(0, 7).map((m) => m.mint), custom: customs }) === "accepted");
+  ok("a mint listed twice is refused", clauseOf({ universe: [SOLANA_CATS[0].mint, SOLANA_CATS[0].mint] }) === "duplicate_mint");
+  const customs = Array.from({ length: 5 }, (_, i) => ({ ...CUSTOM, mint: synthetic(50 + i), symbol: `C${i}` }));
+  ok("six cat coins and five custom mints is eleven: over the ten-token universe", clauseOf({ custom: customs }) === "universe_too_big");
+  ok("…five cat coins and five custom is ten, and saves", clauseOf({ universe: SOLANA_CATS.slice(0, 5).map((m) => m.mint), custom: customs }) === "accepted");
+  ok("CAT COINS ONLY: a custom mint whose Jupiter name is not a cat is refused (not_a_cat_coin)", clauseOf({ custom: [{ ...CUSTOM, name: "Jupiter", symbol: "JUP" }] }) === "not_a_cat_coin"
+    && clauseOf({ custom: [{ ...CUSTOM, name: "dogwifhat", symbol: "WIF" }] }) === "not_a_cat_coin");
+  ok("…nor can a cat ticker typed over a token Jupiter names otherwise pass", clauseOf({ custom: [{ ...CUSTOM, name: "Bonk", jupiterSymbol: "Bonk", symbol: "CAT" }] }) === "not_a_cat_coin");
+  ok("…a cat coin from anywhere on Solana passes by its name or its ticker", clauseOf({ custom: [{ ...CUSTOM, name: "Anonymous Cat", jupiterSymbol: "ZCAT", symbol: "ZCAT" }] }) === "accepted"
+    && clauseOf({ custom: [{ ...CUSTOM, name: "Hypurr", jupiterSymbol: "PURR", symbol: "PURR" }] }) === "accepted");
+  ok("…and a custom mint whose name was never looked up is unverified", clauseOf({ custom: [{ ...CUSTOM, name: "" }] }) === "custom_unverified");
   ok("a custom mint without its on-chain decimals, program or read time is unverified", ["decimals", "program", "verifiedAt"].every((k) => clauseOf({ custom: [{ ...CUSTOM, [k]: undefined }] }) === "custom_unverified"));
-  ok("a custom mint that is a major is sent back to the preset", clauseOf({ custom: [{ ...CUSTOM, mint: SOLANA_MAJORS[1].mint }] }) === "custom_is_a_major");
+  ok("a custom mint that is in the cat preset is sent back to it", clauseOf({ custom: [{ ...CUSTOM, mint: SOLANA_CATS[1].mint }] }) === "custom_in_preset");
   ok("a custom symbol is short and plain", clauseOf({ custom: [{ ...CUSTOM, symbol: "<script>" }] }) === "symbol_malformed" && clauseOf({ custom: [{ ...CUSTOM, symbol: "A".repeat(13) }] }) === "symbol_malformed");
-  ok("a verified custom mint joins the universe with what the chain said", (() => { const s = normalizeAgentSpec({ universe: [SOLANA_MAJORS[0].mint], custom: [CUSTOM] }); const e = universeEntries(s); return e.length === 2 && e[1].decimals === 6 && e[1].source === "custom"; })());
+  ok("a verified custom mint joins the universe with what the chain said", (() => { const s = normalizeAgentSpec({ universe: [SOLANA_CATS[0].mint], custom: [CUSTOM] }); const e = universeEntries(s); return e.length === 2 && e[1].decimals === 6 && e[1].source === "custom"; })());
   ok("an unknown schedule is refused", clauseOf({ scheduleMinutes: 5 }) === "schedule_unknown" && clauseOf({ scheduleMinutes: 45 }) === "schedule_unknown");
   const fences = [
     ["maxPositionUsd", 9.99, "out_of_range"], ["maxExposurePct", 101, "out_of_range"], ["maxExposurePct", 0, "out_of_range"], ["stopLossPct", 0, "out_of_range"],
@@ -107,21 +116,21 @@ section("3. REFUSALS BY NAME");
 
 section("4. THE PAIRS A SWAP MAY BE");
 {
-  const s = normalizeAgentSpec({ universe: [SOLANA_MAJORS[1].mint, SOLANA_MAJORS[2].mint] });
+  const s = normalizeAgentSpec({ universe: [SOLANA_CATS[1].mint, SOLANA_CATS[2].mint] });
   const pairs = allowedPairsFor(s);
-  ok("the settlement token into each listed token and back, and nothing else", pairs.length === 4 && pairs.includes(`${DEFAULT_SETTLEMENT_MINT}>${SOLANA_MAJORS[1].mint}`) && pairs.includes(`${SOLANA_MAJORS[2].mint}>${DEFAULT_SETTLEMENT_MINT}`)
-    && !pairs.includes(`${SOLANA_MAJORS[1].mint}>${SOLANA_MAJORS[2].mint}`) && !pairs.some((p) => p.includes(WSOL)));
+  ok("the settlement token into each listed token and back, and nothing else", pairs.length === 4 && pairs.includes(`${DEFAULT_SETTLEMENT_MINT}>${SOLANA_CATS[1].mint}`) && pairs.includes(`${SOLANA_CATS[2].mint}>${DEFAULT_SETTLEMENT_MINT}`)
+    && !pairs.includes(`${SOLANA_CATS[1].mint}>${SOLANA_CATS[2].mint}`) && !pairs.some((p) => p.includes(WSOL)));
 }
 
 section("5. THE ARM SENTENCE");
 {
   const W = synthetic(7);
-  const s = normalizeAgentSpec({ name: "Major cat", strategy: "x".repeat(30), universe: [SOLANA_MAJORS[1].mint], custom: [CUSTOM] });
+  const s = normalizeAgentSpec({ name: "Popcat cat", strategy: "x".repeat(30), universe: [SOLANA_CATS[1].mint], custom: [CUSTOM] });
   const sentence = agentArmSentence(s, W);
-  ok("it names the agent, the wallet, the settlement and says nothing will ask", sentence.startsWith(`I arm the CoinMarketCat agent "Major cat" for ${W}: settled in USDC`) && sentence.endsWith("signed without asking me, by the autopilot key this browser holds"), sentence);
-  ok("it names every limit", ["$25 in one token", "60% of the vault", "8% stop loss", "15% take profit", "5% daily drawdown that stops new buys", "6 trades a day at 100 bps slippage"].every((p) => sentence.includes(p)));
-  ok("it names every token, a custom one by its mint", sentence.includes(`in JUP, TESTC (${CUSTOM.mint})`));
-  const variants = [{ maxPositionUsd: 26 }, { stopLossPct: 9 }, { drawdownAction: "liquidate" }, { settlementMint: SETTLEMENT_TOKENS[1].mint }, { universe: [SOLANA_MAJORS[2].mint] }, { name: "Other cat" }, { slippageBps: 50 }];
+  ok("it names the agent, the wallet, the settlement and says nothing will ask", sentence.startsWith(`I arm the CoinMarketCat agent "Popcat cat" for ${W}: settled in USDC`) && sentence.endsWith("signed without asking me, by the autopilot key this browser holds"), sentence);
+  ok("it names every limit", ["$25 in one token", "60% of the vault", "8% stop loss", "15% take profit", "5% daily drawdown that stops new buys", "6 trades a day at 100 bps slippage", "buys only at 0.6 confidence or more"].every((p) => sentence.includes(p)));
+  ok("it names every token, a custom one by its mint", sentence.includes(`in POPCAT, TESTC (${CUSTOM.mint})`));
+  const variants = [{ maxPositionUsd: 26 }, { stopLossPct: 9 }, { drawdownAction: "liquidate" }, { settlementMint: SETTLEMENT_TOKENS[1].mint }, { universe: [SOLANA_CATS[2].mint] }, { name: "Other cat" }, { slippageBps: 50 }];
   ok("change any limit, the settlement, the universe or the name, and the sentence changes", variants.every((v) => agentArmSentence(normalizeAgentSpec({ ...s, ...v }), W) !== sentence));
   ok("another wallet, another sentence", agentArmSentence(s, synthetic(8)) !== sentence);
 }

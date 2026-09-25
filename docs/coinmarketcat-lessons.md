@@ -81,7 +81,8 @@ desk), 6 trades a day, a 2% price-impact cap on buys, and paper trading first.
 **Not changed, and why:**
 
 - **HAWK-AI's stall exit and time stop.** They were measured on launches that must move
-  within seconds. CoinMarketCat trades majors on a 15 to 60 minute schedule.
+  within seconds. CoinMarketCat trades established cat coins, not new launches, on a 15
+  to 60 minute schedule.
 - **The 0.6 confidence floor is not calibrated.** The model's 0–1 confidence is a different
   number from the desk's conviction score. The journal records the confidence of every buy,
   so the floor can be graded once there is a record.

@@ -17,7 +17,9 @@
 # site/downloads/, with their sizes and SHA-256s in site/assets/downloads-data.js
 # (scripts/package.mjs). The site's tests then check the page against those files. If the build
 # or the packaging fails, the deploy fails and the live site stays as it was. Pushes that change
-# the extension or the art redeploy, so the zips follow main.
+# the extension or the art redeploy, so the zips follow main: the extension bundles the bots'
+# modules and copies CashCat's art, so bots/** is among the paths (test-downloads.mjs follows the
+# bundles' imports and checks every file is covered).
 #
 # One deploy at a time: every caller's deploy job is in the "pages-deploy" concurrency group. A
 # newer deploy waits for the running one; a deploy still waiting when an even newer one arrives
@@ -32,7 +34,8 @@ on:
   push:
     branches: [main]
     paths: ["site/**", ".github/workflows/pages.yml", "bots/floor-data.mjs", "bots/lib/data.mjs", "test-site.mjs", "test-bots-data.mjs",
-      "src/**", "manifest.json", "icons/**", "vendor/**", "build.mjs", "package.json", "package-lock.json", "brand/**", "scripts/package.mjs", "scripts/zip.mjs"]
+      "src/**", "manifest.json", "icons/**", "vendor/**", "build.mjs", "package.json", "package-lock.json", "brand/**", "scripts/package.mjs", "scripts/zip.mjs",
+      "bots/**"]
   workflow_dispatch:
   workflow_call:
 

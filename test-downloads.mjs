@@ -178,6 +178,25 @@ section("THE DEPLOY AND THE RELEASE");
   ok("a failed build or packaging fails the deploy: no continue-on-error, no `|| true`", !/continue-on-error|\|\| true/.test(pages));
   ok("a push that changes the extension or the art redeploys, so the zips follow main",
     ["src/**", "manifest.json", "icons/**", "vendor/**", "build.mjs", "package.json", "package-lock.json", "brand/**", "scripts/package.mjs", "scripts/zip.mjs"].every((x) => pages.includes(`"${x}"`)));
+  /* Every file the extension is built from — what its six entries import, followed through every
+     relative import (the bots' modules and the site's validators among them), and every file the
+     build copies — is under one of pages.yml's push paths: a change to any of them redeploys. */
+  const { ENTRIES, STATIC } = await import("./build.mjs");
+  const globs = [...(pages.match(/push:\n    branches: \[main\]\n    paths: \[([\s\S]*?)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const re = (g) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\u0000/g, ".*")}$`);
+  const covered = (rel) => globs.some((g) => re(g).test(rel));
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
+  const seen = new Set(), queue = Object.values(ENTRIES).map((e) => path.join(here, "src", e));
+  while (queue.length) {
+    const f = queue.pop();
+    if (seen.has(f) || !fs.existsSync(f)) continue;
+    seen.add(f);
+    for (const m of strip(fs.readFileSync(f, "utf8")).matchAll(/(?:^|\n)\s*(?:import|export)\s[^;]*?from\s+"(\.{1,2}\/[^"]+)"|(?:^|\n)\s*import\s+"(\.{1,2}\/[^"]+)"/g)) queue.push(path.resolve(path.dirname(f), m[1] ?? m[2]));
+  }
+  const inputs = [...[...seen].map((f) => path.relative(here, f).split(path.sep).join("/")), ...STATIC.map(([from]) => from)];
+  const uncovered = inputs.filter((rel) => !covered(rel));
+  ok("…and so does a change to any file the extension is built from: every import the bundles follow, and every file the build copies",
+    inputs.length > 50 && uncovered.length === 0, uncovered.slice(0, 8).join(", ") || `${inputs.length} files`);
   ok("release.yml: on a pushed tag v*, and nothing else", /on:\n  push:\n    tags: \["v\*"\]\n\npermissions: \{\}\n/.test(release) && !/pull_request|workflow_dispatch|branches:/.test(release));
   ok("its job may write contents (the release) and nothing more", /permissions:\n      contents: write\n    concurrency:/.test(release) && (release.match(/: write/g) || []).length === 1);
   ok("it runs the suite, builds, and packages for the tag's version only", ["run: npm test", "run: npm run build", 'node scripts/package.mjs --out .release --no-data --release --expect-version "${TAG#v}"'].every((x) => release.includes(x))

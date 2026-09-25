@@ -41,6 +41,8 @@ export function agentObject({ agent, view, db }) {
       feesClaimedSol: solString(L?.feesClaimed ?? 0n), depositedSol: solString(L?.deposited ?? 0n), withdrawnSol: solString(L?.withdrawn ?? 0n),
       trades: L?.fills ?? 0, wins: L?.wins ?? 0, losses: L?.losses ?? 0, maxDrawdownPct: pctStrKeep(L?.maxDrawdownPct ?? 0) ?? "0",
       roiPct: pctStrKeep(L?.roiPct ?? null),
+      /* open positions with no quote in the last hour (valued by the contract's stale rule) */
+      unpricedPositions: L?.unpricedPositions ?? 0,
     },
   };
 }
@@ -87,13 +89,17 @@ export function agentDetail({ agent, view, db, symbolOf }) {
   return {
     ...base,
     limits: limitsView(agent.limits),
-    positions: (L?.positions ?? []).map((p) => ({
-      mint: p.mint, symbol: plainText(symbolOf(p.mint), TEXT_MAX.symbol) ?? p.mint.slice(0, 4), costSol: solString(p.cost), valueSol: solString(p.value < 0n ? 0n : p.value),
-      entryPrice: priceString(p.cost, p.qty, p.decimals) ?? "0",
-      /* No quote this time: no price and no percentage; the value is the last quoted one. */
-      price: p.priced && p.mark ? priceString(p.mark.lamports, p.mark.tokens, p.decimals) : null,
-      pnlSol: solString(p.pnl), pnlPct: p.priced ? pctStrKeep(p.pnlPct) : null, openedAt: p.openedAt,
-    })),
+    positions: (L?.positions ?? []).map((p) => {
+      /* No quote for an hour: no price and no percentage, and the value is the lower of its last
+         price and its cost (0 after a day with no price at all): the ledger's stale rule. */
+      const shown = Boolean(p.priced && p.mark && p.markAt && p.pnlPct !== null && priceString(p.mark.lamports, p.mark.tokens, p.decimals));
+      return {
+        mint: p.mint, symbol: plainText(symbolOf(p.mint), TEXT_MAX.symbol) ?? p.mint.slice(0, 4), costSol: solString(p.cost), valueSol: solString(p.value < 0n ? 0n : p.value),
+        entryPrice: priceString(p.cost, p.qty, p.decimals) ?? "0",
+        price: shown ? priceString(p.mark.lamports, p.mark.tokens, p.decimals) : null,
+        pnlSol: solString(p.pnl), pnlPct: shown ? pctStrKeep(p.pnlPct) : null, markAt: p.markAt ?? null, openedAt: p.openedAt,
+      };
+    }),
     decisions: db.listDecisions(agent.id, 50).map(decisionObject),
     trades: db.listTrades(agent.id, agent.mode).slice(-100).reverse().map((r) => tradeObject(r, symbolOf)),
     equity: equitySeries({ ledger: L }),

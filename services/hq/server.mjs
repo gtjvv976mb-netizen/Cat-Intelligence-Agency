@@ -52,7 +52,7 @@ export async function buildHq({ env = process.env, fetchImpl = globalThis.fetch,
   const scheduler = createScheduler({ config, db, runtime, indexer, executor, rpc, botsRpc, http, market, jupiter, brain, fetchImpl, clock, log, WebSocketImpl,
     treasuryReady: () => walletReadiness(env).treasurySecret, state: shared });
   const perks = createPerks({ db, config, clock, balanceOf: (w) => readCiaBalance(rpc, w), log });
-  const adminDeps = { db, config, runtime, rpc, clock, agentAddress: (n) => agentAddress(n, { env }),
+  const adminDeps = { db, config, runtime, rpc, clock, executor, agentAddress: (n) => agentAddress(n, { env }),
     withdraw: ({ agent, lamports }) => withdrawToTreasury({ config, db, rpc, executor, agent, lamports }) };
   const views = () => new Map(db.listAgents().map((a) => [a.id, runtime.viewOf(a.id)]).filter(([, v]) => v));
   const walletLedgers = () => new Map(db.listAgents().map((a) => [a.id, runtime.walletLedger(a)]));

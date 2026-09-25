@@ -234,15 +234,15 @@ section("AN UNCONFIRMED SEND NEVER BLOCKS A WALLET UNTIL A RESTART: THE CHAIN SE
   const spies = signingSpies();
   const ex = createExecutor({ config, db, rpc, jupiter: null, signers: spies, sleep: async () => {} });
   /* a buy whose confirmation had no answer: sent, its signature and blockhash on the marker */
-  db.createIntent({ id: "stuck", agentId: 1, wallet, kind: "buy", mint: addr(34), detail: { blockhash: BLOCKHASH } });
-  db.updateIntent("stuck", { state: "sent", signature: stuckSig, lastValidBlockHeight: 1_150 });
+  db.createIntent({ id: "stuck", agentId: 1, wallet, kind: "buy", mint: addr(34), detail: { blockhash: BLOCKHASH, signedAt: new Date(Date.now() - 300_000).toISOString() } });
+  db.updateIntent("stuck", { state: "sent", signature: stuckSig, lastValidBlockHeight: 900 });
   const owner = liveOwner(1, wallet);
   const stop = await refusedWith(() => ex.pumpSell({ owner, mint: addr(34), qtyRaw: 1n, trigger: "stop_loss" }), "in_flight");
   ok("the RPC down: a stop loss's sell is refused in_flight, but only after the marker was asked about", stop && calls.includes("isBlockhashValid") && calls.includes("getSignatureStatuses") && spies.calls.agent.length === 0);
   ok("…nothing was settled on a guess: the marker is still open", db.getIntent("stuck").state === "sent");
   down = false;
   const r = await ex.transferToTreasury({ owner, lamports: 100_000_000n, memo: memoFor("withdraw", 1) });
-  ok("the chain answers again: the next protective transaction settles the marker first (its blockhash expired, never seen) and goes, with no restart", db.getIntent("stuck").state === "expired" && r.signature && spies.calls.agent.length === 1 && db.openIntents(wallet).length === 0);
+  ok("the chain answers again: the next protective transaction settles the marker first (signed five minutes ago, past its last valid height, its blockhash invalid, and still unseen on a last look) and goes, with no restart", db.getIntent("stuck").state === "expired" && r.signature && spies.calls.agent.length === 1 && db.openIntents(wallet).length === 0);
 }
 
 section("LANDED BUT NOT YET READ BACK: THE WALLET WAITS FOR ITS LEDGER");
@@ -262,6 +262,106 @@ section("LANDED BUT NOT YET READ BACK: THE WALLET WAITS FOR ITS LEDGER");
   readable = true;
   const rec = await ex.settle();
   ok("once it can be read: into chain_txs, the ledger told, the marker closed", rec[0]?.state === "confirmed" && db.hasChainTx(wallet, first.signature) && told.includes(first.signature) && db.openIntents(wallet).length === 0);
+}
+
+section("A BLOCKHASH THE NODE HAS NOT SEEN YET IS NOT AN EXPIRED ONE");
+{
+  /* isBlockhashValid answers false for a blockhash the answering node has not seen yet (a node a
+     slot behind, or Jupiter's blockhash newer than its confirmed bank). */
+  let walletN = 40;
+  const race = ({ valid, height = () => 2_000, statusNoHistory = null } = {}) => {
+    const wallet = addr(walletN++);
+    const clock = testClock();
+    const db = memDb(clock);
+    const sent = [], landed = new Set();
+    const lamports = 2_000_000_000n;
+    const rpc = extRpc({
+      getLatestBlockhash: () => ({ blockhash: BLOCKHASH, lastValidBlockHeight: 1_150 }),
+      getBalance: () => lamports,
+      simulateTransaction: () => ({ err: null, logs: [], accounts: [{ lamports: Number(lamports - 10_055_000n - 2_039_280n) }] }),
+      sendTransaction: () => "sent",
+      isBlockhashValid: () => ({ context: { slot: 1 }, value: valid() }),
+      getSignatureStatus: ([sig]) => (statusNoHistory ? statusNoHistory(sig) : landed.has(sig) ? { confirmationStatus: "confirmed", err: null } : null),
+      getSignatureStatuses: ([[sig]]) => ({ value: [landed.has(sig) ? { confirmationStatus: "confirmed", err: null } : null] }),
+      getBlockHeight: () => height(),
+      getTransaction: ([sig]) => (landed.has(sig) ? jsonTx({ signature: sig, slot: 9, keys: [wallet], balances: { [wallet]: [Number(lamports), Number(lamports) - 10_060_000] } }) : null),
+      getTokenAccountBalance: () => 0n,
+    });
+    const spies = signerSpies({ agent: (n, { txBase64 }) => { const sig = fakeSig(); sent.push(sig); return { signature: sig, signedBase64: txBase64 }; } });
+    const ex = createExecutor({ config: testConfig(liveEnv), db, rpc, clock, jupiter: null, signers: spies, sleep: async (ms) => { clock.advance(ms); } });
+    return { wallet, clock, db, sent, landed, rpc, ex, owner: liveOwner(1, wallet) };
+  };
+
+  /* the verifier's case: the node's first answer is false, then true; the transaction lands later */
+  let n = 0;
+  const a = race({ valid: () => n++ > 0 });
+  const first = await refusedWith(() => a.ex.wrap({ owner: a.owner, lamports: 10_000_000n }), "ambiguous");
+  ok("the node's first answer is false, its next true: never 'expired' — after the confirm window it is ambiguous, and the marker stays open", first && a.db.intentBySignature(a.sent[0]).state === "sent" && a.db.openIntents(a.wallet).length === 1);
+  ok("…the blockhash was seen valid, and that is kept on the marker", Boolean(a.db.intentBySignature(a.sent[0]).detail?.seenValidAt));
+  let built = 0;
+  ok("…so nothing else goes from the wallet: refused in_flight, nothing built or signed", await refusedWith(() => a.ex.submit({ owner: a.owner, kind: "buy", build: async () => { built++; return {}; } }), "in_flight") && built === 0 && a.sent.length === 1);
+  a.landed.add(a.sent[0]);
+  const settled = await a.ex.settle();
+  ok("it lands: settled confirmed and read back; one transaction was ever sent", settled[0]?.state === "confirmed" && a.db.hasChainTx(a.wallet, a.sent[0]) && a.sent.length === 1);
+
+  /* never seen valid by this node, and the chain past its last valid height */
+  const b = race({ valid: () => false });
+  await refusedWith(() => b.ex.wrap({ owner: b.owner, lamports: 10_000_000n }), "ambiguous");
+  ok("a blockhash this node never saw valid: not expired within two minutes of signing (the confirm window ends first)", b.db.intentBySignature(b.sent[0]).state === "sent");
+  b.clock.advance(31_000);
+  const late = await b.ex.settle();
+  const asked = b.rpc.calls.map((c) => c.method);
+  ok("…two minutes after signing, still unseen on a last read of its status with history: expired, the wallet free", late[0]?.state === "expired" && b.db.openIntents(b.wallet).length === 0
+    && asked.lastIndexOf("getSignatureStatuses") > asked.lastIndexOf("isBlockhashValid") && b.rpc.calls.filter((c) => c.method === "getSignatureStatuses").at(-1).params[1]?.searchTransactionHistory === true);
+
+  /* the block height guard: the chain has not passed the last valid height it was built with */
+  const c = race({ valid: () => false, height: () => 1_000 });
+  await refusedWith(() => c.ex.wrap({ owner: c.owner, lamports: 10_000_000n }), "ambiguous");
+  c.clock.advance(600_000);
+  const guarded = await c.ex.settle();
+  ok("the block height still at or under the last valid height: never expired, however long and whatever isBlockhashValid says", guarded[0]?.waiting === true && c.db.openIntents(c.wallet).length === 1);
+
+  /* expired by every sign (seen valid once, invalid since, the height past it), and the status
+     read without history empty: only the last read, with history, finds it */
+  let m = 0;
+  const d = race({ valid: () => m++ === 0, statusNoHistory: () => null });
+  const orig = d.rpc.call;
+  d.rpc.call = async (method, params) => { if (method === "getSignatureStatuses") d.landed.add(params[0][0]); return orig(method, params); };
+  const r = await d.ex.wrap({ owner: d.owner, lamports: 10_000_000n });
+  ok("a blockhash seen valid, then invalid, the status without history empty: the last read with history finds it landed — confirmed, not expired", r.signature === d.sent[0] && d.db.intentBySignature(d.sent[0]).state === "confirmed");
+}
+
+section("A MARKER THAT LANDED BUT CANNOT BE READ BACK: PROTECTIONS STILL GO, AND THE OWNER CAN RESOLVE IT");
+{
+  const wallet = addr(95), treasury = addr(96);
+  const db = memDb();
+  const config = testConfig({ ...liveEnv, HQ_TREASURY_ADDRESS: treasury });
+  const spies = signingSpies();
+  let readable = false;
+  const rpc = simpleChain({ wallet, status: () => ({ confirmationStatus: "confirmed", err: null }), readable: (sig) => readable || sig !== stuck, sim: () => ({ err: null, accounts: [{ lamports: Number(2n * SOL - 100_000_000n - 55_000n) }] }) });
+  const ex = createExecutor({ config, db, rpc, jupiter: null, signers: spies, sleep: async () => {} });
+  const stuck = fakeSig();
+  db.createIntent({ id: "landed-1", agentId: 1, wallet, kind: "buy", detail: { blockhash: BLOCKHASH } });
+  db.updateIntent("landed-1", { state: "landed", signature: stuck, lastValidBlockHeight: 1_150 });
+  const owner = liveOwner(1, wallet);
+  let built = 0;
+  ok("a buy (decided on the ledger) is refused while it is not read back", await refusedWith(() => ex.submit({ owner, kind: "buy", build: async () => { built++; return {}; } }), "in_flight") && built === 0);
+  const home = await ex.transferToTreasury({ owner, lamports: 100_000_000n, memo: memoFor("withdraw", 1) });
+  ok("…a protective transaction (money home, a stop's sell) goes: it acts on what the chain says the wallet holds", home.signature && spies.calls.agent.length === 1 && db.getIntent("landed-1").state === "landed");
+  const r1 = await ex.resolveIntent("landed-1");
+  ok("the owner's resolve without saying so leaves it open, and says why", r1.resolved === false && r1.state === "landed" && /acceptLanded/.test(r1.why));
+  const r2 = await ex.resolveIntent("landed-1", { acceptLanded: true });
+  ok("…with acceptLanded, on the chain's word that it landed: closed confirmed, marked unread (the indexer reads it when the RPC returns it)", r2.resolved === true && db.getIntent("landed-1").state === "confirmed" && db.getIntent("landed-1").detail.unread === true && db.openIntents(wallet).length === 0);
+  db.createIntent({ id: "never", agentId: 1, wallet, kind: "buy" });
+  ok("a marker never signed: abandoned by the owner's resolve at once (nothing was sent)", (await ex.resolveIntent("never")).state === "abandoned");
+  const pending = fakeSig();
+  const rpc2 = simpleChain({ wallet, status: () => null, valid: () => true, height: () => 2_000 });
+  const ex2 = createExecutor({ config, db, rpc: rpc2, jupiter: null, signers: spies, sleep: async () => {} });
+  db.createIntent({ id: "sent-1", agentId: 1, wallet, kind: "sell", detail: { blockhash: BLOCKHASH, signedAt: new Date().toISOString() } });
+  db.updateIntent("sent-1", { state: "sent", signature: pending, lastValidBlockHeight: 1_150 });
+  const r3 = await ex2.resolveIntent("sent-1", { acceptLanded: true });
+  ok("one the chain has not decided (its blockhash still valid, no status): stays open, whatever the owner says", r3.resolved === false && db.getIntent("sent-1").state === "sent");
+  ok("…and one already settled is left as it is", (await ex2.resolveIntent("landed-1")).resolved === false);
 }
 
 section("A SIMULATION THAT DOES NOT SAY THE WALLET'S BALANCE IS NO PASS");

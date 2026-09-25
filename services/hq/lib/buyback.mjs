@@ -156,18 +156,24 @@ export function solSpentOn({ db, treasury, signatures }) {
 }
 
 /**
- * What became of a buyback transaction HQ signed: "landed" (read back into chain_txs), "failed"
- * (the chain says it failed, or its blockhash expired unseen), or "pending" (not known yet — it
- * counts as spent until the chain says otherwise).
+ * What became of a buyback transaction HQ signed: "landed" (read back into chain_txs, and it
+ * succeeded), "failed" (the chain recorded it as failed, or its marker says it failed or expired
+ * unseen), or "pending" (not known yet — it counts as spent until the chain says otherwise). The
+ * indexer stores failed transactions too (their fee was paid), so a stored row is "landed" only
+ * without an error.
  */
-function outcomeOf({ db, treasury, signature }) {
+export function outcomeOf({ db, treasury, signature }) {
   if (!signature) return "failed";
-  if (db.hasChainTx(treasury, signature)) return "landed";
+  const row = db.getChainTx(treasury, signature);
+  if (row) return row.err || row.tx?.meta?.err ? "failed" : "landed";
   const it = db.intentBySignature(signature);
   if (it && ["failed", "expired", "abandoned"].includes(it.state)) return "failed";
   return "pending";
 }
-const txOf = (db, treasury, signature) => db.listChainTxs(treasury).find((r) => r.signature === signature)?.tx ?? null;
+const txOf = (db, treasury, signature) => db.getChainTx(treasury, signature)?.tx ?? null;
+/** The signatures a buyback's SOL left the treasury in: its wrap, its legs, its burn, and every
+ *  attempt that failed on chain (a failed transaction still pays its fee). */
+const paidIn = (row, extra = []) => [row.detail?.wrapSig, ...(row.detail?.failedSigs ?? []), ...row.legSigs, ...extra];
 
 /**
  * One scheduled run. Returns { ran, why, buyback? }. Everything is injected; nothing here reads
@@ -177,7 +183,11 @@ const txOf = (db, treasury, signature) => db.listChainTxs(treasury).find((r) => 
  * burn), it is finished first, from what the chain says about each leg — never started over.
  * Otherwise a new one: revenue × share − what every earlier buyback spent (over all of them), held
  * to the per-run maximum and the treasury's cash above its reserve. A leg's signature is recorded
- * on the buyback the moment it is signed, and its SOL counts as spent until the chain says it failed.
+ * on the buyback the moment it is signed, and its SOL counts as spent until the chain says it
+ * failed (a transaction the chain recorded with an error is failed, never landed). Each leg and
+ * the burn are sent at most once a run. A second leg refused, or a burn failing, for
+ * HQ_BUYBACK_LEG_TRIES runs stops that buyback (what it bought stays in the treasury, recorded)
+ * so the ones after it can run; the owner's buyback.retry and buyback.abandon act on it.
  */
 export async function runBuyback({ config, db, rpc, executor, treasuryReady, clock = () => Date.now(), log = () => {} }) {
   if (!config.buybackLive) return { ran: false, why: "HQ_BUYBACK_LIVE is not 1" };
@@ -230,6 +240,7 @@ export async function runBuyback({ config, db, rpc, executor, treasuryReady, clo
 async function finish({ config, db, executor, row, tokenFacts, owner, log, budget = null }) {
   const treasury = config.treasury;
   const id = row.id;
+  const tried = new Set();                  // what this run already sent: a leg, the burn
   let cur = db.getBuyback(id);
   const legs = cur.detail?.legs ?? cur.detail?.path ?? [];
   for (;;) {
@@ -241,8 +252,9 @@ async function finish({ config, db, executor, row, tokenFacts, owner, log, budge
       const outcome = outcomeOf({ db, treasury, signature: lastSig });
       if (outcome === "pending") return { ran: false, why: `waiting for the chain on leg ${n} (${lastSig}); it counts as spent until the chain says it failed`, stopped: true };
       if (outcome === "failed") {
-        if (n === 1) { db.updateBuyback(id, { state: "failed", legSigs: [], detail: { failedLeg: lastSig } }); return { ran: false, why: `leg one (${lastSig}) never landed: nothing was spent on it` }; }
-        db.updateBuyback(id, { state: "leg1_done", legSigs: cur.legSigs.slice(0, n - 1), detail: { failedLeg: lastSig } });
+        const failedSigs = [...(cur.detail?.failedSigs ?? []), lastSig];
+        if (n === 1) { db.updateBuyback(id, { state: "failed", legSigs: [], solSpent: 0n, detail: { failedLeg: lastSig, failedSigs } }); return { ran: false, why: `leg one (${lastSig}) failed or never landed: nothing was spent on it but its fee` }; }
+        db.updateBuyback(id, { state: "leg1_done", legSigs: cur.legSigs.slice(0, n - 1), detail: { failedLeg: lastSig, failedSigs } });
         continue;
       }
       const tx = txOf(db, treasury, lastSig);
@@ -251,17 +263,19 @@ async function finish({ config, db, executor, row, tokenFacts, owner, log, budge
       if (!(got > 0n)) { db.updateBuyback(id, { state: "stopped", detail: { clause: "no_output" } }); return { ran: false, why: `leg ${n} into ${out} delivered nothing the chain shows: stopped for the owner to look at` }; }
       if (out === CIA_MINT) {
         const boughtAt = tx?.blockTime ? new Date(tx.blockTime * 1000).toISOString() : db.iso();
-        const { spent } = solSpentOn({ db, treasury, signatures: [cur.detail?.wrapSig, ...cur.legSigs] });
+        const { spent } = solSpentOn({ db, treasury, signatures: paidIn(cur) });
         db.updateBuyback(id, { state: "bought", ciaBought: got, solSpent: spent > 0n ? spent : cur.sol_spent, detail: { boughtAt, [`leg${n}Out`]: String(got) } });
         const item = buybackItem(db.getBuyback(id));
         log(`buyback ${id}: ${item.solSpent} SOL → ${item.ciaBought} $CIA`);
       } else db.updateBuyback(id, { state: "leg1_done", detail: { [`leg${n}Out`]: String(got) } });
       continue;
     }
-    /* the next leg to send */
+    /* the next leg to send: each leg at most once a run (one that fails on chain waits for the next) */
     if (["started", "leg1_done"].includes(cur.state)) {
       const i = cur.state === "started" ? 0 : 1;
       if (i >= legs.length) return { ran: false, why: "nothing left to do" };
+      if (tried.has(`leg${i}`)) return { ran: false, why: `leg ${i + 1} failed on chain this run; the next run tries it again`, stopped: true };
+      tried.add(`leg${i}`);
       const [inMint, out] = legs[i];
       const pay = inMint === WSOL_MINT ? WSOL : await tokenFacts(inMint);
       const amountRaw = i === 0 ? BigInt(cur.detail?.payRaw ?? budget?.spend ?? 0) : BigInt(cur.detail?.[`leg${i}Out`] ?? 0);
@@ -275,13 +289,26 @@ async function finish({ config, db, executor, row, tokenFacts, owner, log, budge
         if (sent?.signature) record(sent.signature);
         if (db.getBuyback(id).state !== nextState) { db.updateBuyback(id, { state: "stopped", detail: { clause: "no_signature" } }); return { ran: false, why: `leg ${i + 1} returned no signature: stopped for the owner to look at` }; }
       } catch (error) {
-        /* signed but unconfirmed: the signature is on the buyback, and the chain decides */
+        /* signed: the signature is on the buyback, and the chain decides (at once when the
+           executor already knows it failed or expired) */
         if (error?.detail?.signature) record(error.detail.signature);
         const now = db.getBuyback(id);
-        if (now.state === nextState) return { ran: false, why: `leg ${i + 1} is in the chain's hands (${error?.clause ?? "error"}); the next run finishes it`, stopped: true };
-        if (i === 0) db.updateBuyback(id, { state: "failed", detail: { clause: error?.clause ?? "error", error: String(error?.message ?? error).slice(0, 300) } });
-        else db.updateBuyback(id, { detail: { lastError: error?.clause ?? "error" } });
-        return { ran: false, why: `leg ${i + 1} stopped before it was signed (${error?.clause ?? "error"})${i === 0 ? "" : "; the next run tries it again"}` };
+        if (now.state === nextState) {
+          if (["failed_on_chain", "expired"].includes(error?.clause)) continue;
+          return { ran: false, why: `leg ${i + 1} is in the chain's hands (${error?.clause ?? "error"}); the next run finishes it`, stopped: true };
+        }
+        if (i === 0) { db.updateBuyback(id, { state: "failed", detail: { clause: error?.clause ?? "error", error: String(error?.message ?? error).slice(0, 300) } }); return { ran: false, why: `leg 1 stopped before it was signed (${error?.clause ?? "error"})` }; }
+        /* leg two refused before a signature (no route, too much impact): tried again on the next
+           runs, and after HQ_BUYBACK_LEG_TRIES of them the buyback is stopped with what leg one
+           bought left in the treasury, recorded, so the buybacks after it can run */
+        const refusals = Number(now.detail?.leg2Refusals ?? 0) + 1;
+        if (refusals >= config.buybackLegTries) {
+          db.updateBuyback(id, { state: "stopped", detail: { lastError: error?.clause ?? "error", leg2Refusals: refusals, clause: "leg2_refused", held: { mint: inMint, raw: String(amountRaw) } } });
+          log(`buyback ${id}: leg two refused ${refusals} times (${error?.clause ?? "error"}); stopped, ${amountRaw} raw ${inMint} left in the treasury`);
+          return { ran: false, why: `leg 2 was refused ${refusals} times (${error?.clause ?? "error"}): the buyback is stopped, its ${inMint} kept in the treasury (buyback.retry takes it up again)` };
+        }
+        db.updateBuyback(id, { detail: { lastError: error?.clause ?? "error", leg2Refusals: refusals } });
+        return { ran: false, why: `leg 2 stopped before it was signed (${error?.clause ?? "error"}); the next run tries it again (${refusals} of ${config.buybackLegTries})` };
       }
       continue;
     }
@@ -293,18 +320,33 @@ async function finish({ config, db, executor, row, tokenFacts, owner, log, budge
         const outcome = outcomeOf({ db, treasury, signature: pending });
         if (outcome === "pending") return { ran: false, why: `waiting for the chain on the burn (${pending})`, stopped: true };
         if (outcome === "landed") {
-          const { spent } = solSpentOn({ db, treasury, signatures: [cur.detail?.wrapSig, ...cur.legSigs, pending] });
+          const { spent } = solSpentOn({ db, treasury, signatures: paidIn(cur, [pending]) });
           db.updateBuyback(id, { state: "done", burnSig: pending, solSpent: spent > 0n ? spent : cur.sol_spent });
           continue;
         }
-        db.updateBuyback(id, { detail: { burnPending: null } });
+        /* the burn failed on chain: never published as the burn; its fee counts, and it is tried again */
+        const failedSigs = [...(cur.detail?.failedSigs ?? []), pending];
+        const burnFailures = Number(cur.detail?.burnFailures ?? 0) + 1;
+        const { spent } = solSpentOn({ db, treasury, signatures: paidIn({ ...cur, detail: { ...cur.detail, failedSigs } }) });
+        db.updateBuyback(id, { solSpent: spent > 0n ? spent : cur.sol_spent, detail: { burnPending: null, failedSigs, burnFailures } });
+        if (burnFailures >= config.buybackLegTries) {
+          db.updateBuyback(id, { state: "done", detail: { burnStopped: `the burn failed ${burnFailures} times on chain: the bought $CIA stays in the treasury` } });
+          log(`buyback ${id}: the burn failed ${burnFailures} times; done without it, the $CIA kept in the treasury`);
+          continue;
+        }
+        continue;
       }
+      if (tried.has("burn")) return { ran: false, why: "the burn failed on chain this run; the next run tries it again", stopped: true };
+      tried.add("burn");
       try {
         const burned = await executor.burn({ owner, mint: CIA_MINT, amountRaw: BigInt(cur.cia_bought), decimals: CIA_FACTS.decimals, onSigned: (sig) => db.updateBuyback(id, { detail: { burnPending: sig } }) });
         if (burned?.signature && !db.getBuyback(id).detail?.burnPending) db.updateBuyback(id, { detail: { burnPending: burned.signature } });
         if (!db.getBuyback(id).detail?.burnPending) return { ran: false, why: "the burn returned no signature: the next run looks again", stopped: true };
       } catch (error) {
-        if (error?.detail?.signature) db.updateBuyback(id, { detail: { burnPending: error.detail.signature } });
+        if (error?.detail?.signature) {
+          db.updateBuyback(id, { detail: { burnPending: error.detail.signature } });
+          if (["failed_on_chain", "expired"].includes(error?.clause)) continue;
+        }
         return { ran: false, why: `the burn stopped (${error?.clause ?? "error"}); the next run finishes it`, stopped: true };
       }
       continue;

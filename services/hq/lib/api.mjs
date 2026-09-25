@@ -8,7 +8,7 @@
  * http(s)://localhost / 127.0.0.1 on any port; any other origin gets no CORS headers (a browser
  * then refuses to read the answer) and its preflight a 403. Every client address has a budget
  * per minute (reads, perks, admin); streams are capped per client network (an IPv4 /24, an
- * IPv6 /64) and in all, and each ends after at most HQ_STREAM_MAX_SECONDS (the client resumes
+ * IPv6 /48) and in all, and each ends after at most HQ_STREAM_MAX_SECONDS (the client resumes
  * with Last-Event-ID and misses nothing); over a limit, 429 with Retry-After. A request must
  * arrive whole within 15 s.
  * The client address is the socket's, or with HQ_TRUST_PROXY=1 (behind the host's edge proxy)
@@ -31,8 +31,8 @@ const NO_STORE = Object.freeze({ "cache-control": "no-store" });
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
 export const allowedOrigin = (origin) => typeof origin === "string" && (SITE_ORIGINS.includes(origin) || LOCAL.test(origin));
 
-/** A client's network: an IPv4 address's /24, an IPv6 address's /64 (so one client with many
- *  addresses in its own range counts once). */
+/** A client's network: an IPv4 address's /24, an IPv6 address's /48 (so one client with many
+ *  addresses in its own range counts once: a home or a small site is given a /48 or a /56). */
 export function networkOf(ip) {
   const s = String(ip ?? "").trim().toLowerCase().replace(/%.*$/, "");
   const v4 = /^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
@@ -41,7 +41,7 @@ export function networkOf(ip) {
     const [head, tail = null] = s.split("::");
     const h = head ? head.split(":") : [], t = tail === null ? [] : tail ? tail.split(":") : [];
     const groups = tail === null ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t];
-    return `${groups.slice(0, 4).map((g) => (parseInt(g, 16) || 0).toString(16)).join(":")}::/64`;
+    return `${groups.slice(0, 3).map((g) => (parseInt(g, 16) || 0).toString(16)).join(":")}::/48`;
   }
   return s || "unknown";
 }
@@ -154,35 +154,51 @@ export function createApi(deps) {
   }
 
   /* ── the stream: the event log, replayed from Last-Event-ID, then live ── */
+  /*
+   * Each stream reads the log from where its client is, in batches, as fast as its socket takes
+   * them: before each batch it looks at what is still waiting in its own buffer, and past
+   * HIGH_WATER it waits for the client to drain (a burst of events never cuts anyone). A client
+   * that drains nothing for STALL_MS is ended, and resumes where it was. A client that asks to
+   * resume from an id the log still keeps gets everything after it; one whose id is gone (older
+   * than the log keeps, or from another database) gets a `reset` event first and reads on from now.
+   */
   const STREAM_KINDS = new Set(["trade", "decision", "promotion", "buyback", "fee", "summary"]);
-  const SLOW_READER_BYTES = 256 * 1024;       // a client this far behind is ended; it resumes where it was
-  const live = new Set();                     // open streams: { res, last, end }
-  let broadcastAt = null, poller = null, beat = null;
+  const HIGH_WATER = 64 * 1024;
+  const STALL_MS = deps.streamStallMs ?? 30_000;
+  const live = new Set();                     // open streams: { res, last, waitingSince, end }
+  let poller = null, beat = null;
   const write = (st, e) => {
     if (e.id <= st.last) return;
     st.last = e.id;
-    if (!STREAM_KINDS.has(e.kind)) return;
-    st.res.write(`id: ${e.id}\nevent: ${e.kind}\ndata: ${JSON.stringify(e.data)}\n\n`);
-    if (st.res.writableLength > SLOW_READER_BYTES) st.end("slow");
+    if (STREAM_KINDS.has(e.kind)) st.res.write(`id: ${e.id}\nevent: ${e.kind}\ndata: ${JSON.stringify(e.data)}\n\n`);
   };
-  /* One reader of the event log for every open stream, however many there are. */
-  function broadcast() {
-    if (!live.size) return;
-    if (broadcastAt === null) broadcastAt = db.lastEventId();
+  function pump(st) {
+    if (st.ended || st.waitingSince) return;
     for (;;) {
-      const batch = db.eventsAfter(broadcastAt, 200);
-      if (!batch.length) break;
-      for (const e of batch) { broadcastAt = e.id; for (const st of [...live]) write(st, e); }
-      if (batch.length < 200) break;
+      if (st.res.writableLength >= HIGH_WATER) {
+        st.waitingSince = Date.now();
+        st.res.once("drain", () => { st.waitingSince = 0; pump(st); });
+        return;
+      }
+      const batch = db.eventsAfter(st.last, 200);
+      for (const e of batch) write(st, e);
+      if (batch.length < 200) return;
+    }
+  }
+  function pass() {
+    const now = Date.now();
+    for (const st of [...live]) {
+      if (st.waitingSince) { if (now - st.waitingSince > STALL_MS) st.end("slow"); continue; }
+      try { pump(st); } catch { /* the next pass tries again */ }
     }
   }
   function ensureTimers() {
-    if (!poller) poller = setInterval(() => { try { broadcast(); } catch { /* the next poll tries again */ } }, deps.streamPollMs ?? 1_000);
-    if (!beat) beat = setInterval(() => { for (const st of live) st.res.write(": keep-alive\n\n"); }, 15_000);
+    if (!poller) poller = setInterval(pass, deps.streamPollMs ?? 1_000);
+    if (!beat) beat = setInterval(() => { for (const st of live) if (!st.waitingSince) st.res.write(": keep-alive\n\n"); }, 15_000);
   }
   function stopTimersIfIdle() {
     if (live.size) return;
-    clearInterval(poller); clearInterval(beat); poller = null; beat = null; broadcastAt = null;
+    clearInterval(poller); clearInterval(beat); poller = null; beat = null;
   }
   function stream(req, res) {
     const net = networkOf(clientOf(req));
@@ -192,16 +208,20 @@ export function createApi(deps) {
     res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store", connection: "keep-alive", "x-accel-buffering": "no", "x-content-type-options": "nosniff" });
     res.write("retry: 5000\n\n");
     const lastHeader = req.headers["last-event-id"] ?? new URL(req.url, "http://x").searchParams.get("lastEventId");
-    const newest = db.lastEventId();
-    let last = /^\d+$/.test(String(lastHeader ?? "")) ? Number(lastHeader) : newest;
-    /* A client that was away too long gets the newest 500, not the whole history. */
-    if (newest - last > 500) last = newest - 500;
+    const newest = db.lastEventId(), oldest = db.firstEventId();
+    let last = newest;
+    if (/^\d{1,15}$/.test(String(lastHeader ?? ""))) {
+      const asked = Number(lastHeader);
+      /* resumable while the event right after it is still kept, and it is an id this log had */
+      if (asked <= newest && (oldest === null || asked + 1 >= oldest)) last = asked;
+      else res.write(`id: ${newest}\nevent: reset\ndata: {}\n\n`);
+    }
     let ended = false;
-    const st = { res, last, end: null };
+    const st = { res, last, waitingSince: 0, ended: false, end: null };
     const timer = setTimeout(() => st.end("max_age"), config.rateLimit.streamMaxMs);
     st.end = () => {
       if (ended) return;
-      ended = true;
+      ended = true; st.ended = true;
       clearTimeout(timer);
       live.delete(st);
       const n = (streams.get(net) ?? 1) - 1; if (n <= 0) streams.delete(net); else streams.set(net, n);
@@ -209,17 +229,9 @@ export function createApi(deps) {
       stopTimersIfIdle();
     };
     req.on("close", () => st.end("closed"));
-    /* its own backlog first, then the shared broadcast */
-    for (;;) {
-      const batch = db.eventsAfter(st.last, 200);
-      for (const e of batch) { write(st, e); if (ended) return; }
-      if (batch.length < 200) break;
-    }
-    /* the shared reader starts where this backlog ended (nothing can be added in between: all of
-       this runs in one turn), so no event falls between the two */
-    if (broadcastAt === null) broadcastAt = db.lastEventId();
     live.add(st);
     ensureTimers();
+    pump(st);
   }
 
   async function handler(req, res) {

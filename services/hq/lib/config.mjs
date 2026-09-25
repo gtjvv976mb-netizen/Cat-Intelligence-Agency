@@ -119,6 +119,8 @@ export function readConfig(env = process.env) {
     buybackDestination: destination,
     buybackSlippageBps: num(env, "HQ_BUYBACK_SLIPPAGE_BPS", 100, { min: 10, max: 300, integer: true }),
     buybackMaxImpactPct: num(env, "HQ_BUYBACK_MAX_IMPACT_PCT", 3, { min: 0.1, max: 10 }),
+    /* how many runs a buyback's second leg (or its burn) may be refused or fail before it is stopped */
+    buybackLegTries: num(env, "HQ_BUYBACK_LEG_TRIES", 4, { min: 1, max: 50, integer: true }),
     treasuryReserve: sol(env, "HQ_TREASURY_RESERVE_SOL", "0.05", { min: "0.01", max: "1000" }),
     /* perks */
     perkTiers: parsePerkTiers(str(env.HQ_PERK_TIERS, "holder:1,agent:1000000,director:10000000")),
@@ -131,7 +133,7 @@ export function readConfig(env = process.env) {
       read: num(env, "HQ_RATE_READ_PER_MIN", 240, { min: 10, max: 100_000, integer: true }),
       perks: num(env, "HQ_RATE_PERKS_PER_MIN", 12, { min: 1, max: 1000, integer: true }),
       admin: num(env, "HQ_RATE_ADMIN_PER_MIN", 12, { min: 1, max: 1000, integer: true }),
-      /* open streams per client network (an IPv4 /24, an IPv6 /64), and in all */
+      /* open streams per client network (an IPv4 /24, an IPv6 /48), and in all */
       streamsPerNetwork: num(env, "HQ_STREAMS_PER_NETWORK", 8, { min: 1, max: 1000, integer: true }),
       streamsTotal: num(env, "HQ_STREAMS_TOTAL", 300, { min: 1, max: 5_000, integer: true }),
       /* a stream ends after this long; the client resumes with Last-Event-ID and misses nothing */

@@ -11,7 +11,9 @@
  *
  * THE COMMANDS: agent.create, agent.set (name, skin, strategy, limits, settings, mode — live needs
  * `confirmWallet` equal to the agent's wallet, typed), agent.pause, agent.resume, agent.retire,
- * agent.withdraw (to the treasury, only there), agent.liquidate, kill (on / off), coin.register.
+ * agent.withdraw (to the treasury, only there), agent.liquidate, kill (on / off), coin.register,
+ * buyback.abandon and buyback.retry (a buyback stuck between its legs or before its burn),
+ * intent.resolve (a stuck in-flight marker, settled from the chain, never just deleted).
  * Nobody from the public can create an agent: there is no unsigned path to this file.
  */
 import { randomUUID } from "node:crypto";
@@ -25,13 +27,15 @@ import { describeMint } from "../../../vendor/executor/token2022.mjs";
 import { decodeBondingCurve, bondingCurveAddress } from "../../../vendor/executor/snipe-venue-pumpfun.mjs";
 import { PUMPFUN_PROGRAM } from "../../../bots/lib/verified.mjs";
 import { CIA_MINT } from "./config.mjs";
+import { buybackItem } from "./buyback.mjs";
 
 export class AdminError extends Error {
   constructor(clause, message, status = 400) { super(message); this.name = "AdminError"; this.clause = clause; this.status = status; }
 }
 /** The sprites in brand/sprites/, which an agent's `cat` names. */
 export const SPRITES = Object.freeze(["cashcat", "coinmarketcat", "crying-cat", "director", "grumpy-cat", "popcat", "snipurr"]);
-export const COMMANDS = Object.freeze(["agent.create", "agent.set", "agent.pause", "agent.resume", "agent.retire", "agent.withdraw", "agent.liquidate", "kill", "coin.register"]);
+export const COMMANDS = Object.freeze(["agent.create", "agent.set", "agent.pause", "agent.resume", "agent.retire", "agent.withdraw", "agent.liquidate", "kill", "coin.register",
+  "buyback.abandon", "buyback.retry", "intent.resolve"]);
 
 /** Keys sorted at every level, so the signed text is one string whatever the JSON order. */
 export function canonical(value) {
@@ -175,6 +179,41 @@ export async function executeAdminCommand(command, { source, deps }) {
       if (typeof command.on !== "boolean") throw new AdminError("bad_request", "kill needs on: true or false");
       db.setKv("kill", command.on);
       result = { kill: command.on, env: config.kill ? "HQ_KILL=1 is also set in the environment and wins while it is" : null };
+      break;
+    }
+    case "buyback.abandon": {
+      /* Only what nothing on chain is still deciding: a leg or a burn in flight is settled by the
+         next run first. What was bought stays in the treasury, recorded. */
+      const b = db.getBuyback(String(command.id ?? ""));
+      if (!b) throw new AdminError("no_buyback", `no buyback ${command.id}`, 404);
+      if (["leg1_sent", "leg2_sent"].includes(b.state) || (b.state === "bought" && b.detail?.burnPending))
+        throw new AdminError("in_flight", "a transaction of this buyback is in the chain's hands: the next run settles it first", 409);
+      let state;
+      if (["wrapping", "started"].includes(b.state)) state = "failed";
+      else if (b.state === "leg1_done") state = "stopped";
+      else if (b.state === "bought") state = "done";
+      else throw new AdminError("finished", `buyback ${b.id} is ${b.state}: nothing to abandon`, 409);
+      const held = b.state === "leg1_done" ? { mint: (b.detail?.legs ?? b.detail?.path ?? [])[1]?.[0] ?? null, raw: b.detail?.leg1Out ?? null } : null;
+      db.updateBuyback(b.id, { state, detail: { clause: "abandoned", abandonedFrom: b.state, ...(held ? { held } : {}), ...(state === "done" ? { burnStopped: "the owner abandoned the burn: the bought $CIA stays in the treasury" } : {}) } });
+      if (state === "done" && db.emitOnce(`buyback:${b.id}`)) db.addEvent("buyback", buybackItem(db.getBuyback(b.id)));
+      result = { buyback: b.id, from: b.state, to: state, held };
+      break;
+    }
+    case "buyback.retry": {
+      /* A buyback stopped between its legs goes back to its second leg; the next run finishes it. */
+      const b = db.getBuyback(String(command.id ?? ""));
+      if (!b) throw new AdminError("no_buyback", `no buyback ${command.id}`, 404);
+      if (b.state !== "stopped" || b.legSigs.length !== 1 || !b.detail?.leg1Out) throw new AdminError("not_retryable", `buyback ${b.id} is ${b.state}: only one stopped between its legs can be taken up again`, 409);
+      db.updateBuyback(b.id, { state: "leg1_done", detail: { leg2Refusals: 0, clause: null, held: null } });
+      result = { buyback: b.id, to: "leg1_done" };
+      break;
+    }
+    case "intent.resolve": {
+      if (!deps.executor?.resolveIntent) throw new AdminError("no_executor", "markers are settled from the chain, and the chain cannot be read here", 503);
+      const it = db.getIntent(String(command.id ?? ""));
+      if (!it) throw new AdminError("no_intent", `no marker ${command.id}`, 404);
+      const r = await deps.executor.resolveIntent(it.id, { acceptLanded: command.acceptLanded === true });
+      result = { intent: it.id, wallet: it.wallet, kind: it.kind, signature: it.signature ?? null, ...r };
       break;
     }
     case "coin.register": {

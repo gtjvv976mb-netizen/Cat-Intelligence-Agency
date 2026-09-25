@@ -132,7 +132,7 @@ section("EVERY ENDPOINT, IN THE CONTRACT'S SHAPE");
   const s = await request("GET", "/v1/summary");
   ok("/v1/summary", s.status === 200 && shape("Summary", s.json).length === 0, JSON.stringify(shape("Summary", s.json)));
   const v1 = runtime.viewOf(1).ledger, v7 = runtime.viewOf(7).ledger;
-  ok("…live: the one live agent's figures from its wallet's transactions (its cash and account rent), and nothing of paper", s.json.live.agents.total === 1 && s.json.live.tradingPnlSol.realized === "-0.032891622" && s.json.live.solInAgentWallets === solString(v7.cash + v7.rent) && s.json.live.losses === 1);
+  ok("…live: the one live agent's figures from its wallet's transactions (its cash and account rent), and nothing of paper", s.json.live.agents.total === 1 && s.json.live.tradingPnlSol.realized === solString(v7.realized) && v7.realized === -306_228_851n && s.json.live.solInAgentWallets === solString(v7.cash + v7.rent) && s.json.live.losses === 1);
   ok("…paper: the two paper agents' books (two 1-SOL bankrolls, one round trip), and nothing of live", s.json.paper.agents.total === 2 && s.json.paper.tradingPnlSol.realized === "0.3" && s.json.paper.wins === 1 && s.json.paper.losses === 0 && s.json.paper.trades24h.count === 3);
   ok("…each mode's max drawdown is its worst single agent's, never a sum", s.json.live.maxDrawdownPct === String(v7.maxDrawdownPct) && Number(s.json.paper.maxDrawdownPct) === Math.max(v1.maxDrawdownPct, runtime.viewOf(2).ledger.maxDrawdownPct));
   ok("…creator fees are their own line, never in trading P&L", s.json.creatorFeesClaimedSol === "0.160577729");
@@ -167,7 +167,7 @@ section("EVERY ENDPOINT, IN THE CONTRACT'S SHAPE");
   const lb = (await request("GET", "/v1/leaderboard?by=pnl&period=all")).json;
   const cmp = (a, b) => (BigInt(parseSolTest(a)) > BigInt(parseSolTest(b)) ? 1 : BigInt(parseSolTest(a)) < BigInt(parseSolTest(b)) ? -1 : 0);
   ok("…rows best first (the site draws one board per mode from them, in this order)", lb.rows.every((r, i) => i === 0 || cmp(r.value, lb.rows[i - 1].value) <= 0) && lb.rows.length === 3, JSON.stringify(lb.rows));
-  ok("…by=pnl is realized trading profit in SOL (all time: career realized); rank is the rank id", lb.rows.find((r) => r.agentId === 1)?.value === "0.3" && lb.rows.find((r) => r.agentId === 1)?.rank === "field" && lb.rows.find((r) => r.agentId === 7)?.value === "-0.032891622");
+  ok("…by=pnl is realized trading profit in SOL (all time: career realized); rank is the rank id", lb.rows.find((r) => r.agentId === 1)?.value === "0.3" && lb.rows.find((r) => r.agentId === 1)?.rank === "field" && lb.rows.find((r) => r.agentId === 7)?.value === "-0.306228851");
   const roi = (await request("GET", "/v1/leaderboard?by=roi&period=all")).json;
   ok("…by=roi is a percentage in SOL's format", roi.rows.every((r) => /^-?(0|[1-9]\d*)(\.\d{1,9})?$/.test(r.value)) && roi.rows.find((r) => r.agentId === 1)?.value === "30");
   ok("…?mode=paper holds only paper agents", (await request("GET", "/v1/leaderboard?by=pnl&period=all&mode=paper")).json.rows.every((r) => r.mode === "paper"));
@@ -343,11 +343,11 @@ section("RATE LIMITS");
 }
 
 
-section("STREAMS: PER CLIENT NETWORK, AT MOST FIVE MINUTES, AND A READER THAT FALLS BEHIND IS CUT");
+section("STREAMS: PER CLIENT NETWORK, AT MOST FIVE MINUTES");
 {
-  ok("a client's network: an IPv4 address's /24, an IPv6 address's /64 (however it is written)",
-    networkOf("192.0.2.9") === "192.0.2.0/24" && networkOf("::ffff:192.0.2.200") === "192.0.2.0/24" && networkOf("2001:db8:1:2::1") === "2001:db8:1:2::/64"
-    && networkOf("2001:0db8:0001:0002:ffff:0:0:5") === "2001:db8:1:2::/64" && networkOf("2001:db8:1:3::1") !== networkOf("2001:db8:1:2::1") && networkOf("fe80::1%eth0") === "fe80:0:0:0::/64");
+  ok("a client's network: an IPv4 address's /24, an IPv6 address's /48 (however it is written)",
+    networkOf("192.0.2.9") === "192.0.2.0/24" && networkOf("::ffff:192.0.2.200") === "192.0.2.0/24" && networkOf("2001:db8:1:2::1") === "2001:db8:1::/48"
+    && networkOf("2001:0db8:0001:00ff:ffff:0:0:5") === "2001:db8:1::/48" && networkOf("2001:db8:2::1") !== networkOf("2001:db8:1:2::1") && networkOf("fe80::1%eth0") === "fe80:0:0::/48");
   ok("the defaults: 8 streams per network, 300 in all, each at most 300 s; a longer one is refused at start",
     testConfig().rateLimit.streamsPerNetwork === 8 && testConfig().rateLimit.streamsTotal === 300 && testConfig().rateLimit.streamMaxMs === 300_000
     && (() => { try { testConfig({ HQ_STREAM_MAX_SECONDS: "3600" }); return false; } catch (e) { return e instanceof ConfigError; } })());
@@ -365,8 +365,8 @@ section("STREAMS: PER CLIENT NETWORK, AT MOST FIVE MINUTES, AND A READER THAT FA
   });
   const a1 = await open("198.51.100.1"), a2 = await open("198.51.100.2"), a3 = await open("198.51.100.3");
   ok("two streams from one /24; the third from it: 429", a1.status === 200 && a2.status === 200 && a3.status === 429);
-  const v1 = await open("2001:db8:1:2::1"), v2 = await open("2001:db8:1:2:ffff::5"), v3 = await open("2001:db8:1:2::9"), v4 = await open("2001:db8:1:3::1");
-  ok("the same for a /64: two, then 429; the next /64 is its own", v1.status === 200 && v2.status === 200 && v3.status === 429 && v4.status === 200);
+  const v1 = await open("2001:db8:1:2::1"), v2 = await open("2001:db8:1:ff::5"), v3 = await open("2001:db8:1:3::9"), v4 = await open("2001:db8:2::1");
+  ok("the same for a /48 (a /56 or /64 inside it counts as the same client): two, then 429; the next /48 is its own", v1.status === 200 && v2.status === 200 && v3.status === 429 && v4.status === 200);
   const t1 = await open("203.0.113.50");
   ok("and never more than HQ_STREAMS_TOTAL in all (5 here): the sixth, from a fresh network, is 429", t1.status === 429 && quick.openStreams() === 5);
   await new Promise((r) => setTimeout(r, 700));
@@ -378,22 +378,131 @@ section("STREAMS: PER CLIENT NETWORK, AT MOST FIVE MINUTES, AND A READER THAT FA
   ok("…the client reconnects with Last-Event-ID and misses nothing", back.status === 200 && back.text().includes("while the client was reconnecting"));
   back.req.destroy();
   await new Promise((r) => setTimeout(r, 450));
+  await quick.close();
+}
 
-  /* a client that opens a stream and never reads it */
-  const sock = net.connect(qs.port, "127.0.0.1", () => sock.write("GET /v1/stream HTTP/1.1\r\nHost: x\r\nX-Real-IP: 192.0.2.150\r\n\r\n"));
+section("STREAMS LOSE NOTHING: A BURST, A SLOW READER, A RESUME FROM FAR BACK, AND A RESET WHEN THE ID IS GONE");
+{
+  const cfg = testConfig({ HQ_STREAMS_PER_NETWORK: "50", HQ_STREAMS_TOTAL: "50", HQ_TRUST_PROXY: "1" });
+  const mk = ({ maxMs = 60_000, stallMs = 60_000 } = {}) => createApi({ db, config: { ...cfg, rateLimit: { ...cfg.rateLimit, streamMaxMs: maxMs } }, views: () => new Map(), walletLedgers: () => new Map(),
+    treasury: () => null, health: () => ({}), perks: hq.perks, adminDeps: hq.adminDeps, streamPollMs: 25, streamStallMs: stallMs });
+  const agent = new http.Agent({ keepAlive: false, maxSockets: Infinity });
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const reason = "r".repeat(400);
+  let seq = 0;
+  const emit = (n) => db.tx(() => { for (let i = 0; i < n; i++) db.addEvent("decision", { kind: "decision", id: `burst-${seq++}`, reason }); });
+  /* an SSE client that resumes with Last-Event-ID after every end, as EventSource does */
+  function sse(port, { ip, lastId = null, pauseMs = 0, retryMs = 30 } = {}) {
+    const got = [], resets = [];
+    let last = lastId, stopped = false, ends = 0, cur = null;
+    const connect = () => {
+      if (stopped) return;
+      cur = http.get({ agent, host: "127.0.0.1", port, path: "/v1/stream", headers: { "x-real-ip": ip, ...(last !== null ? { "last-event-id": String(last) } : {}) } }, (res) => {
+        if (pauseMs) { res.pause(); const p = pauseMs; pauseMs = 0; setTimeout(() => res.resume(), p); }
+        let buf = "";
+        res.setEncoding("utf8");
+        res.on("data", (d) => {
+          buf += d;
+          let i;
+          while ((i = buf.indexOf("\n\n")) >= 0) {
+            const block = buf.slice(0, i); buf = buf.slice(i + 2);
+            const id = /(?:^|\n)id: (\d+)/.exec(block)?.[1], ev = /(?:^|\n)event: (\w+)/.exec(block)?.[1];
+            if (ev === "reset") resets.push({ id: Number(id), data: /(?:^|\n)data: (.*)/.exec(block)?.[1], afterEvents: got.length });
+            else if (id) got.push(Number(id));
+            if (id) last = Number(id);
+          }
+        });
+        res.on("end", () => { ends++; if (!stopped) setTimeout(connect, retryMs); });
+        res.on("error", () => {});
+      });
+      cur.on("error", () => { if (!stopped) setTimeout(connect, retryMs); });
+    };
+    connect();
+    return { got, resets, ends: () => ends, stop: () => { stopped = true; cur?.destroy(); } };
+  }
+  const exactly = (c, from) => {
+    const want = db.eventsAfter(from, 100_000).filter((e) => STREAM_EVENTS[e.kind]).map((e) => e.id);
+    const set = new Set(c.got);
+    return { all: want.every((id) => set.has(id)), dup: c.got.length - set.size, ordered: c.got.every((x, i) => i === 0 || x > c.got[i - 1]), missing: want.filter((id) => !set.has(id)).length, want: want.length };
+  };
+
+  /* the verifier's run: three clients, a burst of 1,500 events in one poll, streams ending every second */
+  const api1 = mk({ maxMs: 1_000 });
+  const s1 = await api1.listen(0, "127.0.0.1");
+  emit(50);
+  const aFrom = db.lastEventId() - 50;
+  const A = sse(s1.port, { ip: "198.51.100.10", lastId: aFrom });
+  await sleep(200);
+  emit(100);
+  const B = sse(s1.port, { ip: "198.51.100.11" });
+  await sleep(200);
+  const bFrom = db.lastEventId();
+  emit(100);
+  const cFrom = db.lastEventId();
+  const C = sse(s1.port, { ip: "198.51.100.12", lastId: cFrom, pauseMs: 1_500 });
+  await sleep(100);
+  emit(1_500);                                       /* one burst: 1,500 events of ~0.5 KB before the next poll */
+  await sleep(3_000);                                /* past the 1 s end: every client has reconnected at least twice */
+  emit(20);
+  await sleep(1_500);
+  for (const c of [A, B, C]) c.stop();
+  await api1.close();
+  for (const [name, c, from] of [["A (from an id before the test)", A, aFrom], ["B (joined with no Last-Event-ID)", B, bFrom], ["C (did not read for 1.5 s during the burst)", C, cFrom]]) {
+    const r = exactly(c, from);
+    ok(`${name}: every event after its point exactly once, in order, across its reconnects (${c.got.length} of ${r.want}, ${c.ends()} ends)`, r.all && r.dup === 0 && r.ordered && c.resets.length === 0, JSON.stringify(r));
+  }
+
+  /* a client away while 1,200 events pass: all of them on its return, not the newest 500 */
+  const api2 = mk();
+  const s2 = await api2.listen(0, "127.0.0.1");
+  const away = db.lastEventId();
+  emit(1_200);
+  const D = sse(s2.port, { ip: "198.51.100.20", lastId: away });
+  await sleep(1_200);
+  D.stop();
+  const rd = exactly(D, away);
+  ok("a client back after 1,200 events, its Last-Event-ID still in the log: all 1,200, no reset", rd.all && rd.dup === 0 && rd.want >= 1_200 && D.resets.length === 0, JSON.stringify(rd));
+
+  /* its id pruned from the log (HQ keeps the newest 5,000 events): a reset first, then on from now */
+  emit(30);
+  db.pruneEvents(10);
+  const gone = away;
+  const E = sse(s2.port, { ip: "198.51.100.21", lastId: gone });
+  await sleep(300);
+  emit(5);
+  await sleep(300);
+  E.stop();
+  ok("a Last-Event-ID older than the log keeps: the first event is reset, data {}, with the newest id; then every new event", E.resets.length === 1 && E.resets[0].afterEvents === 0 && E.resets[0].data === "{}"
+    && E.got.length === 5 && E.got.every((id) => id > E.resets[0].id), JSON.stringify({ resets: E.resets, got: E.got.length }));
+  const F = sse(s2.port, { ip: "198.51.100.22", lastId: db.lastEventId() + 1_000 });
+  await sleep(200);
+  F.stop();
+  ok("…and one the log never had (ahead of it): reset too", F.resets.length === 1 && F.resets[0].data === "{}");
+  const G = sse(s2.port, { ip: "198.51.100.23", lastId: db.lastEventId() });
+  await sleep(200);
+  G.stop();
+  ok("…while one that is simply up to date gets no reset", G.resets.length === 0);
+  await api2.close();
+
+  /* a client that opens a stream and never reads: cut after the stall time, never holding memory without end */
+  const api3 = mk({ stallMs: 300 });
+  const s3 = await api3.listen(0, "127.0.0.1");
+  const sock = net.connect(s3.port, "127.0.0.1", () => sock.write(`GET /v1/stream HTTP/1.1\r\nHost: x\r\nX-Real-IP: 192.0.2.150\r\nLast-Event-ID: ${db.lastEventId()}\r\n\r\n`));
   sock.pause();
   sock.on("error", () => {});
-  await new Promise((r) => setTimeout(r, 150));
-  const openBefore = quick.openStreams();
-  const reason = "x".repeat(480);
-  for (let i = 0; i < 40 && quick.openStreams() > 0; i++) {
-    db.tx(() => { for (let j = 0; j < 500; j++) runtime.decide(db.getAgent(2), { action: "hold", reason: `${reason}${i}` }); });
-    await new Promise((r) => setTimeout(r, 40));
-  }
-  ok("a stream whose client stops reading is ended once 256 KB wait for it, not held in memory without end", openBefore === 1 && quick.openStreams() === 0, `open ${quick.openStreams()}`);
+  await sleep(150);
+  const reader = sse(s3.port, { ip: "192.0.2.151", lastId: db.lastEventId() });
+  await sleep(100);
+  const from3 = db.lastEventId();
+  const openBefore = api3.openStreams();
+  for (let i = 0; i < 60 && api3.openStreams() > 1; i++) { emit(400); await sleep(50); }
+  await sleep(500);
+  const r3 = exactly(reader, from3);
+  ok("a stream whose client reads nothing is ended once it has drained nothing for the stall time", openBefore === 2 && api3.openStreams() === 1, `open ${api3.openStreams()}`);
+  ok("…while a client that reads, on the same server, got every event of the same bursts", r3.all && r3.dup === 0 && r3.ordered && r3.want > 400, JSON.stringify(r3));
+  reader.stop();
   sock.destroy();
-  await quick.close();
-  db.pruneHolds("2999-01-01T00:00:00.000Z");
+  await api3.close();
 }
 
 section("A LEADERBOARD PERIOD IS ONE OF ITS OWN THREE");

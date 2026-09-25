@@ -196,6 +196,7 @@ const paper = P.makeRunner();
   ok("the model saw the snapshot: every universe token with its price, changes, liquidity and indicators", ctx.market.length === 3 && ctx.market.every((m) => m.priceUsd > 0 && m.indicators?.bars === 100) && ctx.market[0].symbol === "JUP");
   ok("…the vault, the limits (read-only), the day and no positions yet", ctx.vault.equityUsd === 100 && ctx.limits.maxPositionUsd === 25 && ctx.limits.minTradeUsd === 10 && ctx.vault.tradesLeftToday === 6 && ctx.positions.length === 0);
   ok("…and the owner's strategy in the system prompt", req.body.system.includes(SPEC.strategy));
+  ok("…the agency's lessons in the system prompt, and no buy-and-hold figure before a start price exists", req.body.system.includes("The bar is buy-and-hold") && ctx.versusBuyAndHold === null && ctx.limits.minBuyConfidence === 0.6);
   const fills = journalOf(paper, "fill");
   ok("two paper buys filled at Jupiter's quotes: JUP $20, and JTO clamped from $100 to the $25 per-token cap", fills.length === 2 && fills.some((f) => f.symbol === "JUP" && f.usd === 20 && f.paper) && fills.some((f) => f.symbol === "JTO" && f.usd === 25 && f.paper && f.signature === null));
   ok("…the JUP fill is the quote's: $20 at $0.30 less 0.1% is 66.6 JUP", st.positions.find((p) => p.symbol === "JUP")?.qty === 66.6);
@@ -229,6 +230,9 @@ section("3. THE PROTECTIONS FIRE BETWEEN THE MODEL'S TURNS");
   ok("JTO down 9%: sold at the stop loss", sl?.protection === "stop_loss" && st2.positions.length === 0);
   ok("a win and a loss: win rate 50%, and the max drawdown recorded", st2.pnl.wins === 1 && st2.pnl.losses === 1 && st2.pnl.winRatePct === 50 && st2.pnl.maxDrawdownPct > 0, `max DD ${st2.pnl.maxDrawdownPct}%`);
   ok("the closed trades carry their reasons", st2.pnl.closed.map((c) => c.reason).sort().join() === "stop_loss,take_profit");
+  const vs = st2.pnl.versusBuyAndHold;
+  const holdPct = ((0.35 / 0.30 + 0.455 / 0.50 + 1) / 3 - 1) * 100;
+  ok("buy and hold is the bar: the universe held equally from the first tick's prices is +2.56%, set beside the agent's return", vs && Math.abs(vs.holdReturnPct - holdPct) < 0.01 && Math.abs(vs.edgePct - (vs.agentReturnPct - vs.holdReturnPct)) < 0.02, JSON.stringify(vs));
 }
 
 section("4. THE MODEL FAILING MEANS NO NEW ENTRIES, AND THE PROTECTIONS STILL RUN");

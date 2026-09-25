@@ -34,7 +34,7 @@ import { AGENT_BOUNDS } from "./agent-strategy.mjs";
 export const RISK_CLAUSES = Object.freeze([
   "action_unknown", "not_in_universe", "settlement_not_tradable", "duplicate_mint", "size_missing",
   "paused", "drawdown_breaker", "vault_below_minimum", "trades_per_day", "price_missing",
-  "below_min_trade", "position_cap", "exposure_cap", "settlement_short", "no_position",
+  "below_min_trade", "below_min_confidence", "position_cap", "exposure_cap", "settlement_short", "no_position",
 ]);
 export const EXIT_REASONS = Object.freeze(["stop_loss", "take_profit", "drawdown_liquidate", "liquidate_all"]);
 
@@ -186,6 +186,8 @@ export function planOrders({ spec, proposals, positions, prices, settlementUsd, 
     const asked = Number(a.usd);
     if (!(Number.isFinite(asked) && asked > 0)) { refuse(a, "size_missing", "a buy needs a positive usd amount"); continue; }
     if (asked < minTrade) { refuse(a, "below_min_trade", `$${asked.toFixed(2)} is under the $${minTrade} minimum trade`); continue; }
+    const floor = spec.minBuyConfidence ?? 0;
+    if (!(Number(a.confidence) >= floor)) { refuse(a, "below_min_confidence", `the model rated this buy ${a.confidence}, under the ${floor} confidence floor`); continue; }
     const rooms = [
       ["position_cap", spec.maxPositionUsd - valueOf(a.mint), `the $${spec.maxPositionUsd} per-token cap`],
       ["settlement_short", settlementUsd - pendingUsd, "the settlement balance"],

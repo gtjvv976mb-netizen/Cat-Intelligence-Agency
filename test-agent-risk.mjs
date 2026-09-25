@@ -125,6 +125,12 @@ section("5. WHAT THE MODEL MAY NAME");
 
 section("6. BUYS: GATES, THEN CLAMPS, IN ORDER");
 {
+  const unsure = saw(plan({ proposals: [buy(JUP, 20, { confidence: 0.4 }), buy(JTO, 20, { confidence: 0.6 })] }));
+  ok("a buy the model rates under the 0.6 floor is refused at below_min_confidence; one at the floor goes", clauses(unsure).join() === "below_min_confidence" && unsure.orders.length === 1 && unsure.orders[0].mint === JTO);
+  const off = plan({ spec: normalizeAgentSpec({ ...spec, minBuyConfidence: 0 }), proposals: [buy(JUP, 20, { confidence: 0.1 })] });
+  ok("…and a floor of 0 turns it off", off.orders.length === 1);
+  const sellLow = plan({ positions: { [JUP]: pos(JUP, 30, 30) }, proposals: [sell(JUP, 1, { confidence: 0.1 })] });
+  ok("…a sell is never held to it: taking risk off needs no conviction", sellLow.orders.length === 1 && sellLow.orders[0].side === "sell");
   const paused = saw(plan({ proposals: [buy(JUP, 20)], paused: true }));
   ok("paused: no buys (paused)", clauses(paused).join() === "paused");
   const small = saw(plan({ proposals: [buy(JUP, 20)], settlementUsd: 40 }));

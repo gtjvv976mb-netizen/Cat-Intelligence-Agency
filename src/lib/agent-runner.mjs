@@ -98,6 +98,7 @@ export function freshAgentState() {
     usage: { calls: 0, failures: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
     nextBrainAt: 0, lastBrainAt: null, lastTickAt: null, startedAt: null,
     lastView: null, lastSettlementUsd: null, notes: {},
+    benchmark: null, lastPrices: null,             // { at, equityUsd, prices } — the vault as if held equally across the universe since the start
     liquidating: null,           // { at } while Liquidate all still has something to sell
     inflight: null,              // { side, mint, symbol, at } while a live swap is being signed and sent
   };
@@ -472,6 +473,21 @@ export function createAgentRunner({
   }
 
   /* ── the model's turn ─────────────────────────────────────────────────────────────── */
+  /** BUY AND HOLD, THE BAR TO BEAT. Most LLM agents in the published benchmarks (StockBench,
+   *  2025) did not beat simply holding, so the agent's return since its start is set beside
+   *  the same vault split equally across the universe at the start's prices and never traded.
+   *  A deposit or a withdrawal moves the agent's side only; the journal says when one did. */
+  function versusHold(equityUsd, prices) {
+    const b = S.benchmark;
+    if (!b || !(b.equityUsd > 0) || !(equityUsd > 0)) return null;
+    const ratios = Object.entries(b.prices).map(([mint, p0]) => (prices?.[mint] > 0 ? prices[mint] / p0 : null));
+    if (!ratios.length || ratios.some((x) => x === null)) return null;
+    const holdEquityUsd = b.equityUsd * (ratios.reduce((a, x) => a + x, 0) / ratios.length);
+    const agentPct = ((equityUsd - b.equityUsd) / b.equityUsd) * 100;
+    const holdPct = ((holdEquityUsd - b.equityUsd) / b.equityUsd) * 100;
+    return { since: new Date(b.at).toISOString(), agentReturnPct: r(agentPct, 2), holdReturnPct: r(holdPct, 2), edgePct: r(agentPct - holdPct, 2), holdEquityUsd: r(holdEquityUsd, 2) };
+  }
+
   function contextFor({ now, snap, view, prices }) {
     const s = settlement();
     const day = S.day;
@@ -493,9 +509,10 @@ export function createAgentRunner({
         drawdownTodayPct: day.drawdownPct, tradesToday: day.trades, tradesLeftToday: Math.max(0, spec.maxTradesPerDay - day.trades), breakerTripped: day.tripped },
       limits: { maxPositionUsd: spec.maxPositionUsd, maxExposurePct: spec.maxExposurePct, stopLossPct: spec.stopLossPct, takeProfitPct: spec.takeProfitPct,
         maxDailyDrawdownPct: spec.maxDailyDrawdownPct, drawdownAction: spec.drawdownAction, maxTradesPerDay: spec.maxTradesPerDay, slippageBps: spec.slippageBps,
-        minTradeUsd: AGENT_BOUNDS.minTradeUsd, minVaultUsd: AGENT_BOUNDS.minVaultUsd },
+        minBuyConfidence: spec.minBuyConfidence, minTradeUsd: AGENT_BOUNDS.minTradeUsd, minVaultUsd: AGENT_BOUNDS.minVaultUsd },
       positions,
       pnl: { realizedUsd: r(stats().realizedUsd, 2), unrealizedUsd: r(unrealized, 2), wins: stats().wins, losses: stats().losses },
+      versusBuyAndHold: versusHold(view.equityUsd, prices),
       market: universeEntries(spec).map((u) => {
         const t = snap.tokens?.[u.mint] ?? {};
         return { mint: u.mint, symbol: u.symbol, priceUsd: t.priceUsd ?? null, change1hPct: t.change1hPct ?? null, change24hPct: t.change24hPct ?? null,
@@ -647,6 +664,9 @@ export function createAgentRunner({
         settlementUsd = await settlementUsdNow();
         const after = vaultView({ settlementUsd, positions: S.positions, prices });
         trackEquity(after.equityUsd);
+        const basket = universeEntries(spec).map((u) => u.mint);
+        if (!S.benchmark && S.status === "running" && basket.length && basket.every((m) => prices[m] > 0)) S.benchmark = { at: now, equityUsd: after.equityUsd, prices: Object.fromEntries(basket.map((m) => [m, prices[m]])) };
+        S.lastPrices = { ...prices };
         S.lastView = { at: now, settlementUsd: r(after.settlementUsd, 2), positionsUsd: r(after.positionsUsd, 2), equityUsd: r(after.equityUsd, 2), exposurePct: after.exposurePct,
           stale: [...after.stale], unpriced: [...after.unpriced], rows: after.rows.map((x) => ({ ...x, qty: r(x.qty, 8), valueUsd: r(x.valueUsd, 2), pnlUsd: r(x.pnlUsd, 2), pnlPct: r(x.pnlPct, 2), priceUsd: r(x.priceUsd, 10), entryPriceUsd: r(x.entryPriceUsd, 10) })) };
         S.lastTickAt = now;
@@ -708,6 +728,7 @@ export function createAgentRunner({
       S.status = "running";
       S.liquidating = null;
       S.startedAt = now;
+      S.benchmark = null;
       S.nextBrainAt = now;
       journal("control", { action: "started", message: `started in ${S.mode.toUpperCase()}: ${universeEntries(spec).map((u) => u.symbol).join(", ")}, settled in ${settlement().symbol}, the model asked every ${spec.scheduleMinutes} min${S.mode === "paper" ? `, a ${usd(S.paper.settlementUsd)} paper vault` : ""}` });
       say(`started in ${S.mode}`);
@@ -817,7 +838,7 @@ export function createAgentRunner({
           stopLossAtUsd: entry ? r(entry * (1 - spec.stopLossPct / 100), 10) : null, takeProfitAtUsd: entry ? r(entry * (1 + spec.takeProfitPct / 100), 10) : null };
       }),
       pnl: { realizedUsd: r(st.realizedUsd, 2), unrealizedUsd: r(unrealized, 2), wins: st.wins, losses: st.losses, winRatePct: decided ? r((st.wins / decided) * 100, 1) : null,
-        maxDrawdownPct: r(st.maxDrawdownPct, 2), fills: st.fills, feesSol: r(st.feesLamports / LAMPORTS, 6), closed: S.closed.filter((c) => c.live === liveMode()).slice(0, 10) },
+        maxDrawdownPct: r(st.maxDrawdownPct, 2), fills: st.fills, versusBuyAndHold: view ? versusHold(view.equityUsd, S.lastPrices) : null, feesSol: r(st.feesLamports / LAMPORTS, 6), closed: S.closed.filter((c) => c.live === liveMode()).slice(0, 10) },
       day: S.day ? { day: S.day.day, trades: S.day.trades, maxTrades: spec.maxTradesPerDay, drawdownPct: S.day.drawdownPct, limitPct: spec.maxDailyDrawdownPct, tripped: S.day.tripped, action: spec.drawdownAction, startEquityUsd: r(S.day.startEquityUsd, 2) } : null,
       decisions: S.journal.filter((j) => j.kind === "decision" || j.kind === "brain_failure" || j.kind === "skipped").slice(0, 6),
       journal: S.journal.slice(0, 60),

@@ -104,6 +104,7 @@ export const AGENT_BOUNDS = Object.freeze({
   maxDailyDrawdownPct: Object.freeze({ min: 0.5, max: 50 }),
   maxTradesPerDay: Object.freeze({ min: 1, max: 96 }),
   slippageBps: Object.freeze({ min: 10, max: 300 }),
+  minBuyConfidence: Object.freeze({ min: 0, max: 1 }),
   paperVaultUsd: Object.freeze({ min: 50, max: 10_000_000 }),
 });
 /** A buy whose Jupiter quote moves the price more than this is refused. A sell is never
@@ -138,6 +139,11 @@ export const AGENT_SPEC_DEFAULTS = Object.freeze({
   drawdownAction: "stop_entries",
   maxTradesPerDay: 6,
   slippageBps: 100,
+  /* The desk's lesson (Claude-Company #29): its 51 calls under its own conviction bar were
+   * 39% of its record and all of its loss. A buy the model itself rates under this is not
+   * placed. The model's 0–1 confidence is not the desk's score, so 0.6 is a starting bar to
+   * be graded on this agent's own journal, not a measured line. 0 turns it off. */
+  minBuyConfidence: 0.6,
   mode: "paper",
   paperVaultUsd: 100,
   model: "",                  // "" = the first model the API lists (it lists newest first), chosen at run time
@@ -244,6 +250,7 @@ export function normalizeAgentSpec(input = {}) {
   out.maxDailyDrawdownPct = numberIn(src, "maxDailyDrawdownPct", AGENT_BOUNDS.maxDailyDrawdownPct);
   out.maxTradesPerDay = numberIn(src, "maxTradesPerDay", AGENT_BOUNDS.maxTradesPerDay, { integer: true });
   out.slippageBps = numberIn(src, "slippageBps", AGENT_BOUNDS.slippageBps, { integer: true });
+  out.minBuyConfidence = numberIn(src, "minBuyConfidence", AGENT_BOUNDS.minBuyConfidence);
   out.paperVaultUsd = numberIn(src, "paperVaultUsd", AGENT_BOUNDS.paperVaultUsd);
 
   const drawdownAction = src.drawdownAction === undefined || src.drawdownAction === null || src.drawdownAction === "" ? AGENT_SPEC_DEFAULTS.drawdownAction : String(src.drawdownAction);
@@ -304,7 +311,7 @@ export function agentArmSentence(spec, wallet) {
   return `I arm the CoinMarketCat agent "${spec.name}" for ${wallet}: settled in ${settlement.symbol}, ` +
     `at most ${money(spec.maxPositionUsd)} in one token and ${spec.maxExposurePct}% of the vault in tokens, ` +
     `a ${spec.stopLossPct}% stop loss, a ${spec.takeProfitPct}% take profit, a ${spec.maxDailyDrawdownPct}% daily drawdown that ${trip}, ` +
-    `${spec.maxTradesPerDay} trades a day at ${spec.slippageBps} bps slippage, in ${tokens}` +
+    `${spec.maxTradesPerDay} trades a day at ${spec.slippageBps} bps slippage, buys only at ${spec.minBuyConfidence} confidence or more, in ${tokens}` +
     " — signed without asking me, by the autopilot key this browser holds";
 }
 

@@ -191,6 +191,7 @@ const AGENT_LIMITS = [
   ["maxDailyDrawdownPct", "Daily drawdown (% of the vault)", "Measured against the vault's value when the UTC day began; a deposit or a withdrawal moves that value with it, as it is not a loss. At the limit the breaker trips until UTC midnight."],
   ["maxTradesPerDay", "Trades per day", "The model's buys and sells, per UTC day. A stop loss or take profit is never refused for it and does not count."],
   ["slippageBps", "Slippage cap (bps)", `Written into every Jupiter instruction; a quote or transaction that says otherwise is refused. ${AGENT_BOUNDS.slippageBps.min} to ${AGENT_BOUNDS.slippageBps.max}.`],
+  ["minBuyConfidence", "Least confidence for a buy (0–1)", "A buy the model rates under this is refused. The Claude Co desk's low-conviction calls were all of its loss; 0 turns it off."],
   ["paperVaultUsd", "Paper vault ($)", `What a paper run starts with, at least the $${AGENT_BOUNDS.minVaultUsd} vault minimum. Starting on paper with nothing held starts a fresh paper vault.`],
 ];
 function customRow(c = {}) {

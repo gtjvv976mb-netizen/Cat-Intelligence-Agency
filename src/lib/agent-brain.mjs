@@ -89,6 +89,23 @@ const trimText = (v, max) => { const s = String(v ?? "").replace(/[\u0000-\u0008
 /* ── the prompt ───────────────────────────────────────────────────────────────────── */
 
 /** The rules and the owner's strategy. Stable across ticks, so it can be cached by the API. */
+/**
+ * WHAT THE AGENCY'S OWN MONEY TAUGHT, AND WHAT THE PUBLISHED RECORD SAYS. Measured facts,
+ * not tips: HAWK-AI's 64 real round trips and the Claude Co desk's 132 graded calls and 20
+ * live trades (Claude-Company, read back 2026-09-16/17), and the public LLM-trading results
+ * (StockBench 2025; Nof1's Alpha Arena, Oct–Nov 2025). docs/coinmarketcat-lessons.md has
+ * the tables. The code enforces what can be enforced; this is what the model is told.
+ */
+export const AGENT_LESSONS = Object.freeze([
+  "What real money has already taught this agency (facts, not rules; the owner's limits still decide):",
+  "- The bar is buy-and-hold. Most published LLM trading agents did not beat simply holding. The context's versusBuyAndHold says whether you are ahead of holding the universe; if you are behind, trade less, not more.",
+  "- Trade rarely and only with conviction. The desk's low-conviction calls were 39% of its record and all of its loss; in the public LLM contests the models that churned paid the most in fees and lost the most. Your confidence is graded: a buy under the owner's floor is refused.",
+  "- Friction is real. The desk's live trades lost 3.2 points a trade more than its paper marks. A move smaller than a few times the round trip (slippage plus fees) is not worth taking.",
+  "- Price action and flow predicted; stories did not. On the desk's scorecard the technical read (rank correlation +0.23) and buy/sell flow (+0.12) predicted the next day; narrative and hype did not.",
+  "- Do not chase a move that is already over: falling over the hour, sellers ahead of buyers, volume fading.",
+  "- Size small into thin liquidity: HAWK-AI's whole net loss sat in its largest tickets.",
+]);
+
 export function buildSystemPrompt(spec, { settlementSymbol }) {
   return [
     `You are the trading brain of "${spec.name}", a CoinMarketCat agent. It trades Solana spot tokens for its owner, `
@@ -104,6 +121,8 @@ export function buildSystemPrompt(spec, { settlementSymbol }) {
     "- A value of null is missing. Do not guess it, and do not trade on it as if it were known.",
     "- Holding is a valid answer. Say why in the rationale.",
     `- Answer by calling the ${DECISION_TOOL_NAME} tool exactly once.`,
+    "",
+    ...AGENT_LESSONS,
     "",
     "The owner's strategy, in their own words. Follow it within the rules above; where it conflicts with a rule, the rule wins:",
     "<strategy>",

@@ -95,7 +95,7 @@ section("3. REFUSALS BY NAME");
   const fences = [
     ["maxPositionUsd", 9.99, "out_of_range"], ["maxExposurePct", 101, "out_of_range"], ["maxExposurePct", 0, "out_of_range"], ["stopLossPct", 0, "out_of_range"],
     ["stopLossPct", 51, "out_of_range"], ["takeProfitPct", 0.1, "out_of_range"], ["maxDailyDrawdownPct", 60, "out_of_range"], ["maxTradesPerDay", 0, "out_of_range"],
-    ["maxTradesPerDay", 2.5, "not_whole"], ["slippageBps", 500, "out_of_range"], ["slippageBps", 5, "out_of_range"], ["maxPositionUsd", "lots", "not_a_number"],
+    ["maxTradesPerDay", 2.5, "not_whole"], ["slippageBps", 500, "out_of_range"], ["slippageBps", 5, "out_of_range"], ["minBuyConfidence", 1.5, "out_of_range"], ["maxPositionUsd", "lots", "not_a_number"],
   ];
   for (const [key, value, clause] of fences) ok(`${key} = ${JSON.stringify(value)} is refused (${clause})`, clauseOf({ [key]: value }) === clause);
   ok("a name over 40 characters, or with a quote, is refused", clauseOf({ name: "x".repeat(41) }) === "name_too_long" && clauseOf({ name: 'the "cat"' }) === "name_malformed");

@@ -450,6 +450,8 @@ function renderAgent() {
   $("agUnrealized").textContent = a.positions.length ? money(a.pnl.unrealizedUsd, true) : "—";
   $("agWinRate").textContent = a.pnl.winRatePct === null ? "— (no closed trade)" : `${a.pnl.winRatePct}% of ${a.pnl.wins + a.pnl.losses}`;
   $("agMaxDD").textContent = a.pnl.fills ? pctText(a.pnl.maxDrawdownPct) : "—";
+  const vs = a.pnl.versusBuyAndHold;
+  $("agVsHold").textContent = vs ? `agent ${pctText(vs.agentReturnPct, true)} · holding the tokens ${pctText(vs.holdReturnPct, true)} · ${vs.edgePct >= 0 ? "ahead" : "behind"} by ${pctText(Math.abs(vs.edgePct))}` : "— (from the first priced tick)";
   $("agDay").textContent = a.day ? `${a.day.trades} of ${a.day.maxTrades} trades · down ${pctText(a.day.drawdownPct)} of the ${a.day.limitPct}% limit · breaker ${a.day.tripped ? `TRIPPED — ${a.day.action === "liquidate" ? "liquidating" : "no new buys"} until UTC midnight` : "ok"}` : "no tick yet";
   $("agPositions").innerHTML = a.positions.length ? a.positions.map((p) => `<div class="item ${p.live ? "live" : ""}">
       <div class="t">${esc(p.symbol)} <span class="tag ${p.live ? "live" : "paper"}">${p.live ? "live" : "paper"}</span></div>

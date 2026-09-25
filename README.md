@@ -742,6 +742,7 @@ nothing the model returns can write. Every clause is walked in `test-agent-risk.
 | Take profit | 15% over entry | 0.5–1000% | the whole position is sold, every half minute (`take_profit`) |
 | Daily drawdown | 5% | 0.5–50% | measured from the vault's value at the start of the UTC day, which a deposit or a withdrawal moves with it (a flow is not a loss); at the limit the breaker trips until UTC midnight and either stops new buys or sells everything (`drawdown_breaker`, `drawdown_liquidate`) |
 | Trades a day | 6 | 1–96 | the model's buys and sells per UTC day; a stop or take never counts and is never refused (`trades_per_day`) |
+| Least confidence for a buy | 0.6 | 0–1 | a buy the model rates under it is refused; a sell never is; 0 turns it off (`below_min_confidence`) |
 | Slippage | 100 bps | 10–300 bps | written into every Jupiter instruction; a quote or transaction that says otherwise is refused |
 | Minimum trade | $10 | fixed | a smaller buy, or a partial sell worth less, is refused (`below_min_trade`); a whole position may always be sold |
 | Minimum vault | $50 | fixed | no buys below it (`vault_below_minimum`), and the model is not called when nothing is held |
@@ -844,6 +845,15 @@ book is written after every fill and before each model call. A live buy that was
 whose outcome cannot be read — or that was being signed when the worker stopped — **pauses
 the agent**: it may have landed as tokens the book does not hold, which no stop loss
 watches. The journal and a notification say so; check the wallet before resuming.
+
+### What the agency's real money taught it
+
+HAWK-AI's 64 real round trips and the Claude Co desk's 132 graded calls and 20 live trades,
+set beside the published results for LLM trading agents, are in
+[docs/coinmarketcat-lessons.md](docs/coinmarketcat-lessons.md). Three things follow from
+them: the confidence floor above, since the desk's low-conviction calls were all of its loss;
+a **vs buy and hold** line in the popup and in the model's context, since most published
+agents did not beat simply holding; and the measured facts, stated in every system prompt.
 
 ### What is not measured, and what it is not
 

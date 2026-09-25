@@ -8,7 +8,7 @@
  *
  * The rules, each a named clause:
  *   real_person      a name on the famous-people list, or "Firstname Lastname" with a common
- *                    first name
+ *                    first name; a trend's title meets the long given-name list (given-names.txt)
  *   brand            a brand, trademark, franchise or well-known character
  *   endorsement      anything that claims or implies being official, endorsed, a partner…
  *   tragedy          disasters, deaths, violence, war, crime, accidents, disease
@@ -32,6 +32,7 @@
  * one ("M.U.S.K.") and on a listed word split in two ("Cat Girl"). A list can never be
  * complete; that is why the model reviews too, and why the lists err toward refusing.
  */
+import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { CAT_WORDS } from "./catdetect.mjs";
 
@@ -133,6 +134,13 @@ export const FIRST_NAMES = Object.freeze(new Set(("james john robert michael wil
   "vladimir dmitri ivan sergei olga natasha hans klaus fritz pierre jean francois emmanuel giuseppe luca marco giovanni " +
   /* The short forms people are known by ("Charlie Kirk"), leaving out the ones that are common words (will, max, rob). */
   "charlie chris mike matt tony jake josh jimmy tommy danny ricky joey nate zach luigi").split(" ")));
+
+/** The long list, for trend titles only: every US top-1,000 baby name from 1930 to 2008 (see
+ *  given-names.txt for the source), plus the list above. A trend such as "kirk herbstreit" is a
+ *  person, and "kirk" is on no short list. It is too broad for CashCat's own words ("may", "will"
+ *  and "hope" are names too), so the proposal rules keep FIRST_NAMES. */
+export const GIVEN_NAMES = Object.freeze(new Set([...FIRST_NAMES, ...fs.readFileSync(new URL("./given-names.txt", import.meta.url), "utf8")
+  .split("\n").filter((l) => /^[a-z]{3,}$/.test(l))].filter((n) => !CAT_WORDS.includes(n))));
 
 export const BRANDS = Object.freeze([
   "apple", "iphone", "google", "alphabet", "youtube", "amazon", "microsoft", "windows", "meta", "facebook", "instagram", "whatsapp", "tiktok", "bytedance", "twitter", "snapchat", "reddit", "discord", "telegram",
@@ -272,6 +280,16 @@ export function checkProposal({ name, symbol, tagline, trend }) {
  */
 export function checkTrend({ title, news = [] }) {
   const a = checkFields({ trend: title });
+  /* A trend named for a person is dropped even when the name is on no list: any given name from
+     the long list followed by another word ("kirk herbstreit", "josh allen", "travis scott").
+     Unlike personNameHit, the second word may be a given name too. Erring this way costs a trend,
+     never a coin. */
+  const words = wordsOf(title);
+  for (let i = 0; i + 1 < words.length && !a.violations.some((v) => v.rule === "real_person"); i++) {
+    if (GIVEN_NAMES.has(words[i]) && /^[a-z]{3,}$/.test(words[i + 1]) && !NOT_A_SURNAME.has(words[i + 1])) {
+      a.violations.push({ rule: "real_person", term: `${words[i]} ${words[i + 1]}`, field: "trend" }); a.ok = false; break;
+    }
+  }
   const b = checkFields(Object.fromEntries(news.slice(0, 6).map((t, i) => [`news ${i + 1}`, t])), { skip: ["endorsement", "financial_promise", "real_person", "brand", "politics", "link"] });
   /* People, brands and politics in a headline do not doom a trend ("Mayor opens a cat café" is fine);
      tragedy, minors, sex and hate in one do. The trend title itself gets every rule. */

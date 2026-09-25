@@ -38,6 +38,14 @@ ok("a multi-word name: \"Taylor Swift\" in the tagline", refused({ tagline: "A c
 ok("\"Firstname Lastname\" with a common first name: \"Michael Jordan\"", !displaySafe({ name: "Michael Jordan Cat", symbol: "MJ" }).ok);
 ok("a first name before a cat word is not a person: \"Taylor Cat\"", checkProposal({ ...good, name: "Taylor Cat" }).ok);
 ok("in the trend itself: \"elon musk\"", !checkTrend({ title: "elon musk", news: [] }).ok);
+/* The first live dry run on Actions picked the Google trend "kirk herbstreit" (a sportscaster)
+   and drafted "Kirk Cat": "kirk" was on no list. Trend titles now meet the long given-name list. */
+ok("a trend that is a person on no list: \"kirk herbstreit\", \"josh allen\", \"travis scott\"",
+  ["kirk herbstreit", "josh allen", "travis scott", "Shannon Sharpe"].every((title) => checkTrend({ title, news: [] }).violations.some((v) => v.rule === "real_person" && v.field === "trend")));
+ok("the long list is for trends only: \"may\", \"hope\" and \"will\" in CashCat's own tagline still pass",
+  checkProposal({ ...good, tagline: "A cat who hopes it may rain so it will nap all day." }).ok);
+ok("a given name before a cat or filler word is no person: the trend \"luna cat\" passes the person rule",
+  !checkTrend({ title: "luna cat", news: [] }).violations.some((v) => v.rule === "real_person"));
 
 section("BRANDS, TEAMS, CHARACTERS AND OTHER TOKENS");
 for (const n of ["Nike Cat", "Hello Kitty Coin", "Garfield Cat", "Grumpy Cat Coin", "Popcat Two", "Solana Cat", "Yankees Cat", "White Sox Kitty"])

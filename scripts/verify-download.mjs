@@ -10,8 +10,9 @@
  *      browser read the zip's own name and version.
  *   3. Turns on Developer mode at chrome://extensions and reloads the extension, so Chrome's own
  *      error list for it (the list its Errors button opens) covers its whole start-up.
- *   4. Opens popup.html, options.html and welcome.html, and fails on any console error, any
- *      uncaught error, any of its own files that does not load, and any entry in that error list.
+ *   4. Opens every page it ships (the popup and the options page its manifest names, and any
+ *      other .html, such as the setup page), and fails on any console error, any uncaught error,
+ *      any of its own files that does not load, and any entry in that error list.
  *   5. Unless --quick, checks what the Downloads page says about updating and removing it:
  *      the folder replaced in place and reloaded keeps the same ID and the settings; so does a
  *      browser restart; the same zip loaded from a different folder is a different extension,
@@ -29,12 +30,11 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readZip } from "./zip.mjs";
 import { EXTENSION_ZIP, SITE_DOWNLOADS } from "./package.mjs";
-import { launchWithExtension, serviceWorker, extensionsPage, tempProfile, uninstall } from "./chromium-extension.mjs";
+import { launchWithExtension, serviceWorker, extensionsPage, tempProfile, uninstall, extensionPages } from "./chromium-extension.mjs";
 
 const argv = process.argv.slice(2);
 const zipPath = path.resolve(argv.find((a) => !a.startsWith("--")) ?? path.join(SITE_DOWNLOADS, EXTENSION_ZIP));
 const quick = argv.includes("--quick"), keep = argv.includes("--keep");
-const PAGES = ["popup.html", "options.html", "welcome.html"];
 const MARKER = "cia-verify-download";
 const SETTLE_MS = 3_000;
 
@@ -111,8 +111,8 @@ try {
   check(/^[a-p]{32}$/.test(id), "its service worker started, with an extension ID", id);
   check(seen.name === zipManifest?.name && seen.version === zipManifest?.version, "the browser runs the zip's own manifest", `"${seen.name}" ${seen.version}`);
   await sleep(1_000);
-  const welcomeOpened = context.pages().some((p) => p.url() === `chrome-extension://${id}/welcome.html`);
-  notes.push(`on install it opened ${welcomeOpened ? "its setup page (welcome.html)" : "no page"}`);
+  const opened = context.pages().map((p) => p.url()).filter((u) => u.startsWith(`chrome-extension://${id}/`)).map((u) => u.slice(`chrome-extension://${id}/`.length));
+  notes.push(`on install it opened ${opened.length ? opened.join(", ") : "no page of its own"}`);
 
   step("3. DEVELOPER MODE ON, AND A RELOAD, SO CHROME'S ERROR LIST SEES ITS START-UP");
   const ext = await extensionsPage(context);
@@ -124,7 +124,9 @@ try {
   notes.push(`chrome://extensions lists it as "${info0.name}" ${info0.version}, ${info0.location.toLowerCase()}, from ${info0.prettifiedPath}`);
 
   step("4. ITS PAGES OPEN WITH NO ERROR");
-  for (const file of PAGES) {
+  const pages = extensionPages(folder);
+  check(pages.popup !== null && pages.all.includes(pages.popup), "the manifest names a popup, and it is in the zip", pages.popup ?? "none");
+  for (const file of pages.all) {
     const { page, problems, shown, status } = await openPage(context, id, file);
     check(problems.length === 0 && shown.words > 0 && shown.title.trim().length > 0 && (status === null || status === 200),
       `${file} opens, draws "${shown.title}" (${shown.words} characters of text), with no console error or uncaught error`, problems.join(" | "));

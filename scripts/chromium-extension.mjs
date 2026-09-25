@@ -33,6 +33,19 @@ export function chromiumPath() {
   return undefined;   // Playwright's own Chromium
 }
 
+/**
+ * Every page the extension ships, the popup and the options page (as its manifest names them)
+ * first, then any other .html file in its folder (the setup page, for one), so a renamed or new
+ * page is opened too.
+ */
+export function extensionPages(extensionDir) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(extensionDir, "manifest.json"), "utf8"));
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
+  const html = walk(extensionDir).map((f) => path.relative(extensionDir, f).split(path.sep).join("/")).filter((f) => /\.html$/i.test(f)).sort();
+  const popup = manifest.action?.default_popup ?? null, options = manifest.options_ui?.page ?? manifest.options_page ?? null;
+  return { popup, options, all: [...new Set([popup, options, ...html].filter(Boolean))] };
+}
+
 /** A fresh profile folder, removed by the caller. */
 export const tempProfile = (label = "profile") => fs.mkdtempSync(path.join(os.tmpdir(), `cia-${label}-`));
 

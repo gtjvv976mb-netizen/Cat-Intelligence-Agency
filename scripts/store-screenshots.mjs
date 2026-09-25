@@ -4,10 +4,11 @@
  *
  * Loads dist/ in Chromium (as scripts/verify-download.mjs does), and captures, as JPEG (the store
  * takes JPEG or 24-bit PNG, and a JPEG has no alpha channel to refuse):
- *   popup-1280x800.jpg     the popup, drawn at its own width on the agency's ink, at 1.5×
- *   options-1280x800.jpg   the options page, as the browser opens it
- *   welcome-1280x800.jpg   the setup page that opens on install
- * The popup and the options page are the two the listing needs; the setup page is spare.
+ *   popup-1280x800.jpg       the popup the manifest names, drawn at its own width on the agency's
+ *                            ink, at 1.5×
+ *   options-1280x800.jpg     the options page the manifest names, as the browser opens it
+ *   <page>-1280x800.jpg      every other page it ships (today, welcome.html: the setup page)
+ * The popup and the options page are the two the listing needs; the others are spare.
  *
  * Run it after the extension branch is merged, so the pictures are the renamed extension's:
  *   npm run build && node scripts/store-screenshots.mjs [--out docs/chrome-web-store/screenshots]
@@ -17,7 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchWithExtension, tempProfile } from "./chromium-extension.mjs";
+import { launchWithExtension, tempProfile, extensionPages } from "./chromium-extension.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const argv = process.argv.slice(2);
@@ -32,12 +33,13 @@ if (!fs.existsSync(path.join(DIST, "manifest.json"))) {
 }
 fs.mkdirSync(OUT, { recursive: true });
 
+const pages = extensionPages(DIST);
 const SHOTS = [
-  /* The popup is 400 px wide: it is centred on the agency's ink and drawn at 1.5×. */
-  { file: "popup-1280x800.jpg", page: "popup.html",
-    css: "html{width:auto!important;min-height:100%;background:#0b0716!important}body{width:400px!important;margin:24px auto!important;zoom:1.5;box-shadow:0 0 0 2px #14f195,10px 10px 0 2px rgba(0,0,0,.55)}" },
-  { file: "options-1280x800.jpg", page: "options.html" },
-  { file: "welcome-1280x800.jpg", page: "welcome.html" },
+  /* The popup is narrow (400 px today): it is centred on the agency's ink and drawn at 1.5×. */
+  ...(pages.popup ? [{ file: "popup-1280x800.jpg", page: pages.popup,
+    css: "html{width:auto!important;min-height:100%;background:#0b0716!important}body{margin:24px auto!important;zoom:1.5;box-shadow:0 0 0 2px #14f195,10px 10px 0 2px rgba(0,0,0,.55)}" }] : []),
+  ...(pages.options ? [{ file: "options-1280x800.jpg", page: pages.options }] : []),
+  ...pages.all.filter((p) => p !== pages.popup && p !== pages.options).map((p) => ({ file: `${p.replace(/\.html$/i, "").replace(/\//g, "-")}-1280x800.jpg`, page: p })),
 ];
 
 const profile = tempProfile("store");

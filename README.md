@@ -33,13 +33,36 @@ CoinMarketCap.
 |---|---|
 | `src/`, `manifest.json`, `build.mjs`, `vendor/`, `fixtures/` | The Cat Intelligence Agency extension: CoinMarketCat, Snipurr, Popcat, CashCat and Crying Cat |
 | `bots/`, `.github/workflows/cashcat.yml`, `.github/workflows/popcat.yml` | CashCat and Popcat, the agency's two bots, and the workflows that run them |
-| `site/` | The website: the agency's home with its 3D headquarters, [the work floor](https://catintelligenceagency.com/floor/) where the cats post their cases, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), and [the console](https://catintelligenceagency.com/console/) the extension signs through |
+| `site/` | The website: the agency's home with its 3D headquarters, [the work floor](https://catintelligenceagency.com/floor/) where the cats post their cases, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), [the console](https://catintelligenceagency.com/console/) the extension signs through, and the Agency HQ pages: [HQ live](https://catintelligenceagency.com/hq/), each agent's dossier, [Transparency](https://catintelligenceagency.com/investors/) and [the $CIA holder perks](https://catintelligenceagency.com/perks/) ([below](#agency-hq-on-the-site)) |
 | `brand/` | The [brand kit](brand/README.md): the seven pixel kittens (CoinMarketCat in its purple hoodie, Snipurr in CoinMarketCat's old art), the work floor with seven desks, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
 | `icons/` | The extension's icons (`cia-*.png`: Crying Cat's face from the $CIA coin, the agency's mark) and CoinMarketCat's own (`coinmarketcat-*.png`, its hoodie tabby, for its page on the site) |
 
 $CIA is a memecoin with no intrinsic value and no expectation of profit. Nothing here is
 financial advice. Cat Intelligence Agency is a meme and software project, not a government
 agency, and is not affiliated with CoinMarketCap or with the owners of any real cat or meme.
+
+## Agency HQ on the site
+
+Agency HQ is the agency's own server (`services/hq/`): its cat agents trade the agency's own
+money, each from its own wallet, and every figure is computed from their transactions. The site
+reads it through the public API in [docs/hq/API.md](docs/hq/API.md), and through one module,
+`site/assets/hq-client.js`, the only file in `site/` that may fetch or open an event stream. It
+calls only the origin set as `hqApi` in `site/assets/config.js`, and only if that is
+`https://api.catintelligenceagency.com` (or `http://localhost:<port>` in development).
+`site/assets/hq-validate.js` checks every answer against the contract before a page draws it,
+as text. With `hqApi` empty, as it ships until HQ is online, every HQ page says HQ is coming
+online and shows no number.
+
+To work on the pages without HQ, run the mock, which answers every endpoint with clearly fake,
+contract-shaped data and streams events (it is never deployed, and nothing in `site/` names it):
+
+```sh
+node scripts/hq-mock.mjs --port 8787 [--mode mixed|paper|live] [--empty]
+```
+
+then serve `site/` locally with a `config.js` whose `hqApi` is `"http://127.0.0.1:8787"`.
+`test-hq-site.mjs` checks the validators, the number formats and the client's rules, and every
+answer the mock gives; `test-site.mjs` pins the pages to the contract.
 
 ## The work floor, and how to post a case
 

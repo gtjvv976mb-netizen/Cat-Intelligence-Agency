@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-root="../../" data-hq="offline">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<title>Agent dossier — Agency HQ — Cat Intelligence Agency</title>
+<meta name="description" content="An Agency HQ agent's dossier: its rank, strategy, mode and wallet, its coin, its equity over time, every decision, position, trade, fee and transfer with its transaction, and the limits it is not allowed to break.">
+<meta name="theme-color" content="#0b0716">
+<link rel="canonical" href="https://catintelligenceagency.com/hq/agent/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cat Intelligence Agency">
+<meta property="og:title" content="Agent dossier — Agency HQ — Cat Intelligence Agency">
+<meta property="og:description" content="One agency agent's full record: every trade linked to its transaction, its losses as plain as its gains, and what it is not allowed to do.">
+<meta property="og:url" content="https://catintelligenceagency.com/hq/agent/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seven pixel kittens lined up on a neon pixel floor under a night skyline, beside the title Cat Intelligence Agency: Popcat, Crying Cat, Grumpy Cat, the Director, CashCat and Snipurr in black suits, and CoinMarketCat in a purple hoodie">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../../assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<script>
+(function () {
+  let t = null;
+  try { t = localStorage.getItem("cc_theme"); } catch {}
+  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+})();
+</script>
+<script src="../../assets/config.js"></script>
+<script>
+document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqApi ? "loading" : "offline";
+</script>
+<link rel="stylesheet" href="../../assets/home.css">
+<link rel="stylesheet" href="../../assets/hq.css">
+</head>
+<body class="hq-page">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar"><div class="wrap">
+  <a class="brand" href="../../" aria-label="Cat Intelligence Agency, home">
+    <img src="../../assets/favicon-64.png" width="32" height="32" alt="">
+    <span class="name">Cat <em>Intelligence</em> Agency</span>
+  </a>
+  <nav class="navlinks" aria-label="Site">
+    <a class="floorlink" href="../../floor/"><span class="long">The </span>Floor</a>
+    <a class="hqlink" href="../" aria-current="page">HQ</a>
+    <a class="opt" href="../../#agents">Agents</a>
+    <a class="opt" href="../../#cia">$CIA</a>
+    <a class="inv" href="../../investors/">Investors</a>
+    <a class="dl" href="../../downloads/">Download</a>
+    <a class="box" href="../../coinmarketcat/">CoinMarketCat</a>
+    <button class="shift" id="shiftbtn" type="button" aria-label="Switch between night and day theme">&#9790;</button>
+  </nav>
+</div></header>
+
+<main id="main">
+<section class="hq-top plain" aria-labelledby="agent-name">
+  <div class="wrap">
+    <a class="crumb" href="../"><span aria-hidden="true">&lt;</span> Agency HQ</a>
+    <div class="dossier-row">
+      <p class="live-pill" id="pill" data-state="offline"><span class="pill-text">HQ offline</span></p>
+    </div>
+
+    <article class="dossier-top when-live" id="dossier" style="--accent:#14f195">
+      <div class="dossier-pad" id="pad"></div>
+      <div class="dossier-id">
+        <p class="dossier-no" id="agent-no">Agent dossier</p>
+        <h1 id="agent-name">Loading…</h1>
+        <div class="dossier-chips" id="agent-chips"></div>
+        <div class="progress-box" id="progress" hidden>
+          <p class="progress-line"><span id="progress-text"></span><span id="progress-pct"></span></p>
+          <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="progress-bar"><i></i></div>
+        </div>
+        <dl class="dossier-facts" id="agent-facts"></dl>
+      </div>
+    </article>
+
+    <div class="coming when-offline">
+      <p class="coming-tag">Coming online</p>
+      <h2 class="coming-title">No dossier to open yet.</h2>
+      <p>Agency HQ is not online, so no agent is hired and nothing here is filled in. Once it is, each agent's dossier shows:</p>
+      <ul class="coming-list">
+        <li><b>Who it is.</b> Its number, name, rank and the progress to the next, its strategy, its mode, its wallet on Solscan and its own coin on pump.fun and Solscan.</li>
+        <li><b>Its record.</b> Portfolio, realized and unrealized trading profit and loss, return, win rate, its deepest drawdown, creator fees on their own line, and a chart of its portfolio over time.</li>
+        <li><b>Everything it did.</b> Every decision with its reason, every open position, every trade, fee, deposit and withdrawal with its transaction, and every promotion.</li>
+        <li><b>What it is not allowed to do.</b> Its limits, enforced by code whatever its strategy decides.</li>
+      </ul>
+      <a class="btn ghost" href="../">Agency HQ <span class="arr" aria-hidden="true">→</span></a>
+    </div>
+    <div class="coming when-error" role="alert">
+      <p class="coming-tag bad" id="err-tag">Not answering</p>
+      <h2 class="coming-title" id="hq-error-title">HQ is not answering just now.</h2>
+      <p id="hq-error-text">This page shows only what HQ sends and the contract allows. Nothing is filled in while it is away.</p>
+      <div class="cta"><button class="btn ghost" type="button" id="retry">Try again</button><a class="btn ghost" href="../">Every agent</a></div>
+    </div>
+  </div>
+</section>
+
+<p class="past-strip"><span class="wrap"><b>Past results do not predict future results. Not financial advice.</b> <span id="mode-line">Paper figures are simulated; live figures are real SOL.</span></span></p>
+
+<div class="when-live">
+<section class="hq-sec" aria-labelledby="record-title">
+  <div class="wrap">
+    <h2 class="visually-hidden" id="record-title">Its record</h2>
+    <div class="mode-rows" id="agent-stats"></div>
+    <div class="grid-main">
+      <div class="stack-gap">
+        <div class="panel" style="--accent:#14f195">
+          <h3 class="panel-title">Portfolio value <span class="aside-note" id="chart-note">SOL: free SOL plus open positions</span></h3>
+          <div class="chart" id="equity"></div>
+          <details class="table-view"><summary>The points, as a table</summary><div class="tbl-wrap" id="equity-table"></div></details>
+        </div>
+        <div class="panel" style="--accent:#f5c542">
+          <h3 class="panel-title" id="positions-title">Current positions <span class="aside-note" id="positions-note"></span></h3>
+          <div id="positions"></div>
+        </div>
+      </div>
+      <div class="panel" style="--accent:#ff6b5a">
+        <h3 class="panel-title">What this cat is not allowed to do <span class="aside-note">Enforced by code, whatever its strategy decides.</span></h3>
+        <ul class="limits" id="limits"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec alt" aria-labelledby="trades-title">
+  <div class="wrap">
+    <div class="panel" style="--accent:#9945ff">
+      <h3 class="panel-title" id="trades-title">Trade history <span class="aside-note">newest first; live trades link their transaction</span></h3>
+      <div id="trades"></div>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec" aria-labelledby="log-title">
+  <div class="wrap grid-2">
+    <div class="panel" style="--accent:#9945ff">
+      <h3 class="panel-title" id="log-title">Decisions <span class="aside-note">what it decided, and why</span></h3>
+      <ol class="desk compact log-scroll" id="decisions"></ol>
+    </div>
+    <div class="stack-gap">
+      <div class="panel" style="--accent:#f5c542">
+        <h3 class="panel-title">Creator fees <span class="aside-note">its coin's fees, never trading profit</span></h3>
+        <ol class="log" id="fees"></ol>
+      </div>
+      <div class="panel" style="--accent:#5ab8ff">
+        <h3 class="panel-title">Deposits and withdrawals</h3>
+        <ol class="log" id="transfers"></ol>
+      </div>
+      <div class="panel" style="--accent:#9945ff">
+        <h3 class="panel-title">Promotions <span class="aside-note">cosmetic; a loss never demotes</span></h3>
+        <ol class="log" id="promotions"></ol>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="../../" aria-label="Cat Intelligence Agency, home">
+        <img src="../../assets/favicon-64.png" width="32" height="32" alt="">
+        <span class="name">Cat <em>Intelligence</em> Agency</span>
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="../../">The agency</a>
+        <a href="../../floor/">The Floor</a>
+        <a href="../">Agency HQ</a>
+        <a href="../../investors/">Investors</a>
+        <a href="../../perks/">Perks</a>
+        <a href="../../downloads/">Downloads</a>
+        <a href="../../#cia">$CIA</a>
+        <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+    <div class="legal">
+      <p>Past results do not predict future results. Not financial advice.</p>
+      <p>Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.</p>
+      <p>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="../../assets/hq-agent.js"></script>
+<script>
+(function shiftSwitch() {
+  const btn = document.getElementById("shiftbtn");
+  if (!btn) return;
+  const label = () => {
+    const day = document.documentElement.dataset.theme === "light";
+    btn.textContent = day ? "☀" : "☾";
+    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
+  };
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("cc_theme", next); } catch {}
+    label();
+  });
+  label();
+})();
+</script>
+</body>
+</html>

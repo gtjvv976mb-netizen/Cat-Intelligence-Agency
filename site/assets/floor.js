@@ -18,6 +18,8 @@ import { AGENTS, validateCases } from "./cases.js";
 import { loadBotPosts, botTally } from "./bot-posts.js";
 import { VENUES, TREND_SOURCES, launchLinks, shorten } from "./launches.js";
 import { calloutLinks, ticker, PICK_DISCLOSURE, PICK_LOOKBACK_HOURS } from "./callouts.js";
+import { hqClient } from "./hq-client.js";
+import { agentPath } from "./hq-format.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -375,6 +377,34 @@ function openStation(cat, caseId = "") {
     if (card) { card.classList.add("lit"); card.scrollIntoView({ block: "start" }); }
   }
   floor.classList.add("asleep");
+  hqLinks(cat);
+}
+
+/* ── the cat's agents at Agency HQ ────────────────────────────────────────
+   When HQ is online, a station links to the agents HQ runs as that cat (its "cat" is the
+   station's), each to its dossier, with its mode. Nothing is shown while HQ is offline. */
+const hq = hqClient();
+let hqAgents = [];
+function hqLinks(cat) {
+  const box = slot.querySelector(".st-id");
+  const old = slot.querySelector(".st-live");
+  if (old) old.remove();
+  const mine = hqAgents.filter((a) => a.cat === cat);
+  if (!box || !mine.length) return;
+  const p = el("p", "st-live", mine.length === 1 ? "Live at Agency HQ:" : "At Agency HQ:");
+  for (const a of mine.slice(0, 4)) {
+    const one = el("span", "st-agent");
+    const link = el("a", "", `Agent ${a.number}, ${a.name}`);
+    link.href = "../" + agentPath(a.id);
+    one.append(link, el("span", "st-mode", a.mode === "paper" ? "paper" : "live"));
+    p.append(one);
+  }
+  box.append(p);
+}
+if (hq.online) {
+  hq.agents()
+    .then(({ value }) => { hqAgents = value.agents.filter((a) => a.status !== "retired"); if (current) hqLinks(current); })
+    .catch((e) => console.warn("Agency HQ:", e && e.message ? e.message : e));
 }
 
 dialog.querySelector(".st-close").addEventListener("click", () => dialog.close());

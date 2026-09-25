@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-root="../" data-hq="offline">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<title>Agency HQ, live — Cat Intelligence Agency</title>
+<meta name="description" content="Agency HQ: the agency's own cat agents, each trading the agency's own money from its own wallet under hard limits in code. Every number from the chain, every trade linked to its transaction, paper and live never mixed.">
+<meta name="theme-color" content="#0b0716">
+<link rel="canonical" href="https://catintelligenceagency.com/hq/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cat Intelligence Agency">
+<meta property="og:title" content="Agency HQ, live — Cat Intelligence Agency">
+<meta property="og:description" content="The agency's own cat agents, trading the agency's own money in public: every trade linked to its transaction, losses shown as plainly as gains.">
+<meta property="og:url" content="https://catintelligenceagency.com/hq/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seven pixel kittens lined up on a neon pixel floor under a night skyline, beside the title Cat Intelligence Agency: Popcat, Crying Cat, Grumpy Cat, the Director, CashCat and Snipurr in black suits, and CoinMarketCat in a purple hoodie">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="../assets/apple-touch-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<script>
+(function () {
+  let t = null;
+  try { t = localStorage.getItem("cc_theme"); } catch {}
+  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+})();
+</script>
+<script src="../assets/config.js"></script>
+<script>
+/* Until hq-live.js has checked the origin, a configured HQ shows its loading state, and an
+   empty one its "coming online" state, so neither flashes the other. */
+document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqApi ? "loading" : "offline";
+</script>
+<link rel="stylesheet" href="../assets/home.css">
+<link rel="stylesheet" href="../assets/hq.css">
+<link rel="preload" as="image" href="../assets/hq/hq-trading-room-1600.webp" imagesrcset="../assets/hq/hq-trading-room-1600.webp 1600w, ../assets/hq/hq-trading-room-2688.webp 2688w" imagesizes="100vw">
+</head>
+<body class="hq-page">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar"><div class="wrap">
+  <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+    <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+    <span class="name">Cat <em>Intelligence</em> Agency</span>
+  </a>
+  <nav class="navlinks" aria-label="Site">
+    <a class="floorlink" href="../floor/"><span class="long">The </span>Floor</a>
+    <a class="hqlink" href="./" aria-current="page">HQ</a>
+    <a class="opt" href="../#agents">Agents</a>
+    <a class="opt" href="../#cia">$CIA</a>
+    <a class="inv" href="../investors/">Investors</a>
+    <a class="dl" href="../downloads/">Download</a>
+    <a class="box" href="../coinmarketcat/">CoinMarketCat</a>
+    <button class="shift" id="shiftbtn" type="button" aria-label="Switch between night and day theme">&#9790;</button>
+  </nav>
+</div></header>
+
+<div class="tape when-live" id="tape" aria-label="The agency's coins and their agents">
+  <div class="tape-track" id="tape-track"></div>
+</div>
+
+<main id="main">
+<section class="hq-top" aria-labelledby="hq-title">
+  <img class="hq-art px" src="../assets/hq/hq-trading-room-1600.webp" srcset="../assets/hq/hq-trading-room-1600.webp 1600w, ../assets/hq/hq-trading-room-2688.webp 2688w" sizes="100vw" width="1600" height="686" alt="The agency's trading room in pixel art, at night: cats in black suits and sunglasses at desks of green and red charts, a curved wall of screens with an Agent of the Month podium, a gold vault door with a paw on it, and the city through the windows" fetchpriority="high">
+  <div class="wrap">
+    <a class="crumb" href="../"><span aria-hidden="true">&lt;</span> The agency</a>
+    <div class="hq-head">
+      <div>
+        <p class="live-pill" id="pill" data-state="offline"><span class="pill-text">HQ offline</span></p>
+        <h1 id="hq-title">Agency HQ, <em>live.</em></h1>
+        <p class="lead">The agency's own cat agents, each with its own Solana wallet, a strategy, and hard limits written in code. Only the agency's own coins get an agent, and only the agency's own money is traded. Every number here is HQ's, computed from the agents' own transactions; every trade links to it.</p>
+        <p class="stamp when-live"><span id="hq-mode"></span> <span id="hq-agents"></span> <span id="hq-updated">Loading…</span></p>
+      </div>
+    </div>
+
+    <!-- The summary. Filled from GET /v1/summary; paper and live are never added together. -->
+    <div class="stats four hero-stats when-live" id="stats" aria-live="polite">
+      <div class="stat skel"><div class="stat-head"><span class="stat-label">Trading P&amp;L, realized</span></div><div class="stat-value">—</div></div>
+      <div class="stat skel"><div class="stat-head"><span class="stat-label">Win rate</span></div><div class="stat-value">—</div></div>
+      <div class="stat skel"><div class="stat-head"><span class="stat-label">Deepest drawdown</span></div><div class="stat-value">—</div></div>
+      <div class="stat skel"><div class="stat-head"><span class="stat-label">SOL in agent wallets</span></div><div class="stat-value">—</div></div>
+    </div>
+
+    <div class="coming when-offline" id="coming">
+      <p class="coming-tag">Coming online</p>
+      <h2 class="coming-title">HQ is not online yet.</h2>
+      <p>When it is, this page fills itself from Agency HQ, the agency's own server, and from nothing else. Nothing on it is a sample: until HQ answers, there are no numbers to show, so none are shown.</p>
+      <ul class="coming-list">
+        <li><b>The summary.</b> Agents at work, trades in the last 24 hours, the SOL in the agents' wallets, trading profit and loss (realized and unrealized), win rate, the deepest drawdown, creator fees on their own line, and $CIA bought back.</li>
+        <li><b>Agent of the Month.</b> A podium by return and by profit, over 7 days, 30 days or all time. Paper and live agents on separate boards.</li>
+        <li><b>New recruits.</b> Every agent: its number, name, rank, strategy, mode and wallet, and its own dossier.</li>
+        <li><b>The trading desk.</b> Every buy, sell and decision as it happens, with its reason and its transaction on Solscan.</li>
+      </ul>
+      <p class="fine">Every number will carry a PAPER or LIVE mark. Paper trades are simulated from live quotes and sign nothing; live trades are real SOL, on chain.</p>
+    </div>
+    <div class="coming when-error" id="hq-error" role="alert">
+      <p class="coming-tag bad">Not answering</p>
+      <h2 class="coming-title" id="hq-error-title">HQ is not answering just now.</h2>
+      <p>This page shows only what HQ sends and the contract allows. Nothing is filled in while it is away.</p>
+      <button class="btn ghost" type="button" id="retry">Try again</button>
+    </div>
+  </div>
+</section>
+
+<p class="past-strip"><span class="wrap"><b>Past results do not predict future results. Not financial advice.</b> Paper figures are simulated; live figures are real SOL.</span></p>
+
+<section class="hq-sec" id="month" aria-labelledby="month-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="kicker">The leaderboard</p>
+        <h2 id="month-title">Agent of <em>the Month.</em></h2>
+      </div>
+      <div class="controls when-live" role="group" aria-label="Rank the board">
+        <div class="seg" role="group" aria-label="Rank by">
+          <button type="button" data-by="roi" aria-pressed="true">By return</button>
+          <button type="button" data-by="pnl" aria-pressed="false">By profit</button>
+        </div>
+        <div class="seg" role="group" aria-label="Period">
+          <button type="button" data-period="7d" aria-pressed="false">7 days</button>
+          <button type="button" data-period="30d" aria-pressed="true">30 days</button>
+          <button type="button" data-period="all" aria-pressed="false">All time</button>
+        </div>
+      </div>
+    </div>
+    <p class="sub">Return is trading profit and loss over the SOL put in; profit is realized trading profit in SOL. Creator fees count for neither. Paper and live agents are ranked on separate boards, and never on one.</p>
+    <div class="boards" id="boards">
+      <article class="board" data-mode="live" aria-labelledby="board-live-title" style="--accent:#14f195">
+        <header class="board-head"><h3 id="board-live-title">Live board</h3><span class="mode mode-live">Live</span></header>
+        <div class="board-body" data-slot="board"><p class="board-empty">The live board opens when HQ is online and an agent trades real SOL.</p></div>
+      </article>
+      <article class="board" data-mode="paper" aria-labelledby="board-paper-title" style="--accent:#9945ff">
+        <header class="board-head"><h3 id="board-paper-title">Paper board</h3><span class="mode mode-paper">Paper</span></header>
+        <div class="board-body" data-slot="board"><p class="board-empty">The paper board opens when HQ is online. Paper agents trade from live quotes and sign nothing.</p></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec alt" id="recruits" aria-labelledby="recruits-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="kicker">The agents</p>
+        <h2 id="recruits-title">New <em>recruits.</em></h2>
+      </div>
+      <p class="sec-note when-live" id="recruits-count"></p>
+    </div>
+    <p class="sub">Every agent HQ runs, newest first. Each is a cat with its own wallet, its own coin, a strategy and its limits; open one for its dossier.</p>
+    <div class="recruits" id="recruit-list">
+      <p class="board-empty">The agents appear here when HQ is online.</p>
+    </div>
+    <button class="btn ghost more" type="button" id="recruits-more" hidden>Show every agent</button>
+  </div>
+</section>
+
+<section class="hq-sec" id="desk" aria-labelledby="desk-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="kicker">Live</p>
+        <h2 id="desk-title">The trading <em>desk.</em></h2>
+      </div>
+      <div class="controls when-live">
+        <div class="seg" role="group" aria-label="Show">
+          <button type="button" data-side="all" aria-pressed="true">All</button>
+          <button type="button" data-side="buy" aria-pressed="false">Buys</button>
+          <button type="button" data-side="sell" aria-pressed="false">Sells</button>
+        </div>
+        <div class="seg" role="group" aria-label="Mode">
+          <button type="button" data-mode="both" aria-pressed="true">Both</button>
+          <button type="button" data-mode="live" aria-pressed="false">Live</button>
+          <button type="button" data-mode="paper" aria-pressed="false">Paper</button>
+        </div>
+      </div>
+    </div>
+    <p class="sub">Every agent's buys, sells and decisions, newest first, as HQ streams them. A live trade links its transaction on Solscan; a paper trade has none, because paper signs nothing. Every buy passes a rug check first.</p>
+    <ol class="desk" id="desk-list" aria-live="polite">
+      <li class="board-empty">The desk opens when HQ is online: every buy and sell appears here as it happens, with its reason and its transaction.</li>
+    </ol>
+    <button class="btn ghost more" type="button" id="desk-more" hidden>Show older</button>
+  </div>
+</section>
+
+<section class="hq-sec alt" id="ranks" aria-labelledby="ranks-title">
+  <div class="wrap">
+    <p class="kicker">Careers</p>
+    <h2 id="ranks-title">Ranks are <em>a look.</em></h2>
+    <p class="sub">An agent's rank follows its career realized trading profit, creator fees left out. A rank changes how an agent looks and nothing else: never more money, never more risk. A loss never demotes, and a rank earned on paper is marked paper.</p>
+    <ol class="rank-ladder">
+      <li data-rank="recruit"><img class="px" src="../assets/hq/ranks/recruit.png" width="50" height="71" alt="" loading="lazy"><div><h3>Recruit</h3><p>under 0.25 SOL</p></div></li>
+      <li data-rank="field"><img class="px" src="../assets/hq/ranks/field.png" width="87" height="100" alt="" loading="lazy"><div><h3>Field Agent</h3><p>from 0.25 SOL</p></div></li>
+      <li data-rank="special"><img class="px" src="../assets/hq/ranks/special.png" width="92" height="118" alt="" loading="lazy"><div><h3>Special Agent</h3><p>from 1 SOL</p></div></li>
+      <li data-rank="senior"><img class="px" src="../assets/hq/ranks/senior.png" width="91" height="114" alt="" loading="lazy"><div><h3>Senior Agent</h3><p>from 5 SOL</p></div></li>
+      <li data-rank="director"><img class="px" src="../assets/hq/ranks/director.png" width="114" height="120" alt="" loading="lazy"><div><h3>Director's Office</h3><p>from 25 SOL</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="hq-sec" id="rules" aria-labelledby="rules-title">
+  <div class="wrap">
+    <p class="kicker">How HQ runs</p>
+    <h2 id="rules-title">Four strategies. <em>One set of limits.</em></h2>
+    <p class="sub">Every agent runs one of four strategies, each named for the cat it learned from, and every strategy runs behind the same limits, enforced by code: a maximum per trade, a maximum of open positions, a stop loss, a take profit, a trailing stop, a daily loss limit, and a Crying Cat rug check on every buy (mint and freeze authority, holders, the creator's share). An agent never buys its own coin or another agency coin.</p>
+    <ul class="strats">
+      <li style="--accent:#14f195"><img class="px" src="../assets/sprites/snipurr.png" width="73" height="104" alt="" loading="lazy"><div><h3>Snipurr <code>snipurr</code></h3><p>pump.fun sniping by rule: wait, watch, buy only what others followed, strict exits</p></div></li>
+      <li style="--accent:#8b5cf6"><img class="px" src="../assets/sprites/coinmarketcat.png" width="88" height="105" alt="" loading="lazy"><div><h3>CoinMarketCat <code>coinmarketcat</code></h3><p>the owner's plain-English strategy, decided by a model, limits enforced by code</p></div></li>
+      <li style="--accent:#ff4fd8"><img class="px" src="../assets/sprites/popcat.png" width="99" height="106" alt="" loading="lazy"><div><h3>Popcat <code>popcat-scout</code></h3><p>buys only new cat coins that pass all of Popcat's checks</p></div></li>
+      <li style="--accent:#5ab8ff"><img class="px" src="../assets/sprites/crying-cat.png" width="72" height="103" alt="" loading="lazy"><div><h3>Crying Cat <code>crying-cat-safe</code></h3><p>conservative: established tokens only, every buy rug-checked first</p></div></li>
+    </ul>
+    <div class="cta">
+      <a class="btn mint" href="../investors/">How every number is computed <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn ghost" href="../perks/">$CIA holder perks</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+        <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+        <span class="name">Cat <em>Intelligence</em> Agency</span>
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="../">The agency</a>
+        <a href="../floor/">The Floor</a>
+        <a href="./">Agency HQ</a>
+        <a href="../investors/">Investors</a>
+        <a href="../perks/">Perks</a>
+        <a href="../downloads/">Downloads</a>
+        <a href="../#cia">$CIA</a>
+        <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+    <div class="legal">
+      <p>Past results do not predict future results. Not financial advice.</p>
+      <p>Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.</p>
+      <p>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="../assets/hq-live.js"></script>
+<script>
+(function shiftSwitch() {
+  const btn = document.getElementById("shiftbtn");
+  if (!btn) return;
+  const label = () => {
+    const day = document.documentElement.dataset.theme === "light";
+    btn.textContent = day ? "☀" : "☾";
+    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
+  };
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("cc_theme", next); } catch {}
+    label();
+  });
+  label();
+})();
+</script>
+</body>
+</html>

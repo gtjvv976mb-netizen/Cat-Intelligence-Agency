@@ -110,6 +110,38 @@ the past year, and a buy-and-hold comparison against cat coins is a low bar in a
 market. Report the result in SOL terms as well as in dollars, and keep the stop loss and the
 daily drawdown breaker on.
 
+## 5. How often a new cat coin reaches each market cap
+
+Measured on pump.fun on 24–25 Sep 2026. Launches in pump.fun's "Mayhem mode" (about a third
+of launches) are left out: in 578 of 585 we read, the market cap shown was not backed by the
+SOL the curve held. A coin starts at about $3.3k and graduates from pump.fun's curve at about
+411 SOL (about $49k at the time).
+
+| Peak market cap | Cat coins | Other coins | From |
+|---|---|---|---|
+| $10k | 13% (7 of 53) | 9.5% | every launch, 09:40–11:16 UTC on 25 Sep, peak read at 1 hour |
+| $20k | 9% (5 of 53) | 5.9% | same |
+| $50k (about graduation) | 2.4% (about 1 in 42) | 3.6% | every coin that graduated from the 34,405 launches in the 24 hours to 10:35 UTC on 25 Sep |
+| $100k | 1.8% (about 1 in 55) | 2.7% | same |
+| $500k | 0.7% (about 1 in 145) | 1.7% | same |
+| $1M | 0.3% (about 1 in 320) | 0.9% | same |
+| $10M | about 1 in 50,000–100,000 | about 1 in 100,000 (Aug 2024) | known pump.fun cat coins' all-time highs over the estimated number of cat launches since Jan 2024 |
+| $100M | about 1 in 180,000–370,000 | – | same |
+| $1B | none born on pump.fun | at least 3 (Fartcoin, PNUT, GOAT) | same |
+
+- **Cat coins are not luckier than other coins.** At $10k–$20k they look slightly ahead,
+  but on 7 and 5 coins, three of them one ticker relaunched five times. Counting each
+  wallet's first launch only, cats and other coins are level (14.6% against 14.1% at $10k).
+  From $50k up, cats reached each level 0.35–0.7 times as often as other coins; the gap is
+  larger than chance only at $500k and $1M.
+- **Most big peaks lasted seconds.** Of the 29 cat coins that reached $100k, 25 filled their
+  curve within their first minute, and 24 of the 29 were back near $2–3k when read.
+- **Today's market is unusually easy.** pump.fun's graduation rate was about 2.8% in August
+  2026, against about 0.6% in September 2025 (The Block).
+- **What these figures leave out:** one day and one launchpad; few cat coins at each level;
+  a word-based cat detector that misses cats with other names (MOG, TOSHI). The $10M and
+  $100M odds rest on an estimated count of cat launches.
+
 ## What changed in CoinMarketCat
 
 | Lesson | Change | Where |

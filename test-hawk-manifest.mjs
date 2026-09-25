@@ -66,6 +66,14 @@ ok("the description names all five cats and what each does: CoinMarketCat, Snipu
 ok("…and never uses the agency's initials for itself (only $CIA, the coin, uses them)", !/\bCIA\b/.test(`${manifest.name} ${manifest.short_name} ${manifest.description} ${manifest.action?.default_title}`));
 ok("…and claims nothing it cannot keep: no returns, no 24/7, no leverage", !/profit|return|24\/7|always on|leverage|guarantee/i.test(manifest.description));
 ok("the description fits Chrome's 132-character limit", manifest.description.length <= 132, `${manifest.description.length} characters`);
+/* The store kit says the store takes its short description from the manifest's description: the
+   kit's sentence and the manifest's must be the same, character for character. */
+{
+  const listing = fs.readFileSync(path.join(here, "docs", "chrome-web-store", "listing.md"), "utf8");
+  const short = listing.match(/## Short description[^\n]*\n\n```\n([^\n]*)\n```/)?.[1] ?? null;
+  ok("the store kit's short description is the manifest's description, character for character, and its count is right",
+    short === manifest.description && new RegExp(`\\b${manifest.description.length} characters\\b`).test(listing), JSON.stringify(short));
+}
 
 console.log("\nTHE FIRST-RUN SETUP PAGE\n────────────────────────");
 {

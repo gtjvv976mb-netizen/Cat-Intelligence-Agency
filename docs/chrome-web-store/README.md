@@ -9,25 +9,26 @@ serves the zip to load unpacked.
 | [listing.md](listing.md) | The name, the short description (at most 132 characters), the detailed description, the category, the links and the pictures |
 | [privacy.md](privacy.md) | The single purpose, where every piece of data goes and why, the dashboard's data answers, and a privacy policy to publish |
 | [permissions.md](permissions.md) | A justification for every permission, host permission and page match in `manifest.json` |
-| `../../scripts/store-screenshots.mjs` | Loads `dist/` in Chromium and writes 1280 × 800 screenshots of the popup, the options page and the setup page to `screenshots/` |
+| [screenshots/](screenshots/) | The popup, the options page and the setup page at 1280 × 800, from the merged build |
+| `../../scripts/store-screenshots.mjs` | Loads `dist/` in Chromium and writes those screenshots again |
 
-All three documents were written against main's `manifest.json` (0.1.0) and describe the five
-cats the extension branch adds. **Recheck them after that branch is merged**, before anything is
-submitted.
+All three documents describe the merged extension (`manifest.json` 0.1.0, five cats) and were
+checked against its code: every permission, every host it calls and every cat that calls it.
+`test-hawk-manifest.mjs` checks the listing's short description is the manifest's.
 
 ## How to submit
 
-1. **Merge, then recheck.** Merge the extension branch, then `npm ci && npm run build && npm test`.
-   Diff the merged `manifest.json` against [permissions.md](permissions.md) and justify anything
-   new; check every row of [privacy.md](privacy.md) against the merged code; check every line of
-   [listing.md](listing.md) against what the extension does. Put the listing's short description
-   in `manifest.json`'s `description`, and consider dropping the development-only console
-   matches (`localhost`, `127.0.0.1`, `claudedotcompany.com`) from the store build.
+1. **Recheck.** `npm ci && npm run build && npm test`. If `manifest.json` changed since these
+   files were written, diff it against [permissions.md](permissions.md) and justify anything
+   new; check [privacy.md](privacy.md) and [listing.md](listing.md) against what the extension
+   does. Consider dropping the development-only console matches (`localhost`, `127.0.0.1`,
+   `claudedotcompany.com`) from the store build.
 2. **Verify the zip.** `node scripts/package.mjs && node scripts/verify-download.mjs`: it loads
    the zip in Chromium, opens every page, and fails on any error. Then
    `node scripts/package.mjs --placeholder` before any commit.
-3. **Take the screenshots.** `node scripts/store-screenshots.mjs`. Look at them: they show a
-   fresh install, with nothing set up.
+3. **The screenshots** are in [screenshots/](screenshots/); take them again with
+   `node scripts/store-screenshots.mjs` if the pages changed. Look at them: they show a fresh
+   install, with nothing set up.
 4. **Open a developer account.** Sign in to the Chrome Web Store Developer Dashboard
    (`https://chrome.google.com/webstore/devconsole`) with the Google account that should own the
    listing, pay the one-time registration fee (US$5), and verify the contact email. Publishing

@@ -641,6 +641,8 @@ Every fixed host the extension calls, which cat calls it, and why:
 | `trends.google.com` | CashCat | Google Trends' US trending-searches feed, for drafting from a trend |
 | `api.coingecko.com` | CashCat | CoinGecko's trending categories, for drafting from a trend |
 | `lite-api.jup.ag` | CashCat | Jupiter's verified-token list: no draft may take a verified token's ticker or name |
+| `api.mainnet-beta.solana.com` | Popcat, Crying Cat | tried for reads only when no RPC is set; it answers 403 to the extension, and both then ask for an RPC |
+| a new coin's metadata host (usually an IPFS gateway) | Snipurr | its socials check (on by default): one read of the document its creator named, with a deadline and a size cap; its links are never followed |
 
 ### Privacy: what stays in your browser, and what is sent where
 

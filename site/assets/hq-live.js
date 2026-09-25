@@ -19,7 +19,7 @@ const S = {
   desk: [], deskNext: null, deskRefused: 0, deskFailed: null,
   side: "all", mode: "both", deskShown: 24, by: "roi", period: "30d", allRecruits: false, boardKey: "",
 };
-let stopStream = null, streamedOnce = false, agentsTimer = 0;
+let stopStream = null, agentsTimer = 0;
 
 
 /* ── boot ───────────────────────────────────────────────────────────────── */
@@ -74,7 +74,7 @@ function modeRow(mode, block) {
     stat({ label: "Trading P&L, realized", value: sol(t.tradingPnlSol.realized, { signed: true }), sub: "Closed trades. Creator fees are not in it.", mode, cls: "key" }),
     stat({ label: "Trading P&L, unrealized", value: sol(t.tradingPnlSol.unrealized, { signed: true }), sub: "Open positions, at the latest price.", mode, cls: "key" }),
     stat({ label: "Win rate", value: t.winRatePct === null ? el("span", "amt flat", "n/a") : el("span", "amt", `${t.winRatePct}%`), sub: `${t.wins} won · ${t.losses} lost, of closed trades`, mode, cls: "key" }),
-    stat({ label: "Deepest drawdown", value: drawdown(t.maxDrawdownPct), sub: "The furthest any one agent has fallen from its peak.", mode, cls: "key" }),
+    stat({ label: "Deepest drawdown", value: drawdown(t.maxDrawdownPct), sub: "The worst single agent's fall from a peak, positions at the latest quote.", mode, cls: "key" }),
     stat({ label: "Trades, last 24 hours", value: el("span", "amt", String(t.trades24h.count)), sub: `${fmtSol(t.trades24h.volumeSol)} SOL traded`, mode }),
     stat({ label: "SOL in agent wallets", value: sol(t.solInAgentWallets), sub: "Free SOL the agents hold.", mode }),
   );
@@ -251,7 +251,7 @@ function drawBoard(body, mode, rows, refused) {
     li.append(link);
     list.append(li);
   }
-  const foot = el("p", "board-foot", S.by === "roi" ? "Return: trading P&L over the SOL put in." : "Profit: realized trading P&L, in SOL.");
+  const foot = el("p", "board-foot", S.by === "roi" ? "Return: realized P&L in the period plus the change in unrealized, over the SOL deposited. Fees never count." : "Profit: realized trading P&L in the period, in SOL. Fees never count.");
   body.replaceChildren(podium, ...(rows.length > 3 ? [list] : []), foot);
   const note = refusedNote(refused);
   if (note) body.append(note);
@@ -270,12 +270,11 @@ function onEvent(type, data) {
   } else if (type === "summary") { S.summary = data; drawSummary(); }
   else if (type === "promotion") { reloadAgents(); loadBoards(); }
 }
-function onState(st) {
+/* A quiet reconnection (HQ ends each stream within five minutes) misses nothing and changes
+   nothing here; only a stream that came back without Last-Event-ID, or after an outage, refetches. */
+function onState(st, info) {
   setPill(pill, st);
-  if (st === "live") {
-    if (streamedOnce) resync();   // back after a gap: what happened in it was not streamed
-    streamedOnce = true;
-  }
+  if (st === "live" && info && info.fresh) resync();
 }
 async function resync() {
   const [s, d] = await Promise.allSettled([hq.summary(), hq.desk({ limit: 60 })]);

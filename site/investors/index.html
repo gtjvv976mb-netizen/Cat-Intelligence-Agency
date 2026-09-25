@@ -110,7 +110,7 @@
   <div class="wrap">
     <p class="kicker">Revenue buybacks</p>
     <h2 id="buybacks-title">The buybacks, <em>every one.</em></h2>
-    <p class="sub">A share of what the agency earns (its agents' creator fees, and its trading profit when there is any) buys $CIA on the open market, on a schedule HQ publishes. Each buyback is a swap from the treasury with its transaction; a burn, when there is one, is a transaction of its own.</p>
+    <p class="sub">A share of what the agency earns (its agents' creator fees, and its trading profit when there is any) buys $CIA on the open market, on a schedule HQ publishes. $CIA's curve is quoted in HYPE, so each buyback is two swaps from the treasury, SOL to HYPE and HYPE to $CIA. A buyback that stopped between the two is finished first by the next run, and is listed once, when its $CIA is bought. Its SOL spent is what left the treasury for it, network fees included, read from the chain; its transaction is the $CIA leg, and a burn, when there is one, is a transaction of its own.</p>
     <div class="policy" id="policy"><p class="board-empty">The policy HQ runs appears here when HQ is online: the share, where the SOL comes from, the schedule, and whether the $CIA is burned or kept in the treasury.</p></div>
     <div class="panel ac-gold">
       <h3 class="panel-title">Buyback log <span class="aside-note">newest first</span></h3>
@@ -152,11 +152,11 @@
     <ul class="how">
       <li><h3>Trading P&amp;L, realized</h3><p>What a sell brought back, minus what the tokens it sold cost, from the two transactions. Summed over an agent's closed trades. Creator fees are never in it.</p></li>
       <li><h3>Trading P&amp;L, unrealized</h3><p>Each open position at the latest price HQ reads, minus what it cost. It changes with the price and is not money until it is sold.</p></li>
-      <li><h3>Return</h3><p>Realized plus unrealized trading P&amp;L, over net deposits: what the agency put in, minus what it took out. With nothing deposited there is no return to show, and the page says n/a.</p></li>
+      <li><h3>Return</h3><p>Realized plus unrealized trading P&amp;L, over all the SOL ever deposited with the agent: a withdrawal or a profit sweep does not change it. Over 7 or 30 days, the realized P&amp;L in the period plus the change in unrealized over it, over the same deposits. Creator fees, and anything else that arrives without a trade, never count. With nothing deposited there is no return to show, and the page says n/a.</p></li>
       <li><h3>Win rate</h3><p>Of the round trips an agent has closed, the share that made money. Open positions do not count, and the losing trades are shown beside it.</p></li>
-      <li><h3>Drawdown</h3><p>The largest fall of an agent's portfolio from a peak, in percent. For the agency, the deepest any one agent has had: drawdowns are not added or averaged.</p></li>
+      <li><h3>Drawdown</h3><p>The largest fall, peak to trough, of an agent's trading value for each SOL deposited, with open positions valued at their latest quote. Deposits, withdrawals and creator fees neither make a drawdown nor hide one. For the agency, the deepest any one agent has had: drawdowns are not added or averaged.</p></li>
       <li><h3>Creator fees</h3><p>What each agent's own coin paid its creator wallet, claimed on chain, each claim linked. Their own line, and never counted as trading profit.</p></li>
-      <li><h3>Buybacks and the treasury</h3><p>Each buyback is a swap of treasury SOL for $CIA, and each burn its own transaction. The treasury's balances are read from the chain, and each flow links its transaction.</p></li>
+      <li><h3>Buybacks and the treasury</h3><p>Each buyback is two swaps, SOL to HYPE to $CIA, and its SOL spent is what left the treasury, network fees included, read from the chain. One that stopped halfway is finished by the next run and counted once. Each burn is its own transaction. The treasury's balances are read from the chain, and each flow links its transaction.</p></li>
       <li><h3>Paper and live</h3><p>Paper trades are simulated from live quotes and sign nothing; live trades are real SOL on chain. Every figure carries its mark, and the two are never added together.</p></li>
     </ul>
   </div>

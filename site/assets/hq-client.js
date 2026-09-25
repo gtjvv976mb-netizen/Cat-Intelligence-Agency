@@ -114,21 +114,47 @@ export function hqClient(cfg = (typeof window !== "undefined" && window.CIA_CONF
       return call("/v1/perks/verify", null, validatePerks, { post: { wallet, message, signature } });
     },
     /* The live stream. Each event is checked like any answer; one that fails is dropped (and
-       named in the console). onState hears "connecting", "live", "reconnecting" and "down";
-       after "down" the stream is opened again, later each time, and a page should refetch when
-       it is "live" again, since what happened in between was not streamed to it. */
-    stream({ onEvent, onState = () => {} }) {
+       named in the console).
+
+       HQ ends every stream after at most five minutes (docs/hq/API.md). That is normal: the
+       browser reconnects by itself with Last-Event-ID, misses nothing, and the page shows no
+       change. Only a failure that lasts is shown: onState hears "reconnecting" once the stream
+       has been away for graceMs, and "down" once it has been away for downMs. If the browser
+       gives up (an error status, say), a new stream is opened, later each time; that one starts
+       without Last-Event-ID, so onState("live", { fresh: true }) tells the page to refetch what
+       it may have missed. The first open is onState("live", { fresh: false }), and so is every
+       quiet reconnection (no call at all while the page never saw it away). */
+    stream({ onEvent, onState = () => {} }, { graceMs = 8_000, downMs = 30_000, tick = setTimeout, untick = clearTimeout, now = () => Date.now() } = {}) {
       if (!online || typeof EventSource === "undefined") { onState("down"); return () => {}; }
-      let es = null, stopped = false, tries = 0, timer = 0;
+      let es = null, stopped = false, tries = 0, reopenTimer = 0, watchTimer = 0, awaySince = 0, shown = "connecting", opened = false, fresh = false;
+      const show = (st, info) => { if (st !== shown || st === "live") { shown = st; onState(st, info); } };
+      /* While the stream is away, look again later: "reconnecting" after the grace, "down" after longer. */
+      const watch = () => {
+        untick(watchTimer);
+        if (stopped || !awaySince) return;
+        const away = now() - awaySince;
+        if (away >= downMs) show("down");
+        else if (away >= graceMs && shown !== "down") show("reconnecting");
+        watchTimer = tick(watch, away >= downMs ? 5_000 : Math.min(graceMs, 2_000));
+      };
       const open = () => {
-        onState("connecting");
         es = new EventSource(origin + "/v1/stream");
-        es.onopen = () => { tries = 0; onState("live"); };
+        es.onopen = () => {
+          tries = 0;
+          const wasShownAway = shown === "reconnecting" || shown === "down" || shown === "connecting";
+          const gap = fresh || shown === "down";   // a new stream, or a real outage: refetch to be sure
+          awaySince = 0; untick(watchTimer);
+          if (!opened || wasShownAway || gap) show("live", { fresh: opened && gap });
+          opened = true; fresh = false;
+        };
         es.onerror = () => {
-          if (es.readyState === EventSource.CLOSED) {
-            onState("down");
-            if (!stopped) timer = setTimeout(open, Math.min(60_000, 3_000 * 2 ** tries++));
-          } else onState("reconnecting");
+          if (!awaySince) { awaySince = now(); watch(); }
+          if (es.readyState === EventSource.CLOSED && !stopped) {
+            /* The browser gave up: open a new stream, which will not carry Last-Event-ID. */
+            fresh = true;
+            untick(reopenTimer);
+            reopenTimer = tick(open, Math.min(60_000, 3_000 * 2 ** tries++));
+          }
         };
         for (const type of STREAM_EVENTS) {
           es.addEventListener(type, (e) => {
@@ -142,8 +168,9 @@ export function hqClient(cfg = (typeof window !== "undefined" && window.CIA_CONF
           });
         }
       };
+      onState("connecting");
       open();
-      return () => { stopped = true; clearTimeout(timer); if (es) es.close(); };
+      return () => { stopped = true; untick(reopenTimer); untick(watchTimer); if (es) es.close(); };
     },
   };
 }

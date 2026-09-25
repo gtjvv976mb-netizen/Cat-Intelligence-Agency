@@ -298,7 +298,7 @@ const BANNED = [
   [/\.solana\.connect/, "a bare provider connect"],
   [/secretKey|privateKey|Keypair|mnemonic|seed phrase/i, "a key word"],
   [/<form|<input|<textarea|<select/i, "a form field"],
-  [/\bfetch\(|\bEventSource\(/, "a fetch or an event stream", [HQ_CLIENT]],
+  [/\bfetch\(|\bEventSource\b/, "a fetch or an event stream", [HQ_CLIENT]],
   [/XMLHttpRequest|new WebSocket|sendBeacon|navigator\.clipboard|execCommand|ClipboardItem|clipboardData/, "any other network call, or the clipboard"],
   [/sessionStorage|indexedDB|document\.cookie/, "storage beyond the theme"],
   [/<script[^>]+src="(https?:)?\/\//i, "an external script"],
@@ -1020,6 +1020,14 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
     && limit(/coin `name` at most (\d+)/) === HV.TEXT_MAX.coinName && limit(/`reason` and a rug check's `detail` at most (\d+)/) === HV.TEXT_MAX.reason && HV.TEXT_MAX.detail === HV.TEXT_MAX.reason
     && limit(/a perk at most (\d+)/) === HV.TEXT_MAX.perk && limit(/`schedule` at most (\d+)/) === HV.TEXT_MAX.schedule, JSON.stringify(HV.TEXT_MAX));
   ok("a rug check's four checks are the contract's, in its order", JSON.stringify(HV.RUG_CHECKS) === JSON.stringify((fmt(/"id": "([a-z_|]+)"/) || "").split("|")) && /exactly four entries, one per id, in that order/.test(API));
+  ok("the pages say how HQ now counts: return over all the SOL deposited (and over a period), drawdown from marked value with deposits, withdrawals and fees neutral, buybacks in two legs with fees in and counted once",
+    has("investors", "over all the SOL ever deposited with the agent: a withdrawal or a profit sweep does not change it") && has("investors", "Over 7 or 30 days, the realized P&L in the period plus the change in unrealized over it")
+      && has("investors", "with open positions valued at their latest quote. Deposits, withdrawals and creator fees neither make a drawdown nor hide one.")
+      && has("investors", "each buyback is two swaps from the treasury, SOL to HYPE and HYPE to $CIA") && has("investors", "network fees included, read from the chain") && has("investors", "is finished first by the next run, and is listed once")
+      && has("hq", "Return over the period is the realized trading P&L in it plus the change in unrealized over it, over all the SOL ever deposited with the agent") && !/net deposits\./.test(src["hq-agent.js"]));
+  ok("a stream HQ ends (it does, within five minutes) comes back quietly: the pages refetch only when it came back without Last-Event-ID or after an outage",
+    ["hq-live.js", "hq-agent.js", "hq-investors.js"].every((f) => /if \(st === "live" && info && info\.fresh\)/.test(src[f]) && !/streamedOnce/.test(src[f]))
+      && /graceMs = 8_000, downMs = 30_000/.test(src["hq-client.js"]) && (src["hq-client.js"].match(/new EventSource\(/g) || []).length === 1);
   ok("the perks page shows the tiers HQ sends, and writes no threshold of its own", /tiers = \(await hq\.tiers\(\)\)\.value\.tiers;/.test(src["hq-perks.js"]) && /fmtTokens\(t\.minCia\)/.test(src["hq-perks.js"])
     && !/\d/.test(textOf((html.perks.match(/<section class="hq-sec alt" id="tiers"[\s\S]*?<\/section>/) || [""])[0])) && has("perks", "never writes a threshold of its own"));
   ok("every buy is shown with Crying Cat's check: passed on a trade, passed or refused on a decision, or not run yet", /Rug check refused this buy/.test(src["hq-ui.js"]) && /Not run yet: no buy is made before it passes\./.test(src["hq-ui.js"])

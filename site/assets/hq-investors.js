@@ -9,7 +9,7 @@ import { $, el, out, setState, sol, pct, when, keepTime, txLink, walletLink, sta
 
 const hq = hqClient();
 const pill = $("#pill");
-let stopStream = null, streamedOnce = false;
+let stopStream = null;
 
 /* ── $CIA, from the config: the mint, and its Solscan and GMGN pages ──── */
 (function ciaCard() {
@@ -91,7 +91,7 @@ function drawBuybackLog(refused = 0) {
   const box = $("#buyback-log");
   if (!buybacks.length) { box.replaceChildren(el("p", "board-empty", "No buyback has been made yet. Each one will appear here with its transaction.")); return; }
   box.replaceChildren(table(
-    [{ label: "When" }, { label: "SOL spent", num: true }, { label: "$CIA bought", num: true }, { label: "Price, SOL", num: true }, { label: "Swap" }, { label: "Burn" }],
+    [{ label: "When" }, { label: "SOL spent, fees in", num: true }, { label: "$CIA bought", num: true }, { label: "Price, SOL", num: true }, { label: "$CIA swap" }, { label: "Burn" }],
     buybacks.map((b) => [when(b.t), sol(b.solSpent, { unit: "" }), fmtTokens(b.ciaBought), b.price === null ? "—" : fmtPrice(b.price), txLink(b.tx, "live"), b.burnTx ? txLink(b.burnTx, "live") : el("span", "tx none", "not burned")]),
   ));
   const note = refusedNote(refused);
@@ -145,9 +145,9 @@ function onEvent(type, data) {
   else if (type === "summary") { const r = { status: "fulfilled", value: { value: data, problems: [] } }; drawSummary(r); drawRecord(r); }
   else if (type === "promotion" || type === "trade") { /* the record moves with every trade; reloaded when the stream comes back, not on each */ }
 }
-function onState(st) {
+function onState(st, info) {
   setPill(pill, st);
-  if (st === "live") { if (streamedOnce) boot(); streamedOnce = true; }
+  if (st === "live" && info && info.fresh) boot();   // back without Last-Event-ID: refetch
 }
 
 $("#retry").addEventListener("click", boot);

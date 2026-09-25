@@ -8,9 +8,11 @@
  * Events, with Last-Event-ID. Its addresses and signatures are random base58: they point at
  * nothing. Nothing in site/ names it.
  *
- *   node scripts/hq-mock.mjs [--port 8787] [--mode mixed|paper|live] [--empty] [--site 8080]
+ *   node scripts/hq-mock.mjs [--port 8787] [--mode mixed|paper|live] [--empty] [--site 8080] [--stream-seconds 300]
  *
- * --empty answers with no agents at all. --site also serves site/ at http://127.0.0.1:<port>
+ * --empty answers with no agents at all. Like HQ, the mock ends each stream after at most five
+ * minutes (--stream-seconds sets it shorter, to watch the pages reconnect); the browser comes
+ * back with Last-Event-ID and the mock replays what it missed. --site also serves site/ at http://127.0.0.1:<port>
  * for development, pointed at the mock: its config.js gets hqApi set to the mock's origin, and
  * each page's Content-Security-Policy lets it connect to the mock too (the committed pages
  * connect only to themselves and https://api.catintelligenceagency.com). test-hq-site.mjs checks
@@ -86,7 +88,7 @@ export function mockWorld({ seed = 7, mode = "mixed", empty = false, now = Date.
         balanceSol: dec(balance), portfolioSol: dec(portfolio), realizedPnlSol: dec(realized), unrealizedPnlSol: dec(unreal),
         careerRealizedSol: dec(career), feesClaimedSol: dec(r() * 1.4), depositedSol: dec(deposited), withdrawnSol: dec(withdrawn),
         trades: (wins + losses) * 2 + Math.floor(r() * 3), wins, losses, maxDrawdownPct: dec(4 + r() * 30, 2),
-        roiPct: dec(((realized + unreal) / (deposited - withdrawn)) * 100, 2),
+        roiPct: dec(((realized + unreal) / deposited) * 100, 2),   // over the SOL ever deposited (gross)
       },
     };
     agents.push(a);
@@ -257,7 +259,7 @@ function serveSite(port, mockOrigin) {
 }
 
 /* ── the mock HQ ────────────────────────────────────────────────────────── */
-function serve({ port, site, ...opts }) {
+function serve({ port, site, streamSeconds = 300, ...opts }) {
   const world = mockWorld(opts);
   const clients = new Set();
   const log = [];
@@ -307,7 +309,9 @@ function serve({ port, site, ...opts }) {
         const last = Number(req.headers["last-event-id"]);
         if (Number.isSafeInteger(last)) for (const e of log) if (e.id > last) send(res, e);
         clients.add(res);
-        req.on("close", () => clients.delete(res));
+        /* HQ ends a stream after at most five minutes; the client reconnects with Last-Event-ID. */
+        const end = setTimeout(() => { clients.delete(res); res.end(); }, Math.min(300, streamSeconds) * 1000);
+        req.on("close", () => { clearTimeout(end); clients.delete(res); });
         return;
       }
       default: return fail(req, res, 404, "not_found", "Not in the contract.");
@@ -320,5 +324,5 @@ function serve({ port, site, ...opts }) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : d; };
-  serve({ port: Number(arg("--port", "8787")), mode: arg("--mode", "mixed"), empty: process.argv.includes("--empty"), seed: Number(arg("--seed", "7")), site: arg("--site", "") ? Number(arg("--site", "")) : 0 });
+  serve({ port: Number(arg("--port", "8787")), mode: arg("--mode", "mixed"), empty: process.argv.includes("--empty"), seed: Number(arg("--seed", "7")), site: arg("--site", "") ? Number(arg("--site", "")) : 0, streamSeconds: Number(arg("--stream-seconds", "300")) });
 }

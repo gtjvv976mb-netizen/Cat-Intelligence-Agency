@@ -16,7 +16,7 @@ import { drawEquity } from "./hq-chart.js";
 
 const hq = hqClient();
 const pill = $("#pill");
-let agent = null, stopStream = null, streamedOnce = false, reloadTimer = 0, undraw = () => {};
+let agent = null, stopStream = null, reloadTimer = 0, undraw = () => {};
 
 function wantedId() {
   const q = new URLSearchParams(location.search).get("id");
@@ -107,11 +107,11 @@ function drawStats(a) {
     stat({ label: "Trading P&L, realized", value: sol(s.realizedPnlSol, { signed: true }), sub: "From closed trades. Fees are not in it.", mode: m, cls: "key" }),
     stat({ label: "Trading P&L, unrealized", value: sol(s.unrealizedPnlSol, { signed: true }), sub: "Open positions, at the latest price.", mode: m, cls: "key" }),
     stat({ label: "Win rate", value: wr === null ? el("span", "amt flat", "n/a") : el("span", "amt", `${wr}%`), sub: `${s.wins} won · ${s.losses} lost`, mode: m, cls: "key" }),
-    stat({ label: "Max drawdown", value: pct(decSign(s.maxDrawdownPct) > 0 ? `-${s.maxDrawdownPct}` : s.maxDrawdownPct), sub: "Its furthest fall from a peak.", mode: m, cls: "key" }),
+    stat({ label: "Max drawdown", value: pct(decSign(s.maxDrawdownPct) > 0 ? `-${s.maxDrawdownPct}` : s.maxDrawdownPct), sub: "Its largest fall from a peak of its trading value, positions at the latest quote.", mode: m, cls: "key" }),
   );
   rest.append(
     stat({ label: "Portfolio value", value: sol(s.portfolioSol), sub: "Free SOL plus open positions.", mode: m }),
-    stat({ label: "Return", value: pct(s.roiPct), sub: s.roiPct === null ? "Nothing deposited yet." : "Trading P&L over net deposits.", mode: m }),
+    stat({ label: "Return", value: pct(s.roiPct), sub: s.roiPct === null ? "Nothing deposited yet." : "Trading P&L over all the SOL deposited.", mode: m }),
     stat({ label: "SOL balance", value: sol(s.balanceSol), sub: "Free SOL in its wallet.", mode: m }),
     stat({ label: "Trades", value: el("span", "amt", String(s.trades)), sub: "Buys and sells.", mode: m }),
     stat({ label: "Creator fees claimed", value: sol(s.feesClaimedSol), sub: "Its coin's fees. Not trading profit.", mode: m }),
@@ -231,9 +231,9 @@ function onEvent(type, data) {
   clearTimeout(reloadTimer);
   reloadTimer = setTimeout(() => load({ quiet: true }), 6_000);
 }
-function onState(st) {
+function onState(st, info) {
   setPill(pill, st);
-  if (st === "live") { if (streamedOnce) load({ quiet: true }); streamedOnce = true; }
+  if (st === "live" && info && info.fresh) load({ quiet: true });   // back without Last-Event-ID: refetch
 }
 
 $("#retry").addEventListener("click", () => load());

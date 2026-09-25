@@ -331,6 +331,42 @@ section("THE CLIENT CALLS ONLY HQ");
   const noStream = hqClient({ hqApi: "" }); const states = [];
   noStream.stream({ onEvent: () => {}, onState: (st) => states.push(st) });
   ok("offline, the stream opens nothing and says it is down", JSON.stringify(states) === '["down"]');
+
+  /* The stream, with a stand-in EventSource and clock: HQ ends each stream within five minutes. */
+  class FakeES {
+    static CONNECTING = 0; static OPEN = 1; static CLOSED = 2; static all = [];
+    constructor(url) { this.url = url; this.readyState = 0; this.listeners = {}; FakeES.all.push(this); }
+    addEventListener(t, fn) { (this.listeners[t] ||= []).push(fn); }
+    close() { this.readyState = 2; }
+    open() { this.readyState = 1; this.onopen && this.onopen(); }
+    drop(closed = false) { this.readyState = closed ? 2 : 0; this.onerror && this.onerror(); }
+    emit(type, data) { for (const fn of this.listeners[type] || []) fn({ origin: "https://api.catintelligenceagency.com", data: JSON.stringify(data) }); }
+  }
+  globalThis.EventSource = FakeES;
+  let clock = 0; const timers = [];
+  const tick = (fn, ms) => { const t = { at: clock + ms, fn }; timers.push(t); return t; };
+  const untick = (t) => { const i = timers.indexOf(t); if (i >= 0) timers.splice(i, 1); };
+  const advance = (ms) => { const end = clock + ms; for (;;) { timers.sort((a, b) => a.at - b.at); const t = timers[0]; if (!t || t.at > end) break; timers.shift(); clock = t.at; t.fn(); } clock = end; };
+  const live = hqClient({ hqApi: "https://api.catintelligenceagency.com" });
+  const seen = [], got = [];
+  const stop = live.stream({ onEvent: (type, d) => got.push(type), onState: (st, info) => seen.push(info ? `${st}:${info.fresh}` : st) }, { tick, untick, now: () => clock });
+  const es1 = FakeES.all[0];
+  es1.open();
+  ok("the stream opens on the contract's path and says live", es1.url === "https://api.catintelligenceagency.com/v1/stream" && JSON.stringify(seen) === '["connecting","live:false"]');
+  es1.emit("trade", clone(W.agent(2).trades[0])); es1.emit("trade", { kind: "trade", id: "x" });
+  ok("each event is checked: a good one reaches the page, a bad one is dropped", JSON.stringify(got) === '["trade"]');
+  for (let i = 0; i < 3; i++) { es1.drop(); advance(3_000); es1.open(); advance(300_000); }
+  ok("HQ ending the stream every five minutes changes nothing on the page: no \"reconnecting\", no \"down\", no refetch", JSON.stringify(seen) === '["connecting","live:false"]' && FakeES.all.length === 1);
+  es1.drop(); advance(9_000);
+  ok("away past the grace, it says \"reconnecting\"", seen.at(-1) === "reconnecting");
+  es1.open();
+  ok("back with Last-Event-ID, it is live again with nothing to refetch", seen.at(-1) === "live:false");
+  es1.drop(true); advance(9_000);
+  const before = seen.length; advance(22_000);
+  ok("only a failure that lasts says \"down\"", seen.at(before - 1) === "reconnecting" && seen.at(-1) === "down" && FakeES.all.length > 1);
+  const esN = FakeES.all.at(-1); esN.open();
+  ok("a new stream after the browser gave up comes back live and tells the page to refetch, since it could not resume", seen.at(-1) === "live:true" && es1.readyState === 2);
+  stop(); delete globalThis.EventSource;
 }
 
 section("THE MOCK IS THE CONTRACT'S SHAPE, AND STAYS OUT OF THE SITE");

@@ -1,0 +1,14 @@
+# Agency HQ's image (services/hq/Dockerfile) is built from the repository root; it copies only the
+# modules it imports. Nothing below ever needs to reach the build.
+**/node_modules
+.git
+dist
+fixtures
+site
+brand
+icons
+docs
+hq-data
+.release
+*.zip
+services/hq/test

@@ -36,6 +36,7 @@ CoinMarketCap.
 | `site/` | The website: the agency's home with its 3D headquarters, [the work floor](https://catintelligenceagency.com/floor/) where the cats post their cases, [CoinMarketCat's page](https://catintelligenceagency.com/coinmarketcat/), [the console](https://catintelligenceagency.com/console/) the extension signs through, and the Agency HQ pages: [HQ live](https://catintelligenceagency.com/hq/), each agent's dossier, [Transparency](https://catintelligenceagency.com/investors/) and [the $CIA holder perks](https://catintelligenceagency.com/perks/) ([below](#agency-hq-on-the-site)) |
 | `brand/` | The [brand kit](brand/README.md): the seven pixel kittens (CoinMarketCat in its purple hoodie, Snipurr in CoinMarketCat's old art), the work floor with seven desks, the X header, the $CIA coin image, the 3D headquarters model, and [the launch copy](brand/COPY.md) |
 | `icons/` | The extension's icons (`cia-*.png`: Crying Cat's face from the $CIA coin, the agency's mark) and CoinMarketCat's own (`coinmarketcat-*.png`, its hoodie tabby, for its page on the site) |
+| `services/hq/`, `docs/hq/`, `.github/workflows/hq.yml` | Agency HQ, the agency's own always-on server: the agency's cat agents trading the agency's own money, their records from the chain, the $CIA buyback and the public API the site reads ([below](#agency-hq--the-agencys-server)) |
 
 $CIA is a memecoin with no intrinsic value and no expectation of profit. Nothing here is
 financial advice. Cat Intelligence Agency is a meme and software project, not a government
@@ -1381,6 +1382,51 @@ node scripts/sync-executor.mjs --from ../Claude-Company   # re-vendor from a che
 manifest, so a hand edit under `vendor/` fails the suite by name. CI runs the drift check
 on every push to `main`.
 
+## Agency HQ — the agency's server
+
+Agency HQ (`services/hq/`) runs the agency's own cat agents around the clock. Only the agency's
+coins get agents, and only the agency's money is traded: every agent is a cat with its own
+wallet, derived from one master seed (agent *N* at `m/44'/501'/N'/0'`, Phantom's account *N*),
+a strategy — Snipurr, CoinMarketCat, Popcat or Crying Cat — and hard limits. The public API is
+[docs/hq/API.md](docs/hq/API.md); the owner's step-by-step guide to putting it online (Railway,
+Helius, the domain, the first agents, going live, stopping everything, what it costs) is
+[docs/hq/DEPLOY.md](docs/hq/DEPLOY.md).
+
+- **Paper by default.** Paper fills are simulated from live Jupiter quotes or the live pump.fun
+  curve and sign nothing. Live needs `HQ_LIVE=1` **and** the agent's own mode set live with its
+  wallet typed back, and the owner's RPC.
+- **One risk layer, in code, for every strategy**: max per trade, max open positions, stop loss,
+  take profit, optional trailing stop, daily loss limit, the kill switch (`HQ_KILL=1` or the
+  console's `kill on`), per-agent pause — and Crying Cat's rug check (mint and freeze authority,
+  Token-2022 extensions, holders without the curve and pools, the creator's share) before every
+  buy. No agent ever buys $CIA, an agent's coin, a coin CashCat launched, or a coin made by an
+  agency wallet. Stops keep selling while paused and under the kill switch.
+- **The strategies reuse the code that exists**: Snipurr the vendored executor's snipe gates,
+  its curve plan and its determiner, behind a wait for others to follow; CoinMarketCat the
+  extension agent's market view, brain and risk engine, with the model chosen at run time from
+  the key's own list; Popcat the bot's twelve checks on pump.fun's newest cat coins; Crying Cat
+  only deep tokens on Jupiter's verified list, by a written trend rule.
+- **Live execution** goes through the existing pre-sign checks (Jupiter's
+  `checkSwapTransaction` with a pair allowlist, the bots' `checkDevBuyMessage` for a pump.fun
+  buy, HQ's own checks for its sell, wrap, transfer and burn), a simulation, then the signature.
+  An in-flight marker is written before anything is signed and the signature before it is sent,
+  so a restart settles what was in flight from the chain and never trades twice.
+- **The books are the chain's**: each live agent's ledger is rebuilt from its wallet's own
+  transactions — deposits, withdrawals, trades, fees, positions, realized and unrealized P&L,
+  wins, losses, drawdown, equity. Creator fees are claimed for coins an agent wallet created and
+  are never trading P&L. Ranks follow career realized trading profit, never demote, and are only
+  cosmetic.
+- **Keys**: one file, `services/hq/wallet.mjs`, reads the master seed and the treasury secret;
+  a key exists only while it signs; withdrawals go only to `HQ_TREASURY_ADDRESS`
+  (`test-hq-no-key.mjs` is the proof on every run).
+- **$CIA buyback**, off until the owner turns it on: a share of new agency revenue (claimed fees
+  and realized profit swept to the treasury), SOL → HYPE → $CIA through Jupiter (its curve is
+  HYPE-quoted), from the treasury, on a schedule, capped per run, kept or burned.
+
+`npm test` runs HQ's tests with everything else; `node scripts/test-all.mjs test-hq-` runs only
+them. HQ has its own `services/hq/package.json` and Docker image and is not part of the
+extension build.
+
 ## Tests
 
 `npm test` runs every `test-*.mjs` at the root and under `vendor/executor/`:
@@ -1421,6 +1467,18 @@ on every push to `main`.
 | `test-bots-floor-data.mjs` | the floor-data branch on local repositories: orphan start, a dry run committing nothing, pushes that race, Popcat's memory deploying nothing; the deploy's overlay carrying Popcat's picks, leaving out and naming a bad entry, retrying a transient API error, and failing (never blanking the floor) when the data cannot be read or is the wrong shape |
 | `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, seven stations for the seven cats, each hotspot on its own desk, each station with its sprite, screen, copy and an honest empty state, Snipurr's and CoinMarketCat's linking to the extension's page and the console; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the seven cards, CashCat and Popcat marked as bots with their status read from their own files; the bots' desks and the feed reading `launches.json` and `callouts.json` through the deploy's validators, text only, no coin's picture, links only to Solscan, pump.fun and StonkFun, spotted coins never called callouts and kept out of the feed, Popcat's pick on top with a draft to copy by hand and never the clipboard, its disclosure the same words everywhere, and the numbers the bot cards quote read from the bots' code; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
 | `test-downloads.mjs` | the downloads, with no browser: two builds packaged twice give the same bytes; the extension zip holds `manifest.json` at its root with this manifest's name and version, every built file and nothing else, no source map, and an `INSTALL.txt` with the steps; the system's `unzip` agrees; the cats pack holds all seven cats' three pictures byte for byte from `brand/`, the banners, the logo and a README that names each cat and claims no licence; the data file's numbers are the zips'; unsafe names, a missing manifest and a tag that is not the manifest's version are refused; the deploy packages before the site's tests, and the release attaches both zips with `contents: write` only |
+| `test-hq-wallet.mjs` | Agency HQ's wallets: BIP-39 and SLIP-0010 ed25519 against published vectors, agent *N* at `m/44'/501'/N'/0'` as Phantom derives it, readiness in words never values, a signature only over the exact checked message, only for its own fee payer and one signer, only with `HQ_LIVE=1` (the treasury only with `HQ_BUYBACK_LIVE=1` and its own key); the owner's admin signature; keygen only in a terminal; nothing secret exported |
+| `test-hq-no-key.mjs` | only `services/hq/wallet.mjs` reads HQ's secrets; nothing else under `services/hq/` makes, derives or uses a key; the four entry points alone import it, each taking only what it needs; nothing prints the environment; the runner blanks every HQ secret and switch; the image bakes none in |
+| `test-hq-ledger.mjs` | the ledger from recorded mainnet wallets: a deposit, a round trip, empty claims and withdrawals; a creator-fee claim that is never trading P&L; each classification rule; the indexer's pages and cache; the runtime's books and the contract's stats; a paper ledger by hand |
+| `test-hq-risk.mjs` | every limit's fence; every buy refusal on its own and in order; exits at their exact edges; the daily loss limit tripping, holding and resetting; Crying Cat blocking recorded coins made to fail each line and anything unreadable; the agency's own coins never bought; through the runtime, a failing coin refused before any quote and the stops selling while paused and under the kill switch |
+| `test-hq-execution.mjs` | paper signs nothing; live refused without both switches, the owner's RPC and the agent's own mode, and by the wallet itself; the in-flight marker before the build and the signature before the send; a restart that never trades twice (waiting, landed, failed, expired, abandoned); HQ's own transactions checked before a signature and money only to the treasury; a pump.fun buy passing the bots' buy check and the simulation, and a draining one stopped |
+| `test-hq-ranks.mjs` | the contract's rank table at its edges; never a demotion; promotions on the stream marked paper or live; fees never promote; nothing that trades reads a rank |
+| `test-hq-buyback.mjs` | $CIA as mainnet returned it (Token-2022, 6 decimals, HYPE-quoted curve); the two-leg path and its allowlist refusing a recorded Jupiter swap for another pair; the budget; revenue only from HQ's memos; off by default in every way; a run end to end, and one that stops between legs still counting its spend |
+| `test-hq-perks.mjs` | the challenge; good, bad, replayed, expired, mismatched and unknown signatures; the balance read from the chain; the tiers from config; perks only cosmetic or a say |
+| `test-hq-admin.mjs` | signed admin requests (owner, stale, replayed, tampered, off without an owner); the owner's admin client; every command and its refusals (live needs the wallet typed back, skins follow the rank, $CIA never an agent's coin); the CLI's lines; keygen refusing where its output could be logged |
+| `test-hq-api.mjs` | the whole server over HTTP on a scripted chain: every endpoint against the contract's JSON Schema, paper and live never added together, the rug check on every buy HQ made, the stream replayed from Last-Event-ID and live, CORS only for the site and localhost, rate limits by the edge's client address, the number formats, and no secret, path or internal error in any answer |
+| `test-hq-strategies.mjs` | the four strategies: Crying Cat on Jupiter's recorded verified list and JUP's recorded candles, Popcat on the recorded coins and chain, CoinMarketCat's schedule and limits with the model chosen at run time from invented ids, Snipurr's executor gates on a scripted launch (wait, follow-through, agency creators, the 1.5× take) |
+| `test-hq-deploy.mjs` | the image carries HQ's whole import graph and its own dependencies; the Railway settings in the guide; HQ out of the extension build; the workflow pinned and secret-free; the owner's guide naming every variable HQ reads |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
 | `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 

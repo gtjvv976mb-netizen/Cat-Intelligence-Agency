@@ -1,0 +1,58 @@
+# A tagged release. Pushing a tag v<version> (the version manifest.json and package.json both
+# carry, e.g. v0.1.0) runs the suite, builds the extension, packages the two downloads the site
+# serves (scripts/package.mjs) and attaches them, with SHA256SUMS.txt, to a GitHub Release for
+# that tag. A tag whose version is not the manifest's fails before anything is published.
+#
+# The Downloads page links the copies each deploy builds from main (pages.yml); the release is
+# the versioned archive. The zips are deterministic (fixed dates, sorted entries): the same
+# commit packaged again, on the same Node.js, gives the same bytes.
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: The bots' logo renderer (bots/package.json), for the suite
+        run: npm ci --prefix bots
+      - name: Regression suite
+        run: npm test
+      - name: Build the extension
+        run: npm run build
+      - name: Package the downloads, for this tag's version only
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/package.mjs --out .release --no-data --release --expect-version "${TAG#v}"
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          files=(.release/cat-intelligence-agency-extension.zip .release/cia-cats.zip .release/SHA256SUMS.txt)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "Cat Intelligence Agency $TAG" --notes-file .release/RELEASE-NOTES.md
+          fi

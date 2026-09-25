@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Downloads — Cat Intelligence Agency</title>
+<meta name="description" content="Download the Cat Intelligence Agency extension for Chrome, Brave and Edge, with its version, size and SHA-256 and a plain install guide, and all seven cats' art in one zip.">
+<meta name="theme-color" content="#0b0716">
+<link rel="canonical" href="https://catintelligenceagency.com/downloads/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cat Intelligence Agency">
+<meta property="og:title" content="Downloads — Cat Intelligence Agency">
+<meta property="og:description" content="The Cat Intelligence Agency extension for Chrome, Brave and Edge, ready to load, and every cat's art in one zip.">
+<meta property="og:url" content="https://catintelligenceagency.com/downloads/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seven pixel kittens lined up on a neon pixel floor under a night skyline, beside the title Cat Intelligence Agency: Popcat, Crying Cat, Grumpy Cat, the Director, CashCat and Snipurr in black suits, and CoinMarketCat in a purple hoodie">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="../assets/apple-touch-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<script>
+(function () {
+  let t = null;
+  try { t = localStorage.getItem("cc_theme"); } catch {}
+  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+})();
+</script>
+<link rel="stylesheet" href="../assets/home.css">
+<link rel="stylesheet" href="../assets/downloads.css">
+</head>
+<body class="dl-page">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar"><div class="wrap">
+  <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+    <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+    <span class="name">Cat <em>Intelligence</em> Agency</span>
+  </a>
+  <nav class="navlinks" aria-label="Site">
+    <a class="floorlink" href="../floor/"><span class="long">The </span>Floor</a>
+    <a class="opt" href="../#agents">Agents</a>
+    <a class="opt" href="../#cia">$CIA</a>
+    <a class="dl" href="./" aria-current="page">Download</a>
+    <a class="box" href="../coinmarketcat/">CoinMarketCat</a>
+    <button class="shift" id="shiftbtn" type="button" aria-label="Switch between night and day theme">&#9790;</button>
+  </nav>
+</div></header>
+
+<main id="main">
+<section class="dl-top" aria-labelledby="dl-title">
+  <div class="wrap">
+    <a class="crumb" href="../"><span aria-hidden="true">&lt;</span> The agency</a>
+    <h1 id="dl-title">Download <em>the agency.</em></h1>
+    <p class="lead">The Cat Intelligence Agency extension, ready to load into Chrome, Brave or Edge on a computer, and every cat's art in one zip.</p>
+
+    <!-- The extension. Its version, size and SHA-256 come from ../assets/downloads-data.js, which
+         the deploy writes when it packages the zip; until then each says "built at deploy". -->
+    <article class="dl-card" id="extension" aria-labelledby="ext-title">
+      <div class="crew" aria-hidden="true">
+        <p class="crew-cap">Inside: Crying Cat, CashCat, CoinMarketCat, Snipurr, Popcat</p>
+        <div class="crew-row">
+          <img src="../assets/sprites/crying-cat.png" width="108" height="155" style="--w:144" alt="">
+          <img src="../assets/sprites/cashcat.png" width="107" height="156" style="--w:143" alt="">
+          <img src="../assets/sprites/coinmarketcat.png" width="131" height="157" style="--w:175" alt="">
+          <img src="../assets/sprites/snipurr.png" width="110" height="155" style="--w:146" alt="">
+          <img src="../assets/sprites/popcat.png" width="148" height="158" style="--w:197" alt="">
+        </div>
+      </div>
+      <div class="dl-body">
+        <p class="dl-name">The extension · Chrome, Brave, Edge</p>
+        <h2 id="ext-title">Cat Intelligence Agency</h2>
+        <a class="btn mint big" id="ext-download" href="./cat-intelligence-agency-extension.zip" download>
+          <span class="arr" aria-hidden="true">↓</span>
+          <span class="dl-label">Download the Cat Intelligence Agency extension <small>cat-intelligence-agency-extension.zip</small></span>
+        </a>
+        <dl class="facts-row">
+          <dt>Version</dt><dd data-dl="version">built at deploy</dd>
+          <dt>Size</dt><dd data-dl="extension.size">built at deploy</dd>
+          <dt>SHA-256</dt><dd><code class="sha" data-dl="extension.sha256">built at deploy</code></dd>
+          <dt>Listed as</dt><dd data-dl="name">built at deploy</dd>
+          <dt>Built from</dt><dd data-dl="commit">built at deploy</dd>
+        </dl>
+        <p class="dl-note"><b>Not yet in the Chrome Web Store.</b> You load it yourself, in Developer mode: six steps, <a href="#install">below</a>. It runs on a computer, in Chrome 116 or later or a browser built on it, such as Brave or Edge; not on a phone.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- What's inside: the five cats of the renamed extension. Check each line against the extension
+     as merged before a deploy. -->
+<section class="dl-sec" id="inside" aria-labelledby="inside-title">
+  <div class="wrap">
+    <p class="kicker">What's inside</p>
+    <h2 id="inside-title">Five cats, <em>one extension.</em></h2>
+    <p class="sub">The extension carries five of the agency's seven cats.</p>
+    <ul class="inside">
+      <li style="--accent:#8b5cf6"><div class="pad"><img src="../assets/sprites/coinmarketcat.png" width="88" height="105" style="--w:175" alt=""></div>
+        <div class="what"><h3>CoinMarketCat <span>AI trading</span></h3><p>Write a strategy in plain English: a model proposes each trade, and code holds the limits it cannot change.</p></div></li>
+      <li style="--accent:#14f195"><div class="pad"><img src="../assets/sprites/snipurr.png" width="73" height="104" style="--w:146" alt=""></div>
+        <div class="what"><h3>Snipurr <span>The sniper</span></h3><p>New pump.fun launches, sniped by rule.</p></div></li>
+      <li style="--accent:#ff4fd8"><div class="pad"><img src="../assets/sprites/popcat.png" width="99" height="106" style="--w:197" alt=""></div>
+        <div class="what"><h3>Popcat <span>Cat-coin scanner</span></h3><p>Checks new cat coins on pump.fun and names their red flags.</p></div></li>
+      <li style="--accent:#f5c542"><div class="pad"><img src="../assets/sprites/cashcat.png" width="72" height="104" style="--w:143" alt=""></div>
+        <div class="what"><h3>CashCat <span>Coin launcher</span></h3><p>Launches cat-themed coins from what is trending.</p></div></li>
+      <li style="--accent:#5ab8ff"><div class="pad"><img src="../assets/sprites/crying-cat.png" width="72" height="103" style="--w:144" alt=""></div>
+        <div class="what"><h3>Crying Cat <span>Rug check</span></h3><p>Checks a coin for the signs of a rug.</p></div></li>
+    </ul>
+  </div>
+</section>
+
+<section class="dl-sec alt" id="install" aria-labelledby="install-title">
+  <div class="wrap">
+    <p class="kicker">Install</p>
+    <h2 id="install-title">Six steps. <em>About a minute.</em></h2>
+    <p class="sub">The same in Chrome, Brave and Edge.</p>
+    <ol class="guide">
+      <li><h3>Download the zip.</h3><p>The <a href="#extension">download button</a> above saves <code>cat-intelligence-agency-extension.zip</code>.</p></li>
+      <li><h3>Unzip it.</h3><p>Double-click it (on Windows: right-click, then Extract All). You get a folder with <code>manifest.json</code> in it. Move it somewhere it can stay, such as Documents: the browser loads the extension from that folder every time it starts.</p></li>
+      <li><h3>Open <code>chrome://extensions</code>.</h3><p>Type it in the address bar. In Brave: <code>brave://extensions</code>. In Edge: <code>edge://extensions</code>.</p></li>
+      <li><h3>Turn on Developer mode.</h3><p>The switch is at the top right of that page (in Edge, on the left).</p></li>
+      <li><h3>Click Load unpacked and choose the unzipped folder.</h3><p>The one with <code>manifest.json</code> in it. The extension appears as a card on the page.</p></li>
+      <li><h3>Pin the extension.</h3><p>Click the puzzle-piece icon in the toolbar, then the pin beside the extension (in Edge, the eye icon). Click its icon to open it.</p></li>
+    </ol>
+
+    <div class="pair">
+      <div class="box" id="update" style="--accent:var(--mint)">
+        <h3>Update it</h3>
+        <ol>
+          <li>Download the new zip and unzip it.</li>
+          <li>Replace the old folder with the new one: same place, same name.</li>
+          <li>On the extensions page, click the reload arrow on the extension's card.</li>
+        </ol>
+        <p>Your settings stay. The browser keeps them under the extension's ID, and an extension you load unpacked takes its ID from its folder's path. Load it from a different folder and the browser treats it as a new extension, with none of your settings.</p>
+        <p class="checked">Checked in Chromium, from this zip: the folder replaced in place and reloaded kept the same ID and the settings, and so did a restart; the same zip loaded from another folder came up as a new extension, with no settings.</p>
+      </div>
+      <div class="box" id="remove" style="--accent:var(--bad)">
+        <h3>Remove it</h3>
+        <p>Removing the extension deletes everything it stored in this browser: its settings, your API key and the encrypted key of any wallet it made. <b>If such a wallet holds anything, withdraw it first.</b></p>
+        <ol>
+          <li>On the extensions page, click Remove on the extension's card.</li>
+          <li>Delete the folder you unzipped.</li>
+        </ol>
+        <p class="checked">Checked in Chromium, from this zip: after Remove, the same folder loaded again came back with no settings.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="dl-sec" id="safety" aria-labelledby="safety-title">
+  <div class="wrap">
+    <p class="kicker">Safety</p>
+    <h2 id="safety-title">Before you <em>run it.</em></h2>
+    <ul class="safe">
+      <li><h3>It starts on paper.</h3><p>CoinMarketCat trades a paper vault until you switch it to live, and Snipurr starts switched off. Nothing trades with real money until you fund a wallet and arm it yourself. Only fund what you can afford to lose.</p></li>
+      <li><h3>Your keys stay in your browser.</h3><p>Your API keys, your RPC address and the encrypted key of any wallet it makes are kept in the extension's own storage in this browser, and each key is sent only to the service it is for: your Anthropic key only to Anthropic. The agency runs no server for the extension to report to.</p></li>
+      <li><h3>Check the SHA-256.</h3><p>Compute the zip's SHA-256 and compare it with the one above. If they differ, do not load it.</p>
+        <ul class="hashes">
+          <li>Windows <code>certutil -hashfile cat-intelligence-agency-extension.zip SHA256</code></li>
+          <li>macOS <code>shasum -a 256 cat-intelligence-agency-extension.zip</code></li>
+          <li>Linux <code>sha256sum cat-intelligence-agency-extension.zip</code></li>
+        </ul></li>
+    </ul>
+    <div class="store" id="store">
+      <span class="tag">Chrome Web Store</span>
+      <p><b>Not yet in the Chrome Web Store.</b> Until it is, you load it in Developer mode as above, and it does not update itself: new versions are here, and each tagged version, with its SHA-256 sums, is on the repository's <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency/releases" rel="noopener">releases page</a>. The source is <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">on GitHub</a>, and <a href="../coinmarketcat/#install">you can build it yourself</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dl-sec alt" id="cats" aria-labelledby="cats-title">
+  <div class="wrap pack">
+    <div class="roster" aria-hidden="true" style="--accent:#9945ff">
+      <img src="../assets/sprites/director.png" width="75" height="106" style="--w:150" alt="">
+      <img src="../assets/sprites/crying-cat.png" width="72" height="103" style="--w:144" alt="">
+      <img src="../assets/sprites/grumpy-cat.png" width="72" height="101" style="--w:144" alt="">
+      <img src="../assets/sprites/cashcat.png" width="72" height="104" style="--w:143" alt="">
+      <img src="../assets/sprites/popcat.png" width="99" height="106" style="--w:197" alt="">
+      <img src="../assets/sprites/snipurr.png" width="73" height="104" style="--w:146" alt="">
+      <img src="../assets/sprites/coinmarketcat.png" width="88" height="105" style="--w:175" alt="">
+    </div>
+    <div>
+      <p class="kicker">The cats pack</p>
+      <h2 id="cats-title">All seven <em>cats.</em></h2>
+      <p>The Director, Crying Cat, Grumpy Cat, CashCat, Popcat, Snipurr and CoinMarketCat: the agency's art, in one zip.</p>
+      <a class="btn enter" id="cats-download" href="./cia-cats.zip" download>Download all seven cats <span class="arr" aria-hidden="true">↓</span></a>
+      <dl class="facts-row">
+        <dt>Size</dt><dd data-dl="cats.size">built at deploy</dd>
+        <dt>SHA-256</dt><dd><code class="sha" data-dl="cats.sha256">built at deploy</code></dd>
+      </dl>
+      <ul>
+        <li>For each cat: its pixel sprite, a 400 × 400 avatar and the 1024 × 1024 art.</li>
+        <li>The X header, the link preview and the roster scene.</li>
+        <li>The $CIA logo, and a README naming each cat and what it does.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+        <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+        <span class="name">Cat <em>Intelligence</em> Agency</span>
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="../">The agency</a>
+        <a href="../floor/">The Floor</a>
+        <a href="./">Downloads</a>
+        <a href="../#cia">$CIA</a>
+        <a href="../coinmarketcat/">CoinMarketCat</a>
+        <a href="../console/">Console</a>
+        <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+    <div class="legal">
+      <p>Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.</p>
+      <p>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
+    </div>
+  </div>
+</footer>
+
+<script src="../assets/downloads-data.js"></script>
+<script>
+/* The numbers on this page are the deploy's, from downloads-data.js. A value that does not look
+   like what it should be is left as the page says it ("built at deploy"). Text only. */
+(function fillDownloads() {
+  const d = window.CIA_DOWNLOADS;
+  if (!d || d.built !== true || !d.files) return;
+  const REPO = "https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency";
+  const isSha = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
+  const isBytes = (n) => Number.isSafeInteger(n) && n > 0;
+  const size = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`) + ` (${n.toLocaleString("en-US")} bytes)`;
+  const put = (key, text) => { for (const el of document.querySelectorAll(`[data-dl="${key}"]`)) el.textContent = text; };
+  const version = d.version && d.version.manifest;
+  if (typeof version === "string" && /^\d+(\.\d+){0,3}$/.test(version)) put("version", version);
+  if (typeof d.extensionName === "string" && d.extensionName.length > 0 && d.extensionName.length <= 75) put("name", d.extensionName);
+  for (const id of ["extension", "cats"]) {
+    const f = d.files[id];
+    if (!f) continue;
+    if (isBytes(f.bytes)) put(`${id}.size`, size(f.bytes));
+    if (isSha(f.sha256)) put(`${id}.sha256`, f.sha256);
+  }
+  if (typeof d.commit === "string" && /^[0-9a-f]{40}$/.test(d.commit)) {
+    for (const el of document.querySelectorAll('[data-dl="commit"]')) {
+      const a = document.createElement("a");
+      a.href = `${REPO}/tree/${d.commit}`;
+      a.rel = "noopener";
+      a.textContent = d.commit.slice(0, 12);
+      el.replaceChildren(a);
+    }
+  }
+})();
+</script>
+<script>
+(function shiftSwitch() {
+  const btn = document.getElementById("shiftbtn");
+  if (!btn) return;
+  const label = () => {
+    const day = document.documentElement.dataset.theme === "light";
+    btn.textContent = day ? "☀" : "☾";
+    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
+  };
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("cc_theme", next); } catch {}
+    label();
+  });
+  label();
+})();
+</script>
+</body>
+</html>

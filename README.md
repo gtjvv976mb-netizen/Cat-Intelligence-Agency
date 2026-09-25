@@ -1167,6 +1167,38 @@ What is true on autopilot, plainly:
 - **Two RPCs are optional here; on the executor they are mandatory.** A single provider
   is a single witness; the shadow row's `endpointVerdict` says `single` when so.
 
+## Downloads and releases
+
+The site's [Downloads page](https://catintelligenceagency.com/downloads/) serves the extension
+ready to load, with a plain install guide for Chrome, Brave and Edge, and all seven cats' art.
+It is not in the Chrome Web Store yet; the kit for submitting it is in
+[docs/chrome-web-store/](docs/chrome-web-store/README.md).
+
+- **The zips are built at deploy, never committed.** After the floor-data overlay, `pages.yml`
+  runs `npm run build` and `node scripts/package.mjs`, which writes
+  `site/downloads/cat-intelligence-agency-extension.zip` (`dist/` with `manifest.json` at the
+  zip's root and an `INSTALL.txt`, no source maps) and `site/downloads/cia-cats.zip` (each cat's
+  sprite, 400 avatar and 1024 art, the banners, the $CIA logo and a README), and puts their sizes
+  and SHA-256s in `site/assets/downloads-data.js`, which the page reads as a script. The site's
+  tests then check the page against those files. If the build or the packaging fails, the deploy
+  fails and the live site stays as it was.
+- **The same commit gives the same bytes.** The zips are written by a small zip writer with no
+  dependencies (`scripts/zip.mjs`): sorted entries, every date 1980-01-01, text deflated by
+  `node:zlib`, pictures stored. `test-downloads.mjs` builds and packages twice and compares.
+- **Locally:** `npm run build && node scripts/package.mjs` fills `site/` as a deploy would;
+  `node scripts/package.mjs --placeholder` puts the committed placeholder back before a commit
+  (`test-site.mjs` fails on a data file that names zips that are not there).
+- **Proof that it loads:** `node scripts/verify-download.mjs` unzips the packaged zip, loads it
+  in Chromium the way Load unpacked does, opens the popup, the options page and the setup page,
+  and fails on any console error, uncaught error or entry in Chrome's error list for it. It also
+  checks what the page says about updating and removing: the folder replaced in place and
+  reloaded keeps the extension's ID and settings, another folder gets a new ID and none, and
+  removing it deletes them. It needs Playwright and a Chromium, so it is not part of `npm test`.
+- **Releases:** push a tag `v<version>` (the version `manifest.json` and `package.json` both
+  carry, e.g. `git tag v0.1.0 && git push origin v0.1.0`). `release.yml` runs the suite, builds,
+  packages and attaches both zips and `SHA256SUMS.txt` to the tag's GitHub Release. A tag that is
+  not the manifest's version fails before anything is published.
+
 ## Install
 
 ```bash
@@ -1340,6 +1372,7 @@ on every push to `main`.
 | `test-bots-workflows.mjs` | the workflows: schedules (Popcat every fifteen minutes), CashCat's job in the `cashcat` environment, secrets reaching only their steps, floor-data and the deploy, pinned actions, no stored credentials |
 | `test-bots-floor-data.mjs` | the floor-data branch on local repositories: orphan start, a dry run committing nothing, pushes that race, Popcat's memory deploying nothing; the deploy's overlay carrying Popcat's picks, leaving out and naming a bad entry, retrying a transient API error, and failing (never blanking the floor) when the data cannot be read or is the wrong shape |
 | `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, seven stations for the seven cats, each hotspot on its own desk, each station with its sprite, screen, copy and an honest empty state, Snipurr's and CoinMarketCat's linking to the extension's page and the console; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the seven cards, CashCat and Popcat marked as bots with their status read from their own files; the bots' desks and the feed reading `launches.json` and `callouts.json` through the deploy's validators, text only, no coin's picture, links only to Solscan, pump.fun and StonkFun, spotted coins never called callouts and kept out of the feed, Popcat's pick on top with a draft to copy by hand and never the clipboard, its disclosure the same words everywhere, and the numbers the bot cards quote read from the bots' code; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
+| `test-downloads.mjs` | the downloads, with no browser: two builds packaged twice give the same bytes; the extension zip holds `manifest.json` at its root with this manifest's name and version, every built file and nothing else, no source map, and an `INSTALL.txt` with the steps; the system's `unzip` agrees; the cats pack holds all seven cats' three pictures byte for byte from `brand/`, the banners, the logo and a README that names each cat and claims no licence; the data file's numbers are the zips'; unsafe names, a missing manifest and a tag that is not the manifest's version are refused; the deploy packages before the site's tests, and the release attaches both zips with `contents: write` only |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
 | `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 

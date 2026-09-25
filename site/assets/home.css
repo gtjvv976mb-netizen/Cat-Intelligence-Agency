@@ -65,6 +65,9 @@ code .nw{white-space:nowrap}
   border:2px solid rgba(242,237,255,.3);background:transparent;color:#c0b5dc;cursor:pointer;margin-left:8px;clip-path:var(--corners)}
 .shift:hover{color:#fff;border-color:var(--mint)}
 @media (max-width:860px){.navlinks .opt{display:none}}
+/* Download sits in the bar wherever it fits beside the rest; the home page's hero and every
+   footer link the Downloads page at every width. */
+@media (max-width:729px),(min-width:861px) and (max-width:939px){.navlinks a.dl{display:none}}
 /* The Floor: a page of its own, so it stays in the bar at every width. On a phone the name
    stacks on two lines to make room for it. */
 .navlinks a.floorlink{color:#f2edff}

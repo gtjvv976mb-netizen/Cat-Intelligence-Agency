@@ -81,6 +81,11 @@ pre .c{color:var(--ink-faint)}
   border:1px solid var(--bar-line);background:transparent;color:var(--ink-soft);cursor:pointer;margin-left:6px}
 .shift:hover{color:var(--ink);border-color:var(--ink-faint)}
 @media (max-width:860px){.navlinks .opt{display:none}}
+/* Download joins the bar: with the section links showing, the links sit a little closer to
+   make room, and where there is still none it folds away (the hero's Download button is there
+   at every width). */
+@media (min-width:861px){.navlinks{gap:2px}.navlinks a{padding:7px 7px;letter-spacing:.05em}}
+@media (max-width:709px),(min-width:861px) and (max-width:1100px){.navlinks a.dl{display:none}}
 /* With every section link in the bar there is no room for the "Agent 001" tag (it slid under
    them); the hero's eyebrow says it. It comes back when the section links fold away. */
 @media (min-width:861px){.brand .tag{display:none}}

@@ -108,7 +108,7 @@ closed trades. Trading P&L never includes creator fees; fees are their own line.
              "realizedPnlSol": "0", "unrealizedPnlSol": "0", "careerRealizedSol": "0",
              "feesClaimedSol": "0", "depositedSol": "0", "withdrawnSol": "0",
              "trades": 0, "wins": 0, "losses": 0, "maxDrawdownPct": "0",
-             "roiPct": "0" } }
+             "roiPct": "0", "unpricedPositions": 0 } }
 ```
 `coin` may be null (an agent with no coin of its own); its `symbol` and `name` are null while
 the coin's metadata cannot be read. `roiPct` is realized + unrealized trading P&L over the SOL
@@ -116,7 +116,9 @@ ever deposited (`depositedSol`, gross: a withdrawal or a profit sweep does not c
 null when nothing is deposited. Creator fees and anything else that arrives without a trade
 never count as return. `maxDrawdownPct` is the largest peak-to-trough fall of the agent's
 trading value per SOL deposited, with open positions valued at their latest quote, and with
-deposits, withdrawals and creator fees neutral (they neither make nor hide a drawdown). `careerRealizedSol` is the realized trading
+deposits, withdrawals and creator fees neutral (they neither make nor hide a drawdown).
+`unpricedPositions` counts the agent's open positions with no quote in the last hour (see
+positions below); every figure above values them by that rule. `careerRealizedSol` is the realized trading
 profit the rank counts, so it is never negative: a net loss counts as 0 there, and
 `realizedPnlSol` shows the loss as it is.
 
@@ -126,15 +128,17 @@ The Agent plus:
 { "limits": { "maxPerTradeSol": "…", "maxOpenPositions": 0, "stopLossPct": "…", "takeProfitPct": "…",
               "trailingStopPct": "…|null", "dailyLossLimitSol": "…" },
   "positions": [ { "mint": "…", "symbol": "…", "costSol": "…", "valueSol": "…", "entryPrice": "…",
-                   "price": "…|null", "pnlSol": "…", "pnlPct": "…|null", "openedAt": "…" } ],
+                   "price": "…|null", "pnlSol": "…", "pnlPct": "…|null", "markAt": "…|null", "openedAt": "…" } ],
   "decisions": [ Decision ], "trades": [ Trade ],
   "equity": [ { "t": "…", "portfolioSol": "…" } ],
   "fees": [ { "t": "…", "sol": "…", "tx": "…" } ],
   "transfers": [ { "t": "…", "kind": "deposit|withdrawal", "sol": "…", "tx": "…|null" } ],
   "promotions": [ { "t": "…", "from": "…", "to": "…" } ] }
 ```
-A position's `price` and `pnlPct` are null while no quote can be had (its `valueSol` is then its
-last quoted value). A transfer's `tx` is null only for a paper agent, whose deposits are book
+A position's `markAt` is when its latest quote was read (null if it never had one). With a quote
+under an hour old, `valueSol` is that quote. With none for an hour, `price` and `pnlPct` are null
+and `valueSol` is the lower of its last price and its cost; after 24 hours with none it is valued
+at 0 until a quote returns. A coin that stops trading never keeps its last good price. A transfer's `tx` is null only for a paper agent, whose deposits are book
 entries.
 
 ### `GET /v1/desk?limit=50&before=<cursor>`
@@ -187,7 +191,9 @@ the summary), except that `promotion` and `fee`, which the dossier lists under o
 whose they are: `promotion` is `{ "agentId": 1, "mode": "…", "t": "…", "from": "…", "to": "…" }`
 and `fee` is `{ "agentId": 1, "t": "…", "sol": "…", "tx": "…" }`. Each event is sent once. HQ
 ends a stream after at most five minutes, and caps streams per client network; a client
-reconnects with `Last-Event-ID` and misses nothing.
+reconnects with `Last-Event-ID` and misses nothing. If HQ can no longer resume from that id (it
+is older than the events HQ keeps), the stream's first event is `reset` (data `{}`), and the
+client reloads what it shows from the endpoints before reading on.
 
 ### `GET /v1/perks`
 `{ "tiers": [ { "id": "holder|agent|director", "minCia": "…", "perks": ["…"] } ] }`: the tiers,

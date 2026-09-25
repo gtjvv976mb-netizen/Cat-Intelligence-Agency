@@ -250,6 +250,26 @@ From the fastest to the most final:
   records. The agent wallets are still yours: import the 24 words into Phantom and agent *N* is
   account *N*.
 
+### When something is stuck
+
+HQ writes a marker before it signs anything and settles it from the chain on every pass (a
+minute), so a slow or failed RPC normally sorts itself out. If one does not:
+
+- **A wallet that has been "in flight" for a long time**: `node services/hq/cli.mjs intents`
+  lists the open markers (id, state, wallet, signature). `node services/hq/cli.mjs intent resolve
+  <id>` asks the chain about that one now: a marker that was never signed is closed (nothing was
+  sent); a signed one is closed as landed, failed or expired only when the chain says so, and
+  otherwise stays open. A marker in state `landed` means the transaction is on chain but your RPC
+  will not return it yet; while it lasts, stop losses and withdrawals still go, but no buy or
+  sweep does. Look the signature up on Solscan; if it is there, `intent resolve <id> --landed`
+  closes it on the chain's word, and HQ reads the transaction when the RPC returns it.
+- **A buyback stuck between its two swaps**: `node services/hq/cli.mjs buybacks` lists them. HQ
+  tries the second swap (HYPE → $CIA) on each run and, after `HQ_BUYBACK_LEG_TRIES` refusals (a
+  burn: that many failures), stops that buyback and moves on; the HYPE stays in the treasury and
+  the buyback says how much. `buyback retry <id>` takes a stopped one up again on the next run;
+  `buyback abandon <id>` stops one now (a swap or burn the chain has not settled yet is left to
+  the next run first). Nothing here deletes a record.
+
 ## 10. Optional: signed commands from your computer
 
 Instead of `railway ssh`, you can send the same commands signed by your own admin wallet:

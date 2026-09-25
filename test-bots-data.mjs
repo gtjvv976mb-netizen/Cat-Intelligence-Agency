@@ -4,8 +4,8 @@
  * Run by every deploy right after bots/floor-data.mjs has overlaid the floor-data branch's
  * launches.json and callouts.json onto site/assets/ (and by the suite, where they are main's
  * empty copies). Whatever their count, every entry must pass the site's own validator with no
- * problem at all, no callout may be on a coin CashCat launched, and nothing a dry run would
- * write may be there: a launch always carries the transaction that made it.
+ * problem at all, no coin or pick of Popcat's may be one CashCat launched, and nothing a dry run
+ * would write may be there: a launch always carries the transaction that made it.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -26,9 +26,10 @@ ok("one wallet made every launch", new Set(lv.launches.map((l) => l.creator)).si
 
 section("site/assets/callouts.json");
 const craw = read("callouts.json");
-ok("it parses and is { \"callouts\": [...] } and nothing else", Array.isArray(craw.callouts) && JSON.stringify(Object.keys(craw)) === '["callouts"]', craw.error ?? "");
+ok("it parses and is { \"callouts\": [...], \"picks\": [...] } and nothing else", Array.isArray(craw.callouts) && Array.isArray(craw.picks) && JSON.stringify(Object.keys(craw)) === '["callouts","picks"]', craw.error ?? "");
 const cv = validateCallouts(craw, { exclude: lv.launches });
-ok(`every entry passes the validator, and none is a CashCat coin (${craw.callouts?.length ?? 0} on file)`, cv.problems.length === 0 && cv.callouts.length === (craw.callouts?.length ?? -1), cv.problems.join(" | "));
+ok(`every coin and every pick passes the validator, and none is CashCat's (${craw.callouts?.length ?? 0} coins, ${craw.picks?.length ?? 0} picks on file)`,
+  cv.problems.length === 0 && cv.callouts.length === (craw.callouts?.length ?? -1) && cv.picks.length === (craw.picks?.length ?? -1), cv.problems.join(" | "));
 
 section("NOTHING ELSE OF THE BOTS' IS PUBLISHED");
 ok("Popcat's memory (popcat-state.json) is not in the site", !fs.existsSync(path.join(ROOT, "site", "assets", "popcat-state.json")));

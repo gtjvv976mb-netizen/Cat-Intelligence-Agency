@@ -1,17 +1,27 @@
-# Popcat, the callout bot: every half hour it reads new pump.fun coins, keeps the cat ones,
-# runs its on-chain checks, and — only with the repository variable POPCAT_LIVE set to 1 —
-# publishes the coins that pass every check to callouts.json on the floor-data branch, then
-# deploys the site. Without POPCAT_LIVE it is a dry run that prints what it would publish.
+# Popcat, the callout bot: every fifteen minutes it reads new pump.fun coins, queues the cat ones,
+# runs its on-chain checks and — only with the repository variable POPCAT_LIVE set to 1 —
+# publishes every coin it checked to callouts.json on the floor-data branch (a callout when no
+# check found a red flag, "spotted" with its red flags when one did), with at most one pick per
+# six-hour window, then deploys the site. Without POPCAT_LIVE it is a dry run that prints what it
+# would publish. Either way the run's summary (the Actions tab) shows the pick and its draft.
+#
+# Why every fifteen minutes: pump.fun lists only its newest 1,050 coins, about forty minutes of
+# launches, and GitHub may run a schedule late or skip it. At this pace one skipped run still
+# leaves the next inside the listing, and Popcat's queue (popcat-state.json) keeps every cat coin
+# it has seen until it is checked. A stretch it could not list is named in the log.
+#
+# Popcat never posts a callout on pump.fun: pump.fun's terms forbid automated callouts. The pick
+# is for the owner to post by hand (README: "CashCat and Popcat").
 #
 # Secrets it reads (all optional): SOLANA_RPC_URL (recommended; the public endpoint refuses some
 # reads), ANTHROPIC_API_KEY (a model then confirms each coin is a cat and fit to print).
 # Variables: POPCAT_LIVE, POPCAT_MODEL, CASHCAT_WALLET_ADDRESS (so CashCat's coins are never
-# called out). It holds no key and cannot buy anything.
+# listed). It holds no key and cannot buy anything.
 name: Popcat
 
 on:
   schedule:
-    - cron: "7,37 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -55,7 +65,7 @@ jobs:
         id: push
         env:
           GH_TOKEN: ${{ github.token }}
-        run: 'node bots/floor-data.mjs push .floor-data --files callouts.json,popcat-state.json --message "Popcat: callouts"'
+        run: 'node bots/floor-data.mjs push .floor-data --files callouts.json,popcat-state.json --message "Popcat: checked cat coins"'
 
   deploy:
     needs: run

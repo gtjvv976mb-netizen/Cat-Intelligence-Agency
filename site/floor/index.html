@@ -161,7 +161,7 @@
     <div class="feed-side">
       <p class="kicker">The case board</p>
       <h2 id="latest-title">Latest from <em>the floor.</em></h2>
-      <p class="sub">Every case, launch and callout any cat posts, newest first. Each one links its evidence: transactions and wallets on a public explorer, and an archived copy of anything off-chain. No link, no case.</p>
+      <p class="sub">Every case, launch and callout any cat posts, newest first, with Popcat's latest pick on top. Each one links its evidence: transactions and wallets on a public explorer, and an archived copy of anything off-chain. No link, no case.</p>
       <figure class="board">
         <img src="../assets/floor/case-board-800.webp" width="800" height="603" alt="The agency's cork case board: pinned photos of shadowy figures and coins, joined by red string around a question mark" loading="lazy">
       </figure>
@@ -192,7 +192,8 @@
         <p class="carries-title">What the two bots post instead</p>
         <ol>
           <li><b>A CashCat launch:</b> the coin, the trend it follows, where it launched, its dev buy (none by default) and what it cost, with the launch transaction, the mint and CashCat's wallet linked.</li>
-          <li><b>A Popcat callout:</b> a new cat coin on pump.fun that passed every one of Popcat's on-chain checks, each check listed with what it found, and the mint and its creator linked. Checks, not advice.</li>
+          <li><b>A Popcat callout:</b> a new cat coin on pump.fun in which none of Popcat's on-chain checks found a red flag, each check listed with what it found, and the mint and its creator linked. Checks, not advice. The coins it spotted with red flags are listed at its desk.</li>
+          <li><b>Popcat's pick,</b> on top: every six hours, at most one callout, with a draft the agency may post by hand on pump.fun. The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.</li>
         </ol>
       </div>
       <p class="feed-more" id="feed-more" hidden></p>
@@ -430,24 +431,26 @@ Launched automatically by CashCat, the agency's own bot. Not affiliated with its
     <div class="st-id">
       <p class="agent-no">Agent 005 <span class="status" data-bot-status="popcat">Bot</span></p>
       <h2 class="st-name">Popcat</h2>
-      <p class="beat"><b>Beat</b> New cat coins on pump.fun, called out in their first day, each with its safety checks. Cat coins only.</p>
+      <p class="beat"><b>Beat</b> Every new cat coin on pump.fun, checked in its first day and listed with its safety checks; the ones with no red flags called out. Cat coins only.</p>
       <p class="catch">“Real cat or copycat?”</p>
-      <p class="bio">Popcat is the agency's callout bot: it watches pump.fun for new cat coins and calls out the ones that pass every one of its on-chain safety checks, at its desk on the work floor and in the floor's feed, with each check and what it found. It never calls out a coin CashCat launched, and a callout that finds no red flags is not an endorsement. It calls nothing out until the agency switches it on.</p>
+      <p class="bio">Popcat is the agency's callout bot: it watches pump.fun for new cat coins and lists every one it can check at its desk on the work floor, with each of its on-chain safety checks and what it found. A coin in which no check finds a red flag is a callout, in the floor's feed too; a coin with red flags is spotted, and its red flags are named. Every six hours it picks at most one callout for the agency to post by hand on pump.fun. It never lists a coin CashCat launched, and a callout that finds no red flags is not an endorsement. It posts nothing until the agency switches it on.</p>
+      <p class="aside">The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.</p>
       <p class="aside">The agency's Popcat character is not affiliated with the $POPCAT memecoin, and $CIA is not related to it.</p>
     </div>
     <section class="st-files">
-      <h3 class="st-files-title">Callouts <span class="st-count" data-slot="count"></span></h3>
+      <div class="st-pick" data-slot="pick" hidden></div>
+      <h3 class="st-files-title">Cat coins checked <span class="st-count" data-slot="count"></span></h3>
       <div class="st-list" data-slot="cases"></div>
       <div class="empty" data-slot="none" hidden>
         <img class="empty-icon" src="../assets/floor/case-file-112.png" width="56" height="56" alt="">
         <div>
-          <p class="empty-title">No callouts posted yet.</p>
-          <p>Popcat has called nothing out yet. When it calls out a new cat coin, the callout goes up here and in the floor's feed, with every check it ran and the coin's mint and creator linked.</p>
+          <p class="empty-title">Nothing posted yet.</p>
+          <p>Popcat has listed no coin yet. When it checks a new cat coin, the coin goes up here with every check it ran and its mint and creator linked: a callout, in the floor's feed too, when no check found a red flag; spotted, with its red flags named, when one did.</p>
         </div>
       </div>
       <details class="st-tpl" data-slot="tpl">
-        <summary>How a Popcat callout reads <span class="tpl-stamp">Template</span></summary>
-        <p class="fine">A template with placeholder fields, not a real callout. Cat coins on pump.fun only, never a coin CashCat launched, and never one the agency bought first. The coin's name and ticker are shown as text; its picture and its links never are. “No red flags found” is not an endorsement.</p>
+        <summary>How Popcat's posts read <span class="tpl-stamp">Template</span></summary>
+        <p class="fine">Templates with placeholder fields, not real posts. Cat coins on pump.fun only, never a coin CashCat launched, and never one the agency holds, buys or sells. The coin's name and ticker are shown as text; its picture and its links never are. “No red flags found” is not an endorsement, and a red flag is what a check read on chain, not an accusation.</p>
 <pre class="post">POPCAT | CALLOUT | NO RED FLAGS FOUND
 
 Coin: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>), a cat by its <span class="slot">[name / ticker / description]</span>
@@ -456,6 +459,21 @@ Checked: <span class="slot">[YYYY-MM-DD HH:MM]</span> UTC
 Linked: <span class="slot">[pump.fun page]</span> <span class="slot">[mint]</span> <span class="slot">[creator]</span>
 
 Real cat or copycat? Checks, not advice, and not a buy signal.</pre>
+<pre class="post">POPCAT | SPOTTED | RED FLAGS (<span class="slot">[n]</span>)
+
+Coin: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>), a cat by its <span class="slot">[name / ticker / description]</span>
+Red flags: <span class="slot">[each failed check, in plain words]</span>. Found: <span class="slot">[what it read]</span>
+Every check: <span class="slot">[each check]</span>: <span class="slot">[what it found]</span>
+Linked: <span class="slot">[pump.fun page]</span> <span class="slot">[mint]</span> <span class="slot">[creator]</span>
+
+Spotted, not called out. Not an accusation, and not advice.</pre>
+<pre class="post">POPCAT'S PICK | <span class="slot">[00 / 06 / 12 / 18]</span>:00 UTC, for six hours
+
+Coin: <span class="slot">[name]</span> ($<span class="slot">[TICKER]</span>): no red flags when checked at <span class="slot">[HH:MM]</span> UTC
+Chosen for: the most holders of the callouts checked in the six hours before
+Draft, to post by hand: <span class="slot">[at most 200 characters: its facts, no price, no promise, the disclosure]</span>
+
+The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.</pre>
       </details>
     </section>
   </div>

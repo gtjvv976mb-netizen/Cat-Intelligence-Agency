@@ -1,9 +1,12 @@
 /**
  * POPCAT'S CHECKS: WHAT THE CHAIN SAYS ABOUT A NEW CAT COIN, AND THE LINE EACH CHECK MUST CLEAR.
  *
- * A callout is these checks, every one shown, and nothing else — no "buy", no price call, no
- * score. A coin is called out only when every check below passes (or, for the one check whose
- * source may be silent, reads "not available"). The thresholds are named here and nowhere else.
+ * Every cat coin Popcat checks is listed with these checks, every one shown, and nothing else:
+ * no "buy", no price call, no score. A coin every check passes (or, for the two whose source may
+ * be silent, reads "not available" or "not reached") is a callout, "no red flags found"; each
+ * check that fails is a red flag, and the coin is listed as spotted. The thresholds are named
+ * here and nowhere else (the site's plain words for each red flag quote them, and a test pins
+ * those words to these numbers).
  *
  *   mint_authority     the mint authority is revoked (read from the mint account)
  *   freeze_authority   the freeze authority is revoked
@@ -85,7 +88,10 @@ export async function creationAndSameSlot({ rpc, curve, creator }) {
     if (sigs.length < 1000) { oldest = all.length ? all[all.length - 1] : null; break; }
     before = sigs[sigs.length - 1].signature;
   }
-  if (!oldest) return { createSig: null, createSlot: null, createTime: null, sameSlotBuyers: [], sameSlotTxs: null, sameSlotUnread: 0, pagesRead: all.length };
+  /* How busy its curve has been: the successful transactions on it that were read (every buy and
+     sell touches the curve), at most maxSignaturePages × 1,000. The pick ranks by it. */
+  const curveTxs = all.filter((s) => !s.err).length;
+  if (!oldest) return { createSig: null, createSlot: null, createTime: null, sameSlotBuyers: [], sameSlotTxs: null, sameSlotUnread: 0, pagesRead: all.length, curveTxs };
   const inSlot = all.filter((s) => s.slot === oldest.slot && s.signature !== oldest.signature && !s.err);
   const buyers = new Set();
   let unread = Math.max(0, inSlot.length - SAME_SLOT_LIMITS.maxTransactions);
@@ -95,7 +101,7 @@ export async function creationAndSameSlot({ rpc, curve, creator }) {
     if (!payer) unread++;
     else if (payer !== creator) buyers.add(payer);
   }
-  return { createSig: oldest.signature, createSlot: oldest.slot, createTime: oldest.blockTime ?? null, sameSlotBuyers: [...buyers], sameSlotTxs: inSlot.length, sameSlotUnread: unread };
+  return { createSig: oldest.signature, createSlot: oldest.slot, createTime: oldest.blockTime ?? null, sameSlotBuyers: [...buyers], sameSlotTxs: inSlot.length, sameSlotUnread: unread, curveTxs };
 }
 
 /** Everything the checks need from the chain, in a handful of calls. */
@@ -110,7 +116,8 @@ export async function gatherOnchain({ rpc, coin }) {
 
 /**
  * The checks, from what was gathered. Returns { pass, checks: [{ id, result, value }],
- * failed: [ids] }. `result` is pass, fail or info ("not available" from a silent source).
+ * failed: [ids], stats }. `result` is pass, fail or info ("not available" from a silent source).
+ * `stats` is what Popcat's pick ranks by: { holders, top10Pct, curvePct, txs }.
  */
 export function evaluate({ coin, onchain, creatorLaunches, metadata, now, cashcat = { mints: new Set(), wallets: new Set() } }) {
   const checks = [];
@@ -173,7 +180,9 @@ export function evaluate({ coin, onchain, creatorLaunches, metadata, now, cashca
   add("copycat", !copy, copy ? `copies ${copy.name} ($${copy.symbol.replace(/^\$/, "")}, ${copy.mint.slice(0, 5)}…${copy.mint.slice(-4)})` : `no match among ${ESTABLISHED_CAT_COINS.length} established cat coins`);
 
   const failed = checks.filter((c) => c.result === "fail").map((c) => c.id);
-  return { pass: failed.length === 0, checks, failed, ageMin, progressPct };
+  const round2 = (x) => Math.round(x * 100) / 100;
+  const stats = { holders: others.length, top10Pct: round2(Math.min(100, top10Pct)), curvePct: round2(Math.min(100, progressPct)), txs: Number.isInteger(onchain.curveTxs) ? onchain.curveTxs : null };
+  return { pass: failed.length === 0, checks, failed, ageMin, progressPct, stats };
 }
 
 export { WSOL_MINT };

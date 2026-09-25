@@ -12,7 +12,7 @@ Copy for the X page, the launch, the agents, the memecoin and the site. Paste-re
 
 1. No price talk, no talk of returns or multiples, no space-travel metaphors, no certainty words. No invented numbers, holders, partners or dates.
 2. Crying Cat and Grumpy Cat are **characters**. Their cases are posts the agency writes from public data. They are not bots, AI or a scanner, so never write "detected", "flagged" or "our tool" about them.
-3. CashCat and Popcat are **bots**. CashCat launches cat-themed coins by itself; Popcat calls out new cat coins with their safety checks. Each posts only at its desk on the work floor (and in its feed), and only once the agency has switched it on: never describe a launch or a callout that is not there. Neither bot posts on X.
+3. CashCat and Popcat are **bots**. CashCat launches cat-themed coins by itself; Popcat checks every new cat coin on pump.fun, lists it with its safety checks, and calls out the ones in which no check found a red flag (the others are "spotted", never "called out"). Each posts only at its desk on the work floor (and in its feed), and only once the agency has switched it on: never describe a launch or a callout that is not there. Neither bot posts on X, and neither posts on pump.fun: Popcat's pick, one coin every six hours at most, is posted there only by the owner's hand, with the disclosure in section 4.
 4. CoinMarketCat is **real software**, the agentic trader, and is described exactly as it is: it runs only while Chrome is open, spot only, on the owner's own API key, and nothing about its returns has been measured. Snipurr, its sniper lane, is software too, not an investigator on X, and is described with the losing record it learned from. CoinMarketCat is not affiliated with CoinMarketCap; say so wherever the product is described or offered.
 5. `$CIA` is a meme and nothing more. It unlocks nothing and nobody is promised anything.
 
@@ -166,11 +166,11 @@ Count: 272 / 280
 ```text
 Agent 005: POPCAT, cat-coin callouts.
 
-Built to call out new cat coins on pump.fun that pass every one of its safety checks, at its desk on our work floor. Cat coins only. Not switched on yet: nothing called out.
+Built to check every new cat coin on pump.fun and list it at its desk on our work floor, red flags named; the ones with none are called out. Cat coins only. Not switched on yet: nothing listed.
 
 Real cat or copycat? 6/9
 ```
-Count: 253 / 280
+Count: 273 / 280
 
 **7/9**
 ```text
@@ -365,14 +365,16 @@ Launched automatically by CashCat, the agency's own bot. Not affiliated with its
 ### AGENT 005: POPCAT
 
 - **Codename:** POPCAT (see section 7: an existing memecoin has the same name)
-- **What it is:** a callout bot, built and dry until the agency switches it on. Its callouts are posted at its desk on the work floor and in the floor's feed, nowhere else; no post may name a callout that is not there.
+- **What it is:** a callout bot, built and dry until the agency switches it on. It lists every cat coin it checks at its desk on the work floor, and its callouts and its pick in the floor's feed too, nowhere else; no post may name a callout that is not there. A coin with red flags is "spotted", never "called out".
 - **Look:** a pixel kitten with its mouth popped wide open in a round O, holding a radar scanner with a hot-pink screen. Accent colour `#ff4fd8`.
-- **Beat:** new cat coins on pump.fun, called out in their first day, each with its safety checks, at its desk on the work floor and in the floor's feed. Cat coins only.
-- **House rules:** it never calls out a coin CashCat launched, and the agency never buys a coin before calling it out. A callout that finds no red flags says "no red flags found", never "safe" or "buy".
+- **Beat:** every new cat coin on pump.fun, checked in its first day and listed with its safety checks; the ones with no red flags called out. Cat coins only.
+- **Its pick:** every six hours (00, 06, 12, 18 UTC), at most one callout: of the coins with no red flags it checked in the six hours before, the one with the most holders (then the most transactions on its bonding curve, then the most of its curve sold). It carries a draft of at most 200 characters, facts only. Popcat never posts it: pump.fun's terms forbid automated callouts. The owner may post it by hand from their own account, at most one callout every six hours, holding none of the coin, with the draft's disclosure left in.
+- **House rules:** it never lists a coin CashCat launched, and the agency never holds, buys or sells a coin it calls out. A callout that finds no red flags says "no red flags found", never "safe" or "buy"; a red flag is what a check read on chain, never an accusation.
+- **Disclosure, wherever the pick is shown:** The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.
 - **Catchphrase:** "Real cat or copycat?"
-- **Bio:** Popcat is the agency's callout bot: it watches pump.fun for new cat coins and calls out the ones that pass every one of its on-chain safety checks, at its desk on the work floor and in the floor's feed, with each check and what it found. It never calls out a coin CashCat launched, and a callout that finds no red flags is not an endorsement. It calls nothing out until the agency switches it on.
+- **Bio:** Popcat is the agency's callout bot: it watches pump.fun for new cat coins and lists every one it can check at its desk on the work floor, with each of its on-chain safety checks and what it found. A coin in which no check finds a red flag is a callout, in the floor's feed too; a coin with red flags is spotted, and its red flags are named. Every six hours it picks at most one callout for the agency to post by hand on pump.fun. It never lists a coin CashCat launched, and a callout that finds no red flags is not an endorsement. It posts nothing until the agency switches it on.
 
-**How a callout reads on its desk.** The bot writes it; nobody types it. The checks are the ones the bot ran on that coin, each with what it found. The coin's name and ticker are shown as text, never its picture or its links.
+**How its posts read on its desk.** The bot writes them; nobody types them. The checks are the ones the bot ran on that coin, each with what it found. The coin's name and ticker are shown as text, never its picture or its links.
 ```text
 POPCAT | CALLOUT | NO RED FLAGS FOUND
 
@@ -383,6 +385,26 @@ Linked: [pump.fun page] [mint] [creator]
 
 Real cat or copycat? Checks, not advice, and not a buy signal.
 ```
+```text
+POPCAT | SPOTTED | RED FLAGS ([n])
+
+Coin: [name] ($[TICKER]), a cat by its [name / ticker / description]
+Red flags: [each failed check, in plain words]. Found: [what it read]
+Every check: [each check]: [what it found]
+Linked: [pump.fun page] [mint] [creator]
+
+Spotted, not called out. Not an accusation, and not advice.
+```
+```text
+POPCAT'S PICK | [00 / 06 / 12 / 18]:00 UTC, for six hours
+
+Coin: [name] ($[TICKER]): no red flags when checked at [HH:MM] UTC
+Chosen for: the most holders of the callouts checked in the six hours before
+Draft, to post by hand: [at most 200 characters: its facts, no price, no promise, the disclosure]
+
+The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.
+```
+**The draft the owner may post on pump.fun** is built by the bot from the checks and nothing else, and always ends with the disclosure pump.fun's terms ask for: `[name] ($[TICKER]): no red flags in 12 on-chain checks at [HH:MM] UTC. [holders], top 10 hold [n]%, mint and freeze revoked, bonding curve [n]% complete. No position held; may earn callout rewards. Not financial advice.` (the facts that do not fit in 200 characters are left out). Never add a price, a multiple, "buy", or a promise to it.
 
 ### AGENT 006: SNIPURR
 
@@ -434,17 +456,19 @@ https://catintelligenceagency.com/coinmarketcat/#snipurr (3/3)
 >
 > **6. No buying before the call.** The agency never buys a coin before calling it out, so a callout is never a way to sell to the people who read it.
 >
+> **7. Popcat's pick, disclosed.** The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.
+>
 > Crying Cat and Grumpy Cat are characters. Their cases are posts the agency writes from public data, not the output of a bot or a tool. CashCat and Popcat are the agency's bots, built and not yet switched on; CoinMarketCat and Snipurr are software.
 
-Rules 5 and 6 are the owner's, and they hold before either bot ships: they are why CashCat's launches and Popcat's callouts can sit on the same floor.
+Rules 5, 6 and 7 are the owner's, and they hold before either bot ships: they are why CashCat's launches and Popcat's callouts can sit on the same floor, and why a pick the agency posts on pump.fun, where callers are paid, can be trusted to say so.
 
 **Two more rules worth publishing (OWNER TO CONFIRM):**
 
-> **7. We disclose.** If the agency, or whoever wrote the case, holds a token we post about, the case says so.
+> **8. We disclose.** If the agency, or whoever wrote the case, holds a token we post about, the case says so.
 >
-> **8. Not for sale.** We take no payment to open, drop or soften a case, and we run no paid promos.
+> **9. Not for sale.** We take no payment to open, drop or soften a case, and we run no paid promos.
 
-Rule 8 matters more than it looks. Popcat's "no red flags found" is exactly the line a paid shill would want, and CashCat's launches are the agency's own coins. The agency has to pass its own test.
+Rule 9 matters more than it looks. Popcat's "no red flags found" is exactly the line a paid shill would want, and CashCat's launches are the agency's own coins. The agency has to pass its own test.
 
 ---
 
@@ -550,7 +574,7 @@ Count: 152 / 160
 
 **Section heading:** *Six agents. Four of them are software.*
 
-**Section intro:** Crying Cat and Grumpy Cat are characters: their cases are posts on the agency's X account, written from public data. The other four are software. CoinMarketCat, the agentic trader, is a real Chrome extension, and Snipurr, its sniper lane, ships inside it. CashCat and Popcat are the agency's two bots: CashCat launches cat coins of its own, and Popcat calls out new ones with their safety checks. Each lists everything it has posted at its desk on the work floor, and posts nothing until the agency switches it on. The Director is the agency's mascot, not one of the six.
+**Section intro:** Crying Cat and Grumpy Cat are characters: their cases are posts on the agency's X account, written from public data. The other four are software. CoinMarketCat, the agentic trader, is a real Chrome extension, and Snipurr, its sniper lane, ships inside it. CashCat and Popcat are the agency's two bots: CashCat launches cat coins of its own, and Popcat checks every new one and calls out the ones with no red flags. Each lists everything it has posted at its desk on the work floor, and posts nothing until the agency switches it on. The Director is the agency's mascot, not one of the six.
 
 ---
 
@@ -590,10 +614,12 @@ Count: 152 / 160
 - **Link:** `Its desk`
 
 **Agent 005 · Popcat** (*cat-coin callouts · bot*)
-- **Type:** A bot that runs on the agency's own schedule, about every half hour. Until the agency switches it on, it checks coins and posts nothing.
-- **Calls out:** New cat-themed coins on pump.fun, from 15 minutes to a day old. Nothing that is not a cat coin, and never its picture or its links: its name and ticker are shown as text.
-- **Each callout:** Every check it ran on the coin, and what each one found: mint and freeze authority, what the creator and the top ten holders hold, buyers in the launch slot, the creator's earlier launches, and more. "No red flags found" is not an endorsement or a buy signal.
-- **House rules:** It never calls out a coin CashCat launched, and the agency never buys a coin before calling it out.
+- **Type:** A bot that runs on the agency's own schedule, about every fifteen minutes. Until the agency switches it on, it checks coins and posts nothing.
+- **Checks:** Every new cat-themed coin on pump.fun it can check, from 15 minutes to a day old: a coin a late run missed waits in its queue. Nothing that is not a cat coin, and never its picture or its links: its name and ticker are shown as text.
+- **Each coin:** Every check it ran, and what each one found: mint and freeze authority, what the creator and the top ten holders hold, buyers in the launch slot, the creator's earlier launches, and more. With no red flag it is a callout; with any, it is spotted and its red flags are named. "No red flags found" is not an endorsement or a buy signal.
+- **Its pick:** Every six hours, at most one callout: of the coins with no red flags it checked in the six hours before, the one with the most holders. Popcat never posts it anywhere; the agency may post it by hand, as a callout on pump.fun.
+- **Disclosure:** The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.
+- **House rules:** It never lists a coin CashCat launched, and the agency never holds, buys or sells a coin it calls out.
 - **Catchphrase:** *Real cat or copycat?*
 - **Link:** `Its desk`
 

@@ -100,7 +100,7 @@
   <div class="wrap">
     <p class="kicker">The agents</p>
     <h2 id="agents-title">Six agents. <em>Four of them are software.</em></h2>
-    <p class="sub">Crying Cat and Grumpy Cat are characters: their cases are posts on the agency's X account, written from public data. The other four are software. CoinMarketCat, the agentic trader, is a real Chrome extension, and Snipurr, its sniper lane, ships inside it. CashCat and Popcat are the agency's two bots: CashCat launches cat coins of its own, and Popcat calls out new ones with their safety checks. Each lists everything it has posted at its desk on the work floor, and posts nothing until the agency switches it on. The Director is the agency's mascot, not one of the six.</p>
+    <p class="sub">Crying Cat and Grumpy Cat are characters: their cases are posts on the agency's X account, written from public data. The other four are software. CoinMarketCat, the agentic trader, is a real Chrome extension, and Snipurr, its sniper lane, ships inside it. CashCat and Popcat are the agency's two bots: CashCat launches cat coins of its own, and Popcat checks every new one and calls out the ones with no red flags. Each lists everything it has posted at its desk on the work floor, and posts nothing until the agency switches it on. The Director is the agency's mascot, not one of the six.</p>
 
     <article class="agent wide director" id="agent-director" data-cat="director" data-codename="The Director" data-beat="Head of the agency" style="--accent:#9945ff">
       <div class="agent-floor"><img class="kitten" src="assets/sprites/director.png" width="150" height="211" alt="The Director: a grey kitten in a black suit and sunglasses, with a coiled earpiece" loading="lazy"></div>
@@ -218,17 +218,19 @@ We got it wrong. The original stays up, corrected. - The Director</pre>
         <div class="agent-body">
           <p class="agent-no">Agent 005 <span class="status" data-bot-status="popcat">Bot</span></p>
           <h3>Popcat</h3>
-          <p class="beat"><b>Beat</b> New cat coins on pump.fun, called out in their first day, each with its safety checks. Cat coins only.</p>
+          <p class="beat"><b>Beat</b> Every new cat coin on pump.fun, checked in its first day and listed with its safety checks; the ones with no red flags called out. Cat coins only.</p>
           <p class="catch">“Real cat or copycat?”</p>
-          <p class="bio">Popcat is the agency's callout bot: it watches pump.fun for new cat coins and calls out the ones that pass every one of its on-chain safety checks, at its desk on the work floor and in the floor's feed, with each check and what it found. It never calls out a coin CashCat launched, and a callout that finds no red flags is not an endorsement. It calls nothing out until the agency switches it on.</p>
+          <p class="bio">Popcat is the agency's callout bot: it watches pump.fun for new cat coins and lists every one it can check at its desk on the work floor, with each of its on-chain safety checks and what it found. A coin in which no check finds a red flag is a callout, in the floor's feed too; a coin with red flags is spotted, and its red flags are named. Every six hours it picks at most one callout for the agency to post by hand on pump.fun. It never lists a coin CashCat launched, and a callout that finds no red flags is not an endorsement. It posts nothing until the agency switches it on.</p>
           <p class="aside">The agency's Popcat character is not affiliated with the $POPCAT memecoin, and $CIA is not related to it.</p>
           <details class="file">
             <summary>Open the file</summary>
             <dl class="file-body facts">
-              <dt>Type</dt><dd>A bot that runs on the agency's own schedule, about every half hour. Until the agency switches it on, it checks coins and posts nothing.</dd>
-              <dt>Calls out</dt><dd>New cat-themed coins on pump.fun, from 15 minutes to a day old. Nothing that is not a cat coin, and never its picture or its links: its name and ticker are shown as text.</dd>
-              <dt>Each callout</dt><dd>Every check it ran on the coin, and what each one found: mint and freeze authority, what the creator and the top ten holders hold, buyers in the launch slot, the creator's earlier launches, and more. “No red flags found” is not an endorsement or a buy signal.</dd>
-              <dt>House rules</dt><dd>It never calls out a coin CashCat launched, and the agency never buys a coin before calling it out.</dd>
+              <dt>Type</dt><dd>A bot that runs on the agency's own schedule, about every fifteen minutes. Until the agency switches it on, it checks coins and posts nothing.</dd>
+              <dt>Checks</dt><dd>Every new cat-themed coin on pump.fun it can check, from 15 minutes to a day old: a coin a late run missed waits in its queue. Nothing that is not a cat coin, and never its picture or its links: its name and ticker are shown as text.</dd>
+              <dt>Each coin</dt><dd>Every check it ran, and what each one found: mint and freeze authority, what the creator and the top ten holders hold, buyers in the launch slot, the creator's earlier launches, and more. With no red flag it is a callout; with any, it is spotted and its red flags are named. “No red flags found” is not an endorsement or a buy signal.</dd>
+              <dt>Its pick</dt><dd>Every six hours, at most one callout: of the coins with no red flags it checked in the six hours before, the one with the most holders. Popcat never posts it anywhere; the agency may post it by hand, as a callout on pump.fun.</dd>
+              <dt>Disclosure</dt><dd>The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.</dd>
+              <dt>House rules</dt><dd>It never lists a coin CashCat launched, and the agency never holds, buys or sells a coin it calls out.</dd>
             </dl>
           </details>
           <div class="agent-links"><a href="./floor/#popcat">Its desk</a></div>
@@ -274,6 +276,7 @@ We got it wrong. The original stays up, corrected. - The Director</pre>
           <li><h3>Corrections as loud as the case.</h3><p>When we get it wrong, the correction goes out from the same account in the same format, quoting the original. If the case was pinned, the correction is pinned.</p></li>
           <li><h3>We never call out our own coins.</h3><p>Popcat never calls out a coin CashCat launched.</p></li>
           <li><h3>No buying before the call.</h3><p>The agency never buys a coin before calling it out, so a callout is never a way to sell to the people who read it.</p></li>
+          <li><h3>Popcat's pick, disclosed.</h3><p>The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.</p></li>
         </ol>
       </div>
 
@@ -439,7 +442,7 @@ import { loadBotPosts, botTally } from "./assets/bot-posts.js";
 loadBotPosts().then((posts) => {
   for (const [cat, kind] of [["cashcat", "launches"], ["popcat", "callouts"]]) {
     if (posts[kind].state !== "ready") continue;
-    for (const s of document.querySelectorAll(`[data-bot-status="${cat}"]`)) s.textContent = `Bot · ${botTally(cat, posts[kind].items.length)}`;
+    for (const s of document.querySelectorAll(`[data-bot-status="${cat}"]`)) s.textContent = `Bot · ${botTally(cat, posts[kind].items)}`;
   }
 }).catch((e) => console.warn("the bots' files could not be read:", e && e.message));
 </script>

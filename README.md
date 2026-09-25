@@ -22,7 +22,7 @@ CoinMarketCap.
 | **Crying Cat** | Ruggers | A persona the agency posts as on X, and the face of $CIA |
 | **Grumpy Cat** | Fake hype | A persona the agency posts as on X |
 | **CashCat** | Launches cat-themed coins by itself, from what is trending, on pump.fun and on StonkFun (Solana's stock-paired launchpad) | **A bot in this repository** (`bots/cashcat/`, [below](#cashcat-and-popcat--the-agencys-bots)), dry until switched on; nothing has launched. It no longer investigates whales and KOLs |
-| **Popcat** | Calls out new cat coins on pump.fun, each with its safety checks, at its desk on the work floor and in the floor's feed. Cat coins only | **A bot in this repository** (`bots/popcat/`), dry until switched on; nothing has been called out |
+| **Popcat** | Checks every new cat coin on pump.fun and lists it at its desk on the work floor with its safety checks: a callout when none finds a red flag, spotted with its red flags named when one does. Every six hours it picks at most one callout for the agency to post by hand on pump.fun. Cat coins only | **A bot in this repository** (`bots/popcat/`), dry until switched on; nothing has been listed or picked |
 
 ## What is in this repository
 
@@ -44,8 +44,9 @@ Click the 3D headquarters on the home page (or **Enter the agency**, or **The Fl
 bar) and you are on [the work floor](https://catintelligenceagency.com/floor/): the office in
 pixel art, each of the seven cats at its own desk. Click a desk to open that cat's station: its monitor,
 who it is, and **its case files**, newest first — or, for the two bots, CashCat's launches and
-Popcat's callouts. Every case, launch and callout also shows up under **Latest from the
-floor**. Until a cat has posted something, its station says so and shows its template instead.
+every cat coin Popcat checked, under Popcat's pick. Every case, launch and callout, and
+Popcat's latest pick, also shows up under **Latest from the floor** (the coins Popcat spotted
+with red flags stay at its desk). Until a cat has posted something, its station says so and shows its template instead.
 Nothing on the floor is invented: it shows only what is in three files, `cases.json`, which you
 edit by hand as below, and `launches.json` and `callouts.json`, which only the bots write
 ([below](#where-the-data-lives-and-how-it-reaches-the-site)).
@@ -125,14 +126,18 @@ not be read. `node test-site.mjs` catches both before they ship. The rules live 
 ## CashCat and Popcat — the agency's bots
 
 Two bots run on this repository's GitHub Actions. **CashCat** launches cat-themed coins of its
-own, from what is trending, on pump.fun and on StonkFun. **Popcat** reads new pump.fun coins,
-keeps the cat ones, runs on-chain safety checks on them, and calls out the ones that pass every
-check. Both are **dry by default**: until the owner switches one on, it does everything up to
-the point of sending or publishing, prints what it would have done, and changes nothing. What
-they post appears only on the website: CashCat's launches at its desk on
-[the work floor](https://catintelligenceagency.com/floor/#cashcat), Popcat's callouts at
-[its desk](https://catintelligenceagency.com/floor/#popcat), and both in **Latest from the
-floor**. Neither posts on X or Telegram.
+own, from what is trending, on pump.fun and on StonkFun. **Popcat** reads every new pump.fun
+coin, keeps the cat ones, runs twelve on-chain safety checks on each and lists **every** cat coin
+it checked: a **callout** when no check found a red flag, **spotted** with its red flags named in
+plain words when one did. Every six hours it also makes at most one **pick**, a callout with a
+short draft that the owner may post **by hand** as a callout on pump.fun, where callers are paid
+(below: pump.fun's terms forbid a bot to post it). Both are **dry by default**: until the owner
+switches one on, it does everything up to the point of sending or publishing, prints what it
+would have done, and changes nothing. What they post appears only on the website: CashCat's
+launches at its desk on [the work floor](https://catintelligenceagency.com/floor/#cashcat),
+every coin Popcat checked and its pick at [its desk](https://catintelligenceagency.com/floor/#popcat),
+and the launches, the callouts and the pick in **Latest from the floor**. Neither posts on X,
+Telegram or pump.fun.
 
 ### What CashCat does, once per run
 
@@ -190,43 +195,128 @@ creator fees. A dry run never appears on the website.
 
 ### What Popcat does, once per run
 
-1. Reads pump.fun's newest coins (the last hour) and its recently traded ones.
+**What changed (September 2026).** Popcat used to publish only the coins that passed all twelve
+checks, and looked only at coins between 15 and about 40 minutes old, so a late or skipped run
+lost coins. Now it lists every cat coin it can check, flagged or not, keeps a queue so that no
+cat coin is missed between runs, runs every fifteen minutes instead of every thirty, and makes
+Popcat's pick.
+
+1. Reads pump.fun's newest coins back to where its last complete listing began (`listedTo` in its
+   memory, with five minutes of overlap), and its recently traded coins. pump.fun lists only its
+   newest 1,050 coins (it answered offsets 0 to 1,000 and an empty list past that on 2026-09-25):
+   about forty minutes of launches at the rate seen that night. Hence the fifteen-minute schedule:
+   one skipped run still leaves the next inside the listing. When runs are late or skipped for
+   longer than the listing reaches, the run says so in its log and its summary (`MISSED: …`,
+   with the stretch of creation times it could not list); nothing is passed over quietly.
 2. Keeps the cat coins: a cat word in the name, the ticker or (with a model to confirm) the
    description, matched on word boundaries with guards against false friends (*catch*,
    *category*, *scat*, *muscat*…). With `ANTHROPIC_API_KEY` set, a model confirms each coin is
    cat-themed and fit to print by name and ticker; without it, coins that are cats only by
    their description are skipped. The name and ticker must also pass the same content filter
    CashCat's coins do, since the site prints them; a name or ticker carrying a web address is
-   never printed.
+   never printed, and the run counts it as skipped.
 3. Drops CashCat's coins (by its wallet, `CASHCAT_WALLET_ADDRESS`, and by every mint and
    wallet in `launches.json`; the creator is taken both from pump.fun's listing and from the
-   coin's bonding curve on chain) and coins it checked in the last hour.
-4. Runs twelve checks on each candidate and calls a coin out only when every one passes. The
-   thresholds live in one place, `THRESHOLDS` in `bots/popcat/checks.mjs`: mint and freeze
-   authority revoked; Token-2022 extensions the executor's own audit accepts; the creator
-   holding at most 5% and the ten largest holders (the bonding curve excluded) at most 30%,
-   across at least 25 holders; at most 2 other wallets buying in the creation slot (a
-   same-slot transaction it could not read counts as one); the creator with at most 10
-   earlier pump.fun launches (when pump.fun does not say, the check reads "not available"
-   and does not stop the callout); at least one social link in its
-   metadata; between 15 minutes and 24 hours old; at least 10% of the curve sold; not a copy
-   of an established cat coin; not CashCat's. At most three callouts a run.
-5. Live only: appends the passing coins to `callouts.json`, with every check and what it found.
+   coin's bonding curve on chain), and queues every other cat coin it has not dealt with, at any
+   age under a day, in `popcat-state.json`. A coin younger than 15 minutes waits in the queue, so
+   that its holders mean something when it is checked.
+4. Checks the queue, oldest coin first, at most 30 coins a run (`RUN_LIMITS.maxChecksPerRun` in
+   `bots/popcat/callout.mjs`): about a dozen RPC reads and two pump.fun reads a coin, paced within
+   the limits `bots/lib/http.mjs` already keeps. Coins over the budget wait for the next run and
+   are named in the log. A coin whose accounts could not be read is tried again on the next run,
+   three tries in all. A coin still unchecked when it is a day old leaves the queue and is named
+   as dropped. A spotted coin whose only red flags can clear with time (holders, the top ten's
+   share, the curve, its age) is checked again an hour later, three checks at most, and its newer
+   check replaces the older on the floor.
+5. The twelve checks, whose thresholds live in one place, `THRESHOLDS` in
+   `bots/popcat/checks.mjs`: mint and freeze authority revoked; Token-2022 extensions the
+   executor's own audit accepts; the creator holding at most 5% and the ten largest holders (the
+   bonding curve excluded) at most 30%, across at least 25 holders; at most 2 other wallets buying
+   in the creation slot (a same-slot transaction it could not read counts as one); the creator
+   with at most 10 earlier pump.fun launches (when pump.fun does not say, the check reads "not
+   available" and is no red flag); at least one social link in its metadata; between 15 minutes
+   and 24 hours old; at least 10% of the curve sold; not a copy of an established cat coin; not
+   CashCat's. Each check that fails is a red flag, and the site names it in plain words that quote
+   these same numbers (a test pins them together).
+6. Live only: writes every coin it checked to `callouts.json` with every check and what it found,
+   one entry per coin, newest first, the newest 200 kept (`MAX_CALLOUTS` in
+   `site/assets/callouts.js`; `capCallouts` in `bots/lib/data.mjs` keeps a callout from the last
+   six hours, which the next pick may still choose, ahead of older spotted coins), and the pick
+   with them (the newest 28, a week of windows). At the rate seen on 2026-09-25, 200 entries hold
+   about three hours of cat coins; older ones stay in the runs' logs, not on the floor.
 
-A callout is a list of checks, never advice: the site shows the coin's name and ticker as
-text, the checks, and links to pump.fun and Solscan. It never shows the coin's picture or
-follows or prints its links. The agency never buys a coin before calling it out, and Popcat
-holds no key: it cannot buy anything.
+A callout is a list of checks, never advice, and a red flag is what a check read on chain at that
+moment, never an accusation. The site shows the coin's name and ticker as text, the checks, and
+links to pump.fun and Solscan; it never shows the coin's picture or follows or prints its links.
+On the floor a coin with red flags is "spotted", never "called out"; only a coin with none is a
+callout, and only callouts and the pick go in the floor's feed (the spotted coins stay at
+Popcat's desk). Popcat holds no key: it cannot buy anything, and it cannot post anything on
+pump.fun.
+
+### Popcat's pick, and posting it on pump.fun by hand
+
+pump.fun runs **Callouts** with **Callout Rewards**: a user posts a callout on a token in the
+pump.fun app, their followers see it, and when users trade because of it, pump.fun pays the
+caller in USDC daily, pro rata, from a pot pump.fun funds. As read in September 2026 in pump.fun's
+[Callout Reward terms](https://pump.fun/docs/callout-reward-terms), pump.fun's and its
+co-founder's posts on X, and the news: one callout per account every six hours; a ranking that
+now favours quality over quantity; **no API for posting a callout**; and terms that **forbid using
+"bots, scripts, or other automation to create Callouts"**, multiple or bot accounts, self-dealing,
+wash trading, front-running, and fraudulent or misleading callouts, and that **require disclosing
+any compensation received or expected and any material position in the asset**. Read the terms
+yourself before you post: they change, and this README is not legal advice.
+
+So Popcat never posts a callout. It picks, and the owner decides:
+
+- **When.** The windows start at 00, 06, 12 and 18 UTC (`PICK_WINDOW_HOURS` in
+  `site/assets/callouts.js`). The first run at or after a window's start (normally the :07 run)
+  tries once for that window and records that it tried (`pickWindow` in Popcat's memory). If no
+  coin qualifies, that window has no pick; a clean coin found later waits for the next window.
+- **Which.** Only a callout (no check found a red flag), checked in the six hours before the run
+  (`PICK_LOOKBACK_HOURS`), never picked before, and never CashCat's. Of those, the first by
+  `PICK_RANKING` in `bots/popcat/pick.mjs`, each measure higher first: the **distinct holders**
+  besides the bonding curve, then the **successful transactions on its bonding curve** that
+  Popcat counted (every buy and sell touches the curve; it counts up to 5,000), then **how much
+  of its bonding curve had sold**. A tie on all three goes to the mint address that sorts first,
+  so the same data always gives the same pick. All three are counts from the chain at the coin's
+  check; none is a price, and none says the coin will do well.
+- **What it carries.** Its window, when it was chosen, when its checks ran, those three counts
+  and the top ten's share, and a **draft** of at most 200 characters (`DRAFT_MAX`) built from the
+  checks only: the name and ticker, that twelve on-chain checks found no red flag and when, as
+  many of its holders, top-ten share, revoked authorities and curve progress as fit, and the
+  disclosure *No position held; may earn callout rewards. Not financial advice.* The site's
+  validator refuses a draft over 200 characters, one without the disclosure, and one with a call
+  to trade, a price or a promise ("buy", "sell", "moon", "gem", "pump", "profit", "safe", "price",
+  "market cap", "100x"…). A coin whose own name or ticker carries such a word is never picked.
+- **Where it shows.** As **Popcat's pick** at the top of Popcat's desk and of the floor's feed,
+  with its window, and in the **summary of the run** that made it (Actions → Popcat → the run),
+  where the draft sits in a box of its own. On the site the draft is text: select it and copy it
+  yourself; the page never touches the clipboard.
+
+**Posting it is the owner's act, and the owner's responsibility:**
+
+1. Post it only **by hand**, in the pump.fun app, from **your own single account**. No script,
+   bot, scheduler or second account, ever.
+2. At most **one callout every six hours**; pump.fun enforces that too.
+3. Be **eligible** under the terms: 18 or over, and not a UK or otherwise restricted person.
+4. **Hold none of the coin**, before or after, and never trade it; keep the draft's disclosure,
+   and disclose anything else the terms ask.
+5. Read the coin's checks at its desk before you post: they were true when they ran, not
+   necessarily now. Skip a pick you would not stand behind; a pick is a suggestion, never an
+   obligation.
+
+The disclosure the site shows with every pick, and the house rules carry: *The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring. The agency never holds, buys or sells a coin it calls out, and never calls out a coin CashCat launched. Not financial advice.*
 
 ### Where the data lives, and how it reaches the site
 
 The bots never commit to `main`. Each run checks out the `floor-data` branch (created on the
 first live run that writes something; a dry run commits nothing), writes its file there
-(`launches.json`; `callouts.json` and Popcat's memory, `popcat-state.json`) and pushes; two
+(`launches.json`; `callouts.json`, every coin Popcat checked and its picks, and Popcat's memory,
+`popcat-state.json`: its queue, where its last listing reached, and the last window it tried) and pushes; two
 bots pushing at once rebase and retry, since they write different files. When a file the site
 shows changed, the run calls `.github/workflows/pages.yml`, which checks out `main`, lays over
 `site/assets/` the entries of `floor-data`'s two files that pass the site's own validators (an
-entry that does not, or a callout on a CashCat coin, is left out and named in the log, so it
+entry that does not, or a coin or a pick of CashCat's, is left out and named in the log, so it
 cannot stop a deploy of `main`), runs the site's tests on them (`test-site.mjs`,
 `test-bots-data.mjs`), and deploys. A push to `main` deploys through the same overlay, so it
 never wipes the floor, and one deploy runs at a time. If `floor-data` cannot be read (the
@@ -237,8 +327,8 @@ everything as text.
 
 ### Turning them on
 
-Once this is on `main`, both workflows run on their schedule (Popcat every half hour, at :07
-and :37; CashCat at 02:23, 10:23 and 18:23 UTC) and can be started by hand under **Actions**. Without the
+Once this is on `main`, both workflows run on their schedule (Popcat every fifteen minutes, at
+:07, :22, :37 and :52; CashCat at 02:23, 10:23 and 18:23 UTC) and can be started by hand under **Actions**. Without the
 switches below they are dry runs: read their logs to see what they would do and, for CashCat,
 which guards are still red. GitHub Pages must deploy from **GitHub Actions** (Settings →
 Pages → Source), as it already does for this site.
@@ -247,9 +337,9 @@ Pages → Source), as it already does for this site.
 
 | Name | Kind | What |
 |---|---|---|
-| `POPCAT_LIVE` | variable | `1` to publish callouts. Anything else: dry run. |
+| `POPCAT_LIVE` | variable | `1` to publish every coin it checks, and its picks. Anything else: dry run (its summary still shows the pick it would make). |
 | `SOLANA_RPC_URL` | secret | Recommended: your own RPC URL. The public endpoint rate-limits and refuses some reads. |
-| `CASHCAT_WALLET_ADDRESS` | variable | CashCat's public address, so its coins are never called out, even before its first launch is on file. |
+| `CASHCAT_WALLET_ADDRESS` | variable | CashCat's public address, so its coins are never listed or picked, even before its first launch is on file. |
 | `ANTHROPIC_API_KEY` | secret | Optional: a model confirms each coin is a cat and fit to print. |
 | `POPCAT_MODEL` | variable | Optional: a model id your key lists (else the first one listed). |
 
@@ -300,10 +390,13 @@ node bots/popcat/run.mjs
   its dev buy if you set one. Pinata stores two files per launch: the logo (a PNG of about
   400 KB) and a small JSON document. The model is billed
   to your key: CashCat makes at most four short calls a run (three runs a day); Popcat, with
-  a key, up to eight short calls a run (48 runs a day). What that costs depends on the model,
+  a key, one short call per new cat coin, at most 30 a run (96 runs a day; 48 new cat coins
+  were listed in the 46 minutes of the dry run of 2026-09-25). What that costs depends on the model,
   so set `CASHCAT_MODEL` and `POPCAT_MODEL` to a small one your key lists. On a public
   repository GitHub's standard runners are free; on a private one the runs use the plan's
-  minutes.
+  minutes, and Popcat uses many: its dry run of 2026-09-25 took about five minutes for 30 checks
+  on the public endpoints, and it runs 96 times a day. A dry run keeps no memory, so every dry
+  run on Actions reads the whole listing and checks up to 30 coins again.
 - **The odds.** Most pump.fun coins never finish their bonding curve, and a CashCat coin has
   nothing behind it but its line on the floor. Expect most launches to cost their fee and earn
   nothing. The only income is pump.fun's creator fee on trades of CashCat's own coins, which it
@@ -318,8 +411,12 @@ node bots/popcat/run.mjs
   legal advice.
 - **Popcat.** A callout says the checks passed at one moment. A coin that passed can be sold
   off minutes later: the creator can sell, holders can dump, and the same-slot check is a
-  heuristic that cannot see wallets funded in advance. pump.fun's API is undocumented and can
-  change or rate-limit without notice; when it does, Popcat calls nothing out.
+  heuristic that cannot see wallets funded in advance. A pick is the same callout, chosen by
+  counts that say nothing about where a coin goes next. pump.fun's API is undocumented and can
+  change or rate-limit without notice; when it does, Popcat lists nothing that run. Its listing
+  reaches back only about forty minutes, so runs GitHub delays or skips for longer lose the
+  launches in between (the log names the stretch). Posting a pick on pump.fun is the owner's act
+  under pump.fun's terms (above), not Popcat's.
 - **The key.** CashCat's wallet secret sits in GitHub's secret store and reaches only
   CashCat's step. Kept as a repository secret, anyone who can push a branch to this repository
   (or a token or app that can) can write a workflow that reads it; kept in the `cashcat`
@@ -350,6 +447,22 @@ moment; one recorded coin, Asset Cat, passed all twelve when it was captured at 
 is the tests' passing fixture. The model calls
 of both bots have run only against scripted doubles in the tests. **No coin has been
 launched and no callout published.**
+
+On 2026-09-25 pump.fun's newest-coins listing was read again for the new Popcat: it served
+offsets 0 to 1,000 and an empty list past that, so it reaches 1,050 coins back and no further; a
+`searchTerm` on it was ignored, and `/coins/search` answered 404, so there is no cheaper way to
+list only cat coins. The new Popcat then ran dry against mainnet from 02:04 to 02:09 UTC, on
+the public RPC with no model key: the listing gave 1,018 coins created from 01:18 to 02:04 UTC
+(the recently traded listing answered 429 and was left out, as the log said); 48 were cat coins
+new to it, and 4 more cat coins were skipped as not fit to print (2 coins pump.fun marks banned
+or NSFW were left out before that); it checked the 30
+oldest that were at least 15 minutes old (its budget) and named the 3 left for the next run; the
+other 15 were too young and stayed in its queue. None of the 30 passed every check, so it would
+have listed all 30 as spotted and made no pick for the 00:00 to 06:00 UTC window. Every one of
+them failed the top-10 and holders check (13 had no holder besides the curve) and 28 had sold
+less than 10% of their curve; 20 were from creators with more than ten earlier coins, 17 showed
+no social link (8 of those because their metadata was not at a plain IPFS link), and 5 had more
+than two other wallets buying in their launch slot.
 
 Left out, because it could not be verified: pump.fun "metas" as a trend source (the endpoint
 answered 404); pump.fun's own upload endpoint (retired, so metadata goes to Pinata; the upload
@@ -937,14 +1050,15 @@ scripts/sync-executor.mjs  --from <checkout> re-vendors; --check reports drift f
 site/                    the website: the agency (index.html, with the 3D headquarters in assets/hq3d.js on three.js 0.169.0 served from assets/vendor/three/,
                          and every not-yet-known value — X link, contract address, buy link — in assets/config.js), the cat's page (coinmarketcat/),
                          and under console/ the page Phantom lives on
-site/assets/launches.js, callouts.js   the rules a launch and a callout must pass, shared by the bots, the deploy's tests and the floor
+site/assets/launches.js, callouts.js   the rules a launch, a coin Popcat checked and a pick must pass, shared by the bots, the deploy's tests and the floor
 site/assets/bot-posts.js the page's reader of launches.json and callouts.json (as JSON modules), for the floor and the home page's status
 bots/lib/                the bots' shared parts: verified.mjs (every live-read constant, with where and when), http (host allow-list, backoff),
                          rpc, the model client (model picked from GET /v1/models), the logger that redacts secrets, the content rules,
                          the cat-word detector, Solana builders, the pre-sign checks (txcheck.mjs) and the data files
 bots/cashcat/            CashCat: trends, invention and review, tickers, the logo (art/: eight kittens, signs.json, the font), metadata and Pinata,
                          pump.fun and StonkFun builders, config and caps, wallet.mjs (the only file that holds its key), launch.mjs, run.mjs
-bots/popcat/             Popcat: pump.fun sources, the checks and THRESHOLDS, the established cat coins, callout.mjs, run.mjs
+bots/popcat/             Popcat: pump.fun sources, the checks and THRESHOLDS, the established cat coins, callout.mjs (the run, its queue and
+                         RUN_LIMITS), pick.mjs (the window, PICK_RANKING, the draft), summary.mjs (the job summary), run.mjs
 bots/floor-data.mjs      the floor-data branch: checkout, push with a race, and the deploy's overlay
 fixtures/bots/           the live answers the bots' tests replay, recorded 2026-09-24
 ```
@@ -999,18 +1113,18 @@ on every push to `main`.
 | `test-hawk-bundle.mjs` | the shims agree with what they replace; the build succeeds; every entry parses with no `node:` specifier; the bundled contract refuses a stale notice at the same gate the vendored contract does; the bundled agent limits decide exactly as their source |
 | `test-vendor-integrity.mjs` | every vendored module hashes to the manifest, from a named upstream commit |
 | `test-bots-content.mjs` | the content rules clause by clause: real people (by name and by the "Firstname Lastname" shape), brands and teams, endorsement and "official" claims, tragedy, minors, sex, hate (slurs by salted hash only), identity, financial promises, the formats; compounds caught without their false friends, look-alike digits read as letters, and the evasions: Cyrillic and Greek look-alikes, small capitals, invisible characters inside a word, letters spelt out one by one, a listed word split in two, nickname endings, a web address in a name; the trend gate on the recorded Google Trends and CoinGecko answers; the cat-word detector and its false friends (catch, category, scatter, muscat…) |
-| `test-bots-validators.mjs` | `launches.js` and `callouts.js`: every refusal (HTML, hidden characters (the soft hyphen and word joiners too), a link scheme in text, a bad address or signature (base58 that does not decode to 32 or 64 bytes too), an unknown field, an impossible time, a wrong venue, ticker or kitten, a dev buy over 0.05 SOL or without its transaction, a check that did not pass, a missing or repeated check, a callout on a CashCat coin); links only to Solscan, pump.fun and StonkFun; the data module newest first, capped and validated whole |
-| `test-bots-data.mjs` | the data the site is about to publish (run by every deploy after the overlay): every entry passes, no callout is on a CashCat coin, Popcat's memory is not published |
+| `test-bots-validators.mjs` | `launches.js` and `callouts.js`: every refusal (HTML, hidden characters (the soft hyphen and word joiners too), a link scheme in text, a bad address or signature (base58 that does not decode to 32 or 64 bytes too), an unknown field, an impossible time, a wrong venue, ticker or kitten, a dev buy over 0.05 SOL or without its transaction, a missing or repeated check, an "info" from a source never silent, stats that are not counts, a coin or a pick of CashCat's); a failed check listed as a red flag, not refused; every malformed pick (a window off the six-hour grid, a time outside it, checks too old, a draft too long, without its disclosure, not opening with its coin or saying "buy", a second pick for a window or a coin, a pick of a spotted coin); links only to Solscan, pump.fun and StonkFun; the data module newest first, one entry per coin, capped at 200 coins and 28 picks and validated whole; Popcat's queue read back only when well formed |
+| `test-bots-data.mjs` | the data the site is about to publish (run by every deploy after the overlay): every entry and pick passes, none is CashCat's, Popcat's memory is not published |
 | `test-bots-pumpfun.mjs` | the pump.fun builders against eleven recorded `create_v2` transactions (every account re-derived), the live Global account, the recorded `collect_creator_fee`, Custom Pairs, and the recorded simulation |
 | `test-bots-stonkfun.mjs` | the LaunchLab builders against six recorded StonkFun launches, the platform configs and curve rules, StonkFun's recorded API answers, and the recorded simulation |
 | `test-bots-txcheck.mjs` | the pre-sign checks: each venue's planned launch passes; every hostile edit (a transfer out, a token transfer, a memo, an extra signer, another fee payer, a third compute-budget instruction, a swapped account, another creator, a flag, another name or URI, StonkFun's other platform, another raise, vesting, a transfer fee) is refused by name before a signature; the simulation must succeed, log the right instruction and stay inside the budget |
 | `test-bots-cashcat.mjs` | CashCat end to end against the recorded trend and Jupiter answers, a scripted Anthropic API with invented model ids, a scripted Pinata and a chain double: the model picked from `GET /v1/models`; the caps, fences and every live guard by name; a dry run builds, checks and simulates and uploads, signs, sends and writes nothing; a live run missing any guard sends nothing; a green live run pins and reads back, sends one checked transaction whose signatures verify, reads it back and records a launch the site validates, with the disclosure; a coin whose record the site would refuse is never sent; the fee claim waits for the wallet, its address, the RPC and the switch; an unrecorded launch is found behind dust sent to the wallet and from yesterday's last run, and an unreadable day refuses; no secret in a log; the ticker check; the invention loop and a review held to its format |
-| `test-bots-popcat.mjs` | Popcat replayed on two real cat coins recorded on 2026-09-24 (one passing every check, one failing three); every threshold at its edge; the CashCat exclusion by the creator the bonding curve records; same-slot transactions it could not read counted; a creation found on an exact page of 1,000; copycats against the established cat coins; a whole run on a scripted pump.fun and chain: a dry run writes nothing, a live run publishes exactly the passing coin, a coin from CashCat's wallet or in its launches is never called out, a name carrying a web address is never printed, and a coin whose accounts do not decode is skipped without stopping the run |
+| `test-bots-popcat.mjs` | Popcat replayed on two real cat coins recorded on 2026-09-24 (one passing every check, one failing three); every threshold at its edge, and the site's plain words for each red flag pinned to the same numbers; the CashCat exclusion by the creator the bonding curve records; same-slot transactions it could not read counted; a creation found on an exact page of 1,000; copycats against the established cat coins; whole runs on a scripted pump.fun and chain: a dry run writes nothing, a live run publishes both coins, the failing one as spotted with its red flags named, a coin from CashCat's wallet, in its launches or named by its curve on chain is never listed, a name carrying a web address is never printed and is counted as skipped, a coin whose accounts do not decode is dropped by name; then synthetic coins on a listing only so deep: runs every fifteen minutes with one skipped and no cat coin missed, two skipped and the stretch named, the budget with its leftovers named and checked next run, a failed read tried again; the pick: one per window, none when no coin is clean, a deterministic tie-break, never the same coin twice, drafts within 200 characters with no price, promise or "buy"; and the job summary against hostile coin names |
 | `test-bots-logo.mjs` | the logo: the eight kittens, each sign's rectangle re-measured from the pixels, Press Start 2P shipped unmodified with its licence, and a rendered 1024 × 1024 logo with the ticker's ink inside the sign |
 | `test-bots-no-leak.mjs` | one file under `bots/` may hold a key and Popcat holds none; the wallet gives out its address and signatures, never its secret; the logger redacts every secret; no host but the allowed ones, no plain http; no model identifier anywhere in the bots, their fixtures, workflows or data; the runner blanks every bot secret and switch |
-| `test-bots-workflows.mjs` | the workflows: schedules, CashCat's job in the `cashcat` environment, secrets reaching only their steps, floor-data and the deploy, pinned actions, no stored credentials |
-| `test-bots-floor-data.mjs` | the floor-data branch on local repositories: orphan start, a dry run committing nothing, pushes that race, Popcat's memory deploying nothing; the deploy's overlay leaving out and naming a bad entry, retrying a transient API error, and failing (never blanking the floor) when the data cannot be read or is the wrong shape |
-| `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, seven stations for the seven cats, each hotspot on its own desk, each station with its sprite, screen, copy and an honest empty state, Snipurr's and CoinMarketCat's linking to the extension's page and the console; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the seven cards, CashCat and Popcat marked as bots with their status read from their own files; the bots' desks and the feed reading `launches.json` and `callouts.json` through the deploy's validators, text only, no coin's picture, links only to Solscan, pump.fun and StonkFun, and the numbers the bot cards quote read from the bots' code; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
+| `test-bots-workflows.mjs` | the workflows: schedules (Popcat every fifteen minutes), CashCat's job in the `cashcat` environment, secrets reaching only their steps, floor-data and the deploy, pinned actions, no stored credentials |
+| `test-bots-floor-data.mjs` | the floor-data branch on local repositories: orphan start, a dry run committing nothing, pushes that race, Popcat's memory deploying nothing; the deploy's overlay carrying Popcat's picks, leaving out and naming a bad entry, retrying a transient API error, and failing (never blanking the floor) when the data cannot be read or is the wrong shape |
+| `test-site.mjs` | the website: the work floor (the 3D building and the hero lead to it, a kitten always wins the click over the building, seven stations for the seven cats, each hotspot on its own desk, each station with its sprite, screen, copy and an honest empty state, Snipurr's and CoinMarketCat's linking to the extension's page and the console; `cases.json` parses, fits the schema and holds `POSTED_CASES` entries, none invented; the shared validator refuses an unknown agent, an impossible date, a `javascript:` link and HTML; every floor picture a web-sized copy from `brand/floor/`; the page under 2.5 MB); every dial and record figure it quotes read from the code that decides it; the console still the bridge (protocol.mjs's channel and types, its own origin, every element it draws); no page that signs, collects, stores beyond the theme or calls out; three.js self-hosted and byte for byte 0.169.0, every file the 3D scene loads present, the roster picture as its fallback, the home page under 3.5 MB; the seven cards, CashCat and Popcat marked as bots with their status read from their own files; the bots' desks and the feed reading `launches.json` and `callouts.json` through the deploy's validators, text only, no coin's picture, links only to Solscan, pump.fun and StonkFun, spotted coins never called callouts and kept out of the feed, Popcat's pick on top with a draft to copy by hand and never the clipboard, its disclosure the same words everywhere, and the numbers the bot cards quote read from the bots' code; every placeholder from one config and empty until it exists; the two-line disclaimer, $CIA as the only use of the initials, no government imagery in any image description; no hype, no invented counts; titles, descriptions, og tags on the domain, the kit's favicons and every local link |
 | `vendor/executor/test-snipe-stall-default.mjs` | the executor's stall-default fix, as vendored |
 | `vendor/executor/test-snipe-quote-mint.mjs` | the executor's stock-quote contract, as vendored: the allowlist, `quoteTicketFor`, `describeMint` on the live xStock bytes, the book row at eight decimals, one scorecard per quote |
 

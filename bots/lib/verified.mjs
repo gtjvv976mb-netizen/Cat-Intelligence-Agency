@@ -62,6 +62,10 @@
  *  · pump.fun: frontend-api-v3.pump.fun/coins (sort=created_timestamp and
  *    sort=last_trade_timestamp, 200; about 27 new coins a minute that evening) and
  *    /coins-v2/user-created-coins/{creator} (200) answer without a key.
+ *    On 2026-09-25 the newest-coins listing served offsets 0 to 1,000 and answered an empty
+ *    list past that (1,050 coins, about forty minutes of launches that night), ignored a
+ *    searchTerm, and /coins/search answered 404: Popcat's queue and its fifteen-minute
+ *    schedule exist because of that depth (bots/popcat/callout.mjs).
  *    frontend-api-v3.pump.fun/metas/current answered 404, so pump.fun "metas" are NOT a
  *    trend source here. pump.fun's own metadata JSON shape ({ name, symbol, description,
  *    image, showName, createdOn: "https://pump.fun", twitter?, telegram?, website? }) and

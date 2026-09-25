@@ -3,14 +3,14 @@
 # build, no signing code — the extension you built carries all of that; the console only draws
 # the status it is handed.
 #
-# The bots' data (CashCat's launches, Popcat's callouts) is NOT committed to main: the bots keep
-# it on the floor-data branch. Every deploy — a push to main, a manual run, or a bot calling this
-# workflow after it published something — checks out main, overlays the entries of
-# launches.json and callouts.json on floor-data that pass the site's own validators (one that
-# does not is left out and named, so it cannot stop a deploy of main), runs the site's tests and
-# deploys. If floor-data cannot be read, the deploy fails and the live site stays as it was. A
-# push to main therefore never wipes the callouts, and a bot never needs a commit on main to
-# reach the site.
+# The bots' data (CashCat's launches; Popcat's checked cat coins and its picks) is NOT committed
+# to main: the bots keep it on the floor-data branch. Every deploy — a push to main, a manual run,
+# or a bot calling this workflow after it published something — checks out main, overlays the
+# entries of launches.json and callouts.json on floor-data that pass the site's own validators
+# (one that does not is left out and named, so it cannot stop a deploy of main), runs the site's
+# tests and deploys. If floor-data cannot be read, the deploy fails and the live site stays as it
+# was. A push to main therefore never wipes Popcat's file, and a bot never needs a commit on main
+# to reach the site.
 #
 # One deploy at a time: every caller's deploy job is in the "pages-deploy" concurrency group. A
 # newer deploy waits for the running one; a deploy still waiting when an even newer one arrives

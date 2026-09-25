@@ -14,10 +14,10 @@
  *       file the site shows (launches.json, callouts.json) changed, so Popcat's memory alone
  *       never triggers a deploy — and writes it to $GITHUB_OUTPUT when that is set.
  *   node bots/floor-data.mjs overlay <site-assets-dir>
- *       For the deploy: read launches.json and callouts.json from floor-data through the GitHub
- *       API and write over <site-assets-dir>'s copies the entries that pass the site's own
- *       validators; an entry that does not (or a callout on a CashCat coin) is left out and
- *       named in the log, so one bad entry never stops main's deploy. A branch or file that does
+ *       For the deploy: read launches.json and callouts.json (every coin Popcat checked, and its
+ *       picks) from floor-data through the GitHub API and write over <site-assets-dir>'s copies
+ *       the entries that pass the site's own validators; an entry that does not (or a coin or a
+ *       pick of CashCat's) is left out and named in the log, so one bad entry never stops main's deploy. A branch or file that does
  *       not exist yet leaves main's (empty) copy. A 429 or 5xx is retried; an API that keeps
  *       failing, or a file that is not JSON of the right shape at all, fails the deploy, so the
  *       live floor stays as it was and is never replaced by an empty one.
@@ -31,7 +31,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { validateLaunches } from "../site/assets/launches.js";
 import { validateCallouts } from "../site/assets/callouts.js";
-import { launchToFile, calloutToFile } from "./lib/data.mjs";
+import { launchToFile, calloutToFile, pickToFile } from "./lib/data.mjs";
 
 export const BRANCH = "floor-data";
 export const DATA_FILES = Object.freeze(["launches.json", "callouts.json"]);
@@ -126,8 +126,9 @@ export async function overlay(siteAssets, { fetchImpl, repo, token, log = consol
        entry never stops the deploy of main and the site's tests run on what is published. */
     for (const p of v.problems) log(`WARNING ${file}: left out — ${p}`);
     if (key === "launches") results.launches = v.launches;
-    fs.writeFileSync(path.join(siteAssets, file), JSON.stringify({ [key]: v[key].map(key === "launches" ? launchToFile : calloutToFile) }, null, 2) + "\n");
-    log(`${file}: ${v[key].length} entries overlaid from ${BRANCH}${v.problems.length ? `; ${v.problems.length} left out` : ""}`);
+    const out = key === "launches" ? { launches: v.launches.map(launchToFile) } : { callouts: v.callouts.map(calloutToFile), picks: v.picks.map(pickToFile) };
+    fs.writeFileSync(path.join(siteAssets, file), JSON.stringify(out, null, 2) + "\n");
+    log(`${file}: ${v[key].length} entries${key === "callouts" ? ` and ${v.picks.length} pick(s)` : ""} overlaid from ${BRANCH}${v.problems.length ? `; ${v.problems.length} left out` : ""}`);
     results[file] = "overlaid";
   }
   return results;

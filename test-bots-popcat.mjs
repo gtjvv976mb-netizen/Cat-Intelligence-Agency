@@ -1,21 +1,29 @@
 /**
- * POPCAT: CHECKS, NOT ADVICE — AND NEVER A CASHCAT COIN.
+ * POPCAT: CHECKS, NOT ADVICE — EVERY CAT COIN LISTED, NONE MISSED, AT MOST ONE PICK A WINDOW,
+ * AND NEVER A CASHCAT COIN.
  *
  * Replayed from what Popcat read about two real cat coins on 2026-09-24
  * (fixtures/bots/popcat/snapshots.json: pump.fun's listing row, the mint, the curve, every
  * holder, the signatures back to the creation, the same-slot buyers, the creator's count, the
  * metadata): the checks come out as they did that day — one coin passing every check, one
- * failing three. Then every threshold at its edge, on inputs changed from those recordings:
- * creator share, top-10 share and holder count, same-slot buyers, the creator's earlier coins,
- * age, curve progress, the mint and freeze authorities, a Token-2022 transfer fee (the recorded
- * catwifhat mint), socials, and the copycat flag against the established cat coins (whose
- * recorded mints are re-read). The CashCat exclusion and the creator's share read the creator
- * the bonding curve records as well as pump.fun's listing; same-slot transactions it could not
- * read count as buyers; a creation on an exact page of 1,000 signatures is still found. Then a
- * whole Popcat run on a scripted pump.fun and chain: a dry run writes nothing; a live run
- * publishes exactly the passing coin, as the site validates it; a coin made by CashCat's wallet,
- * or listed in its launches, is never called out; a name carrying a web address is never
- * printed; and a coin whose accounts do not decode is skipped without stopping the run.
+ * failing three. Then every threshold at its edge, on inputs changed from those recordings, and
+ * the site's plain words for each red flag pinned to the same numbers. The CashCat exclusion and
+ * the creator's share read the creator the bonding curve records as well as pump.fun's listing;
+ * same-slot transactions it could not read count as buyers; a creation on an exact page of 1,000
+ * signatures is still found.
+ *
+ * Then whole Popcat runs on a scripted pump.fun and chain. The two recorded coins: a dry run
+ * writes nothing; a live run publishes both, the passing one as a callout and the failing one as
+ * spotted with its red flags named, as the site validates them; a coin made by CashCat's wallet,
+ * listed in its launches, or named by its bonding curve on chain is never listed; a name carrying
+ * a web address is never printed and is counted as skipped. Then synthetic coins built from those
+ * recordings (the same accounts under new addresses, named as built here): a pump.fun listing only
+ * so deep, runs every fifteen minutes with one skipped and no cat coin missed, two skipped and the
+ * stretch it could not list named in the log; the per-run budget, with the coins left over named
+ * and checked next run; a coin whose accounts could not be read, tried again; and the pick — at
+ * most one per six-hour window, none when no coin is clean, the same pick whatever the order,
+ * never the same coin twice, and a draft with no price, no promise and no "buy". Last, the job
+ * summary a run writes for the Actions tab, fed hostile coin names.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -25,12 +33,15 @@ import { harness, fixture, scriptedFetch, scriptedRpc, response, captureSink } f
 import { evaluate, THRESHOLDS, holdersOf, creationAndSameSlot } from "./bots/popcat/checks.mjs";
 import { BONDING_CURVE_LAYOUT } from "./vendor/executor/snipe-venue-pumpfun.mjs";
 import { copycatOf, ESTABLISHED_CAT_COINS, verifyEstablished } from "./bots/popcat/established.mjs";
-import { coinRow, cidOf, readMetadata } from "./bots/popcat/sources.mjs";
-import { runPopcat } from "./bots/popcat/callout.mjs";
+import { coinRow, cidOf, readMetadata, newestCoins } from "./bots/popcat/sources.mjs";
+import { runPopcat, RUN_LIMITS, RECHECKABLE } from "./bots/popcat/callout.mjs";
+import { choosePick, buildDraft, pickDue, windowOf, rankCompare, PICK_RANKING } from "./bots/popcat/pick.mjs";
+import { summaryMarkdown, summaryOfError, esc } from "./bots/popcat/summary.mjs";
+import { createHash } from "node:crypto";
 import { createHttp } from "./bots/lib/http.mjs";
 import { createLogger } from "./bots/lib/log.mjs";
 import { HOSTS, URLS } from "./bots/lib/verified.mjs";
-import { validateCallouts } from "./site/assets/callouts.js";
+import { validateCallouts, CHECKS, DRAFT_MAX, DRAFT_BANNED, DRAFT_DISCLOSURE, ticker } from "./site/assets/callouts.js";
 
 const { ok, section, done } = harness("test-bots-popcat");
 const snaps = fixture("popcat/snapshots.json").snapshots;
@@ -56,6 +67,23 @@ for (const s of snaps) {
 }
 ok("one recorded coin passes every check; the other fails top-10/holders, age and curve", evaluate(inputsOf(snaps[0])).pass && evaluate(inputsOf(snaps[1])).failed.join() === "top10_share,age,curve");
 ok("every check is shown, twelve of them, and none is advice", evaluate(inputsOf(snaps[0])).checks.length === 12 && !evaluate(inputsOf(snaps[0])).checks.some((c) => /\b(buy|sell|moon|ape)\b/i.test(c.value)));
+{
+  const st = evaluate(inputsOf(snaps[0])).stats;
+  ok("the checks also give what the pick ranks by: holders besides the curve, the top 10's share, the curve sold, and the curve's transactions (not counted in a recording that did not count them)",
+    st.holders === 40 && st.top10Pct > 0 && st.top10Pct <= 30 && st.curvePct === 100 && st.txs === null && evaluate({ ...inputsOf(snaps[0]), onchain: { ...inputsOf(snaps[0]).onchain, curveTxs: 812 } }).stats.txs === 812, JSON.stringify(st));
+}
+
+section("EVERY RED FLAG IN PLAIN WORDS, WITH THE CHECKS' OWN NUMBERS");
+{
+  const T = THRESHOLDS;
+  const says = (id, ...parts) => parts.every((x) => CHECKS[id].flag.includes(String(x)));
+  ok("every check has its red flag in plain words", Object.values(CHECKS).every((c) => typeof c.flag === "string" && c.flag.length > 10 && /[.…)]$/.test(c.flag)));
+  ok("the words quote THRESHOLDS: creator 5%, top 10 30% and 25 holders, 2 same-slot buyers, 10 earlier coins, 15 minutes to 24 hours, 10% of the curve",
+    says("creator_share", `${T.MAX_CREATOR_SHARE_PCT}%`) && says("top10_share", `${T.MAX_TOP10_SHARE_PCT}%`, `${T.MIN_HOLDERS} holders`) && says("same_slot_buyers", `More than ${T.MAX_SAME_SLOT_BUYERS} other`)
+      && says("creator_launches", `more than ${T.MAX_CREATOR_PRIOR_LAUNCHES} coins`) && says("age", `${T.MIN_AGE_MINUTES} minutes`, `${T.MAX_AGE_HOURS} hours`) && says("curve", `${T.MIN_CURVE_PROGRESS_PCT}%`));
+  ok("only the two checks whose source may be silent may read \"info\"", Object.entries(CHECKS).filter(([, c]) => c.info).map(([id]) => id).join() === "same_slot_buyers,creator_launches");
+  ok("a spotted coin is checked again only for red flags that can clear with time", RECHECKABLE.join() === "creator_share,top10_share,age,curve");
+}
 
 section("EVERY THRESHOLD AT ITS EDGE (inputs changed from the recordings)");
 const base = inputsOf(snaps[0]);
@@ -164,7 +192,17 @@ section("THE CHAIN READS");
 }
 
 section("A WHOLE POPCAT RUN, ON A SCRIPTED PUMP.FUN AND CHAIN");
-function popWorld({ env = {}, launches = [], model = null, rename = null, breakCurve = false } = {}) {
+const MIN = 60_000, HOUR = 3_600_000;
+const GLOBAL_ADDR = "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf";
+const encodeHolder = (h) => { const b = Buffer.alloc(40); new PublicKey(h.owner).toBuffer().copy(b); b.writeBigUInt64LE(BigInt(h.amount), 32); return { pubkey: h.account, account: { data: [b.toString("base64"), "base64"] } }; };
+const acc = (a) => (a ? { owner: a.owner, lamports: 1, data: [a.dataBase64, "base64"] } : null);
+const established = (k) => fixture("popcat/established-mints.json").accounts.find((a) => a.address === k);
+const readFile = (dir, f) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+
+/* The recorded pump.fun and chain: the two recorded cat coins and one that is not a cat. The clock
+   is ten minutes after the recording by default, so the failing coin (eight minutes old then) is
+   old enough to check. */
+function popWorld({ env = {}, launches = [], model = null, rename = null, breakCurve = false, curveCreator = null, at = Date.parse(snaps[0].read) + 10 * MIN } = {}) {
   const passing = snaps[0], failing = snaps[1];
   const notCat = { ...failing.apiRow, mint: "So11111111111111111111111111111111111111112", name: "Dog Money", symbol: "DOGM", description: "a dog", bonding_curve: failing.apiRow.bonding_curve };
   const rows = [rename ? { ...passing.apiRow, name: rename } : passing.apiRow, failing.apiRow, notCat];
@@ -177,17 +215,20 @@ function popWorld({ env = {}, launches = [], model = null, rename = null, breakC
     [/\/ipfs\//, (u) => { const s = snaps.find((x) => u.endsWith(cidOf(x.apiRow.metadata_uri))); return s && !s.metadata.unreadable ? s.metadata : response(404, "{}"); }],
   ]);
   const http = createHttp({ fetchImpl, allowedHosts: Object.values(HOSTS), sleep: async () => {} });
-  const acc = (a) => (a ? { owner: a.owner, lamports: 1, data: [a.dataBase64, "base64"] } : null);
+  const curveOf = (s) => {
+    if (breakCurve && s === passing) return { ...s.curveAccount, owner: "11111111111111111111111111111111" };
+    if (curveCreator && s === passing) { const d = Buffer.from(s.curveAccount.dataBase64, "base64"); new PublicKey(curveCreator).toBuffer().copy(d, BONDING_CURVE_LAYOUT.creator); return { ...s.curveAccount, dataBase64: d.toString("base64") }; }
+    return s.curveAccount;
+  };
   const rpc = scriptedRpc({
     getMultipleAccounts: ([list]) => ({ value: list.map((k) => {
       const s = byMint[k] ?? Object.values(byMint).find((x) => x.apiRow.bonding_curve === k);
-      if (k === "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf") return acc({ owner: globalAcc.owner, dataBase64: fixture("pumpfun/global.json").dataBase64 });
+      if (k === GLOBAL_ADDR) return acc({ owner: globalAcc.owner, dataBase64: fixture("pumpfun/global.json").dataBase64 });
       if (s && byMint[k]) return acc(s.mintAccount);
-      if (s) return acc(breakCurve && s === passing ? { ...s.curveAccount, owner: "11111111111111111111111111111111" } : s.curveAccount);
-      const e = fixture("popcat/established-mints.json").accounts.find((a) => a.address === k);
-      return e ? acc(e) : null;
+      if (s) return acc(curveOf(s));
+      return acc(established(k));
     }) }),
-    getProgramAccounts: ([, opts]) => (byMint[opts.filters[0].memcmp.bytes]?.holders.list ?? []).map((h) => { const b = Buffer.alloc(40); new PublicKey(h.owner).toBuffer().copy(b); b.writeBigUInt64LE(BigInt(h.amount), 32); return { pubkey: h.account, account: { data: [b.toString("base64"), "base64"] } }; }),
+    getProgramAccounts: ([, opts]) => (byMint[opts.filters[0].memcmp.bytes]?.holders.list ?? []).map(encodeHolder),
     getSignaturesForAddress: ([addr]) => { const s = Object.values(byMint).find((x) => x.apiRow.bonding_curve === addr); return s ? [...s.creation.sameSlotBuyers.map((b, i) => ({ signature: `same${i}`, slot: s.creation.createSlot })), { signature: s.creation.createSig, slot: s.creation.createSlot, blockTime: s.creation.createTime }] : []; },
     getTransaction: ([sig]) => { const s = snaps[0]; const i = Number(String(sig).replace("same", "")); return { transaction: { message: { accountKeys: [s.creation.sameSlotBuyers[i]] } } }; },
   });
@@ -195,43 +236,302 @@ function popWorld({ env = {}, launches = [], model = null, rename = null, breakC
   fs.writeFileSync(path.join(dir, "launches.json"), JSON.stringify({ launches }));
   const cap = captureSink();
   const log = createLogger({ sink: cap.sink });
-  const run = () => runPopcat({ env, http, rpc, model: model ?? { hasKey: false }, dataDir: dir, log, now: () => Date.parse(snaps[0].read) });
+  const run = () => runPopcat({ env, http, rpc, model: model ?? { hasKey: false }, dataDir: dir, log, now: () => at });
   return { run, dir, cap, rpc };
 }
+const checkedOnChain = (rpc, mint) => rpc.calls.some((c) => c.method === "getProgramAccounts" && c.params[1].filters[0].memcmp.bytes === mint);
+const [PASSING, FAILING] = [snaps[0].apiRow.mint, snaps[1].apiRow.mint];
 {
   const dry = popWorld();
   const r = await dry.run();
-  ok("a dry run finds the passing cat coin and writes nothing", r.mode === "dry" && r.callouts.length === 1 && r.callouts[0].mint === snaps[0].apiRow.mint && !fs.existsSync(path.join(dry.dir, "callouts.json")) && !fs.existsSync(path.join(dry.dir, "popcat-state.json")));
-  ok("the not-a-cat coin was never checked on chain", !dry.rpc.calls.some((c) => c.method === "getProgramAccounts" && c.params[1].filters[0].memcmp.bytes === "So11111111111111111111111111111111111111112"));
+  ok("a dry run checks both recorded cat coins and writes nothing", r.mode === "dry" && r.entries.length === 2 && r.counts.callouts === 1 && r.counts.spotted === 1
+    && !fs.existsSync(path.join(dry.dir, "callouts.json")) && !fs.existsSync(path.join(dry.dir, "popcat-state.json")), JSON.stringify(r.counts));
+  ok("the not-a-cat coin was never checked on chain", !checkedOnChain(dry.rpc, "So11111111111111111111111111111111111111112"));
   const live = popWorld({ env: { POPCAT_LIVE: "1" } });
   const r2 = await live.run();
-  const file = JSON.parse(fs.readFileSync(path.join(live.dir, "callouts.json"), "utf8"));
+  const file = readFile(live.dir, "callouts.json");
   const v = validateCallouts(file);
-  ok("a live run publishes exactly the passing coin, and the site validates it", r2.mode === "live" && file.callouts.length === 1 && v.problems.length === 0 && v.callouts[0].mint === snaps[0].apiRow.mint, v.problems.join(" | "));
-  ok("it shows all twelve checks and no link or image of the coin's own (socials are named, never linked)", v.callouts[0].checks.length === 12 && !JSON.stringify(file).match(/https?:|ipfs\/|x\.com\//));
-  ok("it remembers what it checked, so the next run spends its reads on new coins", JSON.parse(fs.readFileSync(path.join(live.dir, "popcat-state.json"), "utf8")).checked[snaps[0].apiRow.mint]?.verdict === "passed");
+  const [called, spotted] = [v.callouts.find((c) => c.mint === PASSING), v.callouts.find((c) => c.mint === FAILING)];
+  ok("a live run publishes every cat coin it checked, as the site validates them: the passing one as a callout, the failing one as spotted",
+    r2.mode === "live" && file.callouts.length === 2 && v.problems.length === 0 && called?.callout === true && called.verdict === "NO RED FLAGS FOUND" && spotted?.callout === false, v.problems.join(" | "));
+  ok("the spotted coin carries its red flags, each in plain words: too few holders, too little of its curve sold",
+    spotted?.verdict === "RED FLAGS (2)" && spotted.flags.map((f) => f.id).join() === "top10_share,curve" && spotted.flags.every((f) => f.flag === CHECKS[f.id].flag && f.value.length > 0));
+  ok("both show all twelve checks, with the stats the pick ranks by, and no link or image of the coin's own (socials are named, never linked)",
+    v.callouts.every((c) => c.checks.length === 12 && Number.isInteger(c.stats.holders)) && !JSON.stringify(file.callouts).match(/https?:|ipfs\/|x\.com\//));
+  const st = readFile(live.dir, "popcat-state.json");
+  ok("it remembers what it checked, and queues the spotted coin for one more look in an hour (its red flags can clear)",
+    st.checked[PASSING]?.verdict === "no red flags" && /^red flags/.test(st.checked[FAILING]?.verdict) && st.pending[FAILING]?.n === 1 && st.pending[FAILING].due > Date.parse(snaps[0].read) + 60 * MIN && !st.pending[PASSING]);
   const again = await live.run();
-  ok("the same coin is not called out twice", again.callouts.length === 0 && JSON.parse(fs.readFileSync(path.join(live.dir, "callouts.json"), "utf8")).callouts.length === 1);
+  ok("the same coin is not listed twice, and a spotted coin is not checked again before its hour is up", again.entries.length === 0 && readFile(live.dir, "callouts.json").callouts.length === 2);
+  const early = popWorld({ env: { POPCAT_LIVE: "1" }, at: snaps[1].apiRow.created_timestamp + 15.5 * MIN });
+  const re = await early.run();
+  const waitsFor = readFile(early.dir, "popcat-state.json").pending[FAILING];
+  ok("a coin pump.fun lists as 15 minutes old but the chain says is younger waits for its age, never flagged for it",
+    !re.entries.some((c) => c.mint === FAILING) && waitsFor?.n === 0 && waitsFor.tries === 0 && waitsFor.due === snaps[1].creation.createTime * 1000 + THRESHOLDS.MIN_AGE_MINUTES * MIN);
   const testEnv = popWorld({ env: { POPCAT_LIVE: "1", NODE_ENV: "test" } });
   ok("a test environment is never live", (await testEnv.run()).mode === "dry");
 }
 {
   const byWallet = popWorld({ env: { POPCAT_LIVE: "1", CASHCAT_WALLET_ADDRESS: snaps[0].apiRow.creator } });
   const r = await byWallet.run();
-  ok("a coin whose creator is CashCat's wallet (CASHCAT_WALLET_ADDRESS) is never called out, nor even checked", r.callouts.length === 0 && !byWallet.rpc.calls.some((c) => c.method === "getProgramAccounts" && c.params[1].filters[0].memcmp.bytes === snaps[0].apiRow.mint));
+  ok("a coin whose creator is CashCat's wallet (CASHCAT_WALLET_ADDRESS) is never listed, nor even checked", !r.entries.some((c) => c.mint === PASSING) && r.skipped.cashcat === 1 && !checkedOnChain(byWallet.rpc, PASSING));
   const launch = { time: "2026-09-24T20:00:00Z", venue: "pumpfun", name: "Asset Cat", symbol: "ASSCAT", tagline: "A launch record for the exclusion test.", trend: { title: "x", source: "google-trends" },
-    mint: snaps[0].apiRow.mint, creator: "FFWtrEQ4B4PKQoVuHYzZq8FabGkVatYzDpEVHsK5rrhF", tx: fixture("pumpfun/create-v2-samples.json").samples[0].signature, quote: { symbol: "SOL", mint: "So11111111111111111111111111111111111111112" }, devBuy: { sol: 0 }, costSol: 0.005, kitten: "black" };
+    mint: PASSING, creator: "FFWtrEQ4B4PKQoVuHYzZq8FabGkVatYzDpEVHsK5rrhF", tx: fixture("pumpfun/create-v2-samples.json").samples[0].signature, quote: { symbol: "SOL", mint: "So11111111111111111111111111111111111111112" }, devBuy: { sol: 0 }, costSol: 0.005, kitten: "black" };
   const byList = popWorld({ env: { POPCAT_LIVE: "1" }, launches: [launch] });
-  ok("a coin in CashCat's launches is never called out", (await byList.run()).callouts.length === 0);
+  const rl0 = await byList.run();
+  ok("a coin in CashCat's launches is never listed", !rl0.entries.some((c) => c.mint === PASSING) && !readFile(byList.dir, "callouts.json").callouts.some((c) => c.mint === PASSING));
+  const CASHCAT = "FFWtrEQ4B4PKQoVuHYzZq8FabGkVatYzDpEVHsK5rrhF";
+  const byChain = popWorld({ env: { POPCAT_LIVE: "1", CASHCAT_WALLET_ADDRESS: CASHCAT }, curveCreator: CASHCAT });
+  const rc = await byChain.run();
+  ok("a coin whose bonding curve names CashCat's wallet on chain, whatever pump.fun lists, is checked and then never listed or picked",
+    checkedOnChain(byChain.rpc, PASSING) && !rc.entries.some((c) => c.mint === PASSING) && rc.pick.pick?.mint !== PASSING && readFile(byChain.dir, "popcat-state.json").checked[PASSING]?.verdict === "cashcat");
   const declined = popWorld({ model: { hasKey: true, callTool: async () => ({ cat_themed: false, fit_to_print: true, reason: "not about a cat" }) } });
-  ok("with a model key, a coin the model says is not a cat is skipped", (await declined.run()).callouts.length === 0);
+  ok("with a model key, a coin the model says is not a cat is not listed", (await declined.run()).entries.length === 0);
   const linked = popWorld({ env: { POPCAT_LIVE: "1" }, rename: "Asset Cat at assetcat.xyz" });
-  const rl = await linked.run();
-  ok("a coin whose name carries a web address is never printed, nor even checked on chain", rl.callouts.length === 0 && !linked.rpc.calls.some((c) => c.method === "getProgramAccounts" && c.params[1].filters[0].memcmp.bytes === snaps[0].apiRow.mint));
+  const rn = await linked.run();
+  ok("a coin whose name carries a web address is never printed, nor even checked on chain: counted as skipped",
+    !rn.entries.some((c) => c.mint === PASSING) && rn.skipped.unprintable === 1 && !checkedOnChain(linked.rpc, PASSING) && !JSON.stringify(readFile(linked.dir, "callouts.json")).includes("assetcat")
+      && !linked.cap.lines.some((l) => l.includes("assetcat")) && !summaryMarkdown(rn).includes("assetcat"));
   const broken = popWorld({ env: { POPCAT_LIVE: "1" }, breakCurve: true });
   let rb;
   try { rb = await broken.run(); } catch (e) { rb = { threw: e.message }; }
-  ok("a coin whose bonding curve does not decode is skipped, and the run goes on to the end", !rb.threw && rb.callouts.length === 0 && rb.mode === "live", JSON.stringify(rb).slice(0, 160));
+  ok("a coin whose bonding curve does not decode is dropped by name, and the run goes on to the end", !rb.threw && rb.mode === "live" && !rb.entries.some((c) => c.mint === PASSING) && rb.dropped.some((d) => d.mint === PASSING) && rb.entries.length === 1, JSON.stringify(rb.dropped ?? rb).slice(0, 160));
+}
+
+section("THE LISTING, AND NO CAT COIN MISSED ACROSS A SKIPPED RUN (synthetic coins)");
+/* Synthetic coins, named as built here: the recorded passing coin's accounts (or the failing one's)
+   under new addresses, listed by a scripted pump.fun that, like the real one, lists only so deep. */
+const addrOf = (seed) => new PublicKey(createHash("sha256").update(`popcat-test:${seed}`).digest()).toBase58();
+function synthWorld({ depth = 1050, env = { POPCAT_LIVE: "1" }, launches = [] } = {}) {
+  let clock = 0, n = 0;
+  const rows = [], chain = new Map(), byCurve = new Map(), failOnce = new Set();
+  const add = ({ name, symbol, kind = "clean", createdMs, extraHolders = 0, txs = 1, cat = true }) => {
+    const i = n++;
+    const mint = addrOf(`mint-${i}`), curve = addrOf(`curve-${i}`), creator = addrOf(`creator-${i}`);
+    const base = kind === "clean" ? snaps[0] : snaps[1];
+    rows.push({ ...base.apiRow, mint, bonding_curve: curve, creator, name: name ?? (cat ? `Synth Cat ${i}` : `Dog Coin ${i}`), symbol: symbol ?? (cat ? `SYN${i}` : `DOG${i}`), description: "", created_timestamp: createdMs, is_banned: false, nsfw: false });
+    if (cat) { chain.set(mint, { base, curve, createdMs, extraHolders, txs }); byCurve.set(curve, mint); }
+    return mint;
+  };
+  const { fetchImpl } = scriptedFetch([
+    [/sort=created_timestamp/, (u) => { const off = Number(new URL(u).searchParams.get("offset")); return off >= depth ? [] : rows.filter((r) => r.created_timestamp <= clock).sort((a, b) => b.created_timestamp - a.created_timestamp).slice(off, off + 50); }],
+    [/sort=last_trade_timestamp/, () => []],
+    [/user-created-coins/, () => ({ count: 1, coins: [] })],
+    [/\/ipfs\//, (u) => { const s = snaps.find((x) => u.endsWith(cidOf(x.apiRow.metadata_uri))); return s ? s.metadata : response(404, "{}"); }],
+  ]);
+  const http = createHttp({ fetchImpl, allowedHosts: Object.values(HOSTS), sleep: async () => {} });
+  const rpc = scriptedRpc({
+    getMultipleAccounts: ([list]) => {
+      if (failOnce.has(list[0])) { failOnce.delete(list[0]); throw Object.assign(new Error("getMultipleAccounts: scripted outage"), { clause: "rate_limited" }); }
+      return { value: list.map((k) => {
+        if (k === GLOBAL_ADDR) return acc({ owner: globalAcc.owner, dataBase64: fixture("pumpfun/global.json").dataBase64 });
+        if (chain.has(k)) return acc(chain.get(k).base.mintAccount);
+        if (byCurve.has(k)) return acc(chain.get(byCurve.get(k)).base.curveAccount);
+        return acc(established(k));
+      }) };
+    },
+    getProgramAccounts: ([, opts]) => {
+      const mint = opts.filters[0].memcmp.bytes, c = chain.get(mint);
+      if (!c) return [];
+      const list = c.base.holders.list.map((h) => ({ ...h, owner: h.owner === c.base.apiRow.bonding_curve ? c.curve : h.owner }));
+      for (let k = 0; k < c.extraHolders; k++) list.push({ account: addrOf(`acct-${mint}-${k}`), owner: addrOf(`holder-${mint}-${k}`), amount: "1" });
+      return list.map(encodeHolder);
+    },
+    getSignaturesForAddress: ([address]) => {
+      const mint = byCurve.get(address);
+      if (!mint) return [];
+      const c = chain.get(mint), t = Math.floor(c.createdMs / 1000);
+      return [...Array.from({ length: c.txs - 1 }, (_, k) => ({ signature: `tx-${mint.slice(0, 8)}-${k}`, slot: 5000 + c.txs - k, blockTime: t + 60 })), { signature: `create-${mint.slice(0, 8)}`, slot: 4000, blockTime: t }];
+    },
+    getTransaction: () => null,
+  });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "popcat-synth-"));
+  fs.writeFileSync(path.join(dir, "launches.json"), JSON.stringify({ launches }));
+  const run = async (at) => {
+    clock = at;
+    const cap = captureSink();
+    const r = await runPopcat({ env, http, rpc, model: { hasKey: false }, dataDir: dir, log: createLogger({ sink: cap.sink }), now: () => clock });
+    return { r, lines: cap.lines };
+  };
+  const file = () => (fs.existsSync(path.join(dir, "callouts.json")) ? validateCallouts(readFile(dir, "callouts.json"), { exclude: launches }) : { callouts: [], picks: [], problems: [] });
+  return { add, run, file, dir, rpc, failOnce, state: () => readFile(dir, "popcat-state.json") };
+}
+const T12 = Date.UTC(2026, 8, 25, 12, 7);   // a run at 12:07 UTC, as the schedule has it
+{
+  /* Three coins a minute, one in five a cat coin, and a listing only 100 coins deep: about 33 minutes. */
+  const build = () => {
+    const w = synthWorld({ depth: 100 });
+    const cats = [];
+    for (let k = 0, at = T12 - 60 * MIN; at <= T12 + 100 * MIN; k++, at += 20_000) {
+      if (k % 5 === 0) cats.push({ at, mint: w.add({ createdMs: at, kind: k % 10 === 0 ? "clean" : "flagged" }) });
+      else w.add({ createdMs: at, cat: false });
+    }
+    return { w, cats };
+  };
+  {
+    const { w, cats } = build();
+    const times = [0, 30, 45, 60, 75, 90].map((m) => T12 + m * MIN);   // every fifteen minutes; the 12:22 run never came
+    const runs = [];
+    for (const at of times) runs.push(await w.run(at));
+    const published = new Set(w.file().callouts.map((c) => c.mint));
+    const reach = runs[0].r.listing.oldestMs, last = times[times.length - 1];
+    const due = cats.filter((c) => c.at >= reach && c.at <= last - THRESHOLDS.MIN_AGE_MINUTES * MIN);
+    const inSkipped = due.filter((c) => c.at > T12 && c.at <= T12 + 15 * MIN);
+    ok("with the 12:22 run skipped, the 12:37 run reads back to where 12:07's listing began, and says so", runs[1].r.listing.covered === true && runs[1].r.listing.gap === null && !runs.some((x) => x.lines.some((l) => /MISSED/.test(l))));
+    ok(`no cat coin missed: all ${due.length} created from the first listing's reach to fifteen minutes before the last run are listed, the ${inSkipped.length} made around the skipped run among them`,
+      due.length > 40 && inSkipped.length > 5 && due.every((c) => published.has(c.mint)), `${due.filter((c) => !published.has(c.mint)).length} missing`);
+    ok("coins younger than fifteen minutes wait in the queue rather than being checked or skipped", cats.filter((c) => c.at > last - THRESHOLDS.MIN_AGE_MINUTES * MIN && c.at <= last).every((c) => !published.has(c.mint) && w.state().pending[c.mint]?.n === 0));
+    ok("spotted coins and callouts both reach the file, one entry per coin, and the file validates", w.file().problems.length === 0 && w.file().callouts.some((c) => c.callout) && w.file().callouts.some((c) => !c.callout));
+  }
+  {
+    const { w, cats } = build();
+    const a = await w.run(T12), b = await w.run(T12 + 45 * MIN);   // 12:22 and 12:37 both skipped
+    const gap = b.r.listing.gap;
+    const lost = cats.filter((c) => gap && c.at > gap.fromMs && c.at < gap.toMs);
+    ok("two skipped runs outrun the listing: the stretch it could not read is named in the log and in the summary, never passed over quietly",
+      gap && gap.fromMs === a.r.listing.newestMs && b.lines.some((l) => /MISSED: pump\.fun's listing ran out/.test(l)) && /could not be listed/.test(summaryMarkdown(b.r)) && lost.length > 0,
+      gap ? `${Math.round((gap.toMs - gap.fromMs) / MIN)} minutes, ${lost.length} cat coin(s)` : "no gap");
+  }
+}
+{
+  /* A listing that fails part-way is read again next run, so the stretch is not lost. */
+  const rows = Array.from({ length: 120 }, (_, i) => ({ ...snaps[1].apiRow, mint: addrOf(`p-${i}`), bonding_curve: addrOf(`pc-${i}`), creator: addrOf(`pk-${i}`), name: `Dog ${i}`, symbol: `D${i}`, created_timestamp: T12 - i * 10_000 }));
+  let fail = true;
+  const { fetchImpl } = scriptedFetch([[/sort=created_timestamp/, (u) => { const off = Number(new URL(u).searchParams.get("offset")); if (off === 50 && fail) return response(500, "{}"); return rows.slice(off, off + 50); }]]);
+  const http = createHttp({ fetchImpl, allowedHosts: Object.values(HOSTS), sleep: async () => {}, defaults: { ...(await import("./bots/lib/http.mjs")).HTTP_DEFAULTS, retries: 0 } });
+  const l = await newestCoins({ http, untilMs: T12 - 30 * MIN, maxPages: 25 });
+  fail = false;
+  const l2 = await newestCoins({ http, untilMs: T12 - 15 * MIN, maxPages: 25 });
+  ok("the listing says how far it read and why it stopped: a failed page (kept pages read), reaching the last listing, or running out",
+    l.stoppedBy && /page 2 failed/.test(l.stoppedBy) && l.pages === 1 && !l.reached && l2.reached && l2.pages === 2);
+}
+
+section("THE BUDGET, AND WHAT FAILED TO READ");
+{
+  const w = synthWorld();
+  const mints = Array.from({ length: RUN_LIMITS.maxChecksPerRun + 7 }, (_, i) => w.add({ createdMs: T12 - 40 * MIN + i * 1000, kind: "clean" }));
+  const first = await w.run(T12);
+  const leftLine = first.lines.find((l) => /over this run's budget/.test(l)) ?? "";
+  ok(`a run checks at most ${RUN_LIMITS.maxChecksPerRun} coins, oldest first, and names the ones left for the next run`,
+    first.r.counts.checked === RUN_LIMITS.maxChecksPerRun && first.r.counts.left === 7 && mints.slice(-7).every((m) => leftLine.includes(m)) && mints.slice(0, RUN_LIMITS.maxChecksPerRun).every((m) => first.r.entries.some((e) => e.mint === m)));
+  const second = await w.run(T12 + 15 * MIN);
+  ok("the next run checks them", second.r.counts.checked === 7 && mints.every((m) => w.file().callouts.some((c) => c.mint === m)));
+}
+{
+  const w = synthWorld();
+  const m = w.add({ createdMs: T12 - 30 * MIN });
+  w.failOnce.add(m);
+  const first = await w.run(T12);
+  ok("a coin whose accounts could not be read waits in the queue, its try counted", !first.r.entries.some((e) => e.mint === m) && w.state().pending[m]?.tries === 1 && first.lines.some((l) => /tried 1 of 3 times/.test(l)));
+  const second = await w.run(T12 + 15 * MIN);
+  ok("and is checked on the next run", second.r.entries.some((e) => e.mint === m) && !w.state().pending[m]);
+  const w2 = synthWorld();
+  const m2 = w2.add({ createdMs: T12 - 30 * MIN });
+  for (const [i, at] of [T12, T12 + 15 * MIN, T12 + 30 * MIN].entries()) { w2.failOnce.add(m2); const x = await w2.run(at); if (i === 2) ok(`after ${RUN_LIMITS.maxReadTries} failed tries it is dropped, by name`, x.r.dropped.some((d) => d.mint === m2) && x.lines.some((l) => l.includes("DROPPED") && l.includes(m2))); }
+}
+{
+  const w = synthWorld();
+  const m = w.add({ createdMs: T12 - 30 * MIN });
+  await w.run(T12);
+  w.add({ createdMs: T12 + 10 * MIN, cat: false });
+  const late = await w.run(T12 + (THRESHOLDS.MAX_AGE_HOURS + 1) * HOUR);
+  ok("a coin a day old leaves the queue; one never checked is named as dropped (none here: it was checked)", !late.r.dropped.some((d) => d.mint === m));
+  const w2 = synthWorld();
+  const m2 = w2.add({ createdMs: T12 - 5 * MIN });                        // too young at 12:07
+  await w2.run(T12);
+  const late2 = await w2.run(T12 + (THRESHOLDS.MAX_AGE_HOURS + 1) * HOUR);  // the next run comes a day later
+  ok("…and a queued coin no run reached before it was a day old is dropped and named, never silently", late2.r.dropped.some((d) => d.mint === m2 && /24 hours/.test(d.why)));
+}
+
+section("POPCAT'S PICK");
+{
+  const at = (h, m = 0) => Date.UTC(2026, 8, 25, h, m);
+  ok("the windows start at 00, 06, 12 and 18 UTC", [[0, 5], [6, 0], [12, 7], [17, 59], [23, 59]].every(([h, m]) => new Date(windowOf(at(h, m)).start).getUTCHours() === Math.floor(h / 6) * 6));
+  ok("a pick is due at the first run in a window that was not tried yet, and only then", pickDue({ pickWindow: null }, at(12, 7)) && pickDue({ pickWindow: "2026-09-25T06:00:00Z" }, at(12, 7)) && !pickDue({ pickWindow: "2026-09-25T12:00:00Z" }, at(12, 22)));
+  const e = (mint, holders, txs, curvePct, over = {}) => ({ mint, creator: mint, name: "Tie Cat", symbol: "TIE", time: "2026-09-25T11:00:00Z", callout: true, stats: { holders, top10Pct: 12.5, curvePct, txs }, ...over });
+  const [A, B, C] = [addrOf("a"), addrOf("b"), addrOf("c")].sort();
+  const now = at(12, 7);
+  ok("ranked by holders, then transactions on the curve, then the curve sold", choosePick({ entries: [e(A, 50, 10, 20), e(B, 60, 1, 1)], now }).pick.mint === B
+    && choosePick({ entries: [e(A, 50, 10, 20), e(B, 50, 11, 1)], now }).pick.mint === B && choosePick({ entries: [e(A, 50, 10, 20), e(B, 50, 10, 21)], now }).pick.mint === B
+    && choosePick({ entries: [e(A, 50, null, 20), e(B, 50, 0, 1)], now }).pick.mint === B && PICK_RANKING.map((r) => r.key).join() === "holders,txs,curvePct");
+  ok("a tie on all three goes to the mint that sorts first, whatever order the coins come in", choosePick({ entries: [e(C, 9, 9, 9), e(A, 9, 9, 9), e(B, 9, 9, 9)], now }).pick.mint === A
+    && choosePick({ entries: [e(B, 9, 9, 9), e(C, 9, 9, 9), e(A, 9, 9, 9)], now }).pick.mint === A && rankCompare(e(A, 9, 9, 9), e(A, 9, 9, 9)) === 0);
+  ok("none when no coin checked in the six hours before is clean: spotted coins, older checks and coins already picked do not count",
+    choosePick({ entries: [e(A, 99, 9, 9, { callout: false })], now }).pick === null
+      && choosePick({ entries: [e(A, 99, 9, 9, { time: "2026-09-25T06:07:00Z" })], now }).pick === null
+      && choosePick({ entries: [e(A, 99, 9, 9, { time: "2026-09-25T06:08:00Z" })], now }).pick?.mint === A
+      && choosePick({ entries: [e(A, 99, 9, 9)], picked: new Set([A]), now }).pick === null && choosePick({ entries: [], now }).pick === null);
+  const p = choosePick({ entries: [e(A, 6127, 5000, 100)], now }).pick;
+  ok("the pick names its window, when it was chosen, when its checks ran, and the facts it was chosen on", p.window === "2026-09-25T12:00:00Z" && p.time === "2026-09-25T12:07:00Z" && p.checked === "2026-09-25T11:00:00Z" && p.stats.holders === 6127);
+  ok("the site's validator takes it", validateCallouts({ callouts: [], picks: [p] }).problems.length === 0);
+}
+{
+  const PROMISE = /\b(buy|buying|sell|moon|gem|ape|pump|profit|gain|guarantee\w*|safe|price|market ?cap|mcap|will|soon|next|\d+x|x\d+|lfg|don'?t miss|early|entry|target)\b/i;
+  const names = ["Asset Cat", "cosmic cat protocol", "A".repeat(38) + " C", "Kitty 🐈 Party", "$Meow"].flatMap((name) => ["CAT", "$Meow", "K".repeat(16)].map((symbol) => ({ name, symbol })));
+  const stats = [{ holders: 25, top10Pct: 29.99, curvePct: 10, txs: 1 }, { holders: 99_999_999, top10Pct: 0.01, curvePct: 100, txs: 5000 }, { holders: 312, top10Pct: 18.2, curvePct: 42.5, txs: null }];
+  const drafts = names.flatMap((n) => stats.map((s) => buildDraft({ ...n, mint: addrOf("d"), creator: addrOf("d"), time: "2026-09-25T11:37:04Z", callout: true, stats: s })));
+  ok(`every draft is at most ${DRAFT_MAX} characters, opens with the name and ticker, ends with the disclosure, and carries no price, promise or "buy"`,
+    drafts.length === 45 && drafts.every((d) => d && d.length <= DRAFT_MAX && d.endsWith(DRAFT_DISCLOSURE) && !PROMISE.test(d) && !DRAFT_BANNED.test(d)), drafts.find((d) => !d || d.length > DRAFT_MAX || PROMISE.test(d)) ?? `longest ${Math.max(...drafts.map((d) => d.length))}`);
+  ok("it says no red flags in twelve on-chain checks, and when", drafts[0].startsWith("Asset Cat ($CAT): no red flags in 12 on-chain checks at 11:37 UTC."), drafts[0]);
+  ok("the ticker carries one \"$\", whatever the coin wrote", drafts.filter((d) => d.includes("($$")).length === 0 && ticker("$Meow") === "$Meow" && ticker("MEOW") === "$MEOW");
+  const bad = ["Moon Cat", "Buy The Cat", "100x Kitty", "Safe Cat", "Cat Pump"].map((name) => buildDraft({ name, symbol: "CAT", mint: addrOf("x"), creator: addrOf("x"), time: "2026-09-25T11:37:04Z", callout: true, stats: stats[2] }));
+  ok("a coin whose own name carries such a word gets no draft, so it is never picked", bad.every((d) => d === null));
+  const [A, B] = [addrOf("m1"), addrOf("m2")].sort();
+  const c = choosePick({ entries: [{ mint: A, creator: A, name: "Moon Cat", symbol: "MOON", time: "2026-09-25T11:00:00Z", callout: true, stats: { holders: 900, top10Pct: 9, curvePct: 50, txs: 50 } },
+    { mint: B, creator: B, name: "Plain Cat", symbol: "PLAIN", time: "2026-09-25T11:00:00Z", callout: true, stats: { holders: 30, top10Pct: 9, curvePct: 50, txs: 50 } }], now: Date.UTC(2026, 8, 25, 12, 7) });
+  ok("the next coin down is picked instead, and the one passed over is counted", c.pick?.mint === B && c.passedOver.length === 1);
+}
+{
+  /* Whole runs: at most one pick a window, a new one in the next window, never the same coin twice. */
+  const w = synthWorld();
+  const first = [10, 300, 40, 300].map((extra, i) => w.add({ createdMs: T12 - 50 * MIN + i * MIN, extraHolders: extra, txs: i + 1 }));
+  const a = await w.run(T12), b = await w.run(T12 + 15 * MIN);
+  ok("the first run in the 12:00 window picks the best clean coin: most holders, then most transactions", a.r.pick.pick?.mint === first[3] && w.file().picks.length === 1 && w.file().picks[0].window === "2026-09-25T12:00:00Z");
+  ok("a later run in the same window makes no second pick", b.r.pick.due === false && b.r.pick.pick === null && w.file().picks.length === 1 && b.lines.some((l) => /was tried by an earlier run/.test(l)));
+  const later = [5, 7].map((extra, i) => w.add({ createdMs: T12 + 5 * HOUR + i * MIN, extraHolders: extra }));
+  await w.run(T12 + 5 * HOUR + 45 * MIN);
+  const c = await w.run(T12 + 6 * HOUR);
+  const picks = w.file().picks;
+  ok("the next window gets its own pick, from coins checked in the six hours before it, never a coin picked before",
+    c.r.pick.pick && picks.length === 2 && picks[0].window === "2026-09-25T18:00:00Z" && picks[0].mint === later[1] && picks[0].mint !== picks[1].mint && w.file().problems.length === 0);
+  ok("each pick's draft is in the file, within the rules", picks.every((p) => p.draft.length <= DRAFT_MAX && p.draft.endsWith(DRAFT_DISCLOSURE)));
+}
+{
+  const w = synthWorld();
+  w.add({ createdMs: T12 - 40 * MIN, kind: "flagged" });
+  const a = await w.run(T12);
+  ok("no pick when no coin checked in the six hours before is clean, and the window is marked tried", a.r.pick.due && a.r.pick.pick === null && w.file().picks.length === 0 && w.state().pickWindow === "2026-09-25T12:00:00Z"
+    && /No pick for 12:00 to 18:00 UTC/.test(summaryMarkdown(a.r)));
+  const clean = w.add({ createdMs: T12 - 10 * MIN, kind: "clean" });
+  const b = await w.run(T12 + 15 * MIN);
+  ok("a clean coin found later in the same window waits for the next window's pick", b.r.pick.pick === null && b.r.entries.some((e) => e.mint === clean && e.callout));
+  const c = await w.run(T12 + 6 * HOUR);
+  ok("…and is picked then, as it was checked within the six hours before", c.r.pick.pick?.mint === clean);
+}
+
+section("THE JOB SUMMARY, AGAINST HOSTILE NAMES");
+{
+  const hostile = ["<script>alert(1)</script>", "**bold** _it_ ~x~", "[x](javascript:alert(1))", "| a | b |", "::add-mask::secret", "`code`", "@octocat #1", "https://evil.example/x", "a\n\n# heading", "<img src=x onerror=alert(1)>", "&lt;b&gt;"];
+  const mint = addrOf("h");
+  const entryOf = (name, i) => ({ mint: addrOf(`h${i}`), creator: mint, name, symbol: name.slice(0, 16), callout: i % 2 === 0, flags: i % 2 ? [{ id: "curve", label: CHECKS.curve.label, flag: CHECKS.curve.flag, value: name }] : [] });
+  const r = {
+    mode: "live", at: T12, listing: { pages: 3, covered: true, stoppedBy: hostile[0], newestMs: T12, oldestMs: T12 - 40 * MIN, gap: null },
+    counts: { read: 150, queued: 11, checked: 11, callouts: 6, spotted: 5, waiting: 2, left: 0, dropped: 1 },
+    entries: hostile.map(entryOf), dropped: [{ mint, name: hostile[1], symbol: hostile[2], why: hostile[3] }],
+    pick: { due: true, windowStart: Date.UTC(2026, 8, 25, 12), pool: 3, passedOver: 0,
+      pick: { window: "2026-09-25T12:00:00Z", time: "2026-09-25T12:07:00Z", checked: "2026-09-25T11:37:04Z", mint, creator: mint, name: hostile.join(" "), symbol: hostile[5], stats: { holders: 1, top10Pct: 1, curvePct: 1, txs: 1 }, draft: hostile.join(" ") } },
+  };
+  const md = summaryMarkdown(r);
+  const lines = md.split("\n");
+  const decode = (s) => s.replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+  ok("nothing a coin wrote can open a tag, a link, emphasis, a table or a code span: every character but letters, digits and spaces is a numbered reference",
+    !/<script|<img|onerror=|\]\(|\*\*|`|\| a \||javascript:|https:\/\/evil|@octocat|::add-mask/.test(md) && decode(md).includes("<script>alert(1)</script>") && decode(md).includes("[x](javascript:alert(1))"));
+  ok("every line of it is HTML or blank, so none can start a heading, a list or a workflow command", lines.every((l) => l === "" || l.startsWith("<")) && !lines.some((l) => l.startsWith("::")));
+  ok("no blank line inside a block, so no block ends early and lets Markdown in", md.split("\n\n").filter(Boolean).every((b) => b.trim().startsWith("<") && b.trim().endsWith(">")));
+  ok("the pick, its window and its draft are there, the draft in a <pre> of its own, with the rules for posting it and the disclosure",
+    /<h3>Popcat's pick for 12:00 to 18:00 UTC on 2026-09-25<\/h3>/.test(md) && /<pre>[^\n]*<\/pre>/.test(md) && /Post it only by hand/.test(md) && md.includes(esc("The agency may post Popcat's pick as a callout on pump.fun")));
+  ok("the only link is the coin's pump.fun page, built from a checked address", [...md.matchAll(/href="([^"]+)"/g)].map((m) => m[1]).join() === `https://pump.fun/coin/${mint}`);
+  ok("a run that stopped says why, escaped the same way", summaryOfError("<b>boom</b> ::x").includes("&#60;b&#62;boom") && !summaryOfError("<b>boom</b>").includes("<b>boom"));
 }
 
 done();

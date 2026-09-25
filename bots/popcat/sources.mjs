@@ -28,22 +28,37 @@ export function coinRow(r) {
 }
 
 /**
- * Newest coins, page by page (50 a page), until one older than `sinceMs` or `maxPages`.
- * The listing URL takes an offset; the pages overlap nothing and are deduplicated anyway.
+ * pump.fun's newest coins, page by page (50 a page), back to `untilMs` (a creation time) or as
+ * far as the listing goes. On 2026-09-25 it served offsets 0 to 1,000 and answered an empty list
+ * past that: 1,050 coins, about forty minutes of launches at the rate seen that night. So a run
+ * cannot reach back further than that, and says when it could not reach `untilMs`:
+ *   reached    a page reached a coin created before untilMs: nothing between was left out
+ *   exhausted  the listing ran out first: coins between untilMs and oldestMs were not listed
+ *   stoppedBy  a page failed, or the page cap was hit, before either: the next run tries again
+ * A failed first page throws; a later one keeps the pages already read.
  */
-export async function newestCoins({ http, sinceMs, maxPages = 8 }) {
+export async function newestCoins({ http, untilMs = null, maxPages = 25 }) {
   const out = new Map();
+  let pages = 0, reached = false, exhausted = false, stoppedBy = null, newestMs = null, oldestMs = null;
   for (let page = 0; page < maxPages; page++) {
     const url = URLS.pumpNewestCoins(50).replace("offset=0", `offset=${page * 50}`);
     let body;
     try { body = await http.json(url, { headers: { origin: "https://pump.fun" } }); }
-    catch (e) { if (page === 0) throw e; break; /* keep the pages already read */ }
+    catch (e) { if (page === 0) throw e; stoppedBy = `page ${page + 1} failed (${e.message})`; break; }
     if (!Array.isArray(body)) throw new Error("pump.fun's coin listing is not a list");
+    if (!body.length) { exhausted = true; break; }
+    pages++;
     const rows = body.map(coinRow).filter(Boolean);
-    for (const r of rows) if (!out.has(r.mint)) out.set(r.mint, r);
-    if (!rows.length || rows[rows.length - 1].createdMs < sinceMs) break;
+    for (const r of rows) {
+      if (!out.has(r.mint)) out.set(r.mint, r);
+      if (newestMs === null || r.createdMs > newestMs) newestMs = r.createdMs;
+      if (oldestMs === null || r.createdMs < oldestMs) oldestMs = r.createdMs;
+    }
+    if (untilMs !== null && oldestMs !== null && oldestMs < untilMs) { reached = true; break; }
+    if (body.length < 50) { exhausted = true; break; }
   }
-  return [...out.values()];
+  if (!reached && !exhausted && !stoppedBy) stoppedBy = `the page cap (${maxPages} pages)`;
+  return { coins: [...out.values()], pages, reached, exhausted, stoppedBy, newestMs, oldestMs };
 }
 
 /** Coins traded most recently (any age; the caller keeps those under a day old). */

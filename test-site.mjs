@@ -41,11 +41,14 @@
  *     stations are the seven cats, each hotspot on its own desk; the case file ships empty, and every entry the floor will
  *     ever show passes the validator, which refuses unknown agents, impossible dates, any
  *     link that is not http(s) and any HTML; the floor's pictures are the brand kit's.
- *   · THE BOTS' DESKS SHOW THEIR OWN FILES. CashCat's launches and Popcat's callouts are read
- *     as JSON modules and checked by the validators the deploy runs; a callout is shown only
- *     against the launches it must not touch; every word is text, every link is Solscan,
- *     pump.fun or StonkFun, and no coin's picture is ever drawn; the numbers the cards quote
- *     are the bots' own.
+ *   · THE BOTS' DESKS SHOW THEIR OWN FILES. CashCat's launches and every cat coin Popcat checked
+ *     (callouts, and coins spotted with red flags) are read as JSON modules and checked by the
+ *     validators the deploy runs; Popcat's file is shown only against the launches it must not
+ *     touch; the feed carries the callouts and Popcat's pick, the spotted coins stay at its desk;
+ *     every word is text, every link is Solscan, pump.fun or StonkFun, and no coin's picture is
+ *     ever drawn; the pick's draft is text to copy by hand, never the clipboard's; the pick's
+ *     disclosure is the same words on the site, in the README and in the kit's copy; the
+ *     numbers the cards quote are the bots' own.
  *   · THE KIT IS THE SEVEN-CAT KIT. CoinMarketCat is the hoodie tabby, Snipurr keeps its old art,
  *     the floor has seven desks, and every copy the site ships is the kit's, byte for byte or
  *     pixel for pixel.
@@ -214,7 +217,7 @@ const BANNED = [
   [/window\.phantom|window\.solana|\.solana\.connect/, "the wallet provider"],
   [/secretKey|privateKey|Keypair|mnemonic|seed phrase/i, "a key word"],
   [/<form|<input|<textarea|<select/i, "a form field"],
-  [/\bfetch\(|XMLHttpRequest|new WebSocket|sendBeacon|navigator\.clipboard/, "a network or clipboard call"],
+  [/\bfetch\(|XMLHttpRequest|new WebSocket|sendBeacon|navigator\.clipboard|execCommand|ClipboardItem|clipboardData/, "a network or clipboard call"],
   [/sessionStorage|indexedDB|document\.cookie/, "storage beyond the theme"],
   [/<script[^>]+src="(https?:)?\/\//i, "an external script"],
   [/"(https?:)?\/\/[^"]*\.m?js"/i, "a script imported from another host"],
@@ -406,10 +409,16 @@ ok("Popcat's card says the character is not the $POPCAT memecoin, and $CIA is no
     /data-beat="Auto-launcher · bot"/.test(html.agency) && cash.includes("launched by itself from what is trending, on pump.fun and on StonkFun")
       && cash.includes("Every coin it launches is listed at its desk on the work floor") && cash.includes("It launches nothing until the agency switches it on.")
       && !/whale|KOL|being built/i.test(cash));
-  ok("Popcat's card: cat-coin callouts on pump.fun with their safety checks, at its desk and in the floor's feed, off until switched on",
-    /data-beat="Cat-coin callouts · bot"/.test(html.agency) && pop.includes("each with its safety checks. Cat coins only.")
-      && pop.includes("at its desk on the work floor and in the floor's feed") && pop.includes("It calls nothing out until the agency switches it on.")
-      && !/radar is a prop|being built/i.test(pop));
+  const { PICK_DISCLOSURE } = await import("./site/assets/callouts.js");
+  ok("Popcat's card: every new cat coin on pump.fun it can check, listed with its safety checks at its desk; callouts in the feed; a pick every six hours, posted only by hand; off until switched on",
+    /data-beat="Cat-coin callouts · bot"/.test(html.agency) && pop.includes("listed with its safety checks; the ones with no red flags called out. Cat coins only.")
+      && pop.includes("lists every one it can check at its desk on the work floor") && pop.includes("A coin in which no check finds a red flag is a callout, in the floor's feed too; a coin with red flags is spotted, and its red flags are named.")
+      && pop.includes("Every six hours it picks at most one callout for the agency to post by hand on pump.fun.") && pop.includes("It posts nothing until the agency switches it on.")
+      && pop.includes(PICK_DISCLOSURE) && !/radar is a prop|being built/i.test(pop));
+  ok("the pick's disclosure is the same words on the card, at Popcat's desk, in the house rules, the README and the kit's copy",
+    PICK_DISCLOSURE.startsWith("The agency may post Popcat's pick as a callout on pump.fun, which pays callers from trading their callouts bring.") && /Not financial advice\.$/.test(PICK_DISCLOSURE)
+      && (text.agency.split(PICK_DISCLOSURE).length - 1) === 2 && textOf(html.floor.match(/<template id="tpl-popcat">[\s\S]*?<\/template>/)[0]).includes(PICK_DISCLOSURE)
+      && ["README.md", path.join("brand", "COPY.md")].every((f) => fs.readFileSync(path.join(here, f), "utf8").replace(/\s+/g, " ").includes(PICK_DISCLOSURE)));
   ok("no page says a bot is being built any more", !Object.values(text).some((t) => /being built/i.test(t)));
   ok("Snipurr's card: the sniper lane inside CoinMarketCat, software, linking to that lane, its desk and the console",
     /data-beat="The sniper lane · software"/.test(html.agency) && textOf(cards.snipurr?.body || "").includes("the sniper lane inside CoinMarketCat")
@@ -419,9 +428,9 @@ ok("Popcat's card says the character is not the $POPCAT memecoin, and $CIA is no
       && has("agency", "Crying Cat and Grumpy Cat are characters") && has("agency", "The other four are software.") && has("agency", "The Director is the agency's mascot, not one of the six."));
   ok("the hero says the two bots are built and not yet switched on, not that they are being built",
     has("agency", "two more are the agency's own bots, built and not yet switched on.") && !/bots the agency is building|bots on the way/i.test(text.agency));
-  const rules = "Popcat never calls out a coin CashCat launched.", buyRule = "The agency never buys a coin before calling it out";
-  ok("the house rules carry the owner's two new rules, on the site and in the kit's copy",
-    has("agency", rules) && has("agency", buyRule) && [rules, buyRule].every((r) => fs.readFileSync(path.join(here, "brand", "COPY.md"), "utf8").includes(r)));
+  const rules = "Popcat never calls out a coin CashCat launched.", buyRule = "The agency never buys a coin before calling it out", pickRule = "Popcat's pick, disclosed.";
+  ok("the house rules carry the owner's rules, the pick's disclosure among them, on the site and in the kit's copy",
+    has("agency", rules) && has("agency", buyRule) && has("agency", pickRule) && [rules, buyRule, pickRule].every((r) => fs.readFileSync(path.join(here, "brand", "COPY.md"), "utf8").includes(r)));
 }
 ok("the sample case file is marked a template, with placeholder fields", /class="casefile"/.test(html.agency) && has("agency", "A template with placeholder fields, not a real case") && (html.agency.match(/class="slot"/g) || []).length >= 10);
 
@@ -552,7 +561,7 @@ const tpl = Object.fromEntries(Object.keys(CATS).map((c) => [c, (floorHtml.match
 /* Where a station's posts will go. The bots say it of what they will post, and claim no post
    on X nobody has decided on: their launches and callouts go on their desks and in the feed. */
 const WHERE = { cashcat: /No launches posted yet\. CashCat has launched nothing yet\. When it launches a coin, the launch goes up here and in the floor's feed/,
-  popcat: /No callouts posted yet\. Popcat has called nothing out yet\. When it calls out a new cat coin, the callout goes up here and in the floor's feed/ };
+  popcat: /Nothing posted yet\. Popcat has listed no coin yet\. When it checks a new cat coin, the coin goes up here with every check it ran and its mint and creator linked: a callout, in the floor's feed too, when no check found a red flag; spotted, with its red flags named, when one did\./ };
 for (const [cat, want] of Object.entries(CATS)) {
   const t = tpl[cat], card = cards[cat]?.body || "";
   const same = (cls) => { const a = (t.match(new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`)) || [])[1], b = (card.match(new RegExp(`<p class="${cls}">([\\s\\S]*?)</p>`)) || [])[1]; return a && b && textOf(a).trim() === textOf(b).trim(); };
@@ -693,17 +702,26 @@ ok("they are checked by the deploy's own validators; callouts only against CashC
   const posts = await loadBotPosts((...a) => warned.push(a.join(" ")));
   ok("the files on the site load the page's way and pass with no warning", posts.launches.state === "ready" && posts.callouts.state === "ready" && warned.length === 0,
     warned.join(" | ") || `${posts.launches.items.length} launches, ${posts.callouts.items.length} callouts`);
-  ok("a bot's status reads \"Bot · no launches yet\" until one is on file, then counts",
-    botTally("cashcat", 0) === "no launches yet" && botTally("cashcat", 1) === "1 launch" && botTally("popcat", 0) === "no callouts yet" && botTally("popcat", 12) === "12 callouts");
+  const called = { callout: true }, spotted = { callout: false };
+  ok("a bot's status reads \"Bot · no launches yet\" until one is on file, then counts; Popcat's counts its callouts and its spotted coins apart",
+    botTally("cashcat", []) === "no launches yet" && botTally("cashcat", [{}]) === "1 launch" && botTally("popcat", []) === "no callouts yet" && botTally("popcat", Array(12).fill(called)) === "12 callouts"
+      && botTally("popcat", [spotted, spotted]) === "no callouts yet · 2 spotted" && botTally("popcat", [called, spotted, spotted]) === "1 callout · 2 spotted");
 }
 ok("the home page's two bot cards and their stations carry that status, filled from the same files",
   ["cashcat", "popcat"].every((c) => (html.agency.match(new RegExp(`data-bot-status="${c}">Bot<`, "g")) || []).length === 1 && (tpl[c].match(new RegExp(`data-bot-status="${c}">Bot<`, "g")) || []).length === 1)
-    && /import \{ loadBotPosts, botTally \} from "\.\/assets\/bot-posts\.js";/.test(html.agency)
-    && /status\.textContent = state === "ready" \? `Bot · \$\{botTally\(cat, mine\.length\)\}` : "Bot";/.test(floorJs));
-ok("CashCat's desk shows its launches and Popcat's its callouts, every other desk its cases, and the feed all three, newest first",
+    && /import \{ loadBotPosts, botTally \} from "\.\/assets\/bot-posts\.js";/.test(html.agency) && /botTally\(cat, posts\[kind\]\.items\)/.test(html.agency)
+    && /status\.textContent = state === "ready" \? `Bot · \$\{botTally\(cat, mine\)\}` : "Bot";/.test(floorJs));
+ok("CashCat's desk shows its launches and Popcat's every coin it checked, every other desk its cases; the feed the cases, launches and callouts, newest first, never a spotted coin",
   /import \{ loadBotPosts, botTally \} from "\.\/bot-posts\.js";/.test(floorJs) && /const DESK = \{ cashcat: "launches", popcat: "callouts" \};/.test(floorJs)
     && /const CARD = \{ cases: caseCard, launches: launchCard, callouts: calloutCard \};/.test(floorJs)
-    && /\.\.\.src\.launches\.items\.map/.test(floorJs) && /\.\.\.src\.callouts\.items\.map/.test(floorJs) && /id="feed-more" hidden/.test(floorHtml));
+    && /\.\.\.src\.launches\.items\.map/.test(floorJs) && /\.\.\.src\.callouts\.items\.filter\(\(x\) => x\.callout\)\.map/.test(floorJs) && /id="feed-more" hidden/.test(floorHtml));
+ok("Popcat's pick sits on top of the feed and of its desk, which has a slot for it, hidden until there is one",
+  /const pick = src\.callouts\.picks\[0\];/.test(floorJs) && /list\.replaceChildren\(\.\.\.top, /.test(floorJs) && /<div class="st-pick" data-slot="pick" hidden><\/div>/.test(tpl.popcat)
+    && /pickSlot\.replaceChildren\(\.\.\.\(p \? \[pickCard\(p\)\] : \[\]\)\);/.test(floorJs));
+ok("a spotted coin says \"Spotted\", never \"Callout\", and names each red flag; only a coin with none is called a callout",
+  /el\("span", "case-id", c\.callout \? "Callout" : "Spotted"\)/.test(floorJs) && /for \(const f of c\.flags\)/.test(floorJs) && /Spotted, not called out/.test(floorJs));
+ok("the pick's draft is text to select and copy by hand: one click selects it all, and the page never writes to the clipboard",
+  /el\("p", "pick-draft", p\.draft\)/.test(floorJs) && /\.pick-draft\{[^}]*user-select:all/.test(floorCss) && /this page never touches your clipboard/.test(floorJs));
 const pictures = [...floorJs.matchAll(/\.src = ([^;]+);/g)].map((m) => m[1]);
 ok("no coin's picture is ever drawn: the only pictures the floor's script sets are the case-file icon and the cats' own sprites",
   pictures.length === 2 && pictures.includes('"../assets/floor/case-file-112.png"') && pictures.includes("`../assets/sprites/${cat}.png`"), pictures.join(", "));
@@ -718,14 +736,14 @@ ok("no coin's picture is ever drawn: the only pictures the floor's script sets a
     mint: sample.accounts[0].pubkey, creator: sample.accounts.find((a) => a.isSigner && a.pubkey !== sample.accounts[0].pubkey).pubkey, tx: sample.signature,
     quote: { symbol: spyx.symbol, mint: spyx.mint }, devBuy: { sol: 0 }, costSol: 0.0087, kitten: "ginger" };
   const callout = { time: "2026-09-24T21:40:00Z", venue: "pumpfun", mint: snap.apiRow.mint, creator: snap.apiRow.creator, name: snap.apiRow.name, symbol: snap.apiRow.symbol,
-    cat: { field: "name", word: "cat" }, checks: CHECK_IDS.map((id) => ({ id, result: "pass", value: "a test value" })) };
+    cat: { field: "name", word: "cat" }, checks: CHECK_IDS.map((id) => ({ id, result: "pass", value: "a test value" })), stats: { holders: 40, top10Pct: 14.8, curvePct: 100, txs: 5000 } };
   const l = validateLaunches({ launches: [launch] }), c = validateCallouts({ callouts: [callout] });
   const hosts = [...launchLinks(l.launches[0] ?? launch), ...calloutLinks(c.callouts[0] ?? callout)].map((x) => new URL(x.href).host);
   ok("a launch and a callout link only to Solscan, pump.fun and StonkFun", l.problems.length === 0 && c.problems.length === 0 && hosts.length >= 7
     && hosts.every((h) => ["solscan.io", "pump.fun", "www.stonkfun.xyz"].includes(h)), [...new Set(hosts)].join(", "));
   ok("a callout carrying the coin's picture or its links is refused, and so is one on a coin CashCat launched",
     ["image", "uri", "website", "twitter"].every((k) => validateCallouts({ callouts: [{ ...callout, [k]: "https://example.com/x" }] }).problems.length === 1)
-      && validateCallouts({ callouts: [callout] }, { exclude: [{ ...l.launches[0], mint: callout.mint }] }).problems.some((p) => /never calls out a coin CashCat launched/.test(p))
+      && validateCallouts({ callouts: [callout] }, { exclude: [{ ...l.launches[0], mint: callout.mint }] }).problems.some((p) => /never lists a coin CashCat launched/.test(p))
       && validateCallouts({ callouts: [callout] }, { exclude: [{ ...l.launches[0], creator: callout.creator }] }).callouts.length === 0);
 }
 {
@@ -741,7 +759,10 @@ ok("no coin's picture is ever drawn: the only pictures the floor's script sets a
     /^Launched automatically by CashCat, a bot of the Cat Intelligence Agency/.test(disclosure({ trendTitle: "x" })) && /not affiliated with/.test(disclosure({ trendTitle: "x" })) && /Not financial advice\./.test(disclosure({ trendTitle: "x" })),
     has("agency", "That CashCat, a bot of the agency, launched it automatically, that it is not affiliated with its trend, and that it is not financial advice."));
   pinned("Popcat: coins from 15 minutes to a day old", THRESHOLDS.MIN_AGE_MINUTES === 15 && THRESHOLDS.MAX_AGE_HOURS === 24, has("agency", "from 15 minutes to a day old"));
-  pinned("Popcat: about every half hour", /cron: "7,37 \* \* \* \*"/.test(fs.readFileSync(path.join(here, ".github", "workflows", "popcat.yml"), "utf8")), has("agency", "about every half hour"));
+  pinned("Popcat: about every fifteen minutes", /cron: "7,22,37,52 \* \* \* \*"/.test(fs.readFileSync(path.join(here, ".github", "workflows", "popcat.yml"), "utf8")), has("agency", "about every fifteen minutes"));
+  const { PICK_WINDOW_HOURS, PICK_LOOKBACK_HOURS } = await import("./site/assets/callouts.js");
+  pinned("Popcat: a pick every six hours, from the callouts checked in the six hours before", PICK_WINDOW_HOURS === 6 && PICK_LOOKBACK_HOURS === 6,
+    has("agency", "Every six hours, at most one callout: of the coins with no red flags it checked in the six hours before, the one with the most holders."));
 }
 
 section("THE SEVEN-CAT KIT");

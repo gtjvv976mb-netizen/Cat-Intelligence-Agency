@@ -233,6 +233,21 @@
 .case-facts dd{margin:0;color:var(--text);overflow-wrap:anywhere}
 .case-note{font-size:13.5px;color:var(--text-soft);margin:0 0 12px}
 .feed-more{font-size:14px;color:var(--text-soft);margin:16px 0 0}
+/* Popcat: a spotted coin's red flags in plain words, and its pick with the draft to copy by hand. */
+.verdict.v-red-flags{--v:var(--bad)}
+:root[data-theme="light"] .verdict.v-red-flags{--v:#b8372a}
+.verdict.v-pick{--v:var(--pink-text)}
+.flags{margin:0 0 12px;padding:0;list-style:none;display:grid;gap:8px;font-size:14.5px}
+.flags li{position:relative;padding-left:18px;overflow-wrap:anywhere}
+.flags li::before{content:"";position:absolute;left:0;top:.5em;width:8px;height:8px;background:var(--bad)}
+.flags b{font-weight:700;color:var(--text)}
+.flag-found{color:var(--text-soft)}
+.case.pick{box-shadow:0 0 0 3px var(--accent),inset 5px 0 0 var(--accent),8px 8px 0 3px var(--shadow-ink)}
+.pick-draft{margin:0 0 12px;padding:12px 14px;font:500 14px/1.55 var(--mono);color:var(--text);background:var(--bg-2);box-shadow:inset 0 0 0 2px var(--line-2);
+  overflow-wrap:anywhere;-webkit-user-select:all;user-select:all;cursor:text}
+.pick-disclosure{font-size:13px}
+.st-pick{margin:0 0 24px}
+.st-pick[hidden]{display:none}
 @media (max-width:520px){.case-facts{grid-template-columns:minmax(0,1fr);gap:2px 0}.case-facts dd{margin:0 0 6px}}
 .ev-where{font:400 12px/1.4 var(--mono);color:var(--text-faint);overflow-wrap:anywhere}
 .case-foot{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}

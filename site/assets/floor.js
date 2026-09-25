@@ -7,14 +7,17 @@
 
    The cases come from assets/cases.json, read through cases-data.js and checked entry by
    entry by cases.js, which skips (and names, in the console) anything malformed. The two bots'
-   desks show their own files instead: CashCat's launches and Popcat's callouts, read through
-   bot-posts.js and checked by launches.js and callouts.js the same way. Every word is drawn
-   as text and every link has been checked, so nothing in those files can put markup or a
-   script on the page, and no coin's own image or link is ever shown. */
+   desks show their own files instead: CashCat's launches, and every cat coin Popcat checked (a
+   callout when no check found a red flag, "spotted" with its red flags named when one did) with
+   Popcat's pick on top, read through bot-posts.js and checked by launches.js and callouts.js the
+   same way. The feed shows the callouts and the pick; the spotted coins stay at Popcat's desk.
+   Every word is drawn as text and every link has been checked, so nothing in those files can put
+   markup or a script on the page, and no coin's own image or link is ever shown. The pick's draft
+   is text to select and copy by hand: the page never touches the clipboard. */
 import { AGENTS, validateCases } from "./cases.js";
 import { loadBotPosts, botTally } from "./bot-posts.js";
 import { VENUES, TREND_SOURCES, launchLinks, shorten } from "./launches.js";
-import { calloutLinks } from "./callouts.js";
+import { calloutLinks, ticker, PICK_DISCLOSURE, PICK_LOOKBACK_HOURS } from "./callouts.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -69,7 +72,7 @@ const noun = (cat) => NOUNS[cat] || ["case", "cases"];
 const src = {
   cases: { state: "loading", items: [] },      // loading → ready | failed
   launches: { state: "loading", items: [] },
-  callouts: { state: "loading", items: [] },
+  callouts: { state: "loading", items: [], picks: [] },
 };
 /* CashCat's desk shows its launches and Popcat's its callouts; every other desk its cases. */
 const DESK = { cashcat: "launches", popcat: "callouts" };
@@ -78,7 +81,7 @@ const postsOf = (cat) => (deskOf(cat) === "cases" ? src.cases.items.filter((c) =
 const FAIL = {
   cases: "The case files could not be opened here just now. Every case is also posted on the agency's X account.",
   launches: "CashCat's launches could not be opened here just now.",
-  callouts: "Popcat's callouts could not be opened here just now.",
+  callouts: "Popcat's checked coins and its pick could not be opened here just now.",
 };
 const MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const FEED_MAX = 60;
@@ -194,21 +197,67 @@ function launchCard(l, { heading = "h4", withAgent = false } = {}) {
   return art;
 }
 
-/* A Popcat callout: the coin's name and ticker as text (never its image or its links), the
-   word that made it a cat coin, and every check Popcat ran with what it found. */
+/* A coin Popcat checked: its name and ticker as text (never its image or its links), the word
+   that made it a cat coin, and every check Popcat ran with what it found. With no red flag it is
+   a callout; with one or more it is spotted, and each red flag is named in plain words first. */
 function calloutCard(c, { heading = "h4", withAgent = false } = {}) {
   const { art, icon } = cardShell("popcat", c.mint);
   const meta = el("p", "case-meta");
   if (withAgent) meta.append(whoIs("popcat"));
-  meta.append(el("span", "case-id", "Callout"), stamp(c.time), el("span", "verdict v-no-red-flags-found", "No red flags found"));
+  meta.append(el("span", "case-id", c.callout ? "Callout" : "Spotted"), stamp(c.time),
+    el("span", `verdict ${c.callout ? "v-no-red-flags-found" : "v-red-flags"}`, c.callout ? "No red flags found" : `Red flags (${c.flags.length})`));
   const body = el("div", "case-body");
-  body.append(meta, el(heading, "case-title", `${c.name} ($${c.symbol})`),
-    el("p", "case-sum", `A new cat coin on pump.fun, a cat by its ${c.cat.field}: “${c.cat.word}”. Every check Popcat ran is below, with what it found; none found a red flag.`));
+  const cat = `A new cat coin on pump.fun, a cat by its ${c.cat.field}: “${c.cat.word}”.`;
+  body.append(meta, el(heading, "case-title", `${c.name} (${ticker(c.symbol)})`),
+    el("p", "case-sum", c.callout ? `${cat} Every check Popcat ran is below, with what it found; none found a red flag.`
+      : `${cat} Spotted, not called out: ${plural(c.flags.length, "check", "checks")} found a red flag.`));
+  if (!c.callout) {
+    const ul = el("ul", "flags");
+    for (const f of c.flags) { const li = el("li"); li.append(el("b", "", f.flag), " ", el("span", "flag-found", `Found: ${f.value}.`)); ul.append(li); }
+    body.append(ul);
+  }
   body.append(el("p", "case-ev-title", "Popcat's checks"));
-  body.append(facts(c.checks.map((k) => [k.label, k.result === "info" ? `${k.value} (for information)` : k.value])));
-  body.append(el("p", "case-note", "A list of checks, not advice and not a buy signal. The agency never buys a coin before calling it out, and Popcat never calls out a coin CashCat launched."));
+  body.append(facts(c.checks.map((k) => [k.label, k.result === "info" ? `${k.value} (for information)` : k.result === "fail" ? `${k.value} (red flag)` : k.value])));
+  body.append(el("p", "case-note", c.callout
+    ? "A list of checks, not advice and not a buy signal. The agency never holds, buys or sells a coin it calls out, and Popcat never lists a coin CashCat launched."
+    : "What Popcat's checks read on chain at that moment: not an accusation, and not advice. Popcat never lists a coin CashCat launched."));
   body.append(...linkList("Linked", calloutLinks(c)));
   if (withAgent) { const foot = el("div", "case-foot"); foot.append(openButton("popcat", c.mint)); body.append(foot); }
+  art.append(icon, body);
+  return art;
+}
+
+/* Popcat's pick: at most one coin a six-hour window, with its window, the facts it was chosen
+   on, and the draft the agency may post by hand on pump.fun, as text to select and copy. */
+const hhmm = (iso) => iso.slice(11, 16);
+const count = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const pct = (x) => `${Number(x.toFixed(x < 10 ? 2 : 1))}%`;   // as the checks print it
+function pickCard(p, { heading = "h4", withAgent = false } = {}) {
+  const { art, icon } = cardShell("popcat", `pick-${p.window}`);
+  art.classList.add("pick");
+  const windowText = `${hhmm(p.window)}–${p.end.slice(11, 13) === "00" ? "24:00" : hhmm(p.end)} UTC on ${p.window.slice(0, 10)}`;
+  const meta = el("p", "case-meta");
+  if (withAgent) meta.append(whoIs("popcat"));
+  const when = el("time", "case-date", windowText);
+  when.dateTime = p.window;
+  meta.append(el("span", "case-id", "Popcat's pick"), when, el("span", "verdict v-pick", "No red flags found"));
+  const body = el("div", "case-body");
+  body.append(meta, el(heading, "case-title", `${p.name} (${ticker(p.symbol)})`),
+    el("p", "case-sum", `Popcat's pick for ${windowText}, chosen at ${hhmm(p.time)} UTC from the cat coins it checked in the ${PICK_LOOKBACK_HOURS} hours before: of those in which no check found a red flag, the one with the most holders (then the most transactions on its bonding curve, then the most of its curve sold).`));
+  body.append(facts([
+    ["Checked", `${p.checked.slice(0, 10)} ${hhmm(p.checked)} UTC`],
+    ["Holders", `${count(p.stats.holders)} besides the bonding curve`],
+    ["Top 10 hold", `${pct(p.stats.top10Pct)} of the supply`],
+    ["Transactions on its curve", p.stats.txs === null ? "not counted" : `${count(p.stats.txs)}${p.stats.txs >= 5000 ? " or more" : ""}`],
+    ["Bonding curve", p.stats.curvePct >= 100 ? "complete" : `${pct(p.stats.curvePct)} sold`],
+  ]));
+  body.append(el("p", "case-ev-title", "The draft callout, to post by hand"));
+  body.append(el("p", "pick-draft", p.draft));
+  body.append(el("p", "case-note", "Select it and copy it yourself: this page never touches your clipboard. The agency posts it, when it does, by hand from its own account on pump.fun, at most one callout every six hours. The checks were true when they ran, not necessarily now."));
+  if (Date.now() >= Date.parse(p.end)) body.append(el("p", "case-note", "This window has ended."));
+  body.append(el("p", "case-note pick-disclosure", PICK_DISCLOSURE));
+  body.append(...linkList("Linked", calloutLinks(p)));
+  if (withAgent) { const foot = el("div", "case-foot"); foot.append(openButton("popcat", src.callouts.items.some((x) => x.mint === p.mint) ? p.mint : "")); body.append(foot); }
   art.append(icon, body);
   return art;
 }
@@ -218,8 +267,9 @@ const CARD = { cases: caseCard, launches: launchCard, callouts: calloutCard };
 function renderCounts() {
   const tally = $("#tally");
   if (tally) {
-    const kinds = [["cases", "case", "cases"], ["launches", "launch", "launches"], ["callouts", "callout", "callouts"]];
-    const parts = kinds.filter(([k]) => src[k].items.length).map(([k, one, many]) => plural(src[k].items.length, one, many));
+    const called = src.callouts.items.filter((c) => c.callout).length, spotted = src.callouts.items.length - called;
+    const parts = [[src.cases.items.length, "case", "cases"], [src.launches.items.length, "launch", "launches"], [called, "callout", "callouts"], [spotted, "spotted cat coin", "spotted cat coins"]]
+      .filter(([n]) => n).map(([n, one, many]) => plural(n, one, many));
     tally.textContent = Object.values(src).some((s) => s.state === "loading") ? "Opening the case files…"
       : parts.length ? `${parts.join(" · ")} posted` : src.cases.state === "failed" ? "Case files unavailable here" : "Nothing posted yet";
   }
@@ -227,7 +277,8 @@ function renderCounts() {
     const ready = src[deskOf(cat)].state === "ready";
     const n = postsOf(cat).length;
     const [one, many] = noun(cat);
-    const label = !ready ? many : n ? plural(n, one, many) : `No ${many} yet`;
+    const tally = cat === "popcat" ? botTally(cat, postsOf(cat)) : "";
+    const label = !ready ? many : tally ? tally[0].toUpperCase() + tally.slice(1) : n ? plural(n, one, many) : `No ${many} yet`;
     for (const span of $$(`[data-count="${cat}"]`)) {
       span.textContent = label;
       span.classList.toggle("has", n > 0);
@@ -240,8 +291,9 @@ function renderCounts() {
   }
 }
 
-/* The feed: every case, launch and callout, newest first. A case carries only its day, so it
-   sits below the launches and callouts of that same day. The newest FEED_MAX are listed; every
+/* The feed: Popcat's latest pick on top, then every case, launch and callout, newest first. A
+   case carries only its day, so it sits below the launches and callouts of that same day. The
+   coins Popcat spotted (with red flags) stay at its desk. The newest FEED_MAX are listed; every
    post is also at its cat's desk. */
 function renderFeed() {
   const list = $("#feed-list"), empty = $("#feed-empty"), fail = $("#feed-fail"), msg = $("#feed-state"), more = $("#feed-more");
@@ -251,14 +303,16 @@ function renderFeed() {
   const items = [
     ...src.cases.items.map((x) => ({ kind: "cases", cat: x.agent, at: x.date, x })),
     ...src.launches.items.map((x) => ({ kind: "launches", cat: "cashcat", at: x.time, x })),
-    ...src.callouts.items.map((x) => ({ kind: "callouts", cat: "popcat", at: x.time, x })),
+    ...src.callouts.items.filter((x) => x.callout).map((x) => ({ kind: "callouts", cat: "popcat", at: x.time, x })),
   ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   msg.hidden = settled;
   fail.hidden = !settled || failed.length === 0;
   fail.textContent = failed.map((k) => FAIL[k]).join(" ");
-  empty.hidden = !settled || failed.length > 0 || items.length > 0;
-  list.hidden = !settled || items.length === 0;
-  list.replaceChildren(...(settled ? items.slice(0, FEED_MAX) : []).map((i) => { const li = el("li"); li.append(CARD[i.kind](i.x, { heading: "h3", withAgent: true })); return li; }));
+  const pick = src.callouts.picks[0];
+  empty.hidden = !settled || failed.length > 0 || items.length > 0 || Boolean(pick);
+  list.hidden = !settled || (items.length === 0 && !pick);
+  const top = settled && pick ? [(() => { const li = el("li", "feed-pick"); li.append(pickCard(pick, { heading: "h3", withAgent: true })); return li; })()] : [];
+  list.replaceChildren(...top, ...(settled ? items.slice(0, FEED_MAX) : []).map((i) => { const li = el("li"); li.append(CARD[i.kind](i.x, { heading: "h3", withAgent: true })); return li; }));
   if (more) {
     more.hidden = !settled || items.length <= FEED_MAX;
     more.textContent = `The newest ${FEED_MAX} of ${items.length} posts. Every one of them is at its cat's desk.`;
@@ -284,7 +338,14 @@ function fillStation(cat) {
   if (state === "failed" && !slot.querySelector(".feed-fail")) list.before(el("p", "feed-fail", FAIL[kind]));
   // A bot's status says how much it has posted, once its file is read: "Bot · no launches yet".
   const status = slot.querySelector("[data-bot-status]");
-  if (status) status.textContent = state === "ready" ? `Bot · ${botTally(cat, mine.length)}` : "Bot";
+  if (status) status.textContent = state === "ready" ? `Bot · ${botTally(cat, mine)}` : "Bot";
+  // Popcat's desk opens on its latest pick, when it has one.
+  const pickSlot = slot.querySelector('[data-slot="pick"]');
+  if (pickSlot) {
+    const p = state === "ready" ? src.callouts.picks[0] : null;
+    pickSlot.hidden = !p;
+    pickSlot.replaceChildren(...(p ? [pickCard(p)] : []));
+  }
   // With nothing posted, the template shows how a post will read; once posts exist it folds away.
   tpl.open = !(state === "ready" && mine.length > 0);
 }

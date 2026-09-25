@@ -42,8 +42,9 @@ ok("the wallet secret's variable is read only by wallet.mjs (the others only ask
   Object.entries(src).filter(([f, t]) => /env\.CASHCAT_WALLET_SECRET(?!\))/.test(t) && f !== KEY_FILE && !/Boolean\(env\.CASHCAT_WALLET_SECRET\)/.test(t)).length === 0);
 ok("Popcat's files name no key, no wallet secret, and never import the wallet", Object.entries(src).filter(([f]) => f.startsWith("bots/popcat/")).every(([, t]) => !KEY_WORDS.test(t) && !/WALLET_SECRET|wallet\.mjs/.test(t)));
 ok("only CashCat's run.mjs and launch.mjs import wallet.mjs", Object.entries(src).filter(([, t]) => /from "\.\/wallet\.mjs"|cashcat\/wallet\.mjs"/.test(t)).map(([f]) => f).sort().join() === "bots/cashcat/launch.mjs,bots/cashcat/run.mjs");
-ok("no bot file writes to disk anything but the data files and the logo it was asked to (writeFileSync only in data.mjs, floor-data.mjs and run.mjs's --logo-out)",
-  Object.entries(src).filter(([, t]) => /writeFileSync|appendFileSync|createWriteStream/.test(t)).map(([f]) => f).sort().join() === "bots/cashcat/run.mjs,bots/floor-data.mjs,bots/lib/data.mjs");
+ok("no bot file writes to disk anything but the data files, the logo it was asked to, and Popcat's job summary (writeFileSync only in data.mjs, floor-data.mjs and CashCat's run.mjs's --logo-out; appendFileSync in Popcat's run.mjs, to $GITHUB_STEP_SUMMARY only)",
+  Object.entries(src).filter(([, t]) => /writeFileSync|appendFileSync|createWriteStream/.test(t)).map(([f]) => f).sort().join() === "bots/cashcat/run.mjs,bots/floor-data.mjs,bots/lib/data.mjs,bots/popcat/run.mjs"
+    && [...src["bots/popcat/run.mjs"].matchAll(/(writeFileSync|appendFileSync|createWriteStream)\(([^,]+),/g)].map((m) => `${m[1]}(${m[2]})`).join() === "appendFileSync(env.GITHUB_STEP_SUMMARY)");
 
 section("THE WALLET GIVES OUT ITS ADDRESS AND SIGNATURES, NEVER ITS SECRET");
 {

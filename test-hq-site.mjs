@@ -152,7 +152,7 @@ const good = {
     .every(([k, v]) => { const o = clone(good.agents); o.agents[0][k] = v; return V.validateAgents(o).problems.length === 1; }));
   ok("impossible stats drop the agent: more wins and losses than trades, a fractional count", (() => { const o = clone(good.agents); o.agents[0].stats.wins = o.agents[0].stats.trades + 1; return V.validateAgents(o).problems.length === 1; })()
     && (() => { const o = clone(good.agents); o.agents[0].stats.trades = 2.5; return V.validateAgents(o).problems.length === 1; })());
-  ok("one id twice refuses the list", (() => { const o = clone(good.agents); o.agents[1].id = o.agents[0].id; return refuses(() => V.validateAgents(o)); })());
+  ok("one id twice refuses the list", (() => { const o = clone(good.agents); o.agents[1].id = o.agents[0].id; o.agents[1].number = o.agents[0].number; return refuses(() => V.validateAgents(o)); })());
   ok("a coin may be null; a roiPct may be null", (() => { const o = clone(good.agents); o.agents[0].coin = null; o.agents[0].stats.roiPct = null; return V.validateAgents(o).problems.length === 0; })());
   ok("the contract's nulls and ids pass: a coin whose metadata cannot be read, a sprite the site has no art for, no treasury configured",
     (() => { const o = clone(good.agents); o.agents[1].coin.symbol = null; o.agents[1].coin.name = null; o.agents[2].cat = "agent-cat"; return V.validateAgents(o).problems.length === 0; })()
@@ -176,6 +176,14 @@ const good = {
   ok("a rug check must be whole and honest: no check twice, no unknown check, no null detail, passed only if every check passed",
     refusesTrade(T({ rugCheck: { ...trade.rugCheck, passed: false } })) && refusesTrade(T({ rugCheck: { passed: true, checks: [...trade.rugCheck.checks, trade.rugCheck.checks[0]] } }))
       && refusesTrade(T({ rugCheck: { passed: true, checks: [{ id: "vibes", pass: true, detail: "x" }] } })) && refusesTrade(T({ rugCheck: { passed: true, checks: [{ id: "holders", pass: true, detail: null }] } })));
+  const RC = trade.rugCheck, withCheck = (i, patch) => ({ ...RC, checks: RC.checks.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
+  ok("a rug check lists exactly its four checks, once each, in the contract's order", JSON.stringify(RC.checks.map((c) => c.id)) === JSON.stringify(V.RUG_CHECKS)
+    && JSON.stringify(V.RUG_CHECKS) === '["mint_authority","freeze_authority","holders","creator_share"]'
+    && refusesTrade(T({ rugCheck: { ...RC, checks: RC.checks.slice(0, 3) } })) && refusesTrade(T({ rugCheck: { ...RC, checks: [RC.checks[1], RC.checks[0], RC.checks[2], RC.checks[3]] } }))
+    && refusesTrade(T({ rugCheck: { ...RC, checks: [RC.checks[0], RC.checks[1], RC.checks[2], RC.checks[2]] } })) && refusesTrade(T({ rugCheck: { ...RC, checks: [] } })));
+  ok("a check's detail is HQ's own plain text, at most 500 characters: a hidden character or more is refused, not cleaned",
+    !refusesTrade(T({ rugCheck: withCheck(2, { detail: "x".repeat(500) }) })) && refusesTrade(T({ rugCheck: withCheck(2, { detail: "x".repeat(501) }) }))
+      && refusesTrade(T({ rugCheck: withCheck(2, { detail: "revoked\u202E" }) })) && refusesTrade(T({ rugCheck: withCheck(2, { detail: "a\nb" }) })));
   ok("a sell carries no rug check", !refusesTrade(T({ side: "sell", pnlSol: "0.1", pnlPct: "2", rugCheck: null })) && refusesTrade(T({ side: "sell", pnlSol: "0.1", pnlPct: "2", rugCheck: trade.rugCheck })));
   const buyDecision = clone(W.agent(2).decisions.find((d) => d.action === "buy" && d.rugCheck && d.rugCheck.passed)), refused = clone(W.agent(2).decisions.find((d) => d.rugCheck && !d.rugCheck.passed));
   const D = (patch) => ({ ...clone(buyDecision), ...patch });
@@ -191,22 +199,36 @@ const good = {
   const desk = clone(good.desk); desk.items[0].kind = "rumour"; desk.items[1].surprise = true;
   const dk = V.validateDesk(desk);
   ok("the desk drops what it cannot verify and counts it", dk.problems.length === 2 && dk.value.items.length === good.desk.items.length - 2);
-  ok("a desk cursor is a cursor or null", refuses(() => V.validateDesk({ ...clone(good.desk), next: "<script>" })) && !refuses(() => V.validateDesk({ ...clone(good.desk), next: null })));
+  ok("a desk cursor is the contract's opaque cursor or null, and a desk id the contract's id", refuses(() => V.validateDesk({ ...clone(good.desk), next: "<script>" })) && !refuses(() => V.validateDesk({ ...clone(good.desk), next: null }))
+    && ["a.b", "a:b", "a/b", "a=", "x".repeat(129), ""].every((next) => refuses(() => V.validateDesk({ ...clone(good.desk), next }))) && !refuses(() => V.validateDesk({ ...clone(good.desk), next: "x".repeat(128) }))
+    && ["t:1", "t.1", "x".repeat(65), ""].every((id) => refusesTrade(T({ id }))) && !refusesTrade(T({ id: "A_b-9" })));
+  ok("an agent's id is 1 to 999, and its number is that id as three digits", [0, 1000].every((id) => { const o = clone(good.agents); o.agents[0].id = id; return V.validateAgents(o).problems.length === 1; })
+    && ["7", "0001", "002"].every((number) => { const o = clone(good.agents); o.agents[0].number = number; return V.validateAgents(o).problems.length === 1; })
+    && refusesTrade(T({ agentId: 1000 })) && refuses(() => V.validateStreamEvent("fee", { agentId: 1000, t: "2026-09-25T10:00:00Z", sol: "0.1", tx: "5".repeat(88) })));
   const lb = V.validateLeaderboard(clone(good.board), { by: "roi", period: "30d" }).value;
   ok("the leaderboard comes back as two boards, live and paper, never one", lb.boards.live.every((r) => r.mode === "live") && lb.boards.paper.every((r) => r.mode === "paper")
     && lb.boards.live.length + lb.boards.paper.length === good.board.rows.length && lb.boards.live.length > 0 && lb.boards.paper.length > 0);
   ok("a board for a period or measure not asked for is refused", refuses(() => V.validateLeaderboard(clone(good.board), { period: "7d" })) && refuses(() => V.validateLeaderboard(clone(good.board), { by: "pnl" })));
+  ok("the rows come best first, each agent once, and a board keeps HQ's order", (() => { const o = clone(good.board); [o.rows[0], o.rows[1]] = [o.rows[1], o.rows[0]]; return o.rows[0].value !== o.rows[1].value && refuses(() => V.validateLeaderboard(o)); })()
+    && (() => { const o = clone(good.board); o.rows[1] = { ...o.rows[1], agentId: o.rows[0].agentId }; return refuses(() => V.validateLeaderboard(o)); })()
+    && JSON.stringify(lb.boards.live.map((r) => r.agentId)) === JSON.stringify(good.board.rows.filter((r) => r.mode === "live").map((r) => r.agentId)));
+  ok("a row's value is in SOL's format (a percentage for return, SOL for profit), and its rank a rank id", (() => { const o = clone(good.board); o.rows.at(-1).value = "-99.1234567891"; return V.validateLeaderboard(o).problems.length === 1; })()
+    && (() => { const o = clone(good.board); o.rows.at(-1).rank = 3; return V.validateLeaderboard(o).problems.length === 1; })());
   const promo = { agentId: 2, mode: "paper", t: "2026-09-25T10:00:00Z", from: "field", to: "special" };
   ok("a promotion must go up (a loss never demotes), and on the stream it names its agent and mode", !refuses(() => V.validateStreamEvent("promotion", promo))
     && refuses(() => V.validateStreamEvent("promotion", { ...promo, from: "special", to: "field" })) && refuses(() => V.validateStreamEvent("promotion", { ...promo, mode: "mixed" }))
     && ["agentId", "mode"].every((k) => { const x = { ...promo }; delete x[k]; return refuses(() => V.validateStreamEvent("promotion", x)); }));
   const dec = clone(W.agent(2).decisions.find((d) => d.action === "hold"));
   const shown = (reason) => V.validateStreamEvent("decision", { ...clone(dec), reason }).reason;
-  ok("text passed on from elsewhere (a reason, a symbol) keeps its line breaks, loses any hidden character, and is cut to length",
-    shown("Line one.\nLine two.") === "Line one.\nLine two." && shown("fine\u202Etext\u200B") === "finetext" && shown("x".repeat(1001)).length === 1000 && shown("x".repeat(1001)).endsWith("…")
+  ok("text passed on from elsewhere (a reason, a symbol, a coin's name) is cleaned again, as a second line: no control, bidi or zero-width character, cut to the contract's limit",
+    shown("Line one.\nLine two.") === "Line one. Line two." && shown("fine\u202Etext\u200B") === "finetext" && shown("x".repeat(501)).length === 500 && shown("x".repeat(501)).endsWith("…") && shown("x".repeat(500)) === "x".repeat(500)
+      && V.validateAgents({ agents: [{ ...clone(good.agents.agents[0]), coin: { ...clone(good.agents.agents[0].coin), name: "n".repeat(70), symbol: "S".repeat(20) } }] }).value.agents[0].coin.name.length === 64
+      && V.validateAgents({ agents: [{ ...clone(good.agents.agents[0]), coin: { ...clone(good.agents.agents[0].coin), name: "n".repeat(70), symbol: "S".repeat(20) } }] }).value.agents[0].coin.symbol.length === 16
       && refuses(() => V.validateStreamEvent("decision", { ...clone(dec), reason: "\u200B\u202E " })) && V.validateStreamEvent("trade", T({ symbol: "MO\u202ECK" })).symbol === "MOCK");
   ok("buyback sources and destination are the contract's", ["gifts", ["creator_fees", "creator_fees"], [], ["creator_fees", "trading_profit", "creator_fees"]].every((sources) => { const o = clone(good.buybacks); o.policy.sources = sources; return refuses(() => V.validateBuybacks(o)); })
     && (() => { const o = clone(good.buybacks); o.policy.destination = "moon"; return refuses(() => V.validateBuybacks(o)); })());
+  ok("the buyback schedule is HQ's own plain text, at most 120 characters", ["x".repeat(121), "weekly\u202E", "a\nb"].every((schedule) => { const o = clone(good.buybacks); o.policy.schedule = schedule; return refuses(() => V.validateBuybacks(o)); })
+    && (() => { const o = clone(good.buybacks); o.policy.schedule = "x".repeat(120); return !refuses(() => V.validateBuybacks(o)); })());
   ok("a treasury flow of an unknown kind, or with a negative amount (its kind is its direction), is dropped and counted",
     (() => { const o = clone(good.treasury); o.flows[0].kind = "airdrop"; return V.validateTreasury(o).problems.length === 1; })() && (() => { const o = clone(good.treasury); o.flows[0].sol = "-0.5"; return V.validateTreasury(o).problems.length === 1; })());
   ok("a buyback is always a real transaction: a null tx or price drops it, and only burnTx may be null",
@@ -220,12 +242,13 @@ const good = {
   const ch = W.challenge(wallet);
   ok("a challenge is { wallet, nonce, message, expiresAt }, and its message, untouched plain text, names the site, the wallet and the nonce", !refuses(() => V.validateChallenge(clone(ch), wallet))
     && refuses(() => { const c = clone(ch); delete c.nonce; return V.validateChallenge(c, wallet); }) && refuses(() => V.validateChallenge({ ...clone(ch), nonce: "<b>" }, wallet))
+    && ["short", "x".repeat(129), "a.b.c.d.e.f.g.h.i"].every((nonce) => refuses(() => V.validateChallenge({ ...clone(ch), nonce, message: ch.message.replace(ch.nonce, nonce) }, wallet)))
     && refuses(() => V.validateChallenge({ ...clone(ch), nonce: "a-different-nonce" }, wallet)) && refuses(() => V.validateChallenge({ ...clone(ch), message: ch.message.replace("catintelligenceagency.com", "evil.example") }, wallet))
     && refuses(() => V.validateChallenge({ ...clone(ch), message: "sign this" }, wallet)) && refuses(() => V.validateChallenge({ ...clone(ch), message: `${ch.message}‮` }, wallet))
     && refuses(() => V.validateChallenge(clone(ch), "11111111111111111111111111111111")) && refuses(() => V.validateChallenge({ ...clone(ch), extra: 1 }, wallet)));
   const pk = W.verify();
   ok("a perks answer: holder and tier must agree, perks are short text", !refuses(() => V.validatePerks(clone(pk))) && refuses(() => V.validatePerks({ ...clone(pk), holder: false }))
-    && refuses(() => V.validatePerks({ ...clone(pk), tier: "whale" })) && V.validatePerks({ ...clone(pk), perks: ["x".repeat(200)] }).value.perks[0].length === 120 && refuses(() => V.validatePerks({ ...clone(pk), perks: [5] })) && refuses(() => V.validatePerks({ ...clone(pk), balance: 5 })));
+    && refuses(() => V.validatePerks({ ...clone(pk), tier: "whale" })) && !refuses(() => V.validatePerks({ ...clone(pk), perks: ["x".repeat(120)] })) && refuses(() => V.validatePerks({ ...clone(pk), perks: ["x".repeat(121)] })) && refuses(() => V.validatePerks({ ...clone(pk), perks: ["a\u200Bb"] })) && refuses(() => V.validatePerks({ ...clone(pk), perks: [5] })) && refuses(() => V.validatePerks({ ...clone(pk), balance: 5 })));
   ok("stream events: each type is its endpoint's shape; a fee names its agent; an unknown type is refused",
     !refuses(() => V.validateStreamEvent("summary", clone(good.summary))) && !refuses(() => V.validateStreamEvent("fee", { agentId: 3, t: "2026-09-25T10:00:00Z", sol: "0.1", tx: "5".repeat(88) }))
       && refuses(() => V.validateStreamEvent("fee", { t: "2026-09-25T10:00:00Z", sol: "0.1", tx: "5".repeat(88) })) && refuses(() => V.validateStreamEvent("fee", { t: "2026-09-25T10:00:00Z", sol: "0.1", tx: "5".repeat(88), agent: 3 })) && refuses(() => V.validateStreamEvent("tip", {}))

@@ -987,6 +987,16 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
       && (API.match(/percentages:\s*`([^`]+)`/) || [])[1] === HF.UNITS.source && (API.match(/\(`cat`, `skin`\): `([^`]+)`/) || [])[1] === HF.SLUG.source
       && /Times: `YYYY-MM-DDTHH:MM:SS\(\.sss\)Z`/.test(API) && HF.ISO_TIME.source.endsWith("(\\.\\d{1,3})?Z$") && /base58, 32–44 characters/.test(API) && /base58, 64–90 characters/.test(API)
       && HF.ADDRESS.source.endsWith("{32,44}$") && HF.SIGNATURE.source.endsWith("{64,90}$"));
+  const HV = await import("./site/assets/hq-validate.js");
+  const fmt = (re) => (API.match(re) || [])[1];
+  ok("the ids, cursor and nonce are the contract's patterns, and the agent id and number its rule",
+    fmt(/Desk item `id`: `([^`]+)`/) === HV.ITEM_ID.source && fmt(/opaque:\s*`([^`]+)`/) === HV.CURSOR.source && fmt(/A perks `nonce`: `([^`]+)`/) === HV.NONCE.source
+      && fmt(/exactly three digits \(`([^`]+)`\)/) === HV.NUMBER.source && /Agent `id`: an integer\s+1–999/.test(API) && HV.AGENT_ID_MAX === 999);
+  const limit = (re) => Number(fmt(re));
+  ok("the text limits are the contract's", limit(/Agent `name`\s+at most (\d+)/) === HV.TEXT_MAX.agentName && limit(/`symbol` at most (\d+)/) === HV.TEXT_MAX.symbol
+    && limit(/coin `name` at most (\d+)/) === HV.TEXT_MAX.coinName && limit(/`reason` and a rug check's `detail` at most (\d+)/) === HV.TEXT_MAX.reason && HV.TEXT_MAX.detail === HV.TEXT_MAX.reason
+    && limit(/a perk at most (\d+)/) === HV.TEXT_MAX.perk && limit(/`schedule` at most (\d+)/) === HV.TEXT_MAX.schedule, JSON.stringify(HV.TEXT_MAX));
+  ok("a rug check's four checks are the contract's, in its order", JSON.stringify(HV.RUG_CHECKS) === JSON.stringify((fmt(/"id": "([a-z_|]+)"/) || "").split("|")) && /exactly four entries, one per id, in that order/.test(API));
   ok("the perks page shows the tiers HQ sends, and writes no threshold of its own", /tiers = \(await hq\.tiers\(\)\)\.value\.tiers;/.test(src["hq-perks.js"]) && /fmtTokens\(t\.minCia\)/.test(src["hq-perks.js"])
     && !/\d/.test(textOf((html.perks.match(/<section class="hq-sec alt" id="tiers"[\s\S]*?<\/section>/) || [""])[0])) && has("perks", "never writes a threshold of its own"));
   ok("every buy is shown with Crying Cat's check: passed on a trade, passed or refused on a decision, or not run yet", /Rug check refused this buy/.test(src["hq-ui.js"]) && /Not run yet: no buy is made before it passes\./.test(src["hq-ui.js"])

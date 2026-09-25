@@ -10,12 +10,15 @@
      · every address must be base58 of an address's length, every signature base58 of a
        signature's, every time a real ISO-8601 UTC instant, every sprite or skin id an id;
      · a field is null only where the contract says it may be;
-     · names HQ gives (its agents', its own words) must be plain text with no control, bidi or
-       zero-width character; text HQ passes on from elsewhere (a token's symbol or name, a
-       model's reason) has any such character removed, and is cut to a bounded length. The pages
-       draw every word with textContent, never as markup;
+     · text is plain, within the contract's limits: what HQ writes itself (an agent's name, a rug
+       check's detail, a perk, the buyback schedule) is refused with any control, bidi or
+       zero-width character in it, or over its limit; text HQ passes on from elsewhere (a
+       token's symbol, a coin's name, a model's reason), which HQ cleans before it stores it,
+       is cleaned and cut again here, as a second line. The pages draw every word with
+       textContent, never as markup;
      · a live trade must carry its transaction, and a paper trade must not (paper signs nothing);
-       every buy trade carries Crying Cat's passed rug check, and no sell or hold carries one;
+       every buy trade, paper or live, carries Crying Cat's passed rug check (its four checks,
+       once each, in order), and no sell or hold carries one;
      · a mode is paper or live: the summary has one block for each, and one board never mixes
        them.
 
@@ -42,11 +45,11 @@ const HIDDEN = /[\u0000-\u001f\u007f-\u009f­؜ᅟᅠ឴឵᠎​-‏‪-‮⁠-
 /* Text from elsewhere, made safe to show: hidden characters removed (a line break kept where
    asked), spaces folded, cut to max. Empty after that is refused. Written back in place: the
    object is HQ's freshly parsed answer, never anything the page already holds. */
-function clean(o, k, path, max, { nullable = false, lines = false } = {}) {
+function clean(o, k, path, max, { nullable = false } = {}) {
   const v = o[k];
   if (v === null && nullable) return;
   if (typeof v !== "string") bad(`${path}.${k}`, "must be text");
-  let t = [...v].filter((ch) => (lines && ch === "\n") || !HIDDEN.test(ch)).join("").replace(lines ? /[^\S\n]+/g : /\s+/g, " ").trim();
+  let t = [...v.replace(/[\t\n\v\f\r]/g, " ")].filter((ch) => !HIDDEN.test(ch)).join("").replace(/\s+/g, " ").trim();
   if (!t) bad(`${path}.${k}`, "has no visible text");
   if ([...t].length > max) t = [...t].slice(0, max - 1).join("") + "…";
   o[k] = t;
@@ -99,10 +102,15 @@ export const BUYBACK_SOURCES = Object.freeze(["creator_fees", "trading_profit"])
 /* Crying Cat's rug check, made before a buy: mint and freeze authority, holders, the creator's
    share (API.md, RugCheck). */
 export const RUG_CHECKS = Object.freeze(["mint_authority", "freeze_authority", "holders", "creator_share"]);
-const ITEM_ID = /^[A-Za-z0-9][A-Za-z0-9_:.-]{0,127}$/;
-export const CURSOR = /^[A-Za-z0-9_:.=+/-]{1,256}$/;
-const NONCE = /^[A-Za-z0-9_:.=+/-]{1,128}$/;
-const NUMBER = /^\d{3,4}$/;
+/* The contract's patterns and limits ("Formats, exactly"); test-site.mjs reads them out of
+   docs/hq/API.md and compares. */
+export const ITEM_ID = /^[A-Za-z0-9_-]{1,64}$/;
+export const CURSOR = /^[A-Za-z0-9_-]{1,128}$/;
+export const NONCE = /^[A-Za-z0-9_-]{16,128}$/;
+export const NUMBER = /^\d{3}$/;
+export const AGENT_ID_MAX = 999;
+export const TEXT_MAX = Object.freeze({ agentName: 48, symbol: 16, coinName: 64, reason: 500, detail: 500, perk: 120, schedule: 120 });
+const AGENT_ID = { min: 1, max: AGENT_ID_MAX };
 
 /* A list: each entry checked on its own; the bad ones are dropped and counted. */
 function list(v, path, one, { max = 1000 } = {}) {
@@ -154,9 +162,10 @@ function treasuryHead(o, path, fields) {
 const AGENT_FIELDS = ["id", "number", "name", "cat", "skin", "rank", "strategy", "mode", "status", "coin", "wallet", "hiredAt", "stats"];
 const STAT_SOL = ["balanceSol", "portfolioSol", "realizedPnlSol", "unrealizedPnlSol", "careerRealizedSol", "feesClaimedSol", "depositedSol", "withdrawnSol"];
 function agentFields(o, path) {
-  V.int(o, "id", path, { min: 1 });
-  V.pattern(o, "number", path, NUMBER, "a three- or four-digit agent number");
-  V.text(o, "name", path, { max: 48 });
+  V.int(o, "id", path, AGENT_ID);
+  V.pattern(o, "number", path, NUMBER, "a three-digit agent number");
+  if (o.number !== String(o.id).padStart(3, "0")) bad(`${path}.number`, "is not its id as three digits");
+  V.text(o, "name", path, { max: TEXT_MAX.agentName });
   V.pattern(o, "cat", path, SLUG, "a sprite id");
   V.pattern(o, "skin", path, SLUG, "a skin id");
   V.oneOf(o, "rank", path, RANK_IDS);
@@ -166,7 +175,7 @@ function agentFields(o, path) {
   if (o.coin !== null) {
     exact(o.coin, `${path}.coin`, ["mint", "symbol", "name"]);
     /* Its symbol and name are null while the coin's metadata cannot be read. */
-    V.address(o.coin, "mint", `${path}.coin`); clean(o.coin, "symbol", `${path}.coin`, 16, { nullable: true }); clean(o.coin, "name", `${path}.coin`, 48, { nullable: true });
+    V.address(o.coin, "mint", `${path}.coin`); clean(o.coin, "symbol", `${path}.coin`, TEXT_MAX.symbol, { nullable: true }); clean(o.coin, "name", `${path}.coin`, TEXT_MAX.coinName, { nullable: true });
   }
   V.address(o, "wallet", path);
   V.time(o, "hiredAt", path);
@@ -180,17 +189,19 @@ function agentFields(o, path) {
 }
 function agent(o, path = "agent") { exact(o, path, AGENT_FIELDS); return agentFields(o, path); }
 
+/* Crying Cat's check: exactly its four checks, once each, in the contract's order, and passed
+   exactly when all four pass. */
 function rugCheck(o, path) {
   exact(o, path, ["passed", "checks"]);
   V.bool(o, "passed", path);
-  const { items, problems } = list(o.checks, `${path}.checks`, (c, p) => {
+  if (!Array.isArray(o.checks) || o.checks.length !== RUG_CHECKS.length) bad(`${path}.checks`, `must list exactly the ${RUG_CHECKS.length} checks`);
+  o.checks.forEach((c, i) => {
+    const p = `${path}.checks[${i}]`;
     exact(c, p, ["id", "pass", "detail"]);
-    V.oneOf(c, "id", p, RUG_CHECKS); V.bool(c, "pass", p); clean(c, "detail", p, 120);
-    return c;
-  }, { max: 12 });
-  if (problems.length) bad(path, `has a check that is not well formed (${problems[0]})`);
-  if (new Set(items.map((c) => c.id)).size !== items.length) bad(path, "names a check twice");
-  if (o.passed !== items.every((c) => c.pass)) bad(path, "says passed when a check failed, or failed when all passed");
+    if (c.id !== RUG_CHECKS[i]) bad(`${p}.id`, `must be ${RUG_CHECKS[i]} (the checks come once each, in order: ${RUG_CHECKS.join(", ")})`);
+    V.bool(c, "pass", p); V.text(c, "detail", p, { max: TEXT_MAX.detail });
+  });
+  if (o.passed !== o.checks.every((c) => c.pass)) bad(path, "says passed when a check failed, or failed when all passed");
 }
 
 function decision(o, path = "decision") {
@@ -198,11 +209,11 @@ function decision(o, path = "decision") {
   if (o.kind !== "decision") bad(`${path}.kind`, 'must be "decision"');
   V.pattern(o, "id", path, ITEM_ID, "an id");
   V.time(o, "t", path);
-  V.int(o, "agentId", path, { min: 1 });
+  V.int(o, "agentId", path, AGENT_ID);
   V.oneOf(o, "action", path, ["buy", "sell", "hold"]);
   V.address(o, "mint", path, { nullable: true });
-  clean(o, "symbol", path, 16, { nullable: true });
-  clean(o, "reason", path, 1000, { lines: true });
+  clean(o, "symbol", path, TEXT_MAX.symbol, { nullable: true });
+  clean(o, "reason", path, TEXT_MAX.reason);
   V.oneOf(o, "mode", path, MODES);
   /* A buy decision carries the check once it ran (passed or refused); a sell or a hold never. */
   if (o.rugCheck !== null) {
@@ -216,10 +227,10 @@ function trade(o, path = "trade") {
   if (o.kind !== "trade") bad(`${path}.kind`, 'must be "trade"');
   V.pattern(o, "id", path, ITEM_ID, "an id");
   V.time(o, "t", path);
-  V.int(o, "agentId", path, { min: 1 });
+  V.int(o, "agentId", path, AGENT_ID);
   V.oneOf(o, "side", path, ["buy", "sell"]);
   V.address(o, "mint", path);
-  clean(o, "symbol", path, 16);
+  clean(o, "symbol", path, TEXT_MAX.symbol);
   V.dec(o, "sol", path, { nonNegative: true }); V.dec(o, "tokens", path, { nonNegative: true, fmt: "units" }); V.dec(o, "price", path, { nonNegative: true, fmt: "units" });
   V.dec(o, "pnlSol", path, { nullable: true }); V.dec(o, "pnlPct", path, { nullable: true, fmt: "units" });
   V.oneOf(o, "trigger", path, TRIGGERS);
@@ -246,14 +257,14 @@ function deskItem(o, path) {
    they are (a promotion its agent and mode, a fee its agent). */
 function promotion(o, path, { onStream = false } = {}) {
   exact(o, path, onStream ? ["agentId", "mode", "t", "from", "to"] : ["t", "from", "to"]);
-  if (onStream) { V.int(o, "agentId", path, { min: 1 }); V.oneOf(o, "mode", path, MODES); }
+  if (onStream) { V.int(o, "agentId", path, AGENT_ID); V.oneOf(o, "mode", path, MODES); }
   V.time(o, "t", path); V.oneOf(o, "from", path, RANK_IDS); V.oneOf(o, "to", path, RANK_IDS);
   if (RANK_IDS.indexOf(o.to) <= RANK_IDS.indexOf(o.from)) bad(path, "is not a promotion (a loss never demotes)");
   return o;
 }
 function fee(o, path, { onStream = false } = {}) {
   exact(o, path, onStream ? ["agentId", "t", "sol", "tx"] : ["t", "sol", "tx"]);
-  if (onStream) V.int(o, "agentId", path, { min: 1 });
+  if (onStream) V.int(o, "agentId", path, AGENT_ID);
   V.time(o, "t", path); V.dec(o, "sol", path, { nonNegative: true }); V.signature(o, "tx", path);
   return o;
 }
@@ -288,7 +299,7 @@ export function validateAgentDetail(raw, wantId = null) {
   const take = (r) => { problems.push(...r.problems); return r.items; };
   const positions = take(list(raw.positions, `${path}.positions`, (p, pp) => {
     exact(p, pp, ["mint", "symbol", "costSol", "valueSol", "entryPrice", "price", "pnlSol", "pnlPct", "openedAt"]);
-    V.address(p, "mint", pp); clean(p, "symbol", pp, 16);
+    V.address(p, "mint", pp); clean(p, "symbol", pp, TEXT_MAX.symbol);
     V.dec(p, "costSol", pp, { nonNegative: true }); V.dec(p, "valueSol", pp, { nonNegative: true }); V.dec(p, "entryPrice", pp, { nonNegative: true, fmt: "units" });
     /* With no quote for the token just now, the price and its percent are null, never guessed. */
     V.dec(p, "price", pp, { nonNegative: true, nullable: true, fmt: "units" }); V.dec(p, "pnlSol", pp); V.dec(p, "pnlPct", pp, { nullable: true, fmt: "units" }); V.time(p, "openedAt", pp);
@@ -320,11 +331,15 @@ export function validateLeaderboard(raw, want = {}) {
   V.oneOf(raw, "period", "leaderboard", ["7d", "30d", "all"]); V.oneOf(raw, "by", "leaderboard", ["roi", "pnl"]);
   if (want.by && raw.by !== want.by) throw new HqInvalid(`leaderboard.by is ${raw.by}, not ${want.by}`);
   if (want.period && raw.period !== want.period) throw new HqInvalid(`leaderboard.period is ${raw.period}, not ${want.period}`);
+  /* value: a percentage (by=roi) or SOL (by=pnl), both in SOL's format; rank: the agent's rank
+     id; the rows best first, a row's place being its position. */
   const { items, problems } = list(raw.rows, "leaderboard.rows", (r, p) => {
     exact(r, p, ["agentId", "value", "rank", "mode"]);
-    V.int(r, "agentId", p, { min: 1 }); V.dec(r, "value", p, { fmt: "units" }); V.oneOf(r, "rank", p, RANK_IDS); V.oneOf(r, "mode", p, MODES);
+    V.int(r, "agentId", p, AGENT_ID); V.dec(r, "value", p); V.oneOf(r, "rank", p, RANK_IDS); V.oneOf(r, "mode", p, MODES);
     return r;
   }, { max: 500 });
+  if (new Set(items.map((r) => r.agentId)).size !== items.length) throw new HqInvalid("leaderboard lists one agent twice");
+  for (let i = 1; i < items.length; i++) if (decCmp(items[i].value, items[i - 1].value) > 0) throw new HqInvalid(`leaderboard.rows are not best first (row ${i + 1} beats the row above it)`);
   /* Paper and live are ranked separately: two boards, never one. */
   const boards = { live: items.filter((r) => r.mode === "live"), paper: items.filter((r) => r.mode === "paper") };
   return { value: { period: raw.period, by: raw.by, boards }, problems };
@@ -335,7 +350,7 @@ export function validateBuybacks(raw) {
   V.dec(P, "sharePct", "buybacks.policy", { nonNegative: true, fmt: "units" });
   if (!Array.isArray(P.sources) || P.sources.length === 0 || P.sources.length > BUYBACK_SOURCES.length || new Set(P.sources).size !== P.sources.length || !P.sources.every((s) => BUYBACK_SOURCES.includes(s)))
     throw new HqInvalid(`buybacks.policy.sources must list ${BUYBACK_SOURCES.join(" and/or ")}`);
-  clean(P, "schedule", "buybacks.policy", 160);
+  V.text(P, "schedule", "buybacks.policy", { max: TEXT_MAX.schedule });
   V.oneOf(P, "destination", "buybacks.policy", ["burn", "treasury"]);
   const { items, problems } = list(raw.items, "buybacks.items", buyback, { max: 500 });
   return { value: { policy: P, items: items.sort(newestFirst) }, problems };
@@ -359,7 +374,7 @@ export function validateTiers(raw) {
     exact(t, p, ["id", "minCia", "perks"]);
     V.oneOf(t, "id", p, TIER_IDS); V.dec(t, "minCia", p, { nonNegative: true, fmt: "units" });
     if (!Array.isArray(t.perks) || t.perks.length > 20) bad(`${p}.perks`, "must be a list of at most 20 perks");
-    t.perks.forEach((_, j) => clean(t.perks, j, `${p}.perks`, 120));
+    t.perks.forEach((_, j) => V.text(t.perks, j, `${p}.perks`, { max: TEXT_MAX.perk }));
     if (i > 0) {
       const prev = raw.tiers[i - 1];
       if (TIER_IDS.indexOf(t.id) <= TIER_IDS.indexOf(prev.id)) bad(p, "is out of order, or repeats a tier");
@@ -387,7 +402,7 @@ export function validatePerks(raw) {
   V.bool(raw, "holder", "perks"); V.dec(raw, "balance", "perks", { nonNegative: true, fmt: "units" }); V.oneOf(raw, "tier", "perks", TIERS);
   if (raw.holder !== (raw.tier !== "none")) throw new HqInvalid("perks.holder and perks.tier disagree");
   if (!Array.isArray(raw.perks) || raw.perks.length > 20) throw new HqInvalid("perks.perks must be a list of at most 20 perks");
-  raw.perks.forEach((_, j) => clean(raw.perks, j, "perks.perks", 120));
+  raw.perks.forEach((_, j) => V.text(raw.perks, j, "perks.perks", { max: TEXT_MAX.perk }));
   V.time(raw, "expiresAt", "perks");
   return { value: raw, problems: [] };
 }

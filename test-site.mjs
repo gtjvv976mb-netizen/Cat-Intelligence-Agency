@@ -1,10 +1,11 @@
 /**
  * THE WEBSITE SAYS WHAT THE CODE DOES, AND THE CONSOLE STAYS A BRIDGE.
  *
- * site/ is published to GitHub Pages at catintelligenceagency.com as four pages: the
+ * site/ is published to GitHub Pages at catintelligenceagency.com as five pages: the
  * agency (site/index.html), its work floor (site/floor/index.html), the cat's own page
- * (site/coinmarketcat/index.html) and the console the extension's content script attaches
- * to (site/console/index.html). This file pins what those pages may and may not be:
+ * (site/coinmarketcat/index.html), the console the extension's content script attaches
+ * to (site/console/index.html) and the downloads (site/downloads/index.html). This file pins
+ * what those pages may and may not be:
  *
  *   · THE AGENT'S NUMBERS ARE THE CODE'S. CoinMarketCat is the agentic trader now: its schedule,
  *     its ten-token universe and the majors preset, its settlement, every default limit, the $10 and
@@ -49,6 +50,10 @@
  *     ever drawn; the pick's draft is text to copy by hand, never the clipboard's; the pick's
  *     disclosure is the same words on the site, in the README and in the kit's copy; the
  *     numbers the cards quote are the bots' own.
+ *   · THE DOWNLOADS ARE WHAT THE PAGE SAYS. "Download" is in every page's bar; the page's numbers
+ *     come from downloads-data.js, the committed placeholder or, after the deploy packages the
+ *     zips, a build's, which must match the zips byte for byte; the zips hold what the page says;
+ *     the install guide is six plain steps; it is "not yet in the Chrome Web Store".
  *   · THE KIT IS THE SEVEN-CAT KIT. CoinMarketCat is the hoodie tabby, Snipurr keeps its old art,
  *     the floor has seven desks, and every copy the site ships is the kit's, byte for byte or
  *     pixel for pixel.
@@ -83,6 +88,7 @@ const PAGES = {
   floor: path.join("floor", "index.html"),
   cat: path.join("coinmarketcat", "index.html"),
   console: path.join("console", "index.html"),
+  downloads: path.join("downloads", "index.html"),
 };
 const html = Object.fromEntries(Object.entries(PAGES).map(([k, rel]) => [k, fs.readFileSync(path.join(SITE, rel), "utf8")]));
 
@@ -141,17 +147,41 @@ ok("agency → the floor, the cat, the console, the repository", ["./floor/", "c
 ok("the floor → back to the agency, $CIA, the cat, the console, the repository", ["../", "../#cia", "../coinmarketcat/", "../console/", REPO].every((h) => hrefs(html.floor).includes(h)));
 ok("the cat → the agency, the floor, the console, the repository", ["../", "../floor/", "../console/", REPO].every((h) => hrefs(html.cat).includes(h)));
 ok("the console → the agency, the floor, the cat, the repository", ["../", "../floor/", "../coinmarketcat/", REPO].every((h) => hrefs(html.console).includes(h)));
+ok("the downloads page → the agency, the floor, $CIA, the cat, its install section, the console, the repository and its releases",
+  ["../", "../floor/", "../#cia", "../coinmarketcat/", "../coinmarketcat/#install", "../console/", REPO, `${REPO}/releases`].every((h) => hrefs(html.downloads).includes(h)));
 /* "The Floor" sits in the bar itself (not only in a footer) on every page but the console's
    own compact bar, where it is a plain link beside the agency's. */
 const barOf = (page) => (page.match(/<header class="bar">[\s\S]*?<\/header>|<nav><div class="wrap">[\s\S]*?<\/nav>/) || [""])[0];
 ok("\"The Floor\" is in the site bar of the agency, the floor, the cat's page and the console",
   /<a class="floorlink" href="\.\/floor\/">/.test(barOf(html.agency)) && /<a class="floorlink" href="\.\/" aria-current="page">/.test(barOf(html.floor))
     && /<a class="floorlink" href="\.\.\/floor\/">/.test(barOf(html.cat)) && /<a class="floor" href="\.\.\/floor\/">The Floor<\/a>/.test(barOf(html.console)));
+/* "Download" sits in the bar of every page, beside the rest; at the widths where the bar has no
+   room for it, it folds away, and the heroes of the home page and the cat's page, and the
+   agency's, the floor's and the downloads page's footers, still link it. */
+ok("\"Download\" is in the site bar of every page, the downloads page's own marked as the current page",
+  /<a class="dl" href="\.\/downloads\/">Download<\/a>/.test(barOf(html.agency)) && /<a class="dl" href="\.\.\/downloads\/">Download<\/a>/.test(barOf(html.floor))
+    && /<a class="dl" href="\.\.\/downloads\/">Download<\/a>/.test(barOf(html.cat)) && /<a class="floor dl" href="\.\.\/downloads\/">Download<\/a>/.test(barOf(html.console))
+    && /<a class="dl" href="\.\/" aria-current="page">Download<\/a>/.test(barOf(html.downloads)) && /<a class="floorlink" href="\.\.\/floor\/">/.test(barOf(html.downloads)));
+ok("the bar folds \"Download\" away only at the widths where it has no room beside the rest",
+  homeCss.includes("@media (max-width:729px),(min-width:861px) and (max-width:939px){.navlinks a.dl{display:none}}")
+    && css.includes("@media (max-width:709px),(min-width:861px) and (max-width:1100px){.navlinks a.dl{display:none}}")
+    && html.console.includes("@media (max-width:729px){nav a.dl{display:none}}"));
+ok("a Download button on the home page's hero and on the cat's page, and the cat's install section points to it",
+  /<a class="btn ghost" href="\.\/downloads\/">Download <span class="arr" aria-hidden="true">↓<\/span><\/a>/.test(html.agency.match(/<div class="cta">[\s\S]*?<\/div>/)?.[0] ?? "")
+    && /<a class="btn" href="\.\.\/downloads\/">Download it <span class="arr">↓<\/span><\/a>/.test(html.cat.match(/<div class="cta">[\s\S]*?<\/div>/)?.[0] ?? "")
+    && /<p class="dl-line">Or skip the build: <a href="\.\.\/downloads\/">download it ready to load<\/a>/.test(html.cat.match(/<section id="install"[\s\S]*?<\/section>/)?.[0] ?? ""));
+const footOf = (page) => (page.match(/<nav class="foot-links"[\s\S]*?<\/nav>/) || [""])[0];
+ok("the agency's, the floor's and the downloads page's footers link the downloads page",
+  footOf(html.agency).includes('<a href="./downloads/">Downloads</a>') && footOf(html.floor).includes('<a href="../downloads/">Downloads</a>') && footOf(html.downloads).includes('<a href="./">Downloads</a>'));
 const idsIn = (page) => new Set([...page.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+/* The two zips are built at deploy (scripts/package.mjs) and never committed; THE DOWNLOADS
+   below checks them, or their absence, against the data file. */
+const PACKAGED = new Set([path.join(SITE, "downloads", "cat-intelligence-agency-extension.zip"), path.join(SITE, "downloads", "cia-cats.zip")]);
 const missing = [];
 for (const [key, rel] of Object.entries(PAGES)) {
   for (const href of hrefs(html[key])) {
     if (/^(https?:|mailto:|data:)/.test(href)) continue;
+    if (PACKAGED.has(path.normalize(path.join(SITE, path.dirname(rel), href)))) continue;
     const [p, frag] = href.split("#");
     let target = p ? path.normalize(path.join(SITE, path.dirname(rel), p)) : path.join(SITE, rel);
     if (p && (p.endsWith("/") || fs.existsSync(target) && fs.statSync(target).isDirectory())) target = path.join(target, "index.html");
@@ -812,6 +842,101 @@ ok("the kit's words list seven cats: the README's agents table, the brand index 
     && ["### AGENT 001: COINMARKETCAT", "### AGENT 004: CASHCAT", "### AGENT 005: POPCAT", "### AGENT 006: SNIPURR"].every((h) => fs.readFileSync(path.join(here, "brand", "COPY.md"), "utf8").includes(h)));
 ok("the brand index credits Higgsfield and names no image or 3D model", /made with Higgsfield/.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8"))
   && !/gpt[- ]?image|tripo|dall-?e|midjourney|stable diffusion|imagen|flux|hunyuan|meshy/i.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8")));
+
+section("THE DOWNLOADS");
+/* The Downloads page serves two zips the deploy builds (scripts/package.mjs, after
+   `npm run build`): the extension, and the seven cats. Its numbers — version, size, SHA-256 —
+   come from assets/downloads-data.js, a plain script. Committed, that file is the placeholder
+   and says "built at deploy"; packaged, it names zips that must be in site/downloads/ with
+   exactly those sizes and hashes, and the zips must hold what the page says they hold. */
+{
+  const { dataFileText, EXTENSION_ZIP, CATS_ZIP, CATS: PACK_CATS, catFiles, CATS_EXTRAS, PLACEHOLDER } = await import("./scripts/package.mjs");
+  const { readZip, safeEntryName } = await import("./scripts/zip.mjs");
+  const dl = html.downloads, dlText = text.downloads;
+  const dataSrc = fs.readFileSync(path.join(SITE, "assets", "downloads-data.js"), "utf8");
+  let data = null;
+  try { data = new Function("window", `${dataSrc}; return window.CIA_DOWNLOADS;`)({}); } catch { data = null; }
+  const shape = (o) => o && typeof o === "object" ? Object.keys(o).sort().map((k) => `${k}${o[k] && typeof o[k] === "object" ? `{${shape(o[k])}}` : ""}`).join(",") : "";
+  ok("downloads-data.js sets window.CIA_DOWNLOADS: built, commit, both versions, the extension's name, and each zip's name, bytes and SHA-256, nothing else",
+    shape(data) === "built,commit,extensionName,files{cats{bytes,name,sha256},extension{bytes,name,sha256}},version{manifest,package}"
+      && data.files.extension.name === EXTENSION_ZIP && data.files.cats.name === CATS_ZIP, shape(data));
+  ok("it is data only: one assignment to window.CIA_DOWNLOADS, no call, no network, no markup",
+    /^\/\*[\s\S]*?\*\/\nwindow\.CIA_DOWNLOADS = \{[\s\S]*\};\n$/.test(dataSrc) && !/\bfunction\b|=>|\(|<|`/.test(dataSrc.replace(/^\/\*[\s\S]*?\*\//, "")));
+  const zipFile = (name) => path.join(SITE, "downloads", name);
+  if (data?.built !== true) {
+    ok("committed, it is the placeholder, byte for byte: every number says \"built at deploy\"",
+      data?.built === false && dataSrc === dataFileText() && [data.commit, data.version.package, data.version.manifest, data.extensionName, data.files.extension.bytes, data.files.extension.sha256, data.files.cats.bytes, data.files.cats.sha256].every((v) => v === PLACEHOLDER));
+  } else {
+    const sha = (f) => createHash("sha256").update(fs.readFileSync(f)).digest("hex");
+    ok("packaged, its numbers are a build's: versions from package.json and manifest.json, the manifest's name, a commit, byte counts and SHA-256s",
+      data.version.package === pkg.version && data.version.manifest === manifest.version && data.extensionName === manifest.name
+        && (/^[0-9a-f]{40}$/.test(data.commit) || data.commit === "unknown")
+        && [data.files.extension, data.files.cats].every((f) => Number.isSafeInteger(f.bytes) && f.bytes > 0 && /^[0-9a-f]{64}$/.test(f.sha256)),
+      `${data.extensionName} ${data.version.manifest}, ${data.commit.slice(0, 12)}`);
+    ok("both zips are in site/downloads/, with exactly the size and SHA-256 the page shows",
+      [data.files.extension, data.files.cats].every((f) => fs.existsSync(zipFile(f.name)) && fs.statSync(zipFile(f.name)).size === f.bytes && sha(zipFile(f.name)) === f.sha256));
+    const readIf = (name) => { try { return readZip(fs.readFileSync(zipFile(name))); } catch { return []; } };
+    const ext = readIf(EXTENSION_ZIP);
+    const names = ext.map((e) => e.name);
+    const zm = JSON.parse(ext.find((e) => e.name === "manifest.json")?.data.toString("utf8") ?? "{}");
+    ok("the extension zip: manifest.json at its root, this manifest's name and version, INSTALL.txt beside it, no source map, every path safe",
+      zm.name === manifest.name && zm.version === manifest.version && names.includes("INSTALL.txt") && !names.some((n) => /\.map$/i.test(n)) && names.every(safeEntryName)
+        && zm.background?.service_worker && names.includes(zm.background.service_worker) && names.includes(zm.action?.default_popup ?? "?") && names.includes(zm.options_page ?? "?"),
+      `${names.length} entries`);
+    const cats = readIf(CATS_ZIP);
+    const want = [...PACK_CATS.flatMap((c) => catFiles(c.id)), ...CATS_EXTRAS];
+    ok("the cats pack: each of the seven cats' sprite, 400 avatar and 1024 art, the banners and the $CIA logo, byte for byte the kit's, and README.txt",
+      cats.length === want.length + 1 && want.every(([name, from]) => cats.find((e) => e.name === name)?.data.equals(fs.readFileSync(path.join(here, from))))
+        && cats.some((e) => e.name === "README.txt"), `${cats.length} entries`);
+  }
+
+  ok("the downloads page loads its data, then fills the numbers in as text, and says \"built at deploy\" until then",
+    /<script src="\.\.\/assets\/downloads-data\.js"><\/script>\s*<script>\s*\/\* The numbers on this page are the deploy's/.test(dl)
+      && (dl.match(/>built at deploy</g) || []).length === 7 && /el\.textContent = text/.test(dl) && !/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(dl)
+      && ["version", "name", "commit", "extension.size", "extension.sha256", "cats.size", "cats.sha256"].every((k) => dl.includes(`data-dl="${k}"`)));
+  ok("the big button: \"Download the Cat Intelligence Agency extension\", the zip, beside its version, size and SHA-256",
+    /<a class="btn mint big" id="ext-download" href="\.\/cat-intelligence-agency-extension\.zip" download>/.test(dl) && dlText.includes("Download the Cat Intelligence Agency extension")
+      && ["Version", "Size", "SHA-256"].every((w) => new RegExp(`<dt>${w}</dt>`).test(dl.match(/<article class="dl-card"[\s\S]*?<\/article>/)?.[0] ?? "")));
+  const inside = [...(dl.match(/<ul class="inside">[\s\S]*?<\/ul>/)?.[0] ?? "").matchAll(/<img src="\.\.\/assets\/sprites\/([a-z-]+)\.png"[\s\S]*?<h3>([^<]+) <span>([^<]+)<\/span><\/h3>/g)].map((m) => [m[1], m[2], m[3]]);
+  ok("what's inside: one line per cat, with its sprite: CoinMarketCat, Snipurr, Popcat, CashCat and Crying Cat",
+    JSON.stringify(inside) === JSON.stringify([["coinmarketcat", "CoinMarketCat", "AI trading"], ["snipurr", "Snipurr", "The sniper"], ["popcat", "Popcat", "Cat-coin scanner"], ["cashcat", "CashCat", "Coin launcher"], ["crying-cat", "Crying Cat", "Rug check"]]),
+    inside.map((x) => x[1]).join(", "));
+  const steps = [...(dl.match(/<ol class="guide">[\s\S]*?<\/ol>/)?.[0] ?? "").matchAll(/<li><h3>([\s\S]*?)<\/h3>/g)].map((m) => textOf(m[1]).trim());
+  ok("the install guide: six plain numbered steps, for Chrome, Brave and Edge",
+    JSON.stringify(steps) === JSON.stringify(["Download the zip.", "Unzip it.", "Open chrome://extensions .", "Turn on Developer mode.", "Click Load unpacked and choose the unzipped folder.", "Pin the extension."])
+      && ["chrome://extensions", "brave://extensions", "edge://extensions"].every((u) => dlText.includes(u)), steps.join(" | "));
+  ok("how to update (the same folder, then reload; the settings stay because the ID comes from the folder's path) and how to remove (it deletes what it stored: withdraw first)",
+    has("downloads", "Replace the old folder with the new one: same place, same name.") && has("downloads", "click the reload arrow on the extension's card")
+      && has("downloads", "an extension you load unpacked takes its ID from its folder's path") && has("downloads", "Load it from a different folder and the browser treats it as a new extension, with none of your settings.")
+      && has("downloads", "Removing the extension deletes everything it stored in this browser") && has("downloads", "If such a wallet holds anything, withdraw it first.")
+      && (dl.match(/<p class="checked">Checked in Chromium, from this zip:/g) || []).length === 2 && fs.existsSync(path.join(here, "scripts", "verify-download.mjs")));
+  const { AGENT_SPEC_DEFAULTS: agentDefaults } = await import("./src/lib/agent-strategy.mjs");
+  pinned("safety: it starts on paper (the agent on a paper vault, Snipurr off)", agentDefaults.mode === "paper" && CONFIG_DEFAULTS.lane === "off",
+    has("downloads", "It starts on paper.") && has("downloads", "CoinMarketCat trades a paper vault until you switch it to live, and Snipurr starts switched off."));
+  ok("safety: the keys stay in the browser, each sent only to its own service; check the SHA-256, with the command for each system",
+    has("downloads", "Your keys stay in your browser.") && has("downloads", "your Anthropic key only to Anthropic") && has("downloads", "Check the SHA-256.")
+      && ["certutil -hashfile cat-intelligence-agency-extension.zip SHA256", "shasum -a 256 cat-intelligence-agency-extension.zip", "sha256sum cat-intelligence-agency-extension.zip"].every((c) => dlText.includes(c)));
+  ok("the Chrome Web Store: \"not yet\", and no page claims or links a store listing",
+    (dlText.match(/Not yet in the Chrome Web Store\./g) || []).length === 2 && !/chromewebstore\.google\.com|chrome\.google\.com\/webstore/.test(Object.values(html).join(" "))
+      && !Object.values(text).some((t) => /(?<!not yet )(?<!not )in the Chrome Web Store(?! yet)/i.test(t.replace(/Not yet in the Chrome Web Store\./g, "")) || /available (in|on) the Chrome Web Store/i.test(t)));
+  const roster = [...(dl.match(/<div class="roster"[\s\S]*?<\/div>/)?.[0] ?? "").matchAll(/sprites\/([a-z-]+)\.png/g)].map((m) => m[1]);
+  ok("the cats pack: \"Download all seven cats\", the seven in a row, its size and SHA-256",
+    /<a class="btn enter" id="cats-download" href="\.\/cia-cats\.zip" download>Download all seven cats/.test(dl) && JSON.stringify([...roster].sort()) === JSON.stringify(Object.keys(CATS).sort())
+      && dl.includes('data-dl="cats.size"') && dl.includes('data-dl="cats.sha256"'));
+  const dlPics = [...new Set([...dl.matchAll(/\ssrc="([^"]+\.(?:png|jpe?g|webp|gif|svg))"/g)].map((m) => m[1]))];
+  ok("every picture on the downloads page is the kit's: the cats' sprites and the favicon",
+    dlPics.length >= 8 && dlPics.every((u) => /^\.\.\/assets\/(sprites\/[a-z-]+\.png|favicon-64\.png)$/.test(u)), dlPics.join(", "));
+  ok("its sprites are drawn at half or three quarters of their own size, pixelated",
+    [...dl.matchAll(/src="\.\.\/assets\/sprites\/([a-z-]+)\.png" width="(\d+)" height="(\d+)" style="--w:(\d+)"/g)].every((m) => {
+      const [w, h] = pngSize(path.join(here, "brand", "sprites", `${m[1]}.png`)); const sw = Number(m[2]) / w, sh = Number(m[3]) / h;
+      return Number(m[4]) === w && Math.abs(sw - sh) < 0.02 && [0.5, 0.75].some((s) => Math.abs(sw - s) < 0.01);
+    }) && (dl.match(/src="\.\.\/assets\/sprites\//g) || []).length === 17 && /image-rendering:pixelated/.test(fs.readFileSync(path.join(SITE, "assets", "downloads.css"), "utf8")));
+  const dlLoads = new Set(["downloads/index.html", "assets/home.css", "assets/downloads.css", "assets/downloads-data.js", "assets/floor-tile-256.png", "assets/favicon-32.png", "assets/apple-touch-180.png",
+    ...dlPics.map((u) => u.replace(/^\.\.\//, ""))]);
+  const dlBytes = [...dlLoads].reduce((n, f) => n + fs.statSync(path.join(SITE, f)).size, 0);
+  ok("the downloads page weighs under 1 MB with everything it loads (the zips are what you click for)", dlBytes < 1024 * 1024, `${(dlBytes / 1024).toFixed(0)} KB over ${dlLoads.size} files`);
+  ok("the zips are never committed: .gitignore keeps site/downloads/*.zip out", fs.readFileSync(path.join(here, ".gitignore"), "utf8").split("\n").includes("site/downloads/*.zip"));
+}
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

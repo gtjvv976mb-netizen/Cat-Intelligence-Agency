@@ -144,10 +144,15 @@ for (const [key, page] of Object.entries(html)) {
       && /<link rel="icon" href="(\.\.\/)*assets\/favicon-64\.png" type="image\/png" sizes="64x64">/.test(page)
       && /<link rel="apple-touch-icon" href="(\.\.\/)*assets\/apple-touch-180\.png">/.test(page));
   ok(`${key}: Archivo to read, JetBrains Mono for addresses`, /family=Archivo/.test(page) && /family=JetBrains\+Mono/.test(page));
+  /* The HQ pages keep no inline script (their policy refuses one): the same theme code is in
+     assets/hq-boot.js and assets/shift.js, which they load. */
+  const up = "../".repeat(PAGES[key].split(path.sep).length - 1);
+  const themeSrc = HQ_PAGES.includes(key) && page.includes(`<script src="${up}assets/hq-boot.js"></script>`) && page.includes(`<script src="${up}assets/shift.js"></script>`)
+    ? ["hq-boot.js", "shift.js"].map((f) => fs.readFileSync(path.join(SITE, "assets", f), "utf8")).join("\n") : page;
   ok(`${key}: night first, the day shift stored under cc_theme`,
-    /localStorage\.getItem\("cc_theme"\)/.test(page) && /t === "light" \? "light" : "dark"/.test(page)
-      && /localStorage\.setItem\("cc_theme", next\)/.test(page) && /id="shiftbtn"/.test(page));
-  ok(`${key}: violet and mint`, /#9945ff/i.test(page) && /#14f195/i.test(page) || /agency\.css/.test(page));
+    /localStorage\.getItem\("cc_theme"\)/.test(themeSrc) && /t === "light" \? "light" : "dark"/.test(themeSrc)
+      && /localStorage\.setItem\("cc_theme", next\)/.test(themeSrc) && /id="shiftbtn"/.test(page));
+  ok(`${key}: violet and mint`, /#9945ff/i.test(page) && /#14f195/i.test(page) || /agency\.css/.test(page) || (HQ_PAGES.includes(key) && /hq\.css/.test(page)));
 }
 ok("the agency: Anton titles and Press Start 2P pixel labels", /family=Anton/.test(html.agency) && /family=Press\+Start\+2P/.test(html.agency));
 const css = fs.readFileSync(path.join(SITE, "assets", "agency.css"), "utf8");
@@ -946,9 +951,18 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
   ok("its one POST is /v1/perks/verify, carrying the wallet, the message and the signature",
     (code(client).match(/post:/g) || []).length === 1 && client.includes('call("/v1/perks/verify", null, validatePerks, { post: { wallet, message, signature } })') && client.includes('method: post ? "POST" : "GET"'));
   ok("every answer goes through a validator before a page sees it", (code(client).match(/call\("/g) || []).length + (code(client).match(/call\(`/g) || []).length === 10 && /return check\(raw\);/.test(client) && /validateStreamEvent\(type, JSON\.parse\(e\.data\)\)/.test(client) && /e\.origin !== origin/.test(client));
-  const CSP = `<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">`;
-  ok("each HQ page's own policy lets it connect to itself and HQ's origin only, and never to localhost", HQ_PAGES.every((k) => html[k].includes(CSP) && (html[k].match(/Content-Security-Policy/g) || []).length === 1)
-    && !Object.values(html).some((p) => /localhost|127\.0\.0\.1/.test(p)));
+  const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">`;
+  ok("each HQ page's own policy: scripts, styles and images from the site only (and Google Fonts), and connections to itself and HQ's origin only, never localhost",
+    HQ_PAGES.every((k) => html[k].includes(CSP) && (html[k].match(/Content-Security-Policy/g) || []).length === 1) && !Object.values(html).some((p) => /localhost|127\.0\.0\.1/.test(p)));
+  ok("so the HQ pages carry no inline script, no inline style and no event-handler attribute, and every picture they show is the site's own",
+    HQ_PAGES.every((k) => !/<script(?![^>]*\ssrc=)[^>]*>/.test(html[k]) && !/\sstyle="/.test(html[k]) && !/<style/.test(html[k]) && !/\son[a-z]+="/.test(html[k])
+      && [...html[k].matchAll(/\s(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((u) => /^(https?:)?\/\//.test(u)).every((u) => /^https:\/\/(fonts\.googleapis\.com|fonts\.gstatic\.com|github\.com|catintelligenceagency\.com)(\/|$)/.test(u)))
+      && !/setAttribute\("style"|\.style\s*=|cssText|insertRule|document\.createElement\("style"\)/.test(HQ_JS.map((f) => code(src[f])).join(" ")));
+  ok("each HQ page reads the config, then hq-boot.js (its theme and starting state), and ends with the shift switch", HQ_PAGES.every((k) => {
+    const up = k === "agent" ? "../../" : "../";
+    const iCfg = html[k].indexOf(`<script src="${up}assets/config.js"></script>`), iBoot = html[k].indexOf(`<script src="${up}assets/hq-boot.js"></script>`), iCss = html[k].indexOf(`<link rel="stylesheet" href="${up}assets/home.css">`);
+    return iCfg > 0 && iBoot > iCfg && iBoot < iCss && html[k].trimEnd().endsWith(`<script src="${up}assets/shift.js"></script>\n</body>\n</html>`);
+  }) && /root\.dataset\.hq = cfg && cfg\.hqApi \? root\.dataset\.hqLive \|\| "loading" : "offline";/.test(fs.readFileSync(path.join(SITE, "assets", "hq-boot.js"), "utf8")));
   const MODULE = { hq: "hq-live.js", agent: "hq-agent.js", investors: "hq-investors.js", perks: "hq-perks.js" };
   ok("each HQ page reads the config first, then its own module", HQ_PAGES.every((k) => {
     const up = k === "agent" ? "../../" : "../";
@@ -956,7 +970,7 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
   }));
 
   /* Never a number of their own: until HQ answers, there is none. */
-  ok("each HQ page starts offline, with an honest \"coming online\" state saying what will appear", HQ_PAGES.every((k) => /<html lang="en" data-theme="dark" data-root="[./]+" data-hq="offline">/.test(html[k])
+  ok("each HQ page starts offline, with an honest \"coming online\" state saying what will appear", HQ_PAGES.every((k) => /<html lang="en" data-theme="dark" data-root="[./]+" data-hq="offline" data-hq-live="(loading|online)">/.test(html[k])
     && /class="coming when-offline[" ]/.test(html[k]) && /Coming online/.test(html[k])) && has("hq", "Nothing on it is a sample") && has("investors", "nothing here is a sample"));
   const statValues = HQ_PAGES.flatMap((k) => [...html[k].matchAll(/<div class="stat-value">([^<]*)<\/div>/g)].map((m) => m[1]));
   ok("the pages ship no figure: every number slot is a dash until HQ fills it", statValues.length >= 8 && statValues.every((v) => v === "—"), `${statValues.length} slots`);

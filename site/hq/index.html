@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-theme="dark" data-root="../" data-hq="offline">
+<html lang="en" data-theme="dark" data-root="../" data-hq="offline" data-hq-live="loading">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
 <title>Agency HQ, live — Cat Intelligence Agency</title>
 <meta name="description" content="Agency HQ: the agency's own cat agents, each trading the agency's own money from its own wallet under hard limits in code. Every number from the chain, every trade linked to its transaction, paper and live never mixed.">
 <meta name="theme-color" content="#0b0716">
@@ -24,19 +24,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
-<script>
-(function () {
-  let t = null;
-  try { t = localStorage.getItem("cc_theme"); } catch {}
-  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
-})();
-</script>
 <script src="../assets/config.js"></script>
-<script>
-/* Until hq-live.js has checked the origin, a configured HQ shows its loading state, and an
-   empty one its "coming online" state, so neither flashes the other. */
-document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqApi ? "loading" : "offline";
-</script>
+<script src="../assets/hq-boot.js"></script>
 <link rel="stylesheet" href="../assets/home.css">
 <link rel="stylesheet" href="../assets/hq.css">
 <link rel="preload" as="image" href="../assets/hq/hq-trading-room-1600.webp" imagesrcset="../assets/hq/hq-trading-room-1600.webp 1600w, ../assets/hq/hq-trading-room-2688.webp 2688w" imagesizes="100vw">
@@ -131,11 +120,11 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
     </div>
     <p class="sub">Return is trading profit and loss over the SOL put in; profit is realized trading profit in SOL. Creator fees count for neither. Paper and live agents are ranked on separate boards, and never on one.</p>
     <div class="boards" id="boards">
-      <article class="board" data-mode="live" aria-labelledby="board-live-title" style="--accent:#14f195">
+      <article class="board ac-mint" data-mode="live" aria-labelledby="board-live-title">
         <header class="board-head"><h3 id="board-live-title">Live board</h3><span class="mode mode-live">Live</span></header>
         <div class="board-body" data-slot="board"><p class="board-empty">The live board opens when HQ is online and an agent trades real SOL.</p></div>
       </article>
-      <article class="board" data-mode="paper" aria-labelledby="board-paper-title" style="--accent:#9945ff">
+      <article class="board ac-violet" data-mode="paper" aria-labelledby="board-paper-title">
         <header class="board-head"><h3 id="board-paper-title">Paper board</h3><span class="mode mode-paper">Paper</span></header>
         <div class="board-body" data-slot="board"><p class="board-empty">The paper board opens when HQ is online. Paper agents trade from live quotes and sign nothing.</p></div>
       </article>
@@ -209,10 +198,10 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
     <h2 id="rules-title">Four strategies. <em>One set of limits.</em></h2>
     <p class="sub">Every agent runs one of four strategies, each named for the cat it learned from, and every strategy runs behind the same limits, enforced by code: a maximum per trade, a maximum of open positions, a stop loss, a take profit, a trailing stop, a daily loss limit, and a Crying Cat rug check on every buy (mint and freeze authority, holders, the creator's share). An agent never buys its own coin or another agency coin.</p>
     <ul class="strats">
-      <li style="--accent:#14f195"><img class="px" src="../assets/sprites/snipurr.png" width="73" height="104" alt="" loading="lazy"><div><h3>Snipurr <code>snipurr</code></h3><p>pump.fun sniping by rule: wait, watch, buy only what others followed, strict exits</p></div></li>
-      <li style="--accent:#8b5cf6"><img class="px" src="../assets/sprites/coinmarketcat.png" width="88" height="105" alt="" loading="lazy"><div><h3>CoinMarketCat <code>coinmarketcat</code></h3><p>the owner's plain-English strategy, decided by a model, limits enforced by code</p></div></li>
-      <li style="--accent:#ff4fd8"><img class="px" src="../assets/sprites/popcat.png" width="99" height="106" alt="" loading="lazy"><div><h3>Popcat <code>popcat-scout</code></h3><p>buys only new cat coins that pass all of Popcat's checks</p></div></li>
-      <li style="--accent:#5ab8ff"><img class="px" src="../assets/sprites/crying-cat.png" width="72" height="103" alt="" loading="lazy"><div><h3>Crying Cat <code>crying-cat-safe</code></h3><p>conservative: established tokens only, every buy rug-checked first</p></div></li>
+      <li class="ac-mint"><img class="px" src="../assets/sprites/snipurr.png" width="73" height="104" alt="" loading="lazy"><div><h3>Snipurr <code>snipurr</code></h3><p>pump.fun sniping by rule: wait, watch, buy only what others followed, strict exits</p></div></li>
+      <li class="ac-hoodie"><img class="px" src="../assets/sprites/coinmarketcat.png" width="88" height="105" alt="" loading="lazy"><div><h3>CoinMarketCat <code>coinmarketcat</code></h3><p>the owner's plain-English strategy, decided by a model, limits enforced by code</p></div></li>
+      <li class="ac-pink"><img class="px" src="../assets/sprites/popcat.png" width="99" height="106" alt="" loading="lazy"><div><h3>Popcat <code>popcat-scout</code></h3><p>buys only new cat coins that pass all of Popcat's checks</p></div></li>
+      <li class="ac-tear"><img class="px" src="../assets/sprites/crying-cat.png" width="72" height="103" alt="" loading="lazy"><div><h3>Crying Cat <code>crying-cat-safe</code></h3><p>conservative: established tokens only, every buy rug-checked first</p></div></li>
     </ul>
     <div class="cta">
       <a class="btn mint" href="../investors/">How every number is computed <span class="arr" aria-hidden="true">→</span></a>
@@ -249,23 +238,6 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
 </footer>
 
 <script type="module" src="../assets/hq-live.js"></script>
-<script>
-(function shiftSwitch() {
-  const btn = document.getElementById("shiftbtn");
-  if (!btn) return;
-  const label = () => {
-    const day = document.documentElement.dataset.theme === "light";
-    btn.textContent = day ? "☀" : "☾";
-    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
-  };
-  btn.addEventListener("click", () => {
-    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem("cc_theme", next); } catch {}
-    label();
-  });
-  label();
-})();
-</script>
+<script src="../assets/shift.js"></script>
 </body>
 </html>

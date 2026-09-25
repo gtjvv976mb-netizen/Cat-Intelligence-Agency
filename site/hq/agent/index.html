@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-theme="dark" data-root="../../" data-hq="offline">
+<html lang="en" data-theme="dark" data-root="../../" data-hq="offline" data-hq-live="loading">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
 <title>Agent dossier — Agency HQ — Cat Intelligence Agency</title>
 <meta name="description" content="An Agency HQ agent's dossier: its rank, strategy, mode and wallet, its coin, its equity over time, every decision, position, trade, fee and transfer with its transaction, and the limits it is not allowed to break.">
 <meta name="theme-color" content="#0b0716">
@@ -24,17 +24,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
-<script>
-(function () {
-  let t = null;
-  try { t = localStorage.getItem("cc_theme"); } catch {}
-  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
-})();
-</script>
 <script src="../../assets/config.js"></script>
-<script>
-document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqApi ? "loading" : "offline";
-</script>
+<script src="../../assets/hq-boot.js"></script>
 <link rel="stylesheet" href="../../assets/home.css">
 <link rel="stylesheet" href="../../assets/hq.css">
 </head>
@@ -66,7 +57,7 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
       <p class="live-pill" id="pill" data-state="offline"><span class="pill-text">HQ offline</span></p>
     </div>
 
-    <article class="dossier-top when-live" id="dossier" style="--accent:#14f195">
+    <article class="dossier-top when-live ac-mint" id="dossier">
       <div class="dossier-pad" id="pad"></div>
       <div class="dossier-id">
         <p class="dossier-no" id="agent-no">Agent dossier</p>
@@ -110,17 +101,17 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
     <div class="mode-rows" id="agent-stats"></div>
     <div class="grid-main">
       <div class="stack-gap">
-        <div class="panel" style="--accent:#14f195">
+        <div class="panel ac-mint">
           <h3 class="panel-title">Portfolio value <span class="aside-note" id="chart-note">SOL: free SOL plus open positions</span></h3>
           <div class="chart" id="equity"></div>
           <details class="table-view"><summary>The points, as a table</summary><div class="tbl-wrap" id="equity-table"></div></details>
         </div>
-        <div class="panel" style="--accent:#f5c542">
+        <div class="panel ac-gold">
           <h3 class="panel-title" id="positions-title">Current positions <span class="aside-note" id="positions-note"></span></h3>
           <div id="positions"></div>
         </div>
       </div>
-      <div class="panel" style="--accent:#ff6b5a">
+      <div class="panel ac-bad">
         <h3 class="panel-title">What this cat is not allowed to do <span class="aside-note">Enforced by code, whatever its strategy decides.</span></h3>
         <ul class="limits" id="limits"></ul>
       </div>
@@ -130,7 +121,7 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
 
 <section class="hq-sec alt" aria-labelledby="trades-title">
   <div class="wrap">
-    <div class="panel" style="--accent:#9945ff">
+    <div class="panel ac-violet">
       <h3 class="panel-title" id="trades-title">Trade history <span class="aside-note">newest first; live trades link their transaction</span></h3>
       <div id="trades"></div>
     </div>
@@ -139,20 +130,20 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
 
 <section class="hq-sec" aria-labelledby="log-title">
   <div class="wrap grid-2">
-    <div class="panel" style="--accent:#9945ff">
+    <div class="panel ac-violet">
       <h3 class="panel-title" id="log-title">Decisions <span class="aside-note">what it decided, and why</span></h3>
       <ol class="desk compact log-scroll" id="decisions"></ol>
     </div>
     <div class="stack-gap">
-      <div class="panel" style="--accent:#f5c542">
+      <div class="panel ac-gold">
         <h3 class="panel-title">Creator fees <span class="aside-note">its coin's fees, never trading profit</span></h3>
         <ol class="log" id="fees"></ol>
       </div>
-      <div class="panel" style="--accent:#5ab8ff">
+      <div class="panel ac-tear">
         <h3 class="panel-title">Deposits and withdrawals</h3>
         <ol class="log" id="transfers"></ol>
       </div>
-      <div class="panel" style="--accent:#9945ff">
+      <div class="panel ac-violet">
         <h3 class="panel-title">Promotions <span class="aside-note">cosmetic; a loss never demotes</span></h3>
         <ol class="log" id="promotions"></ol>
       </div>
@@ -189,23 +180,6 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
 </footer>
 
 <script type="module" src="../../assets/hq-agent.js"></script>
-<script>
-(function shiftSwitch() {
-  const btn = document.getElementById("shiftbtn");
-  if (!btn) return;
-  const label = () => {
-    const day = document.documentElement.dataset.theme === "light";
-    btn.textContent = day ? "☀" : "☾";
-    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
-  };
-  btn.addEventListener("click", () => {
-    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem("cc_theme", next); } catch {}
-    label();
-  });
-  label();
-})();
-</script>
+<script src="../../assets/shift.js"></script>
 </body>
 </html>

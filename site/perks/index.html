@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-theme="dark" data-root="../" data-hq="offline">
+<html lang="en" data-theme="dark" data-root="../" data-hq="offline" data-hq-live="online">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
 <title>$CIA holder perks — Cat Intelligence Agency</title>
 <meta name="description" content="$CIA holder perks at the Cat Intelligence Agency: prove you hold $CIA with one message signature in Phantom, never a transaction, and see your tier, the agent skins and the vote on the next agent. Cosmetic or a say, never a head start.">
 <meta name="theme-color" content="#0b0716">
@@ -24,17 +24,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
-<script>
-(function () {
-  let t = null;
-  try { t = localStorage.getItem("cc_theme"); } catch {}
-  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
-})();
-</script>
 <script src="../assets/config.js"></script>
-<script>
-document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqApi ? "online" : "offline";
-</script>
+<script src="../assets/hq-boot.js"></script>
 <link rel="stylesheet" href="../assets/home.css">
 <link rel="stylesheet" href="../assets/hq.css">
 </head>
@@ -64,13 +55,13 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
     <a class="crumb" href="../"><span aria-hidden="true">&lt;</span> The agency</a>
     <div class="perks-head">
       <div>
-        <p class="kicker" style="color:var(--gold)">$CIA holders</p>
+        <p class="kicker kicker-gold">$CIA holders</p>
         <h1 id="perks-title">Holder <em>perks.</em></h1>
         <p class="lead">Hold $CIA, prove it with one message signature, and get a look or a say: agent skins, and a vote on the next agent's name and strategy. Never money, never a head start: no perk is early access to a pick or a trade, because that would let holders trade ahead of everyone else.</p>
       </div>
       <div class="perks-cast" aria-hidden="true">
-        <img class="px" src="../assets/hq/skins/holder.png" width="178" height="211" style="--w:178px" alt="">
-        <img class="px" src="../assets/hq/skins/nightops.png" width="149" height="210" style="--w:149px" alt="">
+        <img class="px cast-holder" src="../assets/hq/skins/holder.png" width="178" height="211" alt="">
+        <img class="px cast-nightops" src="../assets/hq/skins/nightops.png" width="149" height="210" alt="">
       </div>
     </div>
 
@@ -79,7 +70,7 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
       <h2 class="coming-title">The holder check opens with HQ.</h2>
       <p>Agency HQ checks each signature and each balance, and it is not online yet, so there is nothing to connect to. The skins below are the looks the perks will unlock.</p>
     </div>
-    <ol class="steps-3" id="steps" style="--accent:#14f195">
+    <ol class="steps-3 ac-mint" id="steps">
       <li id="step-connect">
         <h3>Connect Phantom.</h3>
         <p>Phantom shares your wallet's public address with this page, and nothing else.</p>
@@ -107,7 +98,7 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
 
 <section class="hq-sec perk-result" id="result" aria-labelledby="result-title" hidden>
   <div class="wrap">
-    <div class="panel" style="--accent:#f5c542">
+    <div class="panel ac-gold">
       <h2 class="panel-title" id="result-title">Your tier <span class="aside-note" id="result-note"></span></h2>
       <div class="tier"><p class="tier-name" id="tier-name"></p><p class="wallet-line" id="tier-balance"></p></div>
       <ul class="perk-list" id="perk-list"></ul>
@@ -145,9 +136,9 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
 
 <section class="hq-sec alt" id="vote" aria-labelledby="vote-title">
   <div class="wrap grid-2">
-    <div class="panel vote" style="--accent:#9945ff">
+    <div class="panel vote ac-violet">
       <span class="soon">Coming soon</span>
-      <h2 id="vote-title" class="coming-title" style="color:var(--text)">The vote on the next agent.</h2>
+      <h2 id="vote-title" class="coming-title on-card">The vote on the next agent.</h2>
       <p>Holders will vote on the next agent's name and its strategy. Agency HQ has no voting endpoint yet (its published contract lists none), so there is nothing to vote on here today, and this page does not pretend otherwise.</p>
       <p>When there is, a vote will be one more message signature: never a transaction, never a fee.</p>
     </div>
@@ -190,23 +181,6 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
 </footer>
 
 <script type="module" src="../assets/hq-perks.js"></script>
-<script>
-(function shiftSwitch() {
-  const btn = document.getElementById("shiftbtn");
-  if (!btn) return;
-  const label = () => {
-    const day = document.documentElement.dataset.theme === "light";
-    btn.textContent = day ? "☀" : "☾";
-    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
-  };
-  btn.addEventListener("click", () => {
-    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem("cc_theme", next); } catch {}
-    label();
-  });
-  label();
-})();
-</script>
+<script src="../assets/shift.js"></script>
 </body>
 </html>

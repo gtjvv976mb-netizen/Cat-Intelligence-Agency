@@ -528,3 +528,12 @@ details.table-view .tbl-wrap{max-height:260px;overflow:auto;margin-top:8px}
 .tier-min{margin:0;font:800 15px/1.3 var(--sans);color:var(--gold-text)}
 .tier-yours{font:400 7px/1 var(--pixel);text-transform:uppercase;color:#241800;background:var(--gold);padding:5px 6px 4px}
 #hq-mode{display:inline-flex;gap:5px}
+
+/* Accents and small settings as classes, not style attributes: the HQ pages' policy refuses
+   inline styles as well as inline scripts. */
+.hq-page .ac-mint{--accent:#14f195}.hq-page .ac-tear{--accent:#5ab8ff}.hq-page .ac-hoodie{--accent:#8b5cf6}.hq-page .ac-violet{--accent:#9945ff}
+.hq-page .ac-pink{--accent:#ff4fd8}.hq-page .ac-gold{--accent:#f5c542}.hq-page .ac-bad{--accent:#ff6b5a}
+.cta.gap-top{margin-top:30px}
+.kicker.kicker-gold{color:var(--gold)}
+.coming-title.on-card{color:var(--text)}
+.cast-holder{--w:178px}.cast-nightops{--w:149px}

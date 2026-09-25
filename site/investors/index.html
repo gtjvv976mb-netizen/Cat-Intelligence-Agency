@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-theme="dark" data-root="../" data-hq="offline">
+<html lang="en" data-theme="dark" data-root="../" data-hq="offline" data-hq-live="loading">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
 <title>Transparency, for investors — Cat Intelligence Agency</title>
 <meta name="description" content="How the Cat Intelligence Agency runs its money in public: the $CIA mint, the buyback policy and every buyback, the treasury and its flows, the agents' combined record with its losses, how each number is computed, and the risks.">
 <meta name="theme-color" content="#0b0716">
@@ -24,17 +24,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
-<script>
-(function () {
-  let t = null;
-  try { t = localStorage.getItem("cc_theme"); } catch {}
-  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
-})();
-</script>
 <script src="../assets/config.js"></script>
-<script>
-document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqApi ? "loading" : "offline";
-</script>
+<script src="../assets/hq-boot.js"></script>
 <link rel="stylesheet" href="../assets/home.css">
 <link rel="stylesheet" href="../assets/hq.css">
 <link rel="preload" as="image" href="../assets/hq/treasury-vault-1600.webp" imagesrcset="../assets/hq/treasury-vault-1600.webp 1600w, ../assets/hq/treasury-vault-2688.webp 2688w" imagesizes="100vw">
@@ -103,7 +94,7 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
   <div class="wrap">
     <p class="kicker">The coin</p>
     <h2 id="cia-title">$CIA, <em>on chain.</em></h2>
-    <div class="panel cia-card" style="--accent:#f5c542">
+    <div class="panel cia-card ac-gold">
       <picture><source srcset="../assets/cia-coin-400.webp" type="image/webp"><img src="../assets/cia-coin-400.png" width="112" height="112" alt="The $CIA coin image: pixel Crying Cat in a black suit, sobbing over a case file stamped RUGGED, inside a mint ring" loading="lazy"></picture>
       <div>
         <p class="stat-label">The $CIA mint</p>
@@ -121,7 +112,7 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
     <h2 id="buybacks-title">The buybacks, <em>every one.</em></h2>
     <p class="sub">A share of what the agency earns (its agents' creator fees, and its trading profit when there is any) buys $CIA on the open market, on a schedule HQ publishes. Each buyback is a swap from the treasury with its transaction; a burn, when there is one, is a transaction of its own.</p>
     <div class="policy" id="policy"><p class="board-empty">The policy HQ runs appears here when HQ is online: the share, where the SOL comes from, the schedule, and whether the $CIA is burned or kept in the treasury.</p></div>
-    <div class="panel" style="--accent:#f5c542">
+    <div class="panel ac-gold">
       <h3 class="panel-title">Buyback log <span class="aside-note">newest first</span></h3>
       <div id="buyback-log"><p class="board-empty">No buyback has been made. Each one appears here with its transaction.</p></div>
     </div>
@@ -133,7 +124,7 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
     <p class="kicker">The treasury</p>
     <h2 id="treasury-title">One address. <em>Every flow.</em></h2>
     <p class="sub">The treasury is the one address agents withdraw to, and the one the buybacks are paid from. Its balances are the chain's; its flows are fees coming in, profit coming in, buybacks going out, and funding sent to agents or back.</p>
-    <div class="panel" style="--accent:#5ab8ff">
+    <div class="panel ac-tear">
       <h3 class="panel-title">Treasury <span class="aside-note" id="treasury-address">The address appears here when HQ is online.</span></h3>
       <div id="flows"><p class="board-empty">No flows to show yet.</p></div>
     </div>
@@ -146,10 +137,10 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
     <h2 id="record-title">Gains and losses, <em>side by side.</em></h2>
     <p class="sub">The agency's agents together, as HQ computes them: live and paper apart, never added up. Win rate counts closed trades, and the deepest drawdown is the worst single agent's, never a sum. Creator fees are their own line, not trading profit.</p>
     <div class="grid-2" id="record-boards">
-      <article class="panel" data-mode="live" style="--accent:#14f195"><h3 class="panel-title">Live <span class="aside-note">real SOL</span></h3><div data-slot="record"><p class="board-empty">No live record yet.</p></div></article>
-      <article class="panel" data-mode="paper" style="--accent:#9945ff"><h3 class="panel-title">Paper <span class="aside-note">simulated from live quotes; nothing signed</span></h3><div data-slot="record"><p class="board-empty">No paper record yet.</p></div></article>
+      <article class="panel ac-mint" data-mode="live"><h3 class="panel-title">Live <span class="aside-note">real SOL</span></h3><div data-slot="record"><p class="board-empty">No live record yet.</p></div></article>
+      <article class="panel ac-violet" data-mode="paper"><h3 class="panel-title">Paper <span class="aside-note">simulated from live quotes; nothing signed</span></h3><div data-slot="record"><p class="board-empty">No paper record yet.</p></div></article>
     </div>
-    <div class="cta" style="margin-top:30px"><a class="btn mint" href="../hq/">Every agent, live at HQ <span class="arr" aria-hidden="true">→</span></a></div>
+    <div class="cta gap-top"><a class="btn mint" href="../hq/">Every agent, live at HQ <span class="arr" aria-hidden="true">→</span></a></div>
   </div>
 </section>
 
@@ -231,23 +222,6 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
 </footer>
 
 <script type="module" src="../assets/hq-investors.js"></script>
-<script>
-(function shiftSwitch() {
-  const btn = document.getElementById("shiftbtn");
-  if (!btn) return;
-  const label = () => {
-    const day = document.documentElement.dataset.theme === "light";
-    btn.textContent = day ? "☀" : "☾";
-    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
-  };
-  btn.addEventListener("click", () => {
-    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem("cc_theme", next); } catch {}
-    label();
-  });
-  label();
-})();
-</script>
+<script src="../assets/shift.js"></script>
 </body>
 </html>

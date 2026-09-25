@@ -129,6 +129,19 @@ section("THE OWNER'S GUIDE");
     ["the monthly cost, with its sources", /railway\.com\/pricing[\s\S]*helius\.dev/],
   ]) ok(`it covers ${what}`, re.test(guide));
   ok("it never shows a real-looking secret: no 24-word phrase, no 64-byte base58 key", !/\b(?:[a-z]{3,8} ){23}[a-z]{3,8}\b/.test(guide) && !/[1-9A-HJ-NP-Za-km-z]{86,90}/.test(guide));
+
+  /* the review's three: each step says what the owner will actually see and do */
+  const step = (n) => { const m = new RegExp(`\\n## ${n}\\. [\\s\\S]*?(?=\\n## )`).exec(guide); return m ? m[0] : ""; };
+  const domain = step(5), fund = step(7), live = step(8), signed = step(10);
+  ok("the custom domain's port is the one Railway detects (its PORT, which HQ listens on), never a guessed 8787", /port Railway detects|keep the one Railway detects/.test(domain) && /PORT/.test(domain) && !/8787 if asked/.test(guide));
+  ok("funding a paper agent says its page is still the paper book, where to see the deposit now, and that it shows once live", /paper book/.test(fund) && /Solscan|Phantom/.test(fund) && /once you switch the agent live/.test(fund));
+  ok("back to paper only after liquidating: the guide never says 'any time', and says why HQ refuses", !/Back to paper any time/i.test(guide) && /agent\s+liquidate 1/.test(live) && /refuses/.test(live));
+  ok("signed commands name the server they are for (HQ_SERVER_ID, --server or the --url's host)", /HQ_SERVER_ID/.test(signed) && /--server/.test(signed) && /--url/.test(signed));
+  const { readConfig } = await import("./services/hq/lib/config.mjs");
+  const c = readConfig({});
+  const row = (v) => guide.split("\n").find((l) => l.startsWith("|") && l.includes(`\`${v}\``)) ?? "";
+  ok("the stream limits and the server id are listed with the defaults the code has", row("HQ_STREAMS_PER_NETWORK").includes(`\`${c.rateLimit.streamsPerNetwork}\`, \`${c.rateLimit.streamsTotal}\``)
+    && row("HQ_STREAM_MAX_SECONDS").includes(`\`${c.rateLimit.streamMaxMs / 1000}\``) && row("HQ_SERVER_ID").includes(`\`${c.serverId}\``), [row("HQ_STREAMS_PER_NETWORK"), row("HQ_STREAM_MAX_SECONDS")].join(" / "));
 }
 
 done();

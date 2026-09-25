@@ -24,8 +24,9 @@ import { buildLedger, periodTradingPnl, realizedSince, unrealizedAt } from "./se
 import { createIndexer } from "./services/hq/lib/indexer.mjs";
 import { createRuntime } from "./services/hq/lib/runtime.mjs";
 import { liveTradeId } from "./services/hq/lib/db.mjs";
-import { agentObject, equitySeries, leaderboard } from "./services/hq/lib/views.mjs";
+import { agentObject, agentDetail, equitySeries, leaderboard } from "./services/hq/lib/views.mjs";
 import { WSOL_MINT } from "./bots/lib/verified.mjs";
+import { solString as solStr } from "./services/hq/lib/amounts.mjs";
 import { ROOT } from "./services/hq/test/doubles.mjs";
 import { validate, SCHEMAS } from "./services/hq/contract/schemas.mjs";
 
@@ -83,10 +84,14 @@ section("WALLET B: A CREATOR-FEE CLAIM, AND FEES NEVER IN TRADING P&L");
   const rt = L.roundTrips[0];
   ok("the round trip that left 64,210 raw tokens of dust is closed, its dust's cost lost: a loss", L.roundTrips.length === 1 && rt.pnl === -30_762_342n && L.losses === 1 && L.wins === 0);
   const out = ev.find((x) => x.kind === "token_out");
-  ok("a token moved out by hand leaves the book at its cost, realizing nothing", out && L.flows.some((f) => f.kind === "token_out" && f.atCost === 273_337_229n));
-  ok("…as a withdrawal of that cost, listed with the tokens it moved (the dossier's transfers)", L.transfers.some((x) => x.kind === "withdrawal" && x.lamports === 273_337_229n && x.tokens?.mint === out.mint && x.tokens.raw === out.tokens && x.tx === out.signature));
+  /* moved out 2.3 days after its only buy, with no quote in between: by the stale rule it was worth 0 */
+  const boughtAt = ev.filter((x) => x.kind === "trade" && x.side === "buy" && x.mint === out.mint && x.slot < out.slot).at(-1).t;
+  ok("a token moved out by hand, with no price for over a day (bought on " + boughtAt.slice(0, 10) + ", moved on " + out.t.slice(0, 10) + "): it leaves at 0, and its whole cost is realized as a loss",
+    Date.parse(out.t) - Date.parse(boughtAt) > 86_400_000 && L.flows.some((f) => f.kind === "token_out" && f.atCost === 273_337_229n && f.atValue === 0n && f.pnl === -273_337_229n));
+  ok("…as a withdrawal of that value (0), listed with the tokens it moved (the dossier's transfers)", L.transfers.some((x) => x.kind === "withdrawal" && x.lamports === 0n && x.tokens?.mint === out.mint && x.tokens.raw === out.tokens && x.tx === out.signature));
+  ok("…so realized trading P&L is the round trip's loss, the move's loss and every operation's cost", L.realized === rt.pnl - 273_337_229n - L.opsCost && L.realized === -306_228_851n, String(L.realized));
   ok("dust deposits of 1 lamport are deposits, and all deposits add up", ev.filter((x) => x.kind === "deposit" && x.lamports === 1n).length >= 10 && L.deposited === 2_470_975_564n);
-  ok("two SOL withdrawals, and the tokens moved out at their cost", L.withdrawn === 53_777_810n + 1_999_991_000n + 273_337_229n && L.transfers.filter((x) => x.kind === "withdrawal" && !x.tokens).length === 2);
+  ok("two SOL withdrawals, and the tokens moved out at their value (0)", L.withdrawn === 53_777_810n + 1_999_991_000n && L.transfers.filter((x) => x.kind === "withdrawal" && !x.tokens).length === 2);
   const last = B.transactions[0];
   const endNative = BigInt(last.meta.postBalances[accountKeysOf(last).indexOf(w)]);
   ok("the cash the ledger ends with is the chain's final native balance", L.cash === endNative && endNative === 9_121_835n);
@@ -163,8 +168,11 @@ section("THE RUNTIME'S BOOKS AND THE CONTRACT'S STATS, FOR A LIVE AGENT ON WALLE
   const agent9 = db.eventsAfter(0, 5000).filter((e) => e.kind === "fee" && e.data.agentId === 9);
   ok("520 fee claims: each went to the stream once, and not again on a rebuild or a restart", agent9.length === 520 && new Set(agent9.map((e) => e.data.tx)).size === 520, String(agent9.length));
   const a = agentObject({ agent: db.getAgent(7), view, db });
-  ok("the contract's stats: amounts as decimal strings of SOL", a.stats.feesClaimedSol === "0.160577729" && a.stats.realizedPnlSol === "-0.032891622" && a.stats.balanceSol === "0.009121835" && a.stats.depositedSol === "2.470975564");
-  ok("…the rank's measure is realized trading P&L, fees excluded, a net loss counting as none", a.stats.careerRealizedSol === "0" && a.stats.realizedPnlSol === "-0.032891622");
+  ok("the contract's stats: amounts as decimal strings of SOL", a.stats.feesClaimedSol === "0.160577729" && a.stats.realizedPnlSol === "-0.306228851" && a.stats.balanceSol === "0.009121835" && a.stats.depositedSol === "2.470975564");
+  ok("…the rank's measure is realized trading P&L, fees excluded, a net loss counting as none", a.stats.careerRealizedSol === "0" && a.stats.realizedPnlSol === "-0.306228851");
+  /* its open position's last buy was on 2026-09-22 and nothing has quoted it since: at noon on the 25th that is over a day */
+  ok("…its open position, unquoted for over a day, is valued at 0 and counted unpriced", view.ledger.positions.length === 1 && view.ledger.positions[0].value === 0n && view.ledger.positions[0].priced === false
+    && a.stats.unpricedPositions === 1 && a.stats.unrealizedPnlSol === solStr(-view.ledger.positions[0].cost));
   ok("…and the Agent object is exactly the contract's shape", validate(SCHEMAS.Agent, a).length === 0, JSON.stringify(validate(SCHEMAS.Agent, a)));
 }
 
@@ -205,7 +213,7 @@ section("A PAPER LEDGER, BY HAND");
 /* ── the review's cases, each held as a regression test ── */
 const SOL = 1_000_000_000n;
 const identity = (L) => L.cash + L.rent + L.positions.reduce((a, x) => a + x.cost, 0n) === L.netDeposits + L.feesClaimed + L.realized + L.other;
-const day = (d, h = 0) => new Date(Date.UTC(2026, 8, d, h)).toISOString();
+const day = (d, h = 0, m = 0) => new Date(Date.UTC(2026, 8, d, h, m)).toISOString();
 const MA = "M1ntM1ntM1ntM1ntM1ntM1ntM1ntM1ntM1ntM1nt11", MB = "M2ntM2ntM2ntM2ntM2ntM2ntM2ntM2ntM2ntM2nt22";
 
 section("THE IDENTITY, OVER EVERY RECORDED WALLET: CASH + RENT + POSITIONS AT COST = NET DEPOSITS + FEES + REALIZED + OTHER");
@@ -250,22 +258,32 @@ section("A JUPITER SELL THAT OPENS THE WALLET'S wSOL ACCOUNT OUT OF ITS PROCEEDS
   ok("…and the identity holds", identity(L));
 }
 
-section("A TOKEN MOVED OUT: AT ITS COST, AS A WITHDRAWAL; VALUE ARRIVING WITH IT IS NEVER PROFIT");
+section("A TOKEN MOVED OUT LEAVES AT ITS VALUE, AND ITS LOSS OR GAIN IS REALIZED; VALUE ARRIVING WITH IT IS NEVER PROFIT");
 {
-  const ev = [
+  /* deposit 1, buy 0.9 of a token, a quote, then the token moved out half an hour later */
+  const base = [
     { kind: "deposit", t: day(1), slot: 1, lamports: SOL },
-    { kind: "trade", side: "buy", t: day(2), slot: 2, mint: MA, decimals: 6, tokens: 1_000n, sol: 100_000_000n, fee: 0n },
-    { kind: "token_out", t: day(3), slot: 3, mint: MA, decimals: 6, tokens: 400n, value: 5_000_000n, fee: 5_000n, signature: "Out1" },
-    { kind: "token_out", t: day(4), slot: 4, mint: MA, decimals: 6, tokens: 600n, value: -2_044_280n, fee: 5_000n, signature: "Out2" },
+    { kind: "trade", side: "buy", t: day(2), slot: 2, mint: MA, decimals: 6, tokens: 1_000n, sol: 900_000_000n, fee: 0n },
   ];
-  const L = buildLedger(ev);
-  ok("the tokens leave at their cost, as withdrawals (0.04 then 0.06), and no position is left", L.withdrawn === 100_000_000n && L.positions.length === 0
-    && L.transfers.filter((x) => x.kind === "withdrawal").map((x) => `${x.lamports}:${x.tokens.raw}`).join() === "40000000:400,60000000:600");
-  ok("value that came back with a move is 'other', never realized profit", L.other === 5_000_000n && L.realized === -2_044_280n && L.opsCost === 2_044_280n, `${L.other} ${L.realized}`);
-  ok("…the identity holds", identity(L));
-  /* after the first move 0.905 SOL of value is left, all of it cash after the second; the only fall
-     is the second move's 2,044,280 lamports of fee and rent */
-  ok("…and the drawdown reads the tokens leaving as no fall: only the move's own cost is one (0.23%)", L.maxDrawdownPct === Math.round((2_044_280 / 905_000_000) * 10_000) / 100, `${L.maxDrawdownPct}`);
+  const out = { kind: "token_out", t: day(3, 0, 30), slot: 4, mint: MA, decimals: 6, tokens: 1_000n, value: -5_000n, fee: 5_000n, signature: "Out1" };
+  const quoted = (lamports) => [{ t: day(3), marks: { [MA]: { lamports: String(lamports), tokens: "1000" } } }];
+  const down = buildLedger([...base, out], { snapshots: quoted(90_000_000n), now: day(4) });
+  ok("quoted 90% down, then moved out: it leaves as a withdrawal of 0.09, and the 0.81 loss is realized (the move hides nothing)",
+    down.withdrawn === 90_000_000n && down.realized === -810_000_000n - 5_000n && down.transfers.some((x) => x.kind === "withdrawal" && x.lamports === 90_000_000n && x.tokens?.raw === 1_000n), `${down.withdrawn} ${down.realized}`);
+  ok("…the return says so: −81% (with the move's fee), as it said before the move", down.roiPct === -81 && buildLedger(base, { snapshots: quoted(90_000_000n), now: day(3, 0, 10) }).roiPct === -81, `${down.roiPct}`);
+  const up = buildLedger([...base, out], { snapshots: quoted(2_700_000_000n), now: day(4) });
+  ok("quoted three times its cost, then moved out: a withdrawal of 2.7, and the 1.8 gain realized", up.withdrawn === 2_700_000_000n && up.realized === 1_800_000_000n - 5_000n && up.roiPct === 179.99, `${up.withdrawn} ${up.realized} ${up.roiPct}`);
+  const stale = buildLedger([...base, { ...out, t: day(5) }], { snapshots: quoted(2_700_000_000n), now: day(6) });
+  ok("moved out two days after its last quote: by the stale rule it leaves at 0, and its whole cost is a realized loss", stale.withdrawn === 0n && stale.realized === -900_000_000n - 5_000n);
+  const hour = buildLedger([...base, { ...out, t: day(3, 5) }], { snapshots: quoted(2_700_000_000n), now: day(4) });
+  ok("moved out five hours after its last quote: at the lower of that quote and its cost (0.9), nothing realized but the fee", hour.withdrawn === 900_000_000n && hour.realized === -5_000n);
+  for (const [name, L] of [["down", down], ["up", up], ["stale", stale], ["hour", hour]]) ok(`…the identity holds (${name})`, identity(L));
+  ok("…and the drawdown takes the move as no fall, at its value: none is added after the quote's fall", down.maxDrawdownPct === 81, `${down.maxDrawdownPct}`);
+  /* 2.8 at the quote; an hour without one and the gain is gone (the lower of 2.7 and the 0.9 cost): 1.0 */
+  ok("…while a gain left unquoted for an hour is a fall: 2.8 → 1.0, 64.29%", hour.maxDrawdownPct === 64.29, `${hour.maxDrawdownPct}`);
+  /* value that arrives with a move (the wallet paid; more came back than the fee) */
+  const withValue = buildLedger([...base, { ...out, value: 5_000_000n }], { snapshots: quoted(900_000_000n), now: day(4) });
+  ok("value that came back with a move is 'other', never realized profit", withValue.other === 5_000_000n && withValue.realized === 0n && identity(withValue), `${withValue.other} ${withValue.realized}`);
 }
 
 section("THE RETURN IS OVER WHAT WAS DEPOSITED: A WITHDRAWAL OR A SWEEP NEVER CHANGES IT");
@@ -316,6 +334,43 @@ section("THE DRAWDOWN AND THE CHART: MARKED VALUE, WITH DEPOSITS, WITHDRAWALS AN
   ok("with no time for the final point, the marked value still counts in the drawdown", buildLedger(ev, { marks: down }).maxDrawdownPct === 81 && buildLedger(ev, { marks: down }).equity.length === 2);
 }
 
+section("A COIN THAT STOPS QUOTING NEVER KEEPS ITS LAST GOOD PRICE (THE CONTRACT'S STALE RULE)");
+{
+  /* deposit 1, buy 0.9 of X; X is quoted at 1.8 on day 3 and never again (its pool pulled) */
+  const base = [
+    { kind: "deposit", t: day(1), slot: 1, lamports: SOL },
+    { kind: "trade", side: "buy", t: day(2), slot: 2, mint: MA, decimals: 6, tokens: 1_000n, sol: 900_000_000n, fee: 0n },
+  ];
+  const lastMarks = new Map([[MA, { lamports: 1_800_000_000n, tokens: 1_000n, at: day(3) }]]);
+  const snapshots = [{ t: day(3), marks: { [MA]: { lamports: "1800000000", tokens: "1000" } } }];
+  const at = (now) => buildLedger(base, { lastMarks, snapshots, now });
+  const fresh = at(day(3, 0, 30)), hour = at(day(3, 5)), gone = at(day(33));
+  ok("half an hour after its quote: valued at the quote (1.8), priced, markAt the quote's time", fresh.positions[0].value === 1_800_000_000n && fresh.positions[0].priced && fresh.positions[0].markAt === day(3) && fresh.unpricedPositions === 0);
+  ok("five hours after: no price; valued at the lower of its last price and its cost (0.9)", hour.positions[0].value === 900_000_000n && !hour.positions[0].priced && hour.positions[0].mark === null && hour.unpricedPositions === 1);
+  ok("thirty days after: valued at 0; the portfolio is the 0.1 of cash, the return −90%, and the fall from 1.9 a 94.74% drawdown",
+    gone.positions[0].value === 0n && gone.portfolio === 100_000_000n && gone.unrealized === -900_000_000n && gone.roiPct === -90 && gone.maxDrawdownPct === 94.74, `${gone.portfolio} ${gone.roiPct} ${gone.maxDrawdownPct}`);
+  ok("…the fall is on the chart too, not hidden until a quote returns", equitySeries({ ledger: gone }).at(-1).portfolioSol === "0.1");
+  const p7 = periodTradingPnl(gone, Date.parse(day(33)) - 7 * 86_400_000);
+  ok("…and a week on day 33 shows no change (the value was already 0 a week before), where the fall is in the 30 days", p7.pnl === 0n && periodTradingPnl(gone, Date.parse(day(33)) - 30 * 86_400_000).pnl === -1_800_000_000n, `${p7.pnl}`);
+  const back = buildLedger(base, { lastMarks, snapshots, marks: new Map([[MA, { lamports: 450_000_000n, tokens: 1_000n }]]), now: day(33) });
+  ok("a quote returns: valued at it again (0.45), priced, markAt now", back.positions[0].value === 450_000_000n && back.positions[0].priced && back.positions[0].markAt === day(33));
+  const never = buildLedger(base, { now: day(2, 0, 30) });
+  ok("a position never quoted: priced false and markAt null; at its fill for the first day, then 0", never.positions[0].value === 900_000_000n && !never.positions[0].priced && never.positions[0].markAt === null
+    && buildLedger(base, { now: day(3, 1) }).positions[0].value === 0n);
+
+  /* what the contract prints */
+  const agent = { id: 1, name: "Agent Rug", cat: "crying-cat", skin: "standard", strategy: "crying-cat-safe", mode: "live", status: "active", wallet: addr(190), hiredAt: day(1), coinMint: null,
+    limits: { maxPerTradeSol: "0.05", maxOpenPositions: 3, stopLossPct: 8, takeProfitPct: 15, trailingStopPct: 5, dailyLossLimitSol: "0.1" } };
+  const stub = { getCoin: () => null, getRank: () => "recruit", listDecisions: () => [], listTrades: () => [], listPromotions: () => [] };
+  const d = agentDetail({ agent, view: { ledger: gone, rank: "recruit" }, db: stub, symbolOf: () => "X" });
+  ok("the dossier: valueSol 0, price and pnlPct null, markAt the last quote's time; stats count it unpriced", d.positions[0].valueSol === "0" && d.positions[0].price === null && d.positions[0].pnlPct === null
+    && d.positions[0].markAt === day(3) && d.stats.unpricedPositions === 1 && d.stats.portfolioSol === "0.1" && d.stats.roiPct === "-90");
+  ok("…in the contract's shape", validate(SCHEMAS.AgentDetail, d).length === 0, JSON.stringify(validate(SCHEMAS.AgentDetail, d)).slice(0, 300));
+  const df = agentDetail({ agent, view: { ledger: fresh, rank: "recruit" }, db: stub, symbolOf: () => "X" });
+  ok("…and priced, a position has its price, its pnlPct and its markAt", df.positions[0].price !== null && df.positions[0].pnlPct === "100" && df.positions[0].markAt === day(3) && df.stats.unpricedPositions === 0 && validate(SCHEMAS.AgentDetail, df).length === 0);
+  ok("the schema refuses a price with no markAt, and a price shown with no percentage", validate(SCHEMAS.Position, { ...df.positions[0], markAt: null }).length > 0 && validate(SCHEMAS.Position, { ...df.positions[0], pnlPct: null }).length > 0);
+}
+
 section("A PERIOD'S RETURN: REALIZED IN IT PLUS THE CHANGE IN UNREALIZED, OVER WHAT WAS DEPOSITED; FEES NEVER");
 {
   const now = Date.UTC(2026, 8, 25);
@@ -328,8 +383,8 @@ section("A PERIOD'S RETURN: REALIZED IN IT PLUS THE CHANGE IN UNREALIZED, OVER W
     { kind: "deposit", t: day(5), slot: 1, lamports: SOL },
     { kind: "trade", side: "buy", t: day(5, 1), slot: 2, mint: MA, decimals: 6, tokens: 1_000n, sol: 900_000_000n, fee: 0n },
   ];
-  const L = buildLedger(ev, { marks: new Map([[MA, { lamports: 990_000_000n, tokens: 1_000n }]]), snapshots: [{ t: day(17), marks: { [MA]: { lamports: "945000000", tokens: "1000" } } }], now: day(25) });
-  ok("an open position up 5% eight days ago and 10% now: 4.5% over 7d (the change in unrealized), 9% over 30d and all time",
+  const L = buildLedger(ev, { marks: new Map([[MA, { lamports: 990_000_000n, tokens: 1_000n }]]), snapshots: [{ t: day(17, 23, 30), marks: { [MA]: { lamports: "945000000", tokens: "1000" } } }], now: day(25) });
+  ok("an open position up 5% just before the week began and 10% now: 4.5% over 7d (the change in unrealized), 9% over 30d and all time",
     board(L, "roi", "7d") === "4.5" && board(L, "roi", "30d") === "9" && board(L, "roi", "all") === "9" && L.roiPct === 9, ["7d", "30d", "all"].map((p) => board(L, "roi", p)).join());
   ok("…and nothing realized: 0 by=pnl", board(L, "pnl", "7d") === "0" && board(L, "pnl", "all") === "0");
   const P = periodTradingPnl(L, now - 7 * 86_400_000);

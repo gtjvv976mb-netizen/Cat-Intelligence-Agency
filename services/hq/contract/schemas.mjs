@@ -98,7 +98,7 @@ const Trade = { oneOf: [
 ] };
 /* Only the P&L can be negative; careerRealizedSol is the profit the rank counts (a loss counts as none). */
 const Stats = obj({ balanceSol: sol0, portfolioSol: sol0, realizedPnlSol: sol, unrealizedPnlSol: sol, careerRealizedSol: sol0, feesClaimedSol: sol0, depositedSol: sol0,
-  withdrawnSol: sol0, trades: count, wins: count, losses: count, maxDrawdownPct: pct0, roiPct: nullable(pct) });
+  withdrawnSol: sol0, trades: count, wins: count, losses: count, maxDrawdownPct: pct0, roiPct: nullable(pct), unpricedPositions: count });
 const agentFields = {
   id: agentId, number: { type: "string", pattern: PATTERNS.number3 }, name: text(TEXT_LIMITS.agentName),
   cat: { type: "string", pattern: PATTERNS.sprite }, skin: { type: "string", pattern: PATTERNS.sprite },
@@ -108,10 +108,17 @@ const agentFields = {
   wallet: address, hiredAt: iso, stats: Stats,
 };
 const Agent = obj(agentFields);
+/* A position: priced by a quote under an hour old (price, pnlPct and markAt set), or not (price
+   and pnlPct null; markAt the last quote's time, or null if it never had one). */
+const positionFields = { mint: address, symbol: text(TEXT_LIMITS.symbol), costSol: sol0, valueSol: sol0, entryPrice: units0, pnlSol: sol, openedAt: iso };
+const Position = { oneOf: [
+  obj({ ...positionFields, price: units0, pnlPct: pct, markAt: iso }),
+  obj({ ...positionFields, price: { type: "null" }, pnlPct: { type: "null" }, markAt: nullable(iso) }),
+] };
 const AgentDetail = obj({
   ...agentFields,
   limits: obj({ maxPerTradeSol: sol0, maxOpenPositions: { type: "integer", minimum: 1 }, stopLossPct: pct0, takeProfitPct: pct0, trailingStopPct: nullable(pct0), dailyLossLimitSol: sol0 }),
-  positions: { type: "array", items: obj({ mint: address, symbol: text(TEXT_LIMITS.symbol), costSol: sol0, valueSol: sol0, entryPrice: units0, price: nullable(units0), pnlSol: sol, pnlPct: nullable(pct), openedAt: iso }) },
+  positions: { type: "array", items: Position },
   decisions: { type: "array", items: Decision },
   trades: { type: "array", items: Trade },
   equity: { type: "array", items: obj({ t: iso, portfolioSol: sol0 }) },
@@ -133,7 +140,9 @@ const Fee = obj({ agentId, t: iso, sol: sol0, tx: sig });
 const perks = { type: "array", items: text(TEXT_LIMITS.perk) };
 
 export const SCHEMAS = Object.freeze({
-  Decision, Trade, RugCheck, Agent, AgentDetail, ModeSummary, Summary, BuybackItem, Promotion, Fee,
+  Decision, Trade, RugCheck, Agent, AgentDetail, Position, ModeSummary, Summary, BuybackItem, Promotion, Fee,
+  /* the stream's first event when it cannot resume from the client's Last-Event-ID */
+  Reset: obj({}),
   Agents: obj({ agents: { type: "array", items: Agent } }),
   Desk: obj({ items: { type: "array", items: { oneOf: [Decision, Trade] } }, next: nullable({ type: "string", pattern: PATTERNS.cursor }) }),
   /* value: a percentage (by=roi) or SOL (by=pnl), both in SOL's format; rows best first */
@@ -154,7 +163,7 @@ export const SCHEMAS = Object.freeze({
   Error: obj({ error: str, message: str }),
 });
 /** What each stream event's data is. */
-export const STREAM_EVENTS = Object.freeze({ trade: "Trade", decision: "Decision", promotion: "Promotion", buyback: "BuybackItem", fee: "Fee", summary: "Summary" });
+export const STREAM_EVENTS = Object.freeze({ trade: "Trade", decision: "Decision", promotion: "Promotion", buyback: "BuybackItem", fee: "Fee", summary: "Summary", reset: "Reset" });
 
 /** Errors of `value` against `schema` ([] when it conforms): [{ path, message }]. */
 export function validate(schema, value, path = "$") {

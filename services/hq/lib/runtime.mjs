@@ -126,7 +126,8 @@ export function createRuntime({
           marks: new Map([...marks].filter(([mint]) => ledger.positions.some((x) => x.mint === mint))) });
       }
     });
-    const tradingEquity = ledger.portfolio - ledger.netDeposits - ledger.feesClaimed - ledger.other;
+    /* the day's trading measure values positions at their latest price, never by the stale rule */
+    const tradingEquity = ledger.portfolioAtLatest - ledger.netDeposits - ledger.feesClaimed - ledger.other;
     const dayKey = `day:${agent.id}:${mode}`;
     const day = rollDay({ prev: db.getKv(dayKey), nowMs: now, tradingEquity, limits: agent.limits });
     db.setKv(dayKey, day);
@@ -303,7 +304,8 @@ export function createRuntime({
     const out = [];
     const positions = view.ledger.positions.map((p) => {
       const st = db.getPositionState(agent.id, agent.mode, p.mint) ?? {};
-      const value = p.priced ? p.value : null;
+      /* the protections act on this tick's quote only, never on a kept or a stale one */
+      const value = p.quotedNow ? p.value : null;
       const peak = value !== null ? (BigInt(st.peak ?? 0) > value ? BigInt(st.peak ?? 0) : value) : (st.peak ? BigInt(st.peak) : null);
       if (value !== null && peak !== null && String(peak) !== st.peak) db.setPositionState(agent.id, agent.mode, p.mint, { ...st, peak: String(peak) });
       return { mint: p.mint, cost: p.cost, value, peak };

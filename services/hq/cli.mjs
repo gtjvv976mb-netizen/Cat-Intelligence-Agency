@@ -17,6 +17,11 @@
  *   node services/hq/cli.mjs agent withdraw <id> <sol|all>        (to HQ_TREASURY_ADDRESS, only there)
  *   node services/hq/cli.mjs kill on|off
  *   node services/hq/cli.mjs coin register <mint> [--agent <id>]
+ *   node services/hq/cli.mjs intents                                 (the in-flight markers still open)
+ *   node services/hq/cli.mjs intent resolve <id> [--landed]         (settled from the chain; --landed closes
+ *        one the chain says landed but whose transaction cannot be read back yet)
+ *   node services/hq/cli.mjs buybacks                                (the latest buybacks and their states)
+ *   node services/hq/cli.mjs buyback abandon <id>  |  buyback retry <id>
  *   node services/hq/cli.mjs coins   |   status
  */
 import { pathToFileURL } from "node:url";
@@ -42,6 +47,8 @@ export function commandFor({ pos, flags }) {
   const [area, verb, id, arg] = pos;
   if (area === "kill") return { op: "kill", on: verb === "on" ? true : verb === "off" ? false : (() => { throw new AdminError("bad_request", "kill on | kill off"); })() };
   if (area === "coin" && verb === "register") return { op: "coin.register", mint: id, ...(flags.agent !== undefined ? { agentId: Number(flags.agent) } : {}) };
+  if (area === "intent" && verb === "resolve") return { op: "intent.resolve", id, ...(flags.landed === true ? { acceptLanded: true } : {}) };
+  if (area === "buyback" && (verb === "abandon" || verb === "retry")) return { op: `buyback.${verb}`, id };
   if (area !== "agent") return null;
   switch (verb) {
     case "create": return { op: "agent.create", name: flags.name, strategy: flags.strategy, ...(flags.cat ? { cat: flags.cat } : {}), ...(flags.number ? { number: Number(flags.number) } : {}),
@@ -74,6 +81,14 @@ async function main(argv = process.argv.slice(2)) {
       return 0;
     }
     if (area === "coins") { console.log(JSON.stringify(db.listCoins(), null, 2)); return 0; }
+    if (area === "intents") {
+      for (const i of db.openIntents()) console.log(`${i.id}  ${i.state.padEnd(8)} ${String(i.kind).padEnd(12)} ${i.wallet}  ${i.signature ?? "(not signed)"}  since ${i.created_at}`);
+      return 0;
+    }
+    if (area === "buybacks") {
+      for (const b of db.listBuybacks(20)) console.log(`${b.id}  ${b.t}  ${b.state.padEnd(10)} legs ${b.legSigs.length}  spent ${b.sol_spent ?? "-"}  ${b.detail?.clause ?? ""}`);
+      return 0;
+    }
     if (area === "agent" && verb === "list") {
       for (const a of db.listAgents()) console.log(`${String(a.id).padStart(3, "0")}  ${a.name.padEnd(24)} ${a.strategy.padEnd(16)} ${a.mode.padEnd(6)} ${a.status.padEnd(8)} ${a.wallet}`);
       return 0;

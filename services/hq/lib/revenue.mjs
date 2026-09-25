@@ -72,6 +72,9 @@ export async function runSweeps({ config, db, rpc, executor, eventsFor, log = ()
   const out = [];
   for (const agent of liveAgents(db)) {
     try {
+      /* a sweep is sized from the ledger: none while a transaction of the wallet is in flight or
+         landed but not yet read back into it */
+      if (executor.inFlight?.(agent.wallet)) { out.push({ agentId: agent.id, why: "a transaction of its wallet is in flight or not yet read back" }); continue; }
       const ledger = buildLedger(eventsFor(agent, "live"));
       const due = sweepDue(ledger);
       const spendable = ledger.cash - config.agentReserve - 200_000n;

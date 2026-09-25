@@ -66,9 +66,11 @@ CREATE TABLE IF NOT EXISTS intents (
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, detail_json TEXT);
 CREATE INDEX IF NOT EXISTS intents_open ON intents (state, wallet);
 CREATE UNIQUE INDEX IF NOT EXISTS intents_sig ON intents (signature) WHERE signature IS NOT NULL;
--- one open marker per wallet, across every process that opens this file (the server, the CLI):
--- the insert is the check
-CREATE UNIQUE INDEX IF NOT EXISTS intents_one_open ON intents (wallet) WHERE state IN ('prepared','signed','sent','landed');
+-- one marker in flight per wallet, across every process that opens this file (the server, the
+-- CLI): the insert is the check. A marker that landed (confirmed, not yet read back) is not in
+-- flight: it holds the wallet's ledger-driven transactions in the executor, not its protections.
+DROP INDEX IF EXISTS intents_one_open;
+CREATE UNIQUE INDEX IF NOT EXISTS intents_one_inflight ON intents (wallet) WHERE state IN ('prepared','signed','sent');
 CREATE TABLE IF NOT EXISTS chain_txs (
   address TEXT NOT NULL, signature TEXT NOT NULL, slot INTEGER NOT NULL, block_time INTEGER,
   err INTEGER NOT NULL, tx_json TEXT, PRIMARY KEY (address, signature));
@@ -258,6 +260,8 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
         .run(address, signature, Number(slot), blockTime ?? null, err ? 1 : 0, tx === null ? null : JSON.stringify(tx));
     },
     hasChainTx: (address, signature) => Boolean(q("SELECT 1 AS x FROM chain_txs WHERE address = ? AND signature = ?").get(address, signature)),
+    /** One cached transaction ({ signature, slot, err (0/1), tx }), or null. */
+    getChainTx: (address, signature) => { const r = q("SELECT * FROM chain_txs WHERE address = ? AND signature = ?").get(address, signature); return r ? { ...r, tx: json(r.tx_json, null) } : null; },
     listChainTxs: (address) => q("SELECT * FROM chain_txs WHERE address = ? ORDER BY slot, signature").all(address).map((r) => ({ ...r, tx: json(r.tx_json, null) })),
     getCursor: (address) => { const r = plain(q("SELECT * FROM index_cursor WHERE address = ?").get(address)); if (r) r.resume = json(r.resume_json, null); return r; },
     /** `resume`: a stretch of history still to read ({ before, until, newest }), or null. */
@@ -337,6 +341,8 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
     },
     eventsAfter: (id, limit = 500) => q("SELECT * FROM events WHERE id > ? ORDER BY id LIMIT ?").all(Number(id), limit).map((r) => ({ id: r.id, t: r.t, kind: r.kind, data: json(r.data_json, null) })),
     lastEventId: () => q("SELECT MAX(id) AS m FROM events").get()?.m ?? 0,
+    /** The oldest event the log still keeps (null when it keeps none). */
+    firstEventId: () => q("SELECT MIN(id) AS m FROM events").get()?.m ?? null,
     pruneEvents(keep = 5000) { const last = api.lastEventId(); q("DELETE FROM events WHERE id <= ?").run(last - keep); },
 
     /* ── small state ── */

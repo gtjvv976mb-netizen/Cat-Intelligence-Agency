@@ -128,6 +128,7 @@ Optional, when you want them:
 | `HQ_BUYBACK_DESTINATION` | `burn` (bought $CIA is burned) or `treasury` (kept) | `treasury` |
 | `HQ_BUYBACK_SLIPPAGE_BPS` | slippage per buyback leg, in basis points | `100` |
 | `HQ_BUYBACK_MAX_IMPACT_PCT` | a buyback leg with more price impact is refused | `3` |
+| `HQ_BUYBACK_LEG_TRIES` | runs a buyback's second swap may be refused (or its burn fail) before that buyback is stopped and the next one can run (step 9) | `4` |
 | `HQ_TREASURY_RESERVE_SOL` | SOL the treasury always keeps | `0.05` |
 | `HQ_PAPER_BANKROLL_SOL` | pretend SOL a new paper agent starts with | `1` |
 | `HQ_AGENT_RESERVE_SOL` | SOL an agent never trades (fees, rent) | `0.01` |
@@ -138,7 +139,7 @@ Optional, when you want them:
 | `HQ_INDEX_INTERVAL_SECONDS` / `HQ_MAX_HISTORY_PAGES` | how often wallets are re-read / how far back a wallet's history is read | `60` / `20` |
 | `HQ_AGENCY_LAUNCHES_URL` | the site's list of CashCat launches (never bought) | the site's `launches.json` |
 | `HQ_RATE_READ_PER_MIN`, `HQ_RATE_PERKS_PER_MIN`, `HQ_RATE_ADMIN_PER_MIN` | per-visitor limits a minute | `240`, `12`, `12` |
-| `HQ_STREAMS_PER_NETWORK`, `HQ_STREAMS_TOTAL` | live streams open at once per visitor network (an IPv4 /24, an IPv6 /64), and in all | `8`, `300` |
+| `HQ_STREAMS_PER_NETWORK`, `HQ_STREAMS_TOTAL` | live streams open at once per visitor network (an IPv4 /24, an IPv6 /48), and in all | `8`, `300` |
 | `HQ_STREAM_MAX_SECONDS` | a live stream ends after this long and the page reconnects where it was (10 to 300) | `300` |
 | `HQ_SERVER_ID` | the name your signed commands are for (step 10); set it only for a second HQ, such as a test copy, to that copy's API host | `api.catintelligenceagency.com` |
 | `HQ_ADMIN_MAX_SKEW_SECONDS` | how old a signed admin command may be | `300` |
@@ -248,6 +249,26 @@ From the fastest to the most final:
 - **Turn HQ off**: Railway → Deployments → ⋮ → Remove. Nothing runs; the volume keeps the
   records. The agent wallets are still yours: import the 24 words into Phantom and agent *N* is
   account *N*.
+
+### When something is stuck
+
+HQ writes a marker before it signs anything and settles it from the chain on every pass (a
+minute), so a slow or failed RPC normally sorts itself out. If one does not:
+
+- **A wallet that has been "in flight" for a long time**: `node services/hq/cli.mjs intents`
+  lists the open markers (id, state, wallet, signature). `node services/hq/cli.mjs intent resolve
+  <id>` asks the chain about that one now: a marker that was never signed is closed (nothing was
+  sent); a signed one is closed as landed, failed or expired only when the chain says so, and
+  otherwise stays open. A marker in state `landed` means the transaction is on chain but your RPC
+  will not return it yet; while it lasts, stop losses and withdrawals still go, but no buy or
+  sweep does. Look the signature up on Solscan; if it is there, `intent resolve <id> --landed`
+  closes it on the chain's word, and HQ reads the transaction when the RPC returns it.
+- **A buyback stuck between its two swaps**: `node services/hq/cli.mjs buybacks` lists them. HQ
+  tries the second swap (HYPE → $CIA) on each run and, after `HQ_BUYBACK_LEG_TRIES` refusals (a
+  burn: that many failures), stops that buyback and moves on; the HYPE stays in the treasury and
+  the buyback says how much. `buyback retry <id>` takes a stopped one up again on the next run;
+  `buyback abandon <id>` stops one now (a swap or burn the chain has not settled yet is left to
+  the next run first). Nothing here deletes a record.
 
 ## 10. Optional: signed commands from your computer
 

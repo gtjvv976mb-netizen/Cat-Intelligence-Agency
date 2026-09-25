@@ -247,6 +247,27 @@ section("A CURVE BUY'S CEILING IS HELD TO THE SIZE THE LIMITS ALLOWED");
   ok("a deliverable plan at the size: bought", fine.ok === true && db.listTrades(4, "paper").length === 1);
 }
 
+section("A COIN THAT STOPS QUOTING: SHOWN AT THE STALE RULE, BUT NO STOP SELLS ON IT AND NO DAY TRIPS ON IT");
+{
+  const M = addr(90);
+  const clock = testClock();
+  const markMap = new Map([[M, { lamports: 60_000_000n, tokens: 50_000_000_000n, source: "test" }]]);
+  const rig = await paperRig({ clock, marks: markMap, agents: [{ id: 6, limits: normalizeLimits({ stopLossPct: 10, takeProfitPct: 50, trailingStopPct: null, dailyLossLimitSol: "0.03" }, TEST_LIMITS) }] });
+  const { runtime, db } = rig;
+  db.upsertTrade({ id: "paper:stale", agentId: 6, mode: "paper", t: new Date(clock()).toISOString(), side: "buy", mint: M, decimals: 6, sol: 50_055_000n, tokens: 50_000_000_000n, fee: 55_000n, trigger: "strategy" });
+  const v1 = await runtime.refresh(6);
+  ok("quoted now: valued at the quote, priced", v1.ledger.positions[0].value === 60_000_000n && v1.ledger.positions[0].priced && v1.ledger.positions[0].quotedNow);
+  markMap.clear();                                   /* no source prices it any more */
+  clock.advance(25 * 3_600_000);
+  const out = await runtime.runExits(db.getAgent(6));
+  const v2 = runtime.viewOf(6);
+  ok("a day later, unquoted: the dossier's value is 0 and it counts as unpriced", v2.ledger.positions[0].value === 0n && !v2.ledger.positions[0].priced && v2.ledger.unpricedPositions === 1);
+  ok("…but no stop loss fires on that 0 (the protections act on a quote this tick only), and the day does not trip on it", out.length === 0 && v2.day.tripped === false && db.listTrades(6, "paper").length === 1, JSON.stringify(out));
+  markMap.set(M, { lamports: 40_000_000n, tokens: 50_000_000_000n, source: "test" });
+  const back = await runtime.runExits(db.getAgent(6));
+  ok("a quote returns 20% under its cost: the stop loss sells on it", back.length === 1 && back[0].trigger === "stop_loss" && back[0].result.ok === true);
+}
+
 section("THE PROTECTIONS SELL WHILE PAUSED AND UNDER THE KILL SWITCH");
 {
   const M = addr(70);

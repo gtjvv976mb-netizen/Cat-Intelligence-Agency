@@ -24,7 +24,8 @@ import path from "node:path";
 import bs58 from "bs58";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { harness, ROOT } from "./bots/test/doubles.mjs";
-import { buybackBudget, buybackPath, treasuryFlows, readCia, assertCiaFacts, runBuyback, buybackItem, BUYBACK_FEE_ROOM } from "./services/hq/lib/buyback.mjs";
+import { buybackBudget, buybackPath, treasuryFlows, readCia, assertCiaFacts, runBuyback, buybackItem, outcomeOf, BUYBACK_FEE_ROOM } from "./services/hq/lib/buyback.mjs";
+import { executeAdminCommand } from "./services/hq/lib/admin.mjs";
 import { readConfig, CIA_MINT, CIA_FACTS, ConfigError } from "./services/hq/lib/config.mjs";
 import { memoFor, MEMO_PROGRAMS } from "./services/hq/lib/classify.mjs";
 import { buybacksObject, treasuryObject, summaryObject } from "./services/hq/lib/views.mjs";
@@ -163,8 +164,15 @@ function treasuryTx(signature, { native = -FEE, tokens = [] }) {
   tokens.forEach((t, i) => { const w = t.mint === WSOL_MINT; balances[keys[i + 1]] = [RENT + (w ? BigInt(t.pre) : 0n), RENT + (w ? BigInt(t.post) : 0n)]; });
   return jsonTx({ signature, slot: ++slotN, blockTime: 1_790_000_000 + slotN, keys, balances, tokens: tokens.map((t, i) => ({ index: i + 1, owner: treasury, mint: t.mint, decimals: t.mint === WSOL_MINT ? 9 : 6, pre: t.pre, post: t.post })) });
 }
-function scriptedTreasury(db, { delivered, calls = [], legFails = () => null, lands = () => true } = {}) {
+function scriptedTreasury(db, { delivered, calls = [], legFails = () => null, lands = () => true, failsOnChain = () => false } = {}) {
   const land = (signature, shape) => { const tx = treasuryTx(signature, shape); if (lands(signature, shape)) db.putChainTx({ address: treasury, signature, slot: tx.slot, blockTime: tx.blockTime, err: false, tx }); return tx; };
+  /* a transaction that failed on chain: its fee paid, nothing moved; the indexer stores it (err) */
+  const fail = (signature, what) => {
+    const tx = treasuryTx(signature, {});
+    tx.meta.err = { InstructionError: [2, { Custom: 6001 }] };
+    db.putChainTx({ address: treasury, signature, slot: tx.slot, blockTime: tx.blockTime, err: true, tx });
+    throw new ExecutionError("failed_on_chain", `${what} ${signature} failed on chain`, { signature });
+  };
   return {
     calls, pending: new Map(),
     async wrap({ owner, lamports, onSigned }) {
@@ -177,6 +185,7 @@ function scriptedTreasury(db, { delivered, calls = [], legFails = () => null, la
       const pre = legFails(a, "pre");
       if (pre) throw pre;                                             /* refused before any signature */
       const signature = fakeSig(); await a.onSigned?.(signature);
+      if (failsOnChain("swap", a)) fail(signature, "buyback_leg");
       const shape = { tokens: [{ mint: a.pay.mint, pre: a.amountRaw, post: 0n }, { mint: a.get.mint, pre: 0n, post: delivered[a.get.mint] }] };
       const post = legFails(a, "post", signature);
       if (post) { this.pending.set(signature, shape); throw post; }      /* signed and sent, no answer */
@@ -185,6 +194,7 @@ function scriptedTreasury(db, { delivered, calls = [], legFails = () => null, la
     async burn(a) {
       calls.push(["burn", a.owner.kind, a.mint, a.amountRaw, a.decimals]);
       const signature = fakeSig(); await a.onSigned?.(signature);
+      if (failsOnChain("burn", a)) fail(signature, "burn");
       return { signature, tx: land(signature, { tokens: [{ mint: a.mint, pre: a.amountRaw, post: 0n }] }) };
     },
     /* the chain answers at last: a leg that was in flight lands */
@@ -300,7 +310,7 @@ section("A BUYBACK THAT STOPPED BETWEEN ITS LEGS IS FINISHED FIRST, AND LISTED O
   const db = treasuryDb(clock);
   let broken = true;
   const executor = scriptedTreasury(db, { delivered, legFails: (a, when) => (when === "pre" && broken && a.get.mint === CIA_MINT ? Object.assign(new Error("leg two failed"), { clause: "simulation_failed" }) : null) });
-  const config = liveBuyback();
+  const config = liveBuyback({ HQ_BUYBACK_LEG_TRIES: "10" });
   const rpc = ciaRpc();
   const p1 = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
   ok("a run that stops after leg one: recorded with leg one's signature, waiting for leg two", p1.ran === false && db.listBuybacks()[0].state === "leg1_done" && db.listBuybacks()[0].legSigs.length === 1, p1.why);
@@ -321,4 +331,92 @@ section("A BUYBACK THAT STOPPED BETWEEN ITS LEGS IS FINISHED FIRST, AND LISTED O
   ok("…and on the stream once", db.eventsAfter(0, 100).filter((e) => e.kind === "buyback").length === 1);
 }
 
+
+section("A TRANSACTION THE CHAIN RECORDED AS FAILED IS NEVER TAKEN AS LANDED");
+{
+  /* leg one fails on chain (slippage) every time; the indexer stores each failed transaction */
+  const clock = testClock();
+  const db = treasuryDb(clock);
+  let wrapped = 0n;
+  const executor = scriptedTreasury(db, { delivered, failsOnChain: (kind, a) => kind === "swap" && a.get.mint === HYPE });
+  const inner = executor.wrap.bind(executor);
+  executor.wrap = async (a) => { wrapped += a.lamports; return inner(a); };
+  const rpc = ciaRpc({ wrapped: () => wrapped });
+  const config = liveBuyback();
+  const runs = [];
+  for (let i = 0; i < 3; i++) { clock.advance(3_600_000); runs.push(await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock })); }
+  const rows = db.listBuybacks(10);
+  ok("three runs, leg one failing on chain each time: each buyback is failed, with no legs, and the failed signature kept", rows.length === 3 && rows.every((b) => b.state === "failed" && b.legSigs.length === 0 && b.detail?.failedSigs?.length === 1 && db.getChainTx(treasury, b.detail.failedLeg)?.err === 1));
+  ok("…nothing is counted as spent on them, so the budget is still owed", db.buybackSpentTotal() === 0n && runs.every((r) => r.ran === false));
+  ok("…nothing is listed anywhere, and the SOL wrapped once is used again (one wrap)", buybacksObject({ db, config, limit: 50 }).items.length === 0 && executor.calls.filter((c) => c[0] === "wrap").length === 1
+    && !treasuryObject({ db, config, balances: null }).flows.some((f) => f.kind === "buyback"));
+  ok("the rule itself: a stored row with an error is failed, one without is landed, and one not stored waits for the chain",
+    outcomeOf({ db, treasury, signature: rows[0].detail.failedLeg }) === "failed" && outcomeOf({ db, treasury, signature: HISTORY[1].transaction.signatures[0] }) === "landed" && outcomeOf({ db, treasury, signature: fakeSig() }) === "pending");
+
+  /* leg two fails on chain once, then works: rolled back to leg one's HYPE, retried the next run */
+  const db2 = treasuryDb(clock);
+  let failLeg2 = 1;
+  const ex2 = scriptedTreasury(db2, { delivered, failsOnChain: (kind, a) => kind === "swap" && a.get.mint === CIA_MINT && failLeg2-- > 0 });
+  const cfg2 = liveBuyback({ HQ_BUYBACK_DESTINATION: "treasury" });
+  const f1 = await runBuyback({ config: cfg2, db: db2, rpc: ciaRpc(), executor: ex2, treasuryReady: "ok", clock });
+  const mid = db2.listBuybacks()[0];
+  ok("leg two failing on chain: back to leg one done (its HYPE still there), counted once, the next run tries again", f1.ran === false && mid.state === "leg1_done" && mid.legSigs.length === 1 && db2.buybackSpentTotal() === parseSol("0.05"));
+  const f2 = await runBuyback({ config: cfg2, db: db2, rpc: ciaRpc(), executor: ex2, treasuryReady: "ok", clock });
+  const fin = db2.listBuybacks()[0];
+  ok("…and finishes: one buyback, done, its SOL from the chain with the failed leg's fee in it", f2.ran === true && db2.listBuybacks().length === 1 && fin.state === "done" && fin.sol_spent === String(parseSol("0.05") + 4n * FEE), fin.sol_spent);
+
+  /* the burn fails on chain every time */
+  const db3 = treasuryDb(clock);
+  const ex3 = scriptedTreasury(db3, { delivered, failsOnChain: (kind) => kind === "burn" });
+  const cfg3 = liveBuyback({ HQ_BUYBACK_DESTINATION: "burn" });
+  const burns = [];
+  for (let i = 0; i < 3; i++) burns.push(await runBuyback({ config: cfg3, db: db3, rpc: ciaRpc(), executor: ex3, treasuryReady: "ok", clock }));
+  const b3 = db3.listBuybacks()[0];
+  ok("a burn that fails on chain: never published as the burn (no burnTx), tried again on the next run", b3.state === "bought" && b3.burn_sig === null && burns.every((r) => r.ran === false) && ex3.calls.filter((c) => c[0] === "burn").length === 3
+    && buybacksObject({ db: db3, config: cfg3, limit: 50 }).items[0].burnTx === null);
+  const last = await runBuyback({ config: cfg3, db: db3, rpc: ciaRpc(), executor: ex3, treasuryReady: "ok", clock });
+  const b3f = db3.listBuybacks()[0];
+  ok(`after HQ_BUYBACK_LEG_TRIES (${cfg3.buybackLegTries}) failed burns: done without it, the $CIA kept in the treasury, burnTx still null, and the next buyback can run`,
+    last.ran === true && b3f.state === "done" && b3f.burn_sig === null && /stays in the treasury/.test(b3f.detail.burnStopped) && db3.unfinishedBuyback() === null);
+  ok("…its solSpent counts the four failed burns' fees too (read from the chain)", b3f.sol_spent === String(parseSol("0.05") + 3n * FEE + 4n * FEE), b3f.sol_spent);
+  ok("…listed once, on the stream once", buybacksObject({ db: db3, config: cfg3, limit: 50 }).items.length === 1 && db3.eventsAfter(0, 100).filter((e) => e.kind === "buyback").length === 1);
+}
+
+section("A BUYBACK STUCK BETWEEN ITS LEGS IS STOPPED, AND THE ONES AFTER IT RUN");
+{
+  const clock = testClock();
+  const db = treasuryDb(clock);
+  let leg2Works = false;
+  const executor = scriptedTreasury(db, { delivered, legFails: (a, when) => (when === "pre" && !leg2Works && a.get.mint === CIA_MINT ? new ExecutionError("price_impact", "the quote's price impact is over the buyback's maximum") : null) });
+  const config = liveBuyback({ HQ_BUYBACK_DESTINATION: "treasury" });
+  const rpc = ciaRpc();
+  const runs = [];
+  for (let i = 0; i < config.buybackLegTries; i++) { clock.advance(86_400_000); runs.push(await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock })); }
+  const stuck = db.listBuybacks(10).at(-1);
+  ok(`leg two refused before signing on ${config.buybackLegTries} runs (HQ_BUYBACK_LEG_TRIES): the buyback is stopped, what leg one bought recorded as kept in the treasury`,
+    stuck.state === "stopped" && stuck.detail.clause === "leg2_refused" && stuck.detail.held?.mint === HYPE && stuck.detail.held.raw === String(delivered[HYPE]) && /stopped/.test(runs.at(-1).why), runs.at(-1).why);
+  ok("…its SOL stays counted as spent (it bought HYPE), and it is listed nowhere", db.buybackSpentTotal() === parseSol("0.05") && buybacksObject({ db, config, limit: 50 }).items.length === 0);
+  const next = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+  ok("the next run starts a new buyback (a new wrap and leg one), no longer held up by it", db.listBuybacks(10).length === 2 && executor.calls.filter((c) => c[0] === "wrap").length === 2 && db.listBuybacks(10)[0].state === "leg1_done", next.why);
+
+  /* the owner's commands */
+  const run = (command) => executeAdminCommand(command, { source: "test", deps: { db, config } });
+  const refused = async (command) => { try { await run(command); return null; } catch (e) { return e.clause; } };
+  const newer = db.listBuybacks(10)[0];
+  const ab = await run({ op: "buyback.abandon", id: newer.id });
+  ok("buyback.abandon on one waiting for its second leg: stopped, the HYPE it holds recorded, and it frees the way", ab.to === "stopped" && db.getBuyback(newer.id).state === "stopped" && db.getBuyback(newer.id).detail.held?.mint === HYPE && db.unfinishedBuyback() === null);
+  const rt = await run({ op: "buyback.retry", id: stuck.id });
+  ok("buyback.retry takes a stopped one up again at its second leg", rt.to === "leg1_done" && db.getBuyback(stuck.id).state === "leg1_done" && db.getBuyback(stuck.id).detail.leg2Refusals === 0);
+  leg2Works = true;
+  const done = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+  ok("…and the next run finishes it: HYPE → $CIA, done, listed", done.ran === true && db.getBuyback(stuck.id).state === "done" && buybacksObject({ db, config, limit: 50 }).items.length === 1);
+  ok("abandon refuses a finished buyback, one that does not exist, and retry one that is not stopped", await refused({ op: "buyback.abandon", id: stuck.id }) === "finished" && await refused({ op: "buyback.abandon", id: "nope" }) === "no_buyback" && await refused({ op: "buyback.retry", id: stuck.id }) === "not_retryable");
+  const inflight = db.createBuyback({ id: "inflight-1", state: "leg1_sent" });
+  db.updateBuyback(inflight.id, { legSigs: [fakeSig()], solSpent: parseSol("0.05") });
+  ok("…and one whose leg is in the chain's hands: the next run settles that first", await refused({ op: "buyback.abandon", id: inflight.id }) === "in_flight" && db.getBuyback(inflight.id).state === "leg1_sent");
+  const bought = db.createBuyback({ id: "bought-1", state: "bought" });
+  db.updateBuyback(bought.id, { legSigs: [fakeSig(), fakeSig()], solSpent: parseSol("0.05"), ciaBought: 5n, detail: { boughtAt: "2026-09-25T13:00:00.000Z" } });
+  const abB = await run({ op: "buyback.abandon", id: bought.id });
+  ok("abandoning one bought but not yet burned: done, burnTx null, the $CIA kept, on the stream once", abB.to === "done" && db.getBuyback(bought.id).burn_sig === null && db.eventsAfter(0, 100).filter((e) => e.kind === "buyback" && e.data.tx === db.getBuyback(bought.id).legSigs[1]).length === 1);
+}
 done();

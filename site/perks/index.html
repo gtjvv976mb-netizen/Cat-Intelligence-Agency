@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-root="../" data-hq="offline">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<title>$CIA holder perks — Cat Intelligence Agency</title>
+<meta name="description" content="$CIA holder perks at the Cat Intelligence Agency: prove you hold $CIA with one message signature in Phantom, never a transaction, and see your tier, the agent skins and the vote on the next agent. Cosmetic or a say, never a head start.">
+<meta name="theme-color" content="#0b0716">
+<link rel="canonical" href="https://catintelligenceagency.com/perks/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cat Intelligence Agency">
+<meta property="og:title" content="$CIA holder perks — Cat Intelligence Agency">
+<meta property="og:description" content="One message signature, never a transaction: your $CIA tier, the agent skins, and a say in the next agent. Never early access to a pick or a trade.">
+<meta property="og:url" content="https://catintelligenceagency.com/perks/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seven pixel kittens lined up on a neon pixel floor under a night skyline, beside the title Cat Intelligence Agency: Popcat, Crying Cat, Grumpy Cat, the Director, CashCat and Snipurr in black suits, and CoinMarketCat in a purple hoodie">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="../assets/apple-touch-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<script>
+(function () {
+  let t = null;
+  try { t = localStorage.getItem("cc_theme"); } catch {}
+  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+})();
+</script>
+<script src="../assets/config.js"></script>
+<script>
+document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqApi ? "online" : "offline";
+</script>
+<link rel="stylesheet" href="../assets/home.css">
+<link rel="stylesheet" href="../assets/hq.css">
+</head>
+<body class="hq-page">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar"><div class="wrap">
+  <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+    <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+    <span class="name">Cat <em>Intelligence</em> Agency</span>
+  </a>
+  <nav class="navlinks" aria-label="Site">
+    <a class="floorlink" href="../floor/"><span class="long">The </span>Floor</a>
+    <a class="hqlink" href="../hq/">HQ</a>
+    <a class="opt" href="../#agents">Agents</a>
+    <a class="opt" href="../#cia">$CIA</a>
+    <a class="inv" href="../investors/">Investors</a>
+    <a class="dl" href="../downloads/">Download</a>
+    <a class="box" href="../coinmarketcat/">CoinMarketCat</a>
+    <button class="shift" id="shiftbtn" type="button" aria-label="Switch between night and day theme">&#9790;</button>
+  </nav>
+</div></header>
+
+<main id="main">
+<section class="hq-top plain" aria-labelledby="perks-title">
+  <div class="wrap">
+    <a class="crumb" href="../"><span aria-hidden="true">&lt;</span> The agency</a>
+    <div class="perks-head">
+      <div>
+        <p class="kicker" style="color:var(--gold)">$CIA holders</p>
+        <h1 id="perks-title">Holder <em>perks.</em></h1>
+        <p class="lead">Hold $CIA, prove it with one message signature, and get a look or a say: agent skins, and a vote on the next agent's name and strategy. Never money, never a head start: no perk is early access to a pick or a trade, because that would let holders trade ahead of everyone else.</p>
+      </div>
+      <div class="perks-cast" aria-hidden="true">
+        <img class="px" src="../assets/hq/skins/holder.png" width="178" height="211" style="--w:178px" alt="">
+        <img class="px" src="../assets/hq/skins/nightops.png" width="149" height="210" style="--w:149px" alt="">
+      </div>
+    </div>
+
+    <div class="coming when-offline perks-coming">
+      <p class="coming-tag">Coming online</p>
+      <h2 class="coming-title">The holder check opens with HQ.</h2>
+      <p>Agency HQ checks each signature and each balance, and it is not online yet, so there is nothing to connect to. The skins below are the looks the perks will unlock.</p>
+    </div>
+    <ol class="steps-3" id="steps" style="--accent:#14f195">
+      <li id="step-connect">
+        <h3>Connect Phantom.</h3>
+        <p>Phantom shares your wallet's public address with this page, and nothing else.</p>
+        <button class="btn mint" type="button" id="connect" disabled>Connect Phantom</button>
+        <p class="wallet-line" id="wallet-line"></p>
+      </li>
+      <li id="step-sign">
+        <h3>Sign one message.</h3>
+        <p>HQ sends a one-use message; Phantom shows it to you and signs it. A signature costs nothing and moves nothing.</p>
+        <pre class="sign-msg" id="challenge" hidden></pre>
+        <button class="btn gold" type="button" id="sign" disabled>Sign the message</button>
+      </li>
+      <li id="step-tier">
+        <h3>See your tier.</h3>
+        <p>HQ checks the signature and your $CIA balance on chain, and answers with your tier and your perks.</p>
+        <p class="wallet-line" id="tier-line"></p>
+      </li>
+    </ol>
+    <p class="perk-status fine" id="perk-status" role="status"></p>
+
+  </div>
+</section>
+
+<p class="past-strip"><span class="wrap"><b>Only a message signature, never a transaction.</b> This page never asks Phantom to send or approve a transaction, and never asks for your recovery phrase or your private key. Nobody from the agency will.</span></p>
+
+<section class="hq-sec perk-result" id="result" aria-labelledby="result-title" hidden>
+  <div class="wrap">
+    <div class="panel" style="--accent:#f5c542">
+      <h2 class="panel-title" id="result-title">Your tier <span class="aside-note" id="result-note"></span></h2>
+      <div class="tier"><p class="tier-name" id="tier-name"></p><p class="wallet-line" id="tier-balance"></p></div>
+      <ul class="perk-list" id="perk-list"></ul>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec alt" id="tiers" aria-labelledby="tiers-title">
+  <div class="wrap">
+    <p class="kicker">The tiers</p>
+    <h2 id="tiers-title">What each tier <em>needs.</em></h2>
+    <p class="sub">The owner sets the tiers and the $CIA each needs; this page shows them as HQ sends them, and never writes a threshold of its own. A tier is a look or a say, never money and never a head start.</p>
+    <div class="tiers" id="tier-list">
+      <p class="board-empty">The tiers, with the $CIA each needs and the perks it brings, are listed here once HQ is online.</p>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec" id="skins" aria-labelledby="skins-title">
+  <div class="wrap">
+    <p class="kicker">The looks</p>
+    <h2 id="skins-title">Agent <em>skins.</em></h2>
+    <p class="sub">Every agent wears its rank's skin; perks add looks of their own. A skin changes how an agent looks and nothing else: never its money, never its limits. Which skins your tier unlocks is in your perks, once HQ has checked them.</p>
+    <ul class="skins">
+      <li><div class="pad"><img class="px" src="../assets/hq/skins/recruit.png" width="74" height="106" alt="The agency's grey tabby agent kitten in a grey hoodie with a lanyard" loading="lazy"></div><h3>Recruit</h3><p>A grey hoodie and a lanyard.</p></li>
+      <li><div class="pad"><img class="px" src="../assets/hq/skins/field.png" width="83" height="106" alt="The grey tabby agent kitten in a trench coat and fedora, holding a magnifier" loading="lazy"></div><h3>Field Agent</h3><p>A trench coat, a fedora, a magnifier.</p></li>
+      <li><div class="pad"><img class="px" src="../assets/hq/skins/special.png" width="75" height="106" alt="The grey tabby agent kitten in a black suit, sunglasses and an earpiece" loading="lazy"></div><h3>Special Agent</h3><p>A black suit, sunglasses, an earpiece.</p></li>
+      <li><div class="pad"><img class="px" src="../assets/hq/skins/senior.png" width="85" height="106" alt="The grey tabby agent kitten in a navy suit with a gold tie and gold sunglasses, holding a holographic pass" loading="lazy"></div><h3>Senior Agent</h3><p>A navy suit, a gold tie, a holo pass.</p></li>
+      <li><div class="pad"><img class="px" src="../assets/hq/skins/director.png" width="81" height="108" alt="The grey tabby agent kitten in a suit, a violet cape and a crown" loading="lazy"></div><h3>Director's Office</h3><p>A suit, a violet cape, a crown.</p></li>
+      <li class="perk"><div class="pad"><img class="px" src="../assets/hq/skins/nightops.png" width="75" height="105" alt="The grey tabby agent kitten in black night-ops gear with green goggles and a radio" loading="lazy"></div><h3>Night Ops</h3><p>Night-ops gear and green goggles.</p><span class="lock">Perk skin</span></li>
+      <li class="perk"><div class="pad"><img class="px" src="../assets/hq/skins/holder.png" width="89" height="106" alt="The grey tabby agent kitten in a gold bomber jacket with a $CIA coin" loading="lazy"></div><h3>Holder</h3><p>A gold bomber jacket and a $CIA coin.</p><span class="lock">Perk skin</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="hq-sec alt" id="vote" aria-labelledby="vote-title">
+  <div class="wrap grid-2">
+    <div class="panel vote" style="--accent:#9945ff">
+      <span class="soon">Coming soon</span>
+      <h2 id="vote-title" class="coming-title" style="color:var(--text)">The vote on the next agent.</h2>
+      <p>Holders will vote on the next agent's name and its strategy. Agency HQ has no voting endpoint yet (its published contract lists none), so there is nothing to vote on here today, and this page does not pretend otherwise.</p>
+      <p>When there is, a vote will be one more message signature: never a transaction, never a fee.</p>
+    </div>
+    <div>
+      <p class="kicker">What this page asks for</p>
+      <ul class="never">
+        <li><span><b>Your public address,</b> when you click Connect.</span></li>
+        <li><span><b>One signature on one message</b> that HQ wrote, that names your wallet, and that you read in Phantom before you sign.</span></li>
+        <li><span><b>Nothing else.</b> No transaction, no approval, no permission beyond connecting, no recovery phrase, no private key. Disconnect whenever you like, in Phantom or here.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+        <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+        <span class="name">Cat <em>Intelligence</em> Agency</span>
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="../">The agency</a>
+        <a href="../floor/">The Floor</a>
+        <a href="../hq/">Agency HQ</a>
+        <a href="../investors/">Investors</a>
+        <a href="./">Perks</a>
+        <a href="../downloads/">Downloads</a>
+        <a href="../#cia">$CIA</a>
+        <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+    <div class="legal">
+      <p>Past results do not predict future results. Not financial advice.</p>
+      <p>Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.</p>
+      <p>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="../assets/hq-perks.js"></script>
+<script>
+(function shiftSwitch() {
+  const btn = document.getElementById("shiftbtn");
+  if (!btn) return;
+  const label = () => {
+    const day = document.documentElement.dataset.theme === "light";
+    btn.textContent = day ? "☀" : "☾";
+    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
+  };
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("cc_theme", next); } catch {}
+    label();
+  });
+  label();
+})();
+</script>
+</body>
+</html>

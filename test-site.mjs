@@ -1,11 +1,13 @@
 /**
  * THE WEBSITE SAYS WHAT THE CODE DOES, AND THE CONSOLE STAYS A BRIDGE.
  *
- * site/ is published to GitHub Pages at catintelligenceagency.com as five pages: the
+ * site/ is published to GitHub Pages at catintelligenceagency.com as nine pages: the
  * agency (site/index.html), its work floor (site/floor/index.html), the cat's own page
  * (site/coinmarketcat/index.html), the console the extension's content script attaches
- * to (site/console/index.html) and the downloads (site/downloads/index.html). This file pins
- * what those pages may and may not be:
+ * to (site/console/index.html), the downloads (site/downloads/index.html), and the four
+ * Agency HQ pages: HQ live (site/hq/), an agent's dossier (site/hq/agent/), Transparency
+ * (site/investors/) and the $CIA holder perks (site/perks/). This file pins what those pages
+ * may and may not be:
  *
  *   · THE AGENT'S NUMBERS ARE THE CODE'S. CoinMarketCat is the agentic trader now: its schedule,
  *     its ten-token universe and the majors preset, its settlement, every default limit, the $10 and
@@ -22,10 +24,13 @@
  *     the sender it trusts is the one content.mjs stamps, it posts to its own origin only,
  *     every element its script draws into exists, and it asks the extension for nothing
  *     but "are you there?" and "connect".
- *   · NO PAGE CAN SIGN, COLLECT OR SEND. No signing call, no wallet provider, no key word,
- *     no form or input, no network call, no external script, and localStorage holds the
- *     theme and nothing else. The one library the site ships, three.js for the 3D agency,
- *     is served from site/ itself and is byte for byte three@0.169.0.
+ *   · NO PAGE CAN SIGN, COLLECT OR SEND, WITH TWO NARROW, PINNED EXCEPTIONS. No transaction
+ *     signing anywhere, no key word, no form or input, no external script, no clipboard, and
+ *     localStorage holds the theme and nothing else. The exceptions: site/assets/hq-client.js
+ *     is the only file that may fetch or open an EventSource, and only to Agency HQ's origin
+ *     (see AGENCY HQ); site/assets/hq-perks.js is the only file that may reach Phantom, to
+ *     connect and to sign one message, never a transaction. The one library the site ships,
+ *     three.js for the 3D agency, is served from site/ itself and is byte for byte three@0.169.0.
  *   · THE 3D AGENCY IS SELF-HOSTED AND LIGHT. The import map points at site/, every file
  *     the scene loads exists, the pixel roster picture stands in when WebGL does not, and
  *     the home page weighs under 3.5 MB with everything it can load.
@@ -54,6 +59,12 @@
  *     come from downloads-data.js, the committed placeholder or, after the deploy packages the
  *     zips, a build's, which must match the zips byte for byte; the zips hold what the page says;
  *     the install guide is six plain steps; it is "not yet in the Chrome Web Store".
+ *   · AGENCY HQ IS LIVE, OR SAYS IT IS NOT. Its numbers come only from HQ, through one
+ *     module that calls one origin and checks every answer against docs/hq/API.md; with no
+ *     HQ configured every HQ page shows an honest "coming online" state and no number; the
+ *     ranks and strategies on the pages are the contract's; every page with HQ's numbers says
+ *     past results do not predict future results; HQ and Investors are in every bar, folded
+ *     only where measured to have no room; the HQ art is the kit's (brand/hq/).
  *   · THE KIT IS THE SEVEN-CAT KIT. CoinMarketCat is the hoodie tabby, Snipurr keeps its old art,
  *     the floor has seven desks, and every copy the site ships is the kit's, byte for byte or
  *     pixel for pixel.
@@ -89,7 +100,12 @@ const PAGES = {
   cat: path.join("coinmarketcat", "index.html"),
   console: path.join("console", "index.html"),
   downloads: path.join("downloads", "index.html"),
+  hq: path.join("hq", "index.html"),
+  agent: path.join("hq", "agent", "index.html"),
+  investors: path.join("investors", "index.html"),
+  perks: path.join("perks", "index.html"),
 };
+const HQ_PAGES = ["hq", "agent", "investors", "perks"];
 const html = Object.fromEntries(Object.entries(PAGES).map(([k, rel]) => [k, fs.readFileSync(path.join(SITE, rel), "utf8")]));
 
 const ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " ", "&#9790;": "☾" };
@@ -124,9 +140,9 @@ for (const [key, page] of Object.entries(html)) {
   ok(`${key}: og:url is this page on the domain`, ogUrl === PAGES_ORIGIN + PAGES[key].replace(/index\.html$/, "").split(path.sep).join("/"), ogUrl);
   ok(`${key}: the canonical link is og:url`, page.includes(`<link rel="canonical" href="${ogUrl}">`));
   ok(`${key}: the kit's favicons`,
-    /<link rel="icon" href="(\.\.\/)?assets\/favicon-32\.png" type="image\/png" sizes="32x32">/.test(page)
-      && /<link rel="icon" href="(\.\.\/)?assets\/favicon-64\.png" type="image\/png" sizes="64x64">/.test(page)
-      && /<link rel="apple-touch-icon" href="(\.\.\/)?assets\/apple-touch-180\.png">/.test(page));
+    /<link rel="icon" href="(\.\.\/)*assets\/favicon-32\.png" type="image\/png" sizes="32x32">/.test(page)
+      && /<link rel="icon" href="(\.\.\/)*assets\/favicon-64\.png" type="image\/png" sizes="64x64">/.test(page)
+      && /<link rel="apple-touch-icon" href="(\.\.\/)*assets\/apple-touch-180\.png">/.test(page));
   ok(`${key}: Archivo to read, JetBrains Mono for addresses`, /family=Archivo/.test(page) && /family=JetBrains\+Mono/.test(page));
   ok(`${key}: night first, the day shift stored under cc_theme`,
     /localStorage\.getItem\("cc_theme"\)/.test(page) && /t === "light" \? "light" : "dark"/.test(page)
@@ -163,18 +179,25 @@ ok("\"Download\" is in the site bar of every page, the downloads page's own mark
     && /<a class="dl" href="\.\.\/downloads\/">Download<\/a>/.test(barOf(html.cat)) && /<a class="floor dl" href="\.\.\/downloads\/">Download<\/a>/.test(barOf(html.console))
     && /<a class="dl" href="\.\/" aria-current="page">Download<\/a>/.test(barOf(html.downloads)) && /<a class="floorlink" href="\.\.\/floor\/">/.test(barOf(html.downloads)));
 ok("the bar folds \"Download\" away only at the widths where it has no room beside the rest",
-  homeCss.includes("@media (max-width:729px),(min-width:861px) and (max-width:939px){.navlinks a.dl{display:none}}")
-    && css.includes("@media (max-width:809px),(min-width:861px) and (max-width:1100px){.navlinks a.dl{display:none}}")
+  homeCss.includes("@media (max-width:839px){.navlinks a.dl{display:none}}")
+    && css.includes("@media (max-width:829px),(min-width:861px) and (max-width:1100px){.navlinks a.dl{display:none}}")
     && html.console.includes("@media (max-width:829px){nav a.dl{display:none}}"));
 /* Measured in Chromium with the pages' own fonts, every 10 px from 320 to 1920: a bar's brand
    used to shrink under its links, which were then drawn over its name (the cat's page at 1024,
    1280 and 1440; the console from 736 to 772; the home, floor and downloads pages from 461 to
-   640). Now the brand keeps its width, and each width shows the links that fit beside it. */
+   640). Now the brand keeps its width, and each width shows the links that fit beside it.
+   Measured again with Agency HQ and Investors in every bar: on the home.css pages the section
+   links show from 1000 px, Download from 840, Investors from 770, and the name stacks below
+   700; the cat's page shows three section links from 861 (four from 1101), HQ from 600 and
+   Investors from 1101; the console shows Investors from 970. No bar overlaps at any width. */
 ok("the bars never draw their links over the brand: it does not shrink, and the links that do not fit fold away",
-  css.includes(".bar .brand{flex:none}") && /\.brand\{flex:none\}/.test(html.console)
-    && css.includes('@media (min-width:861px){.navlinks a.opt[href="#limits"],.navlinks a.opt[href="#faq"]{display:none}}')
-    && css.includes('@media (min-width:861px) and (max-width:1100px){.navlinks a.opt[href="#modes"]{display:none}}')
-    && /@media \(max-width:659px\)\{\s*\.brand \.name\{line-height:\.98\}\s*\.brand \.name em::after\{content:"\\A";white-space:pre\}\s*\}/.test(homeCss));
+  css.includes(".bar .brand{flex:none}") && /\.brand\{flex:none\}/.test(html.console) && homeCss.includes(".bar .brand{flex:none}")
+    && css.includes('@media (min-width:861px){.navlinks a.opt[href="#limits"],.navlinks a.opt[href="#faq"],.navlinks a.opt[href="#modes"]{display:none}}')
+    && css.includes('@media (min-width:861px) and (max-width:1100px){.navlinks a.opt[href="#snipurr"]{display:none}}')
+    && css.includes("@media (max-width:1100px){.navlinks a.inv{display:none}}") && css.includes("@media (max-width:599px){.navlinks a.hqlink{display:none}}")
+    && homeCss.includes("@media (max-width:999px){.navlinks .opt{display:none}}") && homeCss.includes("@media (max-width:769px){.navlinks a.inv{display:none}}")
+    && html.console.includes("@media (max-width:969px){nav a.inv{display:none}}")
+    && /@media \(max-width:699px\)\{\s*\.brand \.name\{line-height:\.98\}\s*\.brand \.name em::after\{content:"\\A";white-space:pre\}\s*\}/.test(homeCss));
 ok("a Download button on the home page's hero and on the cat's page, and the cat's install section points to it",
   /<a class="btn ghost" href="\.\/downloads\/">Download <span class="arr" aria-hidden="true">↓<\/span><\/a>/.test(html.agency.match(/<div class="cta">[\s\S]*?<\/div>/)?.[0] ?? "")
     && /<a class="btn" href="\.\.\/downloads\/">Download it <span class="arr">↓<\/span><\/a>/.test(html.cat.match(/<div class="cta">[\s\S]*?<\/div>/)?.[0] ?? "")
@@ -259,20 +282,32 @@ ok("vendor/three holds three@0.169.0's module build, three addons and its licenc
   vendored.join(", "));
 ok("the licence is three.js's MIT licence", /The MIT License/.test(fs.readFileSync(path.join(THREE_DIR, "LICENSE"), "utf8")));
 const siteFiles = walk(SITE).filter((f) => /\.(html|css|svg|js|mjs)$/.test(f) && !f.startsWith(THREE_DIR + path.sep));
+/* The two exceptions, each one file: hq-client.js may fetch and open an event stream (to Agency
+   HQ only; AGENCY HQ below pins where), and hq-perks.js may reach Phantom, to connect and to
+   sign one message (never a transaction: no file may). */
+const HQ_CLIENT = path.join(SITE, "assets", "hq-client.js"), HQ_PERKS = path.join(SITE, "assets", "hq-perks.js");
 const BANNED = [
-  [/signAndSendTransaction|signAllTransactions|signMessage|signTransaction/, "a signing call"],
-  [/window\.phantom|window\.solana|\.solana\.connect/, "the wallet provider"],
+  [/signAndSendTransaction|signAllTransactions|signTransaction/, "transaction signing"],
+  [/signMessage/, "a message-signing call", [HQ_PERKS]],
+  [/window\.phantom|window\.solana/, "the wallet provider", [HQ_PERKS]],
+  [/\.solana\.connect/, "a bare provider connect"],
   [/secretKey|privateKey|Keypair|mnemonic|seed phrase/i, "a key word"],
   [/<form|<input|<textarea|<select/i, "a form field"],
-  [/\bfetch\(|XMLHttpRequest|new WebSocket|sendBeacon|navigator\.clipboard|execCommand|ClipboardItem|clipboardData/, "a network or clipboard call"],
+  [/\bfetch\(|\bEventSource\(/, "a fetch or an event stream", [HQ_CLIENT]],
+  [/XMLHttpRequest|new WebSocket|sendBeacon|navigator\.clipboard|execCommand|ClipboardItem|clipboardData/, "any other network call, or the clipboard"],
   [/sessionStorage|indexedDB|document\.cookie/, "storage beyond the theme"],
   [/<script[^>]+src="(https?:)?\/\//i, "an external script"],
   [/"(https?:)?\/\/[^"]*\.m?js"/i, "a script imported from another host"],
   [/<iframe/i, "a frame"],
 ];
-for (const [re, what] of BANNED) {
-  const hits = siteFiles.filter((f) => re.test(fs.readFileSync(f, "utf8"))).map((f) => path.relative(here, f));
-  ok(`no ${what} anywhere in site/`, hits.length === 0, hits.join(", "));
+for (const [re, what, except = []] of BANNED) {
+  const hits = siteFiles.filter((f) => !except.includes(f) && re.test(fs.readFileSync(f, "utf8"))).map((f) => path.relative(here, f));
+  ok(`no ${what} anywhere in site/${except.length ? `, but in ${except.map((f) => path.relative(SITE, f)).join(", ")}` : ""}`, hits.length === 0, hits.join(", "));
+}
+{
+  const client = fs.readFileSync(HQ_CLIENT, "utf8"), perks = fs.readFileSync(HQ_PERKS, "utf8");
+  ok("and in each exception, exactly once: hq-client.js one fetch and one EventSource, hq-perks.js one signMessage",
+    (client.match(/\bfetch\(/g) || []).length === 1 && (client.match(/\bEventSource\(/g) || []).length === 1 && (perks.match(/signMessage\(/g) || []).length === 1);
 }
 const storageKeys = siteFiles.flatMap((f) => [...fs.readFileSync(f, "utf8").matchAll(/localStorage\.(\w+)\(([^,)]*)/g)].map((m) => `${m[1]}(${m[2]})`));
 ok("localStorage holds the theme and nothing else", storageKeys.length >= 6 && storageKeys.every((k) => /^(getItem|setItem)\("cc_theme"\)$/.test(k)), [...new Set(storageKeys)].join(", "));
@@ -484,8 +519,10 @@ ok("the sample case file is marked a template, with placeholder fields", /class=
 /* One config holds every value the site cannot know yet. Empty means empty on the page. */
 const configSrc = fs.readFileSync(path.join(SITE, "assets", "config.js"), "utf8");
 const cfg = new Function("window", `${configSrc}; return window.CIA_CONFIG;`)({});
-ok("one config: the X link, the contract address and the buy link, and nothing else",
-  JSON.stringify(Object.keys(cfg).sort()) === JSON.stringify(["buyUrl", "contractAddress", "xUrl"]));
+ok("one config: the X link, the contract address, the buy link and Agency HQ's origin, and nothing else",
+  JSON.stringify(Object.keys(cfg).sort()) === JSON.stringify(["buyUrl", "contractAddress", "hqApi", "xUrl"]));
+ok("hqApi is empty until HQ is online, and then Agency HQ's own origin, never anything else",
+  cfg.hqApi === "" || cfg.hqApi === "https://api.catintelligenceagency.com");
 ok("each config value is empty until it exists, or looks exactly like what it is",
   (cfg.xUrl === "" || /^https:\/\/(x|twitter)\.com\/[A-Za-z0-9_]{1,15}\/?$/.test(cfg.xUrl))
     && (cfg.contractAddress === "" || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cfg.contractAddress))
@@ -538,7 +575,8 @@ ok("the scene caps the pixel ratio at 2, sleeps off screen and in a hidden tab, 
 /* Everything the home page can load, counting the larger of each image pair, and the two bots'
    files it reads for their status (the floor reads them too). */
 const BOT_FILES = ["assets/bot-posts.js", "assets/launches.js", "assets/callouts.js", "assets/launches-data.js", "assets/callouts-data.js", "assets/launches.json", "assets/callouts.json"];
-const homeLoads = new Set(["index.html", "assets/home.css", "assets/config.js", "assets/home.js", "assets/hq3d.js", ...BOT_FILES,
+const HQ_BAND = ["assets/hq.css", "assets/hq-band.js", "assets/hq-client.js", "assets/hq-validate.js", "assets/hq-format.js", "assets/hq-ui.js"];
+const homeLoads = new Set(["index.html", "assets/home.css", "assets/config.js", "assets/home.js", "assets/hq3d.js", ...BOT_FILES, ...HQ_BAND,
   ...Object.keys(THREE_FILES).filter((f) => f.endsWith(".js")).map((f) => "assets/vendor/three/" + f), ...sceneAssets,
   ...Object.keys(CATS).map((c) => `assets/sprites/${c}.png`),
   ...hrefs(html.agency).filter((h) => !/^https?:/.test(h)).map((h) => h.split("#")[0]).filter((h) => h && !h.endsWith("/"))]);
@@ -728,6 +766,7 @@ const jpegSize = (file) => { const b = fs.readFileSync(file); for (let i = 2; i 
 ok("the floor's link preview is 1200 × 630, cropped from the work floor", JSON.stringify(jpegSize(path.join(SITE, "assets", "og-floor-1200x630.jpg"))) === "[1200,630]");
 /* Everything the floor page can load, both sizes of the office picture included. */
 const floorLoads = new Set(["floor/index.html", "assets/home.css", "assets/floor.css", "assets/config.js", "assets/floor.js", "assets/cases.js", "assets/cases-data.js", "assets/cases.json", ...BOT_FILES,
+  "assets/hq-client.js", "assets/hq-validate.js", "assets/hq-format.js",
   ...floorPics.map((u) => u.replace(/^\.\.\//, "")), ...cssPics.map((u) => "assets/" + u), "assets/favicon-32.png", "assets/apple-touch-180.png"]);
 const floorBytes = [...floorLoads].reduce((n, f) => n + fs.statSync(path.join(SITE, f)).size, 0);
 ok("the floor page weighs under 2.5 MB with everything it can load", floorBytes < 2.5 * 1024 * 1024, `${(floorBytes / 1024 / 1024).toFixed(2)} MB over ${floorLoads.size} files`);
@@ -859,6 +898,166 @@ ok("the kit's words list seven cats: the README's agents table, the brand index 
     && ["### AGENT 001: COINMARKETCAT", "### AGENT 004: CASHCAT", "### AGENT 005: POPCAT", "### AGENT 006: SNIPURR"].every((h) => fs.readFileSync(path.join(here, "brand", "COPY.md"), "utf8").includes(h)));
 ok("the brand index credits Higgsfield and names no image or 3D model", /made with Higgsfield/.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8"))
   && !/gpt[- ]?image|tripo|dall-?e|midjourney|stable diffusion|imagen|flux|hunyuan|meshy/i.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8")));
+
+section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
+/* The four HQ pages and the home page's band read Agency HQ, the agency's own server, through
+   one module (site/assets/hq-client.js) that calls one origin, and check every answer with
+   site/assets/hq-validate.js against docs/hq/API.md (test-hq-site.mjs runs both). Here: that the
+   pages are built on the contract, call nothing else, draw text only, never ship a number of
+   their own, and say plainly when HQ is not online. */
+{
+  const API = fs.readFileSync(path.join(here, "docs", "hq", "API.md"), "utf8");
+  const HF = await import("./site/assets/hq-format.js");
+  const HQ_JS = ["hq-client.js", "hq-validate.js", "hq-format.js", "hq-ui.js", "hq-chart.js", "hq-live.js", "hq-agent.js", "hq-investors.js", "hq-perks.js", "hq-band.js"];
+  const src = Object.fromEntries(HQ_JS.map((f) => [f, fs.readFileSync(path.join(SITE, "assets", f), "utf8")]));
+  const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  /* The contract's tables, read out of API.md, are the site's. */
+  const rankRows = [...API.matchAll(/^\| ([^|]+?) \| `(\w+)` \| (<|≥) ([\d.]+) SOL \|$/gm)].map((m) => ({ name: m[1], id: m[2], min: m[3] === "<" ? "0" : m[4] }));
+  ok("the ranks are the contract's table, in the code", rankRows.length === 5 && JSON.stringify(rankRows) === JSON.stringify(HF.RANKS.map((r) => ({ name: r.name, id: r.id, min: r.min }))), rankRows.map((r) => r.id).join(", "));
+  const ladder = [...html.hq.matchAll(/<li data-rank="(\w+)">[\s\S]*?<h3>([^<]+)<\/h3><p>([^<]+)<\/p>/g)].map((m) => [m[1], decode(m[2]), m[3]]);
+  ok("and on the HQ page, with the contract's thresholds", JSON.stringify(ladder) === JSON.stringify(rankRows.map((r, i) => [r.id, r.name, i === 0 ? `under ${rankRows[1].min} SOL` : `from ${r.min} SOL`])), ladder.map((x) => x.join(":")).join(" "));
+  const stratRows = [...API.matchAll(/^\| `([\w-]+)` \| ([^|]+?) \| ([^|]+?) \|$/gm)].map((m) => [m[1], m[2], m[3]]);
+  ok("the strategies are the contract's table, in the code", stratRows.length === 4 && stratRows.every(([id, cat, does]) => HF.STRATEGIES[id] && HF.STRATEGIES[id].cat === cat && HF.STRATEGIES[id].does === does) && Object.keys(HF.STRATEGIES).length === 4);
+  const stratsOnPage = [...html.hq.matchAll(/<h3>([^<]+) <code>([\w-]+)<\/code><\/h3><p>([^<]+)<\/p>/g)].map((m) => [m[2], m[1], decode(m[3])]);
+  ok("and on the HQ page, word for word", JSON.stringify(stratsOnPage) === JSON.stringify(stratRows), stratsOnPage.map((x) => x[0]).join(", "));
+  ok("the HQ page states the contract's limits and its rule on agency coins", has("hq", "a maximum per trade, a maximum of open positions, a stop loss, a take profit, a trailing stop, a daily loss limit, and a Crying Cat rug check on every buy (mint and freeze authority, holders, the creator's share)")
+    && has("hq", "An agent never buys its own coin or another agency coin.") && has("hq", "A loss never demotes, and a rank earned on paper is marked paper."));
+
+  /* One module, one origin, the contract's paths. */
+  const client = src["hq-client.js"];
+  ok("hq-client.js: one production origin, api.catintelligenceagency.com, and localhost only in development, for a page itself served from localhost",
+    client.includes('export const HQ_ORIGINS = Object.freeze(["https://api.catintelligenceagency.com"]);') && client.includes("const DEV_ORIGIN = /^http:\\/\\/(localhost|127\\.0\\.0\\.1):([1-9]\\d{1,4})$/;")
+      && client.includes('const DEV_HOSTS = ["localhost", "127.0.0.1"];') && client.includes("return m && Number(m[2]) <= 65535 && DEV_HOSTS.includes(pageHost) ? s : \"\";"));
+  ok("hq-client.js: no cookies, no referrer, no cache, no redirects, a timeout and a size cap",
+    ['credentials: "omit"', 'cache: "no-store"', 'redirect: "error"', 'referrerPolicy: "no-referrer"', 'mode: "cors"', "TIMEOUT_MS = 12_000", "MAX_BYTES = 2_000_000"].every((x) => client.includes(x)));
+  const contractPaths = new Set([...API.matchAll(/`(?:GET|POST) (\/v1\/[\w/:]+)/g)].map((m) => m[1]));
+  const clientPaths = new Set([...code(client).matchAll(/["`](\/v1\/[\w/]*)(\$\{[^}]+\})?/g)].map((m) => m[1] + (m[2] ? ":id" : "")));
+  ok("hq-client.js calls the contract's endpoints and nothing else", contractPaths.size === 11 && [...clientPaths].every((x) => contractPaths.has(x)) && [...contractPaths].every((x) => clientPaths.has(x)), [...clientPaths].join(" "));
+  ok("its one POST is /v1/perks/verify, carrying the wallet, the message and the signature",
+    (code(client).match(/post:/g) || []).length === 1 && client.includes('call("/v1/perks/verify", null, validatePerks, { post: { wallet, message, signature } })') && client.includes('method: post ? "POST" : "GET"'));
+  ok("every answer goes through a validator before a page sees it", (code(client).match(/call\("/g) || []).length + (code(client).match(/call\(`/g) || []).length === 10 && /return check\(raw\);/.test(client) && /validateStreamEvent\(type, JSON\.parse\(e\.data\)\)/.test(client) && /e\.origin !== origin/.test(client));
+  const CSP = `<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">`;
+  ok("each HQ page's own policy lets it connect to itself and HQ's origin only, and never to localhost", HQ_PAGES.every((k) => html[k].includes(CSP) && (html[k].match(/Content-Security-Policy/g) || []).length === 1)
+    && !Object.values(html).some((p) => /localhost|127\.0\.0\.1/.test(p)));
+  const MODULE = { hq: "hq-live.js", agent: "hq-agent.js", investors: "hq-investors.js", perks: "hq-perks.js" };
+  ok("each HQ page reads the config first, then its own module", HQ_PAGES.every((k) => {
+    const up = k === "agent" ? "../../" : "../";
+    return html[k].indexOf(`<script src="${up}assets/config.js"></script>`) > 0 && html[k].indexOf(`<script src="${up}assets/config.js"></script>`) < html[k].indexOf(`<script type="module" src="${up}assets/${MODULE[k]}"></script>`);
+  }));
+
+  /* Never a number of their own: until HQ answers, there is none. */
+  ok("each HQ page starts offline, with an honest \"coming online\" state saying what will appear", HQ_PAGES.every((k) => /<html lang="en" data-theme="dark" data-root="[./]+" data-hq="offline">/.test(html[k])
+    && /class="coming when-offline[" ]/.test(html[k]) && /Coming online/.test(html[k])) && has("hq", "Nothing on it is a sample") && has("investors", "nothing here is a sample"));
+  const statValues = HQ_PAGES.flatMap((k) => [...html[k].matchAll(/<div class="stat-value">([^<]*)<\/div>/g)].map((m) => m[1]));
+  ok("the pages ship no figure: every number slot is a dash until HQ fills it", statValues.length >= 8 && statValues.every((v) => v === "—"), `${statValues.length} slots`);
+  ok("the home page's band says HQ is coming online, and shows no number until it answers", /<section class="hq-band" id="hq-live"/.test(html.agency) && has("agency", "until then there are no numbers, so none are shown")
+    && /<script src="assets\/config\.js"><\/script>\s*<script src="assets\/home\.js"><\/script>\s*<script type="module" src="assets\/hq-band\.js"><\/script>/.test(html.agency));
+  const PAST = "Past results do not predict future results. Not financial advice.";
+  ok("every page with HQ's numbers says past results do not predict future results, and is not financial advice", [...HQ_PAGES, "agency"].every((k) => has(k, PAST)));
+  ok("paper and live: every HQ page names both, and the dossier and the desk say paper signs nothing", HQ_PAGES.slice(0, 3).every((k) => has(k, "Paper") || has(k, "paper")) && has("hq", "a paper trade has none, because paper signs nothing"));
+  ok("the Transparency page: the buybacks, the treasury, the record with its losses, the method, the risks and what HQ never does",
+    ["The buybacks, every one.", "One address. Every flow.", "Gains and losses, side by side.", "How every number is computed.", "Stated plainly.", "What HQ never does."].every((h) => has("investors", h))
+      && ["Hold anyone's funds but the agency's own.", "Withdraw anywhere but the treasury.", "Show a number it did not compute from the chain.", "Mix paper and live numbers.", "Promise returns."].every((h) => has("investors", h))
+      && has("investors", "$CIA can go to zero.") && has("investors", "Agents lose money."));
+  ok("the $CIA mint and its links come from the one config, as text", /code\.textContent = mint;/.test(src["hq-investors.js"]) && /if \(buy === gmgn\(mint\)\) links\.append/.test(src["hq-investors.js"]) && /<code class="mint" id="cia-mint" data-empty="true">No address yet\.<\/code>/.test(html.investors));
+  ok("the perks page: a message signature and never a transaction; no perk is early access; the vote is honestly \"coming soon\"",
+    has("perks", "Only a message signature, never a transaction.") && has("perks", "no perk is early access to a pick or a trade") && has("perks", "Agency HQ has no voting endpoint yet (its published contract lists none)") && /<span class="soon">Coming soon<\/span>/.test(html.perks));
+
+  /* Text only, links only from checked values, a wallet only for a message. */
+  ok("the HQ scripts write text only: no innerHTML, outerHTML, insertAdjacentHTML, document.write or eval", HQ_JS.every((f) => !/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/.test(src[f])));
+  const urls = [...new Set(HQ_JS.flatMap((f) => [...code(src[f]).matchAll(/https?:\/\/[^"`'\s)]+/g)].map((m) => m[0])))].sort();
+  ok("the only outside addresses in the HQ scripts are Solscan's, pump.fun's, GMGN's and HQ's own (and SVG's namespace)", JSON.stringify(urls) === JSON.stringify(["http://www.w3.org/2000/svg", "https://api.catintelligenceagency.com", "https://gmgn.ai/sol/token/${m}", "https://pump.fun/coin/${m}", "https://solscan.io/account/${a}", "https://solscan.io/token/${m}", "https://solscan.io/tx/${sig}"].sort()), urls.join(" "));
+  ok("each link builder checks its address or signature first", ["solscanTx = (sig) => (typeof sig === \"string\" && SIGNATURE.test(sig)", "solscanAccount = (a) => (typeof a === \"string\" && ADDRESS.test(a)", "solscanToken = (m) => (typeof m === \"string\" && ADDRESS.test(m)", "pumpFun = (m) => (typeof m === \"string\" && ADDRESS.test(m)", "gmgn = (m) => (typeof m === \"string\" && ADDRESS.test(m)"].every((x) => src["hq-format.js"].includes(x)));
+  ok("an outside link opens with noopener and no referrer, and a missing one stays plain text", /a\.rel = "noopener noreferrer";/.test(src["hq-ui.js"]) && /if \(!href\) return el\("span", cls, text\);/.test(src["hq-ui.js"]));
+  const walletCalls = [...new Set([...code(src["hq-perks.js"]).matchAll(/provider\.(\w+)\(/g)].map((m) => m[1]))].sort();
+  ok("hq-perks.js asks Phantom only to connect, to sign one message, and to disconnect", JSON.stringify(walletCalls) === '["connect","disconnect","on","signMessage"]' && /provider\.on\("accountChanged"/.test(src["hq-perks.js"])
+    && !/Transaction/.test(src["hq-perks.js"]) && /isPhantom/.test(src["hq-perks.js"]), walletCalls.join(", "));
+  ok("it signs the challenge HQ wrote, shown on the page first, and sends only the wallet, the message and the signature",
+    /pre\.textContent = challenge\.message;/.test(src["hq-perks.js"]) && /provider\.signMessage\(new TextEncoder\(\)\.encode\(challenge\.message\), "utf8"\)/.test(src["hq-perks.js"]) && /hq\.verify\(\{ wallet, message: challenge\.message, signature \}\)/.test(src["hq-perks.js"]));
+  ok("every figure on the HQ pages is drawn with its mode", ["hq-live.js", "hq-agent.js", "hq-band.js"].every((f) => code(src[f]).split("\n").filter((l) => /stat\(\{ label/.test(l)).every((l) => /mode/.test(l)))
+    && code(src["hq-investors.js"]).split("\n").filter((l) => /stat\(\{ label/.test(l) && !/label: "(Share|From|When|Then)"/.test(l)).every((l) => /mode/.test(l)));
+  ok("paper and live are never added together: every summary figure is read from its mode's own block, as HQ sends it",
+    /box\.replaceChildren\(modeRow\("live", s\.live\), modeRow\("paper", s\.paper\), chain\);/.test(src["hq-live.js"]) && /const t = modeRecord\(s\[mode\]\);/.test(src["hq-band.js"])
+      && /const T = modeRecord\(r\.value\.value\[mode\]\);/.test(src["hq-investors.js"]) && !HQ_JS.some((f) => /mixed|modeTotals|decSum\(/.test(code(src[f]))));
+  /* The formats are the contract's, character for character. */
+  const fmtLine = (label) => (API.match(new RegExp(`${label}: \`([^\`]+)\``)) || [])[1];
+  ok("the site's formats are the contract's exactly: SOL, token units, prices and percentages, sprite and skin ids",
+    fmtLine("SOL") === HF.SOL.source && fmtLine("Token units, prices and percentages:\\s*") === undefined && /Token units, prices and percentages:\s*`\^-\?\(0\|\[1-9\]\\d\*\)\(\\\.\\d\+\)\?\$`/.test(API)
+      && (API.match(/percentages:\s*`([^`]+)`/) || [])[1] === HF.UNITS.source && (API.match(/\(`cat`, `skin`\): `([^`]+)`/) || [])[1] === HF.SLUG.source
+      && /Times: `YYYY-MM-DDTHH:MM:SS\(\.sss\)Z`/.test(API) && HF.ISO_TIME.source.endsWith("(\\.\\d{1,3})?Z$") && /base58, 32–44 characters/.test(API) && /base58, 64–90 characters/.test(API)
+      && HF.ADDRESS.source.endsWith("{32,44}$") && HF.SIGNATURE.source.endsWith("{64,90}$"));
+  const HV = await import("./site/assets/hq-validate.js");
+  const fmt = (re) => (API.match(re) || [])[1];
+  ok("the ids, cursor and nonce are the contract's patterns, and the agent id and number its rule",
+    fmt(/Desk item `id`: `([^`]+)`/) === HV.ITEM_ID.source && fmt(/opaque:\s*`([^`]+)`/) === HV.CURSOR.source && fmt(/A perks `nonce`: `([^`]+)`/) === HV.NONCE.source
+      && fmt(/exactly three digits \(`([^`]+)`\)/) === HV.NUMBER.source && /Agent `id`: an integer\s+1–999/.test(API) && HV.AGENT_ID_MAX === 999);
+  const limit = (re) => Number(fmt(re));
+  ok("the text limits are the contract's", limit(/Agent `name`\s+at most (\d+)/) === HV.TEXT_MAX.agentName && limit(/`symbol` at most (\d+)/) === HV.TEXT_MAX.symbol
+    && limit(/coin `name` at most (\d+)/) === HV.TEXT_MAX.coinName && limit(/`reason` and a rug check's `detail` at most (\d+)/) === HV.TEXT_MAX.reason && HV.TEXT_MAX.detail === HV.TEXT_MAX.reason
+    && limit(/a perk at most (\d+)/) === HV.TEXT_MAX.perk && limit(/`schedule` at most (\d+)/) === HV.TEXT_MAX.schedule, JSON.stringify(HV.TEXT_MAX));
+  ok("a rug check's four checks are the contract's, in its order", JSON.stringify(HV.RUG_CHECKS) === JSON.stringify((fmt(/"id": "([a-z_|]+)"/) || "").split("|")) && /exactly four entries, one per id, in that order/.test(API));
+  ok("the perks page shows the tiers HQ sends, and writes no threshold of its own", /tiers = \(await hq\.tiers\(\)\)\.value\.tiers;/.test(src["hq-perks.js"]) && /fmtTokens\(t\.minCia\)/.test(src["hq-perks.js"])
+    && !/\d/.test(textOf((html.perks.match(/<section class="hq-sec alt" id="tiers"[\s\S]*?<\/section>/) || [""])[0])) && has("perks", "never writes a threshold of its own"));
+  ok("every buy is shown with Crying Cat's check: passed on a trade, passed or refused on a decision, or not run yet", /Rug check refused this buy/.test(src["hq-ui.js"]) && /Not run yet: no buy is made before it passes\./.test(src["hq-ui.js"])
+    && /\(item\.kind === "trade" && item\.side === "buy"\) \|\| \(item\.kind === "decision" && item\.action === "buy"\)/.test(src["hq-ui.js"]) && !/did not send this check's result/.test(Object.values(src).join(" ")));
+
+  /* HQ and Investors in every bar. */
+  const hqIn = (k, href, current) => new RegExp(`<a class="hqlink" href="${href.replace(/[./]/g, "\\$&")}"${current ? ' aria-current="page"' : ""}>HQ</a>`).test(barOf(html[k]));
+  const invIn = (k, href, current) => new RegExp(`<a class="inv" href="${href.replace(/[./]/g, "\\$&")}"${current ? ' aria-current="page"' : ""}>Investors</a>`).test(barOf(html[k]));
+  ok("\"HQ\" and \"Investors\" are in every page's bar, each marked on its own pages",
+    hqIn("agency", "./hq/") && invIn("agency", "./investors/") && hqIn("floor", "../hq/") && invIn("floor", "../investors/") && hqIn("downloads", "../hq/") && invIn("downloads", "../investors/")
+      && hqIn("cat", "../hq/") && invIn("cat", "../investors/") && hqIn("hq", "./", true) && invIn("hq", "../investors/") && hqIn("agent", "../", true) && invIn("agent", "../../investors/")
+      && hqIn("investors", "../hq/") && invIn("investors", "./", true) && hqIn("perks", "../hq/") && invIn("perks", "../investors/")
+      && /<a class="floor hq" href="\.\.\/hq\/">HQ<\/a>\s*<a class="floor inv" href="\.\.\/investors\/">Investors<\/a>/.test(barOf(html.console)));
+  ok("the footers link Agency HQ and Investors", ["agency", "floor", "downloads", ...HQ_PAGES].every((k) => /<a href="[./]*hq\/">Agency HQ<\/a>|<a href="\.\/">Agency HQ<\/a>|<a href="\.\.\/">Agency HQ<\/a>/.test(footOf(html[k])) && /Investors<\/a>/.test(footOf(html[k]))));
+  ok("the CoinMarketCat page says its strategy is one HQ's agents can run, and links HQ", has("cat", "Its strategy is also one of the four the agency's own agents can run at Agency HQ") && /<li><a href="\.\.\/hq\/">Agency HQ<\/a><\/li>/.test(html.cat));
+
+  /* The work floor links a station to its cat's agents at HQ, and only when HQ runs one. */
+  ok("a station links to its cat's agents at HQ, each to its dossier, with its mode, only once HQ has answered",
+    /import \{ hqClient \} from "\.\/hq-client\.js";/.test(floorJs) && /const mine = hqAgents\.filter\(\(a\) => a\.cat === cat\);/.test(floorJs) && /link\.href = "\.\.\/" \+ agentPath\(a\.id\);/.test(floorJs)
+      && /if \(hq\.online\) \{\s*hq\.agents\(\)/.test(floorJs) && /hqLinks\(cat\);/.test(floorJs));
+
+  /* The HQ art is the kit's: brand/hq/, made with Higgsfield, copied byte for byte. */
+  const HQ_KIT = {
+    "brand/hq/hero/hq-trading-room-2688x1152.png": ["aa2992618a280f92", 2688, 1152], "brand/hq/hero/treasury-vault-2688x1520.png": ["a6e1710691f33ec6", 2688, 1520],
+    "brand/hq/ranks/recruit.png": ["d595cc40a21e587d", 100, 141], "brand/hq/ranks/field.png": ["f67ddb315bf0506a", 174, 199], "brand/hq/ranks/special.png": ["1708af222dc183d6", 184, 236],
+    "brand/hq/ranks/senior.png": ["f5b0c50342f011d4", 182, 228], "brand/hq/ranks/director.png": ["3193a09e3207199f", 228, 239],
+    "brand/hq/skins/recruit.png": ["dfd1a6f4a6fbeea6", 148, 212], "brand/hq/skins/field.png": ["ba99a8d40b592baa", 166, 211], "brand/hq/skins/special.png": ["a92594c4a65a185d", 150, 211],
+    "brand/hq/skins/senior.png": ["cda19282aedc9861", 169, 212], "brand/hq/skins/director.png": ["1fdd97d9017ad0ae", 162, 215], "brand/hq/skins/nightops.png": ["1eb0885b129b22c7", 149, 210],
+    "brand/hq/skins/holder.png": ["e9be89e7227957a4", 178, 211],
+  };
+  for (const [f, [hash, w, h]] of Object.entries(HQ_KIT)) {
+    const file = path.join(here, f);
+    ok(`${f}: the kit's file, ${w} × ${h}`, fs.existsSync(file) && JSON.stringify(pngSize(file)) === JSON.stringify([w, h]) && sha256(file).startsWith(hash), fs.existsSync(file) ? sha256(file).slice(0, 8) : "missing");
+  }
+  ok("brand/hq/source/ keeps each rank's and each skin's 1024 original", ["recruit", "field", "special", "senior", "director"].every((r) => fs.existsSync(path.join(here, "brand", "hq", "source", `rank-${r}-1024.png`)))
+    && Object.keys(HF.SKINS).every((k) => fs.existsSync(path.join(here, "brand", "hq", "source", `skin-${k}-1024.png`))));
+  ok("the site's ranks and skins are the kit's, byte for byte, and the code knows their sizes",
+    Object.keys(HF.RANK_ART).every((r) => same(path.join(SITE, "assets", "hq", "ranks", `${r}.png`), path.join(here, "brand", "hq", "ranks", `${r}.png`)) && JSON.stringify(pngSize(path.join(SITE, "assets", "hq", "ranks", `${r}.png`))) === JSON.stringify(HF.RANK_ART[r].size))
+      && Object.keys(HF.SKINS).every((k) => same(path.join(SITE, "assets", "hq", "skins", `${k}.png`), path.join(here, "brand", "hq", "skins", `${k}.png`)) && JSON.stringify(pngSize(path.join(SITE, "assets", "hq", "skins", `${k}.png`))) === JSON.stringify(HF.SKINS[k].size)));
+  const webpSize = (f) => { const b = fs.readFileSync(f); return b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 12, 16) === "VP8 " ? [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff] : null; };
+  ok("the two heroes are web copies of the kit's pictures, 1600 and 2688 wide", [["hq-trading-room", 1152 / 2688], ["treasury-vault", 1520 / 2688]].every(([n, ratio]) => [1600, 2688].every((w) => {
+    const size = webpSize(path.join(SITE, "assets", "hq", `${n}-${w}.webp`)); return size && size[0] === w && Math.abs(size[1] / size[0] - ratio) < 0.002;
+  })) && JSON.stringify(fs.readdirSync(path.join(SITE, "assets", "hq")).sort()) === JSON.stringify(["hq-trading-room-1600.webp", "hq-trading-room-2688.webp", "ranks", "skins", "treasury-vault-1600.webp", "treasury-vault-2688.webp"]));
+  const hqPics = [...new Set(HQ_PAGES.flatMap((k) => [...html[k].matchAll(/\s(?:src|srcset|imagesrcset)="([^"]+)"/g)].flatMap((m) => m[1].split(",").map((x) => x.trim().split(/\s+/)[0]))).filter((u) => /\.(png|jpe?g|webp|gif|svg)$/.test(u)))];
+  ok("every picture the HQ pages show is the kit's: the HQ art, the cats' sprites, the $CIA coin, the icons", hqPics.length >= 12
+    && hqPics.every((u) => /^(\.\.\/)+assets\/(hq\/[a-z0-9-]+\.webp|hq\/(ranks|skins)\/[a-z]+\.png|sprites\/[a-z-]+\.png|cia-coin-400\.(png|webp)|favicon-(32|64)\.png|apple-touch-180\.png)$/.test(u)), hqPics.filter((u) => !/assets\/(hq|sprites)\//.test(u)).join(", "));
+  const drawn = [...code(src["hq-ui.js"]).matchAll(/\.src = ([^;]+);/g)].map((m) => m[1]);
+  ok("the only pictures the HQ scripts draw are the skins, the ranks and the cats' sprites, never anything HQ sends", JSON.stringify(drawn) === JSON.stringify(["`${ROOT}assets/hq/skins/${skin}.png`", "`${ROOT}assets/hq/ranks/${rank}.png`", "`${ROOT}assets/sprites/${cat}.png`"]), drawn.join(" | "));
+  ok("rank and skin art is described without \"badge\", \"shield\" or \"crest\", in the scripts as on the pages", !/\b(seal|eagle|badge|shield|emblem|crest|insignia)s?\b/i.test(Object.values(src).map(code).join(" ")));
+  ok("the brand index lists the HQ art, credited to Higgsfield", /`hq\/ranks\/<rank>\.png`/.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8")) && /`hq\/skins\/<skin>\.png`/.test(fs.readFileSync(path.join(here, "brand", "README.md"), "utf8")));
+
+  /* Light: each HQ page under 2 MB with everything it can load (the larger hero, every rank and skin). */
+  for (const k of HQ_PAGES) {
+    const loads = new Set([PAGES[k].split(path.sep).join("/"), "assets/home.css", "assets/hq.css", "assets/config.js", ...HQ_JS.filter((f) => !["hq-live.js", "hq-agent.js", "hq-investors.js", "hq-perks.js", "hq-band.js"].includes(f)).map((f) => `assets/${f}`), `assets/${MODULE[k]}`,
+      ...hqPics.filter((u) => html[k].includes(u)).map((u) => u.replace(/^(\.\.\/)+/, "")), "assets/floor-tile-256.png",
+      /* the dossier and the HQ page draw agents: any rank, any skin, any cat's face */
+      ...(["hq", "agent"].includes(k) ? [...Object.keys(HF.RANK_ART).map((r) => `assets/hq/ranks/${r}.png`), ...Object.keys(HF.SKINS).map((s) => `assets/hq/skins/${s}.png`), ...Object.keys(CATS).map((c) => `assets/sprites/${c}.png`)] : [])]);
+    const bytes = [...loads].reduce((n, f) => n + fs.statSync(path.join(SITE, f)).size, 0);
+    ok(`${k}: under 2 MB with everything it can load`, bytes < 2 * 1024 * 1024, `${(bytes / 1024 / 1024).toFixed(2)} MB over ${loads.size} files`);
+  }
+}
 
 section("THE DOWNLOADS");
 /* The Downloads page serves two zips the deploy builds (scripts/package.mjs, after

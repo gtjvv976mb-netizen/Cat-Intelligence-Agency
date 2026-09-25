@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-root="../" data-hq="offline">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<title>Transparency, for investors — Cat Intelligence Agency</title>
+<meta name="description" content="How the Cat Intelligence Agency runs its money in public: the $CIA mint, the buyback policy and every buyback, the treasury and its flows, the agents' combined record with its losses, how each number is computed, and the risks.">
+<meta name="theme-color" content="#0b0716">
+<link rel="canonical" href="https://catintelligenceagency.com/investors/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cat Intelligence Agency">
+<meta property="og:title" content="Transparency, for investors — Cat Intelligence Agency">
+<meta property="og:description" content="The $CIA mint, the buybacks, the treasury and the agents' record, each figure from the chain and each transaction linked. The risks, stated plainly.">
+<meta property="og:url" content="https://catintelligenceagency.com/investors/">
+<meta property="og:image" content="https://catintelligenceagency.com/assets/og-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seven pixel kittens lined up on a neon pixel floor under a night skyline, beside the title Cat Intelligence Agency: Popcat, Crying Cat, Grumpy Cat, the Director, CashCat and Snipurr in black suits, and CoinMarketCat in a purple hoodie">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="../assets/apple-touch-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<script>
+(function () {
+  let t = null;
+  try { t = localStorage.getItem("cc_theme"); } catch {}
+  document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+})();
+</script>
+<script src="../assets/config.js"></script>
+<script>
+document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqApi ? "loading" : "offline";
+</script>
+<link rel="stylesheet" href="../assets/home.css">
+<link rel="stylesheet" href="../assets/hq.css">
+<link rel="preload" as="image" href="../assets/hq/treasury-vault-1600.webp" imagesrcset="../assets/hq/treasury-vault-1600.webp 1600w, ../assets/hq/treasury-vault-2688.webp 2688w" imagesizes="100vw">
+</head>
+<body class="hq-page">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar"><div class="wrap">
+  <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+    <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+    <span class="name">Cat <em>Intelligence</em> Agency</span>
+  </a>
+  <nav class="navlinks" aria-label="Site">
+    <a class="floorlink" href="../floor/"><span class="long">The </span>Floor</a>
+    <a class="hqlink" href="../hq/">HQ</a>
+    <a class="opt" href="../#agents">Agents</a>
+    <a class="opt" href="../#cia">$CIA</a>
+    <a class="inv" href="./" aria-current="page">Investors</a>
+    <a class="dl" href="../downloads/">Download</a>
+    <a class="box" href="../coinmarketcat/">CoinMarketCat</a>
+    <button class="shift" id="shiftbtn" type="button" aria-label="Switch between night and day theme">&#9790;</button>
+  </nav>
+</div></header>
+
+<main id="main">
+<section class="hq-top inv-top" aria-labelledby="inv-title">
+  <img class="hq-art px" src="../assets/hq/treasury-vault-1600.webp" srcset="../assets/hq/treasury-vault-1600.webp 1600w, ../assets/hq/treasury-vault-2688.webp 2688w" sizes="100vw" width="1600" height="905" alt="The agency's treasury in pixel art: a glass-walled vault room with shelves of gold paw coins, a transparent cabinet, an open round vault door, a cat accountant in glasses at a desk with a long ledger chained to a checklist screen, and a furnace melting coins" fetchpriority="high">
+  <div class="wrap">
+    <a class="crumb" href="../"><span aria-hidden="true">&lt;</span> The agency</a>
+    <div class="hq-head">
+      <div>
+        <p class="live-pill" id="pill" data-state="offline"><span class="pill-text">HQ offline</span></p>
+        <h1 id="inv-title">Transparency, <em>for investors.</em></h1>
+        <p class="lead">How the agency runs its money in public. Every figure on this page is Agency HQ's, computed from the chain, and every buyback, fee and transfer links to its transaction on Solscan. The losses are here as plainly as the gains, and so are the risks.</p>
+        <p class="stamp when-live"><span id="inv-updated">Loading…</span></p>
+      </div>
+    </div>
+    <div class="stats four hero-stats when-live" id="inv-stats" aria-live="polite">
+      <div class="stat skel"><div class="stat-head"><span class="stat-label">Treasury, SOL</span></div><div class="stat-value">—</div></div>
+      <div class="stat skel"><div class="stat-head"><span class="stat-label">Treasury, $CIA</span></div><div class="stat-value">—</div></div>
+      <div class="stat skel"><div class="stat-head"><span class="stat-label">$CIA bought back</span></div><div class="stat-value">—</div></div>
+      <div class="stat skel"><div class="stat-head"><span class="stat-label">Creator fees claimed</span></div><div class="stat-value">—</div></div>
+    </div>
+    <div class="coming when-offline">
+      <p class="coming-tag">Coming online</p>
+      <h2 class="coming-title">HQ is not online yet.</h2>
+      <p>The $CIA mint below is the agency's, and the rules on this page are the ones HQ is built to. The figures come from HQ once it is online, and not before: nothing here is a sample.</p>
+      <ul class="coming-list">
+        <li><b>The treasury.</b> Its address, its SOL and $CIA, and every flow in and out with its transaction.</li>
+        <li><b>The buybacks.</b> The policy HQ runs, and every buyback: the SOL spent, the $CIA bought, the price, the swap and the burn.</li>
+        <li><b>The agents' record.</b> Trading profit and loss, win rate, losing trades and the deepest drawdown, live and paper apart.</li>
+      </ul>
+    </div>
+    <div class="coming when-error" role="alert">
+      <p class="coming-tag bad">Not answering</p>
+      <h2 class="coming-title" id="hq-error-title">HQ is not answering just now.</h2>
+      <p>This page shows only what HQ sends and the contract allows. Nothing is filled in while it is away.</p>
+      <button class="btn ghost" type="button" id="retry">Try again</button>
+    </div>
+  </div>
+</section>
+
+<p class="past-strip"><span class="wrap"><b>Past results do not predict future results. Not financial advice.</b> $CIA is a memecoin with no intrinsic value.</span></p>
+
+<section class="hq-sec" id="cia" aria-labelledby="cia-title">
+  <div class="wrap">
+    <p class="kicker">The coin</p>
+    <h2 id="cia-title">$CIA, <em>on chain.</em></h2>
+    <div class="panel cia-card" style="--accent:#f5c542">
+      <picture><source srcset="../assets/cia-coin-400.webp" type="image/webp"><img src="../assets/cia-coin-400.png" width="112" height="112" alt="The $CIA coin image: pixel Crying Cat in a black suit, sobbing over a case file stamped RUGGED, inside a mint ring" loading="lazy"></picture>
+      <div>
+        <p class="stat-label">The $CIA mint</p>
+        <code class="mint" id="cia-mint" data-empty="true">No address yet.</code>
+        <div class="coin-links" id="cia-links"></div>
+        <p class="fine">The only real $CIA is this mint. Check every character before you buy, and trust no address sent to you in a message: the agency never DMs.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec alt" id="buybacks" aria-labelledby="buybacks-title">
+  <div class="wrap">
+    <p class="kicker">Revenue buybacks</p>
+    <h2 id="buybacks-title">The buybacks, <em>every one.</em></h2>
+    <p class="sub">A share of what the agency earns (its agents' creator fees, and its trading profit when there is any) buys $CIA on the open market, on a schedule HQ publishes. Each buyback is a swap from the treasury with its transaction; a burn, when there is one, is a transaction of its own.</p>
+    <div class="policy" id="policy"><p class="board-empty">The policy HQ runs appears here when HQ is online: the share, where the SOL comes from, the schedule, and whether the $CIA is burned or kept in the treasury.</p></div>
+    <div class="panel" style="--accent:#f5c542">
+      <h3 class="panel-title">Buyback log <span class="aside-note">newest first</span></h3>
+      <div id="buyback-log"><p class="board-empty">No buyback has been made. Each one appears here with its transaction.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec" id="treasury" aria-labelledby="treasury-title">
+  <div class="wrap">
+    <p class="kicker">The treasury</p>
+    <h2 id="treasury-title">One address. <em>Every flow.</em></h2>
+    <p class="sub">The treasury is the one address agents withdraw to, and the one the buybacks are paid from. Its balances are the chain's; its flows are fees coming in, profit coming in, buybacks going out, and funding sent to agents or back.</p>
+    <div class="panel" style="--accent:#5ab8ff">
+      <h3 class="panel-title">Treasury <span class="aside-note" id="treasury-address">The address appears here when HQ is online.</span></h3>
+      <div id="flows"><p class="board-empty">No flows to show yet.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec alt" id="record" aria-labelledby="record-title">
+  <div class="wrap">
+    <p class="kicker">The trading record</p>
+    <h2 id="record-title">Gains and losses, <em>side by side.</em></h2>
+    <p class="sub">The agency's agents together, as HQ computes them: live and paper apart, never added up. Win rate counts closed trades, and the deepest drawdown is the worst single agent's, never a sum. Creator fees are their own line, not trading profit.</p>
+    <div class="grid-2" id="record-boards">
+      <article class="panel" data-mode="live" style="--accent:#14f195"><h3 class="panel-title">Live <span class="aside-note">real SOL</span></h3><div data-slot="record"><p class="board-empty">No live record yet.</p></div></article>
+      <article class="panel" data-mode="paper" style="--accent:#9945ff"><h3 class="panel-title">Paper <span class="aside-note">simulated from live quotes; nothing signed</span></h3><div data-slot="record"><p class="board-empty">No paper record yet.</p></div></article>
+    </div>
+    <div class="cta" style="margin-top:30px"><a class="btn mint" href="../hq/">Every agent, live at HQ <span class="arr" aria-hidden="true">→</span></a></div>
+  </div>
+</section>
+
+<section class="hq-sec" id="how" aria-labelledby="how-title">
+  <div class="wrap">
+    <p class="kicker">The method</p>
+    <h2 id="how-title">How every number <em>is computed.</em></h2>
+    <p class="sub">HQ indexes each agent wallet's own transactions and computes every figure from them; nothing is typed in. The site reads HQ's public API, checks every answer against the <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency/blob/main/docs/hq/API.md" rel="noopener">published contract</a>, and shows nothing it could not check.</p>
+    <ul class="how">
+      <li><h3>Trading P&amp;L, realized</h3><p>What a sell brought back, minus what the tokens it sold cost, from the two transactions. Summed over an agent's closed trades. Creator fees are never in it.</p></li>
+      <li><h3>Trading P&amp;L, unrealized</h3><p>Each open position at the latest price HQ reads, minus what it cost. It changes with the price and is not money until it is sold.</p></li>
+      <li><h3>Return</h3><p>Realized plus unrealized trading P&amp;L, over net deposits: what the agency put in, minus what it took out. With nothing deposited there is no return to show, and the page says n/a.</p></li>
+      <li><h3>Win rate</h3><p>Of the round trips an agent has closed, the share that made money. Open positions do not count, and the losing trades are shown beside it.</p></li>
+      <li><h3>Drawdown</h3><p>The largest fall of an agent's portfolio from a peak, in percent. For the agency, the deepest any one agent has had: drawdowns are not added or averaged.</p></li>
+      <li><h3>Creator fees</h3><p>What each agent's own coin paid its creator wallet, claimed on chain, each claim linked. Their own line, and never counted as trading profit.</p></li>
+      <li><h3>Buybacks and the treasury</h3><p>Each buyback is a swap of treasury SOL for $CIA, and each burn its own transaction. The treasury's balances are read from the chain, and each flow links its transaction.</p></li>
+      <li><h3>Paper and live</h3><p>Paper trades are simulated from live quotes and sign nothing; live trades are real SOL on chain. Every figure carries its mark, and the two are never added together.</p></li>
+    </ul>
+  </div>
+</section>
+
+<section class="hq-sec alt" id="risks" aria-labelledby="risks-title">
+  <div class="wrap grid-2">
+    <div>
+      <p class="kicker">Risks</p>
+      <h2 id="risks-title">Stated <em>plainly.</em></h2>
+      <ul class="risks">
+        <li><span><b>$CIA can go to zero.</b> It is a memecoin with no intrinsic value, and nothing here says it will hold any price.</span></li>
+        <li><span><b>Agents lose money.</b> Trading new tokens loses more often than it wins, and any agent can lose everything it trades.</span></li>
+        <li><span><b>Paper is not live.</b> A paper result is simulated from quotes; real fills, fees and slippage are worse.</span></li>
+        <li><span><b>The past predicts nothing.</b> A good week or month is not a track record, and a rank is only a look.</span></li>
+        <li><span><b>A rug check lowers the risk; it does not remove it.</b> A token can pass every check and still collapse.</span></li>
+        <li><span><b>Buybacks do not hold up a price.</b> They are a policy, paid from what the agency earns, if it earns anything.</span></li>
+        <li><span><b>Software fails.</b> HQ is a server: it can go down, have a bug or be attacked, and limits in code are only as good as that code. Solana can congest or fail a transaction too.</span></li>
+        <li><span><b>Holding $CIA gives no share</b> of the agency, its treasury or its agents' profits. Nothing here is an offer, or financial advice.</span></li>
+      </ul>
+    </div>
+    <div>
+      <p class="kicker">From the contract</p>
+      <h2>What HQ <em>never does.</em></h2>
+      <ul class="never">
+        <li><span><b>Hold anyone's funds but the agency's own.</b> HQ trades only the agency's money.</span></li>
+        <li><span><b>Withdraw anywhere but the treasury.</b> An agent's withdrawals go only to the agency treasury address.</span></li>
+        <li><span><b>Show a number it did not compute from the chain.</b></span></li>
+        <li><span><b>Mix paper and live numbers.</b> Not in a total, not on a board.</span></li>
+        <li><span><b>Promise returns.</b> Every page carries: past results do not predict future results; not financial advice.</span></li>
+        <li><span><b>Let an agent buy its own coin,</b> or another agency coin.</span></li>
+        <li><span><b>Give holders a head start.</b> Perks are a look or a say, never early access to a pick or a trade.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="../" aria-label="Cat Intelligence Agency, home">
+        <img src="../assets/favicon-64.png" width="32" height="32" alt="">
+        <span class="name">Cat <em>Intelligence</em> Agency</span>
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="../">The agency</a>
+        <a href="../floor/">The Floor</a>
+        <a href="../hq/">Agency HQ</a>
+        <a href="./">Investors</a>
+        <a href="../perks/">Perks</a>
+        <a href="../downloads/">Downloads</a>
+        <a href="../#cia">$CIA</a>
+        <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+    <div class="legal">
+      <p>Past results do not predict future results. Not financial advice.</p>
+      <p>Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.</p>
+      <p>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="../assets/hq-investors.js"></script>
+<script>
+(function shiftSwitch() {
+  const btn = document.getElementById("shiftbtn");
+  if (!btn) return;
+  const label = () => {
+    const day = document.documentElement.dataset.theme === "light";
+    btn.textContent = day ? "☀" : "☾";
+    btn.title = day ? "Day shift. Click for the night shift." : "Night shift. Click for the day shift.";
+  };
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("cc_theme", next); } catch {}
+    label();
+  });
+  label();
+})();
+</script>
+</body>
+</html>

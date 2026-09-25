@@ -33,7 +33,7 @@ name: Deploy console
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml", "bots/floor-data.mjs", "bots/lib/data.mjs", "test-site.mjs", "test-bots-data.mjs",
+    paths: ["site/**", ".github/workflows/pages.yml", "bots/floor-data.mjs", "bots/lib/data.mjs", "test-site.mjs", "test-bots-data.mjs", "docs/hq/API.md",
       "src/**", "manifest.json", "icons/**", "vendor/**", "build.mjs", "package.json", "package-lock.json", "brand/**", "scripts/package.mjs", "scripts/zip.mjs",
       "bots/**"]
   workflow_dispatch:

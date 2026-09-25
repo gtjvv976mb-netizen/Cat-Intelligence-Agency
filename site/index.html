@@ -31,6 +31,7 @@
 })();
 </script>
 <link rel="stylesheet" href="assets/home.css">
+<link rel="stylesheet" href="assets/hq.css">
 <link rel="preload" as="image" href="assets/site-hero-1200x514.jpg" imagesrcset="assets/site-hero-1200x514.jpg 1200w, assets/site-hero-2400x1029.jpg 2400w" imagesizes="(max-width: 900px) 140vw, 62vw">
 <script type="importmap">
 {
@@ -51,9 +52,11 @@
   </a>
   <nav class="navlinks" aria-label="Site">
     <a class="floorlink" href="./floor/"><span class="long">The </span>Floor</a>
+    <a class="hqlink" href="./hq/">HQ</a>
     <a class="opt" href="#agents">Agents</a>
     <a class="opt" href="#on-x">On X</a>
     <a class="opt" href="#cia">$CIA</a>
+    <a class="inv" href="./investors/">Investors</a>
     <a class="dl" href="./downloads/">Download</a>
     <a class="box" href="coinmarketcat/">CoinMarketCat</a>
     <button class="shift" id="shiftbtn" type="button" aria-label="Switch between night and day theme">&#9790;</button>
@@ -94,6 +97,25 @@
         <button class="btn x-btn" type="button" disabled data-x-link data-label="Follow on X">Follow on X <small>soon</small></button>
         <a class="btn gold" href="#cia">$CIA</a>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Agency HQ, in one band: its key numbers when it is online (read by hq-band.js through
+     hq-client.js, the site's one way onto the network), an honest "coming online" when not. -->
+<section class="hq-band" id="hq-live" aria-labelledby="hq-band-title">
+  <div class="wrap">
+    <div>
+      <p class="live-pill" id="band-pill" data-state="offline"><span class="pill-text">HQ offline</span></p>
+      <h2 id="hq-band-title">Agency HQ, <em>live.</em></h2>
+      <p>The agency's own cat agents, trading the agency's own money in public: every trade linked to its transaction, the losses as plain as the gains.</p>
+    </div>
+    <div class="stats four" id="band-stats">
+      <p class="band-soon">HQ is coming online. When it is, its agents at work, their trading profit and loss, win rate and deepest drawdown show here, from the chain; until then there are no numbers, so none are shown.</p>
+    </div>
+    <div class="band-go">
+      <a class="btn mint" href="./hq/">Open Agency HQ <span class="arr" aria-hidden="true">→</span></a>
+      <p class="past">Past results do not predict future results. Not financial advice.</p>
     </div>
   </div>
 </section>
@@ -416,6 +438,9 @@ This is our opinion on public on-chain data, not an accusation of a crime. Wrong
       </a>
       <nav class="foot-links" aria-label="Footer">
         <a href="./floor/">The Floor</a>
+        <a href="./hq/">Agency HQ</a>
+        <a href="./investors/">Investors</a>
+        <a href="./perks/">Perks</a>
         <a href="./downloads/">Downloads</a>
         <a href="#agents">Agents</a>
         <a href="#on-x">House rules</a>
@@ -441,6 +466,7 @@ This is our opinion on public on-chain data, not an accusation of a crime. Wrong
 
 <script src="assets/config.js"></script>
 <script src="assets/home.js"></script>
+<script type="module" src="assets/hq-band.js"></script>
 <script type="module">
 /* CashCat's and Popcat's status says how much each bot has posted, read from the same files
    and through the same checks as the work floor: "Bot · no launches yet" until a launch is on

@@ -34,6 +34,8 @@ import { CIA_MINT, CIA_FACTS } from "./config.mjs";
 import { classifyTransaction, walletView, parseHqMemo } from "./classify.mjs";
 import { solString, unitsString, priceString } from "./amounts.mjs";
 import { WSOL } from "./execution.mjs";
+import { associatedTokenAddress } from "../../../src/lib/tx.mjs";
+import { TOKEN_PROGRAM } from "../../../bots/lib/verified.mjs";
 
 export const BUYBACK_FEE_ROOM = 10_000_000n;       // kept back for the legs' fees and account rent
 
@@ -65,15 +67,18 @@ export function buybackPath({ curveQuote }) {
  *   funding_in   SOL an agent wallet sent back (a withdrawal, or a transfer with no HQ memo)
  *   fee_in       an agent's sweep of claimed creator fees (memo cia-hq:fee_sweep:NNN)
  *   profit_in    an agent's sweep of realized trading profit (memo cia-hq:profit_sweep:NNN)
- *   buyback      SOL spent on the first leg of a recorded buyback
+ *   buyback      one per buyback whose $CIA was bought: the SOL it cost (read from the chain),
+ *                at its $CIA leg — a buyback that stopped between its legs is listed once it is
+ *                finished, not before
  * Money from anywhere else is the owner's own business and is not listed.
  */
 export function treasuryFlows({ rows, treasury, agentWallets, buybacks = [] }) {
-  const leg1 = new Set(buybacks.map((b) => b.legSigs?.[0]).filter(Boolean));
   const flows = [];
   let feeIn = 0n, profitIn = 0n, fundingOut = 0n, fundingIn = 0n, buybackSpent = 0n;
+  const timeOf = new Map();
   for (const row of rows) {
     if (!row.tx) continue;
+    if (row.block_time) timeOf.set(row.signature, new Date(row.block_time * 1000).toISOString());
     const e = classifyTransaction(row.tx, { wallet: treasury });
     if (!e) continue;
     if (e.kind === "deposit" && agentWallets.has(e.from)) {
@@ -84,10 +89,14 @@ export function treasuryFlows({ rows, treasury, agentWallets, buybacks = [] }) {
     } else if (e.kind === "withdrawal" && e.to && agentWallets.has(e.to)) {
       fundingOut += e.lamports;
       flows.push({ t: e.t, kind: "funding_out", lamports: e.lamports, tx: e.signature, agent: agentWallets.get(e.to) });
-    } else if (leg1.has(e.signature) && e.kind === "trade" && e.side === "buy") {
-      buybackSpent += e.sol;
-      flows.push({ t: e.t, kind: "buyback", lamports: e.sol, tx: e.signature });
     }
+  }
+  for (const b of buybacks) {
+    if (!["bought", "done"].includes(b.state) || !(b.legSigs?.length)) continue;
+    const tx = b.legSigs[b.legSigs.length - 1];
+    const lamports = BigInt(b.sol_spent ?? 0);
+    buybackSpent += lamports;
+    flows.push({ t: b.detail?.boughtAt ?? timeOf.get(tx) ?? b.t, kind: "buyback", lamports, tx });
   }
   flows.sort((a, b) => String(b.t).localeCompare(String(a.t)));
   return Object.freeze({ flows, feeIn, profitIn, revenue: feeIn + profitIn, fundingOut, fundingIn, buybackSpent });
@@ -131,9 +140,44 @@ export function tokenDelta(tx, wallet, mint) {
   return v.moved.find((m) => m.mint === mint)?.delta ?? 0n;
 }
 
+/** The SOL a set of the treasury's own transactions cost it (network fees included; its own
+ *  token accounts' rent is not spent, it is kept), read from the chain: −Σ(cash + rent). */
+export function solSpentOn({ db, treasury, signatures }) {
+  const want = new Set(signatures.filter(Boolean));
+  let spent = 0n, found = 0;
+  for (const row of db.listChainTxs(treasury)) {
+    if (!want.has(row.signature) || !row.tx) continue;
+    const v = walletView(row.tx, treasury);
+    if (!v) continue;
+    spent += -(v.cashDelta + v.rentDelta);
+    found++;
+  }
+  return { spent, complete: found === want.size };
+}
+
+/**
+ * What became of a buyback transaction HQ signed: "landed" (read back into chain_txs), "failed"
+ * (the chain says it failed, or its blockhash expired unseen), or "pending" (not known yet — it
+ * counts as spent until the chain says otherwise).
+ */
+function outcomeOf({ db, treasury, signature }) {
+  if (!signature) return "failed";
+  if (db.hasChainTx(treasury, signature)) return "landed";
+  const it = db.intentBySignature(signature);
+  if (it && ["failed", "expired", "abandoned"].includes(it.state)) return "failed";
+  return "pending";
+}
+const txOf = (db, treasury, signature) => db.listChainTxs(treasury).find((r) => r.signature === signature)?.tx ?? null;
+
 /**
  * One scheduled run. Returns { ran, why, buyback? }. Everything is injected; nothing here reads
  * the environment or holds a key (the executor's treasury signer is wallet.mjs).
+ *
+ * A run does one of two things. If a buyback stopped before its $CIA was bought (or before its
+ * burn), it is finished first, from what the chain says about each leg — never started over.
+ * Otherwise a new one: revenue × share − what every earlier buyback spent (over all of them), held
+ * to the per-run maximum and the treasury's cash above its reserve. A leg's signature is recorded
+ * on the buyback the moment it is signed, and its SOL counts as spent until the chain says it failed.
  */
 export async function runBuyback({ config, db, rpc, executor, treasuryReady, clock = () => Date.now(), log = () => {} }) {
   if (!config.buybackLive) return { ran: false, why: "HQ_BUYBACK_LIVE is not 1" };
@@ -141,60 +185,146 @@ export async function runBuyback({ config, db, rpc, executor, treasuryReady, clo
   if (!config.treasury) return { ran: false, why: "HQ_TREASURY_ADDRESS is not set" };
   if (!config.rpcUrl) return { ran: false, why: "no RPC of the owner's is set" };
   if (config.kill || db.getKv("kill") === true) return { ran: false, why: "the kill switch is on" };
-  if (!(config.buybackSharePct > 0)) return { ran: false, why: "HQ_BUYBACK_SHARE_PCT is 0" };
+  const treasury = config.treasury;
+  const owner = { kind: "treasury", wallet: treasury };
+  /* what the chain now says about anything the treasury has in flight */
+  if (executor.settle) { try { await executor.settle({ wallet: treasury }); } catch (e) { log(`buyback settle: ${e?.message ?? e}`); } }
+  const unfinished = db.unfinishedBuyback();
+  if (!unfinished && !(config.buybackSharePct > 0)) return { ran: false, why: "HQ_BUYBACK_SHARE_PCT is 0" };
   const { facts, curve } = await readCia(rpc);
   assertCiaFacts(facts);
-  const path = buybackPath({ curveQuote: curve?.quoteMint ?? null });
-  const owner = { kind: "treasury", wallet: config.treasury };
-  const agentWallets = new Map(db.listAgents().map((a) => [a.wallet, a.id]));
-  const flows = treasuryFlows({ rows: db.listChainTxs(config.treasury), treasury: config.treasury, agentWallets, buybacks: db.listBuybacks(1000) });
-  /* Spent: every recorded run whose first leg landed, whatever became of it after (a run that
-     stopped between legs spent its SOL all the same), or what the treasury's own history shows. */
-  const recorded = db.listBuybacks(1000).filter((b) => (b.legSigs ?? []).length > 0).reduce((s, b) => s + BigInt(b.sol_spent ?? 0), 0n);
-  const spent = recorded > flows.buybackSpent ? recorded : flows.buybackSpent;
-  const bal = await treasuryBalances({ rpc, treasury: config.treasury });
-  const budget = buybackBudget({ revenueLamports: flows.revenue, spentLamports: spent, sharePct: config.buybackSharePct, maxPerRunLamports: config.buybackMaxPerRun,
-    treasuryCashLamports: bal.sol, reserveLamports: config.treasuryReserve, minLamports: config.buybackMin });
-  if (budget.spend === 0n) return { ran: false, why: budget.why, budget };
-  const id = randomUUID();
-  db.createBuyback({ id, detail: { path: path.legs, budget: { owed: String(budget.owed), spend: String(budget.spend) } } });
   const tokenFacts = async (mint) => {
     const read = await rpc.getMultipleAccounts([mint]);
     const d = describeMint(read.accounts[0], mint);
     return { mint, program: d.program, decimals: d.decimals, symbol: mint === CIA_MINT ? "CIA" : (d.metadataSymbol ?? mint.slice(0, 4)) };
   };
-  const legSigs = [];
+  if (unfinished) return finish({ config, db, executor, row: unfinished, tokenFacts, owner, log });
+
+  const path = buybackPath({ curveQuote: curve?.quoteMint ?? null });
+  const agentWallets = new Map(db.listAgents().map((a) => [a.wallet, a.id]));
+  const flows = treasuryFlows({ rows: db.listChainTxs(treasury), treasury, agentWallets, buybacks: db.completedBuybacks() });
+  const spent = db.buybackSpentTotal();
+  const bal = await treasuryBalances({ rpc, treasury });
+  const budget = buybackBudget({ revenueLamports: flows.revenue, spentLamports: spent, sharePct: config.buybackSharePct, maxPerRunLamports: config.buybackMaxPerRun,
+    treasuryCashLamports: bal.sol, reserveLamports: config.treasuryReserve, minLamports: config.buybackMin });
+  if (budget.spend === 0n) return { ran: false, why: budget.why, budget };
+  const id = randomUUID();
+  db.createBuyback({ id, state: "wrapping", detail: { path: path.legs, budget: { owed: String(budget.owed), spend: String(budget.spend) } } });
   try {
-    await executor.wrap({ owner, lamports: budget.spend });
-    let payAmount = budget.spend, pay = WSOL, got = null;
-    for (const [, out] of path.legs) {
-      const get = await tokenFacts(out);
-      const r = await executor.jupiterSwap({ owner, pay, get, amountRaw: payAmount, slippageBps: config.buybackSlippageBps, maxImpactPct: config.buybackMaxImpactPct,
-        allowedPairs: path.allowedPairs, kind: "buyback_leg", mint: out });
-      legSigs.push(r.signature);
-      got = tokenDelta(r.tx, config.treasury, out);
-      if (!(got > 0n)) throw Object.assign(new Error(`the leg into ${out} delivered nothing the chain shows`), { clause: "no_output" });
-      db.updateBuyback(id, { state: out === CIA_MINT ? "bought" : "leg1_done", legSigs, solSpent: budget.spend });
-      pay = get; payAmount = got;
+    /* only what is not wrapped already (a stopped run may have left wrapped SOL) */
+    const wsolAta = associatedTokenAddress(treasury, WSOL_MINT, TOKEN_PROGRAM);
+    const wrapped = rpc.getTokenAccountBalance ? await rpc.getTokenAccountBalance(wsolAta).catch(() => 0n) : 0n;
+    if (wrapped < budget.spend) {
+      const w = await executor.wrap({ owner, lamports: budget.spend - wrapped });
+      db.updateBuyback(id, { detail: { wrapSig: w.signature } });
     }
-    let burnSig = null;
-    if (config.buybackDestination === "burn") burnSig = (await executor.burn({ owner, mint: CIA_MINT, amountRaw: got, decimals: CIA_FACTS.decimals })).signature;
-    const row = db.updateBuyback(id, { state: "done", legSigs, burnSig, solSpent: budget.spend, ciaBought: got });
-    const item = buybackItem(row);
-    db.addEvent("buyback", item);
-    log(`buyback: ${solString(budget.spend)} SOL → ${unitsString(got, CIA_FACTS.decimals)} $CIA${burnSig ? `, burned in ${burnSig}` : ""}`);
-    return { ran: true, buyback: item };
   } catch (error) {
-    db.updateBuyback(id, { state: legSigs.length ? "partial" : "failed", legSigs, detail: { clause: error?.clause ?? "error", error: String(error?.message ?? error).slice(0, 300) } });
-    return { ran: false, why: `stopped: ${error?.message ?? error}`, legSigs };
+    db.updateBuyback(id, { state: "failed", detail: { clause: error?.clause ?? "error", error: String(error?.message ?? error).slice(0, 300) } });
+    return { ran: false, why: `stopped before its first leg: ${error?.message ?? error}` };
+  }
+  const row = db.updateBuyback(id, { state: "started", detail: { legs: path.legs.map(([a, b]) => [a, b]), payRaw: String(budget.spend) } });
+  return finish({ config, db, executor, row, tokenFacts, owner, log, budget });
+}
+
+/** Carry a buyback forward from where it stands, one leg at a time, from what the chain says. */
+async function finish({ config, db, executor, row, tokenFacts, owner, log, budget = null }) {
+  const treasury = config.treasury;
+  const id = row.id;
+  let cur = db.getBuyback(id);
+  const legs = cur.detail?.legs ?? cur.detail?.path ?? [];
+  for (;;) {
+    cur = db.getBuyback(id);
+    const n = cur.legSigs.length;
+    const lastSig = cur.legSigs[n - 1] ?? null;
+    /* a signed leg: what became of it */
+    if (n > 0 && ["leg1_sent", "leg2_sent"].includes(cur.state)) {
+      const outcome = outcomeOf({ db, treasury, signature: lastSig });
+      if (outcome === "pending") return { ran: false, why: `waiting for the chain on leg ${n} (${lastSig}); it counts as spent until the chain says it failed`, stopped: true };
+      if (outcome === "failed") {
+        if (n === 1) { db.updateBuyback(id, { state: "failed", legSigs: [], detail: { failedLeg: lastSig } }); return { ran: false, why: `leg one (${lastSig}) never landed: nothing was spent on it` }; }
+        db.updateBuyback(id, { state: "leg1_done", legSigs: cur.legSigs.slice(0, n - 1), detail: { failedLeg: lastSig } });
+        continue;
+      }
+      const tx = txOf(db, treasury, lastSig);
+      const [, out] = legs[n - 1];
+      const got = tokenDelta(tx, treasury, out);
+      if (!(got > 0n)) { db.updateBuyback(id, { state: "stopped", detail: { clause: "no_output" } }); return { ran: false, why: `leg ${n} into ${out} delivered nothing the chain shows: stopped for the owner to look at` }; }
+      if (out === CIA_MINT) {
+        const boughtAt = tx?.blockTime ? new Date(tx.blockTime * 1000).toISOString() : db.iso();
+        const { spent } = solSpentOn({ db, treasury, signatures: [cur.detail?.wrapSig, ...cur.legSigs] });
+        db.updateBuyback(id, { state: "bought", ciaBought: got, solSpent: spent > 0n ? spent : cur.sol_spent, detail: { boughtAt, [`leg${n}Out`]: String(got) } });
+        const item = buybackItem(db.getBuyback(id));
+        log(`buyback ${id}: ${item.solSpent} SOL → ${item.ciaBought} $CIA`);
+      } else db.updateBuyback(id, { state: "leg1_done", detail: { [`leg${n}Out`]: String(got) } });
+      continue;
+    }
+    /* the next leg to send */
+    if (["started", "leg1_done"].includes(cur.state)) {
+      const i = cur.state === "started" ? 0 : 1;
+      if (i >= legs.length) return { ran: false, why: "nothing left to do" };
+      const [inMint, out] = legs[i];
+      const pay = inMint === WSOL_MINT ? WSOL : await tokenFacts(inMint);
+      const amountRaw = i === 0 ? BigInt(cur.detail?.payRaw ?? budget?.spend ?? 0) : BigInt(cur.detail?.[`leg${i}Out`] ?? 0);
+      if (!(amountRaw > 0n)) return { ran: false, why: `leg ${i + 1} has nothing to pay with` };
+      const get = await tokenFacts(out);
+      const nextState = i === 0 ? "leg1_sent" : "leg2_sent";
+      const record = (sig) => { const r = db.getBuyback(id); if (!r.legSigs.includes(sig)) db.updateBuyback(id, { state: nextState, legSigs: [...r.legSigs, sig], ...(i === 0 ? { solSpent: amountRaw } : {}) }); };
+      try {
+        const sent = await executor.jupiterSwap({ owner, pay, get, amountRaw, slippageBps: config.buybackSlippageBps, maxImpactPct: config.buybackMaxImpactPct,
+          allowedPairs: buybackPath({ curveQuote: legs.length === 2 ? legs[0][1] : null }).allowedPairs, kind: "buyback_leg", mint: out, onSigned: record });
+        if (sent?.signature) record(sent.signature);
+        if (db.getBuyback(id).state !== nextState) { db.updateBuyback(id, { state: "stopped", detail: { clause: "no_signature" } }); return { ran: false, why: `leg ${i + 1} returned no signature: stopped for the owner to look at` }; }
+      } catch (error) {
+        /* signed but unconfirmed: the signature is on the buyback, and the chain decides */
+        if (error?.detail?.signature) record(error.detail.signature);
+        const now = db.getBuyback(id);
+        if (now.state === nextState) return { ran: false, why: `leg ${i + 1} is in the chain's hands (${error?.clause ?? "error"}); the next run finishes it`, stopped: true };
+        if (i === 0) db.updateBuyback(id, { state: "failed", detail: { clause: error?.clause ?? "error", error: String(error?.message ?? error).slice(0, 300) } });
+        else db.updateBuyback(id, { detail: { lastError: error?.clause ?? "error" } });
+        return { ran: false, why: `leg ${i + 1} stopped before it was signed (${error?.clause ?? "error"})${i === 0 ? "" : "; the next run tries it again"}` };
+      }
+      continue;
+    }
+    /* bought: burn, if the policy says so, then done */
+    if (cur.state === "bought") {
+      if (config.buybackDestination !== "burn") { db.updateBuyback(id, { state: "done" }); continue; }
+      const pending = cur.detail?.burnPending ?? null;
+      if (pending) {
+        const outcome = outcomeOf({ db, treasury, signature: pending });
+        if (outcome === "pending") return { ran: false, why: `waiting for the chain on the burn (${pending})`, stopped: true };
+        if (outcome === "landed") {
+          const { spent } = solSpentOn({ db, treasury, signatures: [cur.detail?.wrapSig, ...cur.legSigs, pending] });
+          db.updateBuyback(id, { state: "done", burnSig: pending, solSpent: spent > 0n ? spent : cur.sol_spent });
+          continue;
+        }
+        db.updateBuyback(id, { detail: { burnPending: null } });
+      }
+      try {
+        const burned = await executor.burn({ owner, mint: CIA_MINT, amountRaw: BigInt(cur.cia_bought), decimals: CIA_FACTS.decimals, onSigned: (sig) => db.updateBuyback(id, { detail: { burnPending: sig } }) });
+        if (burned?.signature && !db.getBuyback(id).detail?.burnPending) db.updateBuyback(id, { detail: { burnPending: burned.signature } });
+        if (!db.getBuyback(id).detail?.burnPending) return { ran: false, why: "the burn returned no signature: the next run looks again", stopped: true };
+      } catch (error) {
+        if (error?.detail?.signature) db.updateBuyback(id, { detail: { burnPending: error.detail.signature } });
+        return { ran: false, why: `the burn stopped (${error?.clause ?? "error"}); the next run finishes it`, stopped: true };
+      }
+      continue;
+    }
+    if (cur.state === "done") {
+      /* on the stream once, finished (its burn's transaction on it, when the policy burns) */
+      const item = buybackItem(cur);
+      if (db.emitOnce(`buyback:${id}`)) db.addEvent("buyback", item);
+      return { ran: true, buyback: item };
+    }
+    return { ran: false, why: `buyback ${id} is ${cur.state}` };
   }
 }
 
-/** The contract's buyback item from a recorded run that completed (state done): its tx is the
- *  leg that bought the $CIA, its price SOL per $CIA; only the burn may be missing. */
+/** The contract's buyback item from a run whose $CIA was bought: t when its $CIA leg landed, its
+ *  tx that leg, solSpent the SOL that left the treasury for it (read from the chain, fees
+ *  included), price SOL per $CIA; burnTx once the burn landed. */
 export function buybackItem(row) {
-  if (row.state !== "done" || !(row.legSigs?.length) || !row.cia_bought || BigInt(row.cia_bought) <= 0n) throw new Error("only a completed buyback is an item");
+  if (!["bought", "done"].includes(row.state) || !(row.legSigs?.length) || !row.cia_bought || BigInt(row.cia_bought) <= 0n) throw new Error("only a buyback whose $CIA was bought is an item");
   const sol = BigInt(row.sol_spent ?? 0), cia = BigInt(row.cia_bought);
-  return { t: row.t, solSpent: solString(sol), ciaBought: unitsString(cia, CIA_FACTS.decimals), price: priceString(sol, cia, CIA_FACTS.decimals),
+  return { t: row.detail?.boughtAt ?? row.t, solSpent: solString(sol), ciaBought: unitsString(cia, CIA_FACTS.decimals), price: priceString(sol, cia, CIA_FACTS.decimals),
     tx: row.legSigs[row.legSigs.length - 1], burnTx: row.burn_sig ?? null };
 }

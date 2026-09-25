@@ -19,13 +19,17 @@
  *   4. it is sent, then confirmed or found expired or failed; the confirmed transaction is read
  *      back and handed to the indexer at once, so the ledger knows the fill before the next
  *      decision.
- * A restart finds the open markers (recover()): one never signed is abandoned (nothing was sent,
- * because sending comes after the signature is written); one signed is looked up on chain by
- * its signature — landed, failed, or, once its blockhash has expired, never to land. Until then
- * the wallet stays blocked. So a restart can never buy or sell twice: the second attempt waits
- * for the chain to say what became of the first. This is the extension agent's reviewed fix
- * (the book written in flight before the key signs), with the chain as the judge instead of a
- * pause for the owner.
+ * THE MARKERS ARE SETTLED FROM THE CHAIN ALONE, on every indexer pass, at start, and before a
+ * wallet's next transaction is refused for one (settle()): one never signed is abandoned after a
+ * grace (nothing was sent, because sending comes after the signature is written); one signed is
+ * looked up by its signature — landed, failed, or, once its own blockhash is no longer valid and
+ * it is still unseen, never to land. One that landed stays open until the transaction is read
+ * back into chain_txs, so no decision is taken on a ledger that does not have it yet. Only one
+ * marker can be open per wallet, in any process (a unique index; the insert is the check). So a
+ * restart, a slow RPC or the owner's console can never buy or sell twice: a second attempt
+ * waits for the chain to say what became of the first. This is the extension agent's reviewed
+ * fix (the book written in flight before the key signs), with the chain as the judge instead of
+ * a pause for the owner.
  */
 import { randomUUID } from "node:crypto";
 import { VersionedTransaction } from "@solana/web3.js";
@@ -77,93 +81,147 @@ export function createExecutor({
       : signers.treasury({ txBase64, expectedMessageBase64 });
   }
 
-  /* ── one transaction, start to finish ── */
+  /* ── the chain's answers ── */
+  const active = new Set();                 // markers this process is working on right now
+  const blockhashOf = (txBase64) => VersionedTransaction.deserialize(Buffer.from(txBase64, "base64")).message.recentBlockhash;
+  async function getTxOnce(signature) {
+    try { return (await rpc.call("getTransaction", [signature, { encoding: "json", commitment: "confirmed", maxSupportedTransactionVersion: 1 }])) ?? null; } catch { return null; }
+  }
   async function getTx(signature) {
     for (let i = 0; i < 10; i++) {
-      let tx = null;
-      try { tx = await rpc.call("getTransaction", [signature, { encoding: "json", commitment: "confirmed", maxSupportedTransactionVersion: 1 }]); } catch { tx = null; }
+      const tx = await getTxOnce(signature);
       if (tx) return tx;
       await sleep(pollMs);
     }
     return null;
   }
-  async function awaitConfirmed({ signature, lastValidBlockHeight }) {
+  /**
+   * Whether a transaction can no longer land: its message's own blockhash is no longer valid
+   * (true), still valid (false), or unknown (null). Asked BEFORE its status, so a landing just
+   * before the expiry shows in the status read after it. A marker from before blockhashes were
+   * kept falls back to the block height against the last valid height recorded with it.
+   */
+  async function expiredFor({ blockhash = null, lastValidBlockHeight = null }) {
+    if (blockhash) {
+      try { const r = await rpc.call("isBlockhashValid", [blockhash, { commitment: "confirmed" }]); const v = r?.value ?? r; if (v === false) return true; if (v === true) return false; } catch { /* unknown */ }
+      return null;
+    }
+    try { const h = await rpc.getBlockHeight(); if (Number.isFinite(h) && Number.isFinite(lastValidBlockHeight)) return h > lastValidBlockHeight + 8; } catch { /* unknown */ }
+    return null;
+  }
+  /** A signature's status with history (undefined when the RPC cannot say). */
+  async function statusOf(signature) {
+    try { return (await rpc.call("getSignatureStatuses", [[signature], { searchTransactionHistory: true }]))?.value?.[0] ?? null; } catch { return undefined; }
+  }
+  const landedStatus = (s) => s && !s.err && (s.confirmationStatus === "confirmed" || s.confirmationStatus === "finalized");
+  /** A landed transaction into chain_txs, and the owner's ledger told. */
+  async function readBack({ wallet, signature, tx }) {
+    db.putChainTx({ address: wallet, signature, slot: tx.slot ?? 0, blockTime: tx.blockTime ?? null, err: Boolean(tx.meta?.err), tx });
+    await onConfirmed({ wallet, signature, tx });
+  }
+
+  async function awaitConfirmed({ signature, blockhash, lastValidBlockHeight }) {
     const deadline = clock() + confirmTimeoutMs;
     for (;;) {
+      const expired = await expiredFor({ blockhash, lastValidBlockHeight });
       let status = null;
-      try { status = await rpc.getSignatureStatus(signature); } catch { status = null; }
+      try { status = await rpc.getSignatureStatus(signature); } catch { status = undefined; }
       if (status?.err) return { outcome: "failed", err: status.err };
-      if (status && (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized")) return { outcome: "confirmed" };
-      let height = null;
-      try { height = await rpc.getBlockHeight(); } catch { height = null; }
-      if (Number.isFinite(height) && Number.isFinite(lastValidBlockHeight) && height > lastValidBlockHeight + 8) return { outcome: "expired" };
+      if (landedStatus(status)) return { outcome: "confirmed" };
+      if (status === null && expired === true) return { outcome: "expired" };
       if (clock() > deadline) return { outcome: "pending" };
       await sleep(pollMs);
     }
   }
 
+  /** How long a marker never signed may stay open (another process may be building it). */
+  const PREPARED_GRACE_MS = 120_000;
+
+  /** Settle one open marker from the chain. Returns what became of it. */
+  async function settleOne(it) {
+    if (active.has(it.id)) return { id: it.id, state: it.state, waiting: true, why: "in progress here" };
+    if (!it.signature) {
+      if (clock() - Date.parse(it.updated_at ?? it.created_at) < PREPARED_GRACE_MS) return { id: it.id, state: it.state, waiting: true, why: "being built" };
+      db.updateIntent(it.id, { state: "abandoned", detail: { settled: "never signed: nothing was sent" } });
+      return { id: it.id, state: "abandoned" };
+    }
+    if (it.state !== "landed") {
+      const expired = await expiredFor({ blockhash: it.detail?.blockhash ?? null, lastValidBlockHeight: it.last_valid_block_height });
+      const status = await statusOf(it.signature);
+      if (status === undefined) return { id: it.id, state: it.state, waiting: true, why: "the RPC could not say" };
+      if (status?.err) { db.updateIntent(it.id, { state: "failed", detail: { err: status.err, settled: true } }); return { id: it.id, state: "failed" }; }
+      if (!landedStatus(status)) {
+        if (status === null && expired === true) { db.updateIntent(it.id, { state: "expired", detail: { settled: true } }); return { id: it.id, state: "expired" }; }
+        return { id: it.id, state: it.state, waiting: true, why: "not landed, and its blockhash may still be valid" };
+      }
+    }
+    const tx = await getTxOnce(it.signature);
+    if (!tx) { if (it.state !== "landed") db.updateIntent(it.id, { state: "landed" }); return { id: it.id, state: "landed", waiting: true, why: "landed; not yet read back" }; }
+    await readBack({ wallet: it.wallet, signature: it.signature, tx });
+    db.updateIntent(it.id, { state: "confirmed", detail: { settled: true } });
+    return { id: it.id, state: "confirmed" };
+  }
+  /** Settle every open marker (of one wallet, when named). Run on every indexer pass and at start. */
+  async function settle({ wallet = null } = {}) {
+    const out = [];
+    for (const it of db.openIntents(wallet)) out.push(await settleOne(it));
+    return out;
+  }
+
   /**
    * The one path: marker → build (build() returns { txBase64, lastValidBlockHeight }, having run
-   * its checks and simulation) → sign → signature on the marker → send → confirm → read back.
+   * its checks and simulation) → sign → signature on the marker (and `onSigned`, for a caller that
+   * must record it too) → send → confirm → read back into chain_txs → close the marker.
    */
-  async function submit({ owner, kind, mint = null, trigger = null, decisionId = null, detail = null, build }) {
-    const open = db.openIntents(owner.wallet);
-    if (open.length) throw new ExecutionError("in_flight", `a ${open[0].kind} of ${owner.wallet} is still in flight (${open[0].signature ?? "not yet signed"})`);
+  async function submit({ owner, kind, mint = null, trigger = null, decisionId = null, detail = null, build, onSigned = null }) {
+    /* A marker already open for this wallet may have settled since: ask the chain first. */
+    if (db.openIntents(owner.wallet).length) await settle({ wallet: owner.wallet });
     const id = randomUUID();
-    db.createIntent({ id, agentId: owner.kind === "agent" ? owner.number : null, wallet: owner.wallet, kind, mint, trigger, decisionId, detail });
+    if (!db.createIntent({ id, agentId: owner.kind === "agent" ? owner.number : null, wallet: owner.wallet, kind, mint, trigger, decisionId, detail })) {
+      const open = db.openIntents(owner.wallet)[0];
+      throw new ExecutionError("in_flight", `a ${open?.kind ?? "transaction"} of ${owner.wallet} is still in flight (${open?.signature ?? "not yet signed"})`);
+    }
+    active.add(id);
     let signed = null;
     try {
       const built = await build();
       const expected = messageBase64(built.txBase64);
+      const blockhash = blockhashOf(built.txBase64);
       signed = sign(owner, built.txBase64, expected);
-      db.updateIntent(id, { state: "signed", signature: signed.signature, lastValidBlockHeight: built.lastValidBlockHeight, detail: built.detail ?? undefined });
+      db.updateIntent(id, { state: "signed", signature: signed.signature, lastValidBlockHeight: built.lastValidBlockHeight, detail: { ...(built.detail ?? {}), blockhash } });
+      if (onSigned) await onSigned(signed.signature);
       try { await rpc.sendTransaction(signed.signedBase64, { skipPreflight: true, maxRetries: 2 }); }
       catch (error) { log(`send of ${signed.signature} answered: ${error?.message ?? error} — waiting for the chain to say`); }
       db.updateIntent(id, { state: "sent" });
-      const verdict = await awaitConfirmed({ signature: signed.signature, lastValidBlockHeight: built.lastValidBlockHeight });
+      const verdict = await awaitConfirmed({ signature: signed.signature, blockhash, lastValidBlockHeight: built.lastValidBlockHeight });
       if (verdict.outcome === "failed") { db.updateIntent(id, { state: "failed", detail: { err: verdict.err } }); throw new ExecutionError("failed_on_chain", `${kind} ${signed.signature} failed on chain: ${JSON.stringify(verdict.err)}`, { signature: signed.signature }); }
       if (verdict.outcome === "expired") { db.updateIntent(id, { state: "expired" }); throw new ExecutionError("expired", `${kind} ${signed.signature} expired without landing`, { signature: signed.signature }); }
       if (verdict.outcome === "pending") throw new ExecutionError("ambiguous", `${kind} ${signed.signature} has no status after ${confirmTimeoutMs / 1000}s: it stays in flight until the chain says`, { signature: signed.signature });
       const tx = await getTx(signed.signature);
+      if (!tx) {
+        /* Landed, but not readable yet: the marker stays open (the wallet starts nothing else)
+           until a settle pass reads it back into chain_txs. */
+        db.updateIntent(id, { state: "landed" });
+        log(`${kind} ${signed.signature} landed but could not be read back yet; the wallet waits for it`);
+        return { intentId: id, signature: signed.signature, tx: null, event: null, landed: true };
+      }
+      await readBack({ wallet: owner.wallet, signature: signed.signature, tx });
       db.updateIntent(id, { state: "confirmed" });
-      if (tx) await onConfirmed({ wallet: owner.wallet, signature: signed.signature, tx });
-      return { intentId: id, signature: signed.signature, tx, event: tx ? classifyTransaction(tx, { wallet: owner.wallet }) : null };
+      return { intentId: id, signature: signed.signature, tx, event: classifyTransaction(tx, { wallet: owner.wallet }) };
     } catch (error) {
       const cur = db.getIntent(id);
       if (cur?.state === "prepared") db.updateIntent(id, { state: "abandoned", detail: { clause: clauseOf(error), error: String(error?.message ?? error).slice(0, 300) } });
       throw error;
-    }
+    } finally { active.delete(id); }
   }
 
-  /** After a restart: settle every marker left open, from the chain alone. */
-  async function recover() {
-    const settled = [];
-    for (const it of db.openIntents()) {
-      if (!it.signature) { db.updateIntent(it.id, { state: "abandoned", detail: { recovered: "never signed: nothing was sent" } }); settled.push({ id: it.id, state: "abandoned" }); continue; }
-      let status = null;
-      try { status = (await rpc.call("getSignatureStatuses", [[it.signature], { searchTransactionHistory: true }]))?.value?.[0] ?? null; } catch { status = null; }
-      if (status?.err) { db.updateIntent(it.id, { state: "failed", detail: { err: status.err, recovered: true } }); settled.push({ id: it.id, state: "failed" }); continue; }
-      if (status && (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized")) {
-        const tx = await getTx(it.signature);
-        if (tx) await onConfirmed({ wallet: it.wallet, signature: it.signature, tx });
-        db.updateIntent(it.id, { state: "confirmed", detail: { recovered: true } });
-        settled.push({ id: it.id, state: "confirmed" });
-        continue;
-      }
-      let height = null;
-      try { height = await rpc.getBlockHeight(); } catch { height = null; }
-      if (Number.isFinite(height) && Number.isFinite(it.last_valid_block_height) && height > it.last_valid_block_height + 8) {
-        db.updateIntent(it.id, { state: "expired", detail: { recovered: true } });
-        settled.push({ id: it.id, state: "expired" });
-      } else settled.push({ id: it.id, state: it.state, waiting: true });
-    }
-    return settled;
-  }
+  /** After a restart: the same settlement, for every open marker. */
+  const recover = () => settle();
 
   /* ── Jupiter: pay one token, get another, only on an allowed pair ── */
-  async function jupiterSwap({ owner, pay, get, amountRaw, slippageBps, maxImpactPct, allowedPairs, kind, mint = null, trigger = null, decisionId = null, protective = false }) {
+  async function jupiterSwap({ owner, pay, get, amountRaw, slippageBps, maxImpactPct, allowedPairs, kind, mint = null, trigger = null, decisionId = null, protective = false, onSigned = null }) {
     assertMaySend(owner, { protective });
-    return submit({ owner, kind, mint, trigger, decisionId, detail: { pay: pay.mint, get: get.mint, amountRaw: String(amountRaw) }, build: async () => {
+    return submit({ owner, kind, mint, trigger, decisionId, onSigned, detail: { pay: pay.mint, get: get.mint, amountRaw: String(amountRaw) }, build: async () => {
       const wallet = owner.wallet;
       const payAta = associatedTokenAddress(wallet, pay.mint, pay.program);
       const getAta = associatedTokenAddress(wallet, get.mint, get.program);
@@ -259,9 +317,9 @@ export function createExecutor({
   }
 
   /* ── HQ's own shapes: build, check, simulate on the wallet's lamports ── */
-  async function simple({ owner, kind, instructions, check, maxSpend, mayGain = false, protective = false, anyMode = false, detail = null }) {
+  async function simple({ owner, kind, instructions, check, maxSpend, mayGain = false, protective = false, anyMode = false, detail = null, onSigned = null }) {
     assertMaySend(owner, { protective, anyMode });
-    return submit({ owner, kind, detail, build: async () => {
+    return submit({ owner, kind, detail, onSigned, build: async () => {
       const wallet = owner.wallet;
       const { blockhash, lastValidBlockHeight } = await rpc.getLatestBlockhash();
       const tx = buildUnsignedTransaction({ payer: wallet, blockhash, computeUnitLimit: HQ_TX.simpleComputeUnits, priorityFeeLamports: HQ_TX.simplePriorityFeeLamports, instructions });
@@ -269,15 +327,19 @@ export function createExecutor({
       const txBase64 = toBase64(tx.serialize());
       const before = await rpc.getBalance(wallet);
       const sim = await rpc.simulateTransaction(txBase64, { addresses: [wallet] });
-      checkSimulation(sim, { walletBefore: Number(before), walletAfter: Number(sim?.accounts?.[0]?.lamports), maxSpendLamports: Number(maxSpend), mayGain });
+      /* An answer without the wallet's balance after is no answer: refused, never read as 0 or NaN. */
+      const after = sim?.accounts?.[0]?.lamports;
+      if (after === undefined || after === null || !Number.isFinite(Number(after)) || !Number.isFinite(Number(before)))
+        throw new ExecutionError("simulation_unreadable", "the simulation did not return the wallet's balance: nothing is signed");
+      checkSimulation(sim, { walletBefore: Number(before), walletAfter: Number(after), maxSpendLamports: Number(maxSpend), mayGain });
       return { txBase64, lastValidBlockHeight };
     } });
   }
   const FEE_ROOM = 200_000n;   // the most a one-signature transaction of HQ's own may cost in fees
   const RENT_ROOM = 2_100_000n;
 
-  function wrap({ owner, lamports }) {
-    return simple({ owner, kind: "wrap", instructions: wrapInstructions({ wallet: owner.wallet, lamports }), detail: { lamports: String(lamports) },
+  function wrap({ owner, lamports, onSigned = null }) {
+    return simple({ owner, kind: "wrap", onSigned, instructions: wrapInstructions({ wallet: owner.wallet, lamports }), detail: { lamports: String(lamports) },
       check: (m) => checkWrapMessage(m, { wallet: owner.wallet, lamports }), maxSpend: BigInt(lamports) + FEE_ROOM + RENT_ROOM });
   }
   function unwrap({ owner, protective = false, anyMode = false }) {
@@ -292,8 +354,8 @@ export function createExecutor({
     return simple({ owner, kind: "transfer", instructions: transferInstructions({ wallet: owner.wallet, treasury, lamports, memo }), protective: true, anyMode: true, detail: { lamports: String(lamports), memo },
       check: (m) => checkTransferMessage(m, { wallet: owner.wallet, treasury, lamports, memo }), maxSpend: BigInt(lamports) + FEE_ROOM });
   }
-  function burn({ owner, mint, amountRaw, decimals }) {
-    return simple({ owner, kind: "burn", instructions: burnInstructions({ owner: owner.wallet, mint, amountRaw, decimals }), detail: { amountRaw: String(amountRaw) },
+  function burn({ owner, mint, amountRaw, decimals, onSigned = null }) {
+    return simple({ owner, kind: "burn", onSigned, instructions: burnInstructions({ owner: owner.wallet, mint, amountRaw, decimals }), detail: { amountRaw: String(amountRaw) },
       check: (m) => checkBurnMessage(m, { owner: owner.wallet, mint, amountRaw, decimals }), maxSpend: FEE_ROOM });
   }
   /** Claim the agent wallet's pump.fun creator fees: CashCat's verified claim, the bots' check. */
@@ -313,7 +375,7 @@ export function createExecutor({
   }
 
   const inFlight = (wallet) => db.openIntents(wallet).length > 0;
-  return Object.freeze({ submit, recover, inFlight, jupiterSwap, pumpBuy, pumpSell, readCurve, wrap, unwrap, transferToTreasury, burn, claimCreatorFees, assertMaySend });
+  return Object.freeze({ submit, settle, recover, inFlight, jupiterSwap, pumpBuy, pumpSell, readCurve, wrap, unwrap, transferToTreasury, burn, claimCreatorFees, assertMaySend });
 }
 
 export { TxRefused, SwapCheckError };

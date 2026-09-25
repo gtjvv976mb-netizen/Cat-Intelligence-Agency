@@ -91,5 +91,6 @@ ok("a spend over the budget → spend", simV(sim(), { walletAfter: 900_000_000 }
 ok("a launch that pays the wallet → spend", simV(sim(), { walletAfter: 1_000_000_001 }) === "spend");
 ok("the program did not log the create → simulation", simV(sim({ logs: [] })) === "simulation");
 ok("an unknown post-state → simulation", simV(sim(), { walletAfter: undefined }) === "simulation");
+ok("…read as a number (NaN, from an answer with no accounts) → simulation, never a pass", simV(sim(), { walletAfter: Number(undefined) }) === "simulation" && simV(sim(), { walletBefore: NaN }) === "simulation" && simV(sim(), { walletAfter: Infinity }) === "simulation");
 
 done();

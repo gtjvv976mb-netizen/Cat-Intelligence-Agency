@@ -12,13 +12,14 @@
 import crypto from "node:crypto";
 import bs58 from "bs58";
 import { harness } from "./bots/test/doubles.mjs";
-import { createPerks, verifyEd25519, tierFor, readCiaBalance, challengeMessage, perksTiers, PERKS, TIERS, PerksError } from "./services/hq/lib/perks.mjs";
+import { createPerks, verifyEd25519, isSmallOrderKey, tierFor, readCiaBalance, challengeMessage, perksTiers, PERKS, TIERS, PerksError } from "./services/hq/lib/perks.mjs";
 import { parsePerkTiers, CIA_MINT, ConfigError } from "./services/hq/lib/config.mjs";
 import { SCHEMAS, validate } from "./services/hq/contract/schemas.mjs";
 import { memDb, testConfig, testClock, extRpc, addr } from "./services/hq/test/doubles.mjs";
 
 const { ok, section, done } = harness("test-hq-perks");
 const CIA = 1_000_000n;                       // raw units in one $CIA (6 decimals)
+const good2 = () => ({ holder: true, balance: "1500000", tier: "agent", perks: [...PERKS.agent], expiresAt: "2026-09-26T12:00:00.000Z" });
 
 /** A holder's wallet, made here: the address and a signMessage like Phantom's. */
 function holderWallet() {
@@ -38,8 +39,10 @@ section("THE CHALLENGE");
   ok("it is the contract's shape", validate(SCHEMAS.PerksChallenge, c).length === 0, JSON.stringify(validate(SCHEMAS.PerksChallenge, c)));
   ok("the message is plain text naming the site, the wallet, the nonce and the expiry, and says signing moves nothing", c.message.includes("catintelligenceagency.com") && c.message.includes(w.address) && c.message.includes(`Nonce: ${c.nonce}`) && c.message.includes(c.expiresAt) && /moves nothing/.test(c.message) && /^[\x20-\x7e\n$—]+$/.test(c.message));
   ok("it expires after HQ_CHALLENGE_TTL_SECONDS (300 by default)", Date.parse(c.expiresAt) - clock() === 300_000);
-  ok("each challenge has its own nonce", perks.challenge(w.address).nonce !== c.nonce);
   ok("it is stored single-use, for this wallet and this message", (() => { const r = db.getNonce(c.nonce); return r.purpose === "perks" && r.wallet === w.address && r.message === c.message && r.used_at === null; })());
+  const c2 = perks.challenge(w.address);
+  ok("each challenge has its own nonce", c2.nonce !== c.nonce);
+  ok("the message is exactly the contract's six lines, nothing after", c.message.split("\n").length === 6 && !c.message.endsWith("\n") && c.message === challengeMessage({ wallet: w.address, nonce: c.nonce, issuedAt: new Date(clock()).toISOString(), expiresAt: c.expiresAt }));
   ok("a wallet that is not an address gets no challenge", (() => { try { perks.challenge("not-a-wallet"); return false; } catch (e) { return e.clause === "bad_wallet"; } })());
 }
 
@@ -99,10 +102,71 @@ section("THE BALANCE, THE TIERS");
   const w = holderWallet();
   const c = perks.challenge(w.address);
   ok("a balance that cannot be read: an error (503), never a tier", JSON.stringify(await refusal(perks.verify({ wallet: w.address, message: c.message, signature: w.sign(c.message) }))) === JSON.stringify({ clause: "balance_unreadable", status: 503 }));
+  /* the RPC's own words (its URL and key in them) go to the log, never to the client */
+  const SECRET = "https://rpc.example.invalid/?api-key=SECRETKEY-7f3a";
+  const logged = [];
+  const leaky = createPerks({ db: memDb(clock), config: testConfig(), clock, log: (l) => logged.push(l), balanceOf: async () => { throw new Error(`provider says: ${SECRET} rate limited <html>over quota</html>`); } });
+  const cl = leaky.challenge(w.address);
+  let said = null;
+  try { await leaky.verify({ wallet: w.address, message: cl.message, signature: w.sign(cl.message) }); } catch (e) { said = e; }
+  ok("…its message is HQ's own wording, the upstream's text only in the log", said?.status === 503 && said.message === "the $CIA balance could not be read from the chain; try again shortly" && !said.message.includes("SECRETKEY") && logged.some((l) => l.includes("rate limited")));
   const none = createPerks({ db: memDb(clock), config: testConfig(), clock, balanceOf: async () => 0n });
   const c2 = none.challenge(w.address);
   const r = await none.verify({ wallet: w.address, message: c2.message, signature: w.sign(c2.message) });
   ok("a wallet with no $CIA: holder false, tier none, no perks", r.holder === false && r.tier === "none" && r.perks.length === 0 && r.balance === "0");
+  const dust = createPerks({ db: memDb(clock), config: testConfig(), clock, balanceOf: async () => CIA / 2n });
+  const c3 = dust.challenge(w.address);
+  const half = await dust.verify({ wallet: w.address, message: c3.message, signature: w.sign(c3.message) });
+  ok("half a $CIA, under the holder tier: holder is false, because holder is true exactly when the tier is not none", half.holder === false && half.tier === "none" && half.balance === "0.5" && validate(SCHEMAS.PerksVerify, half).length === 0);
+  ok("…and the contract's schema refuses the two disagreeing", validate(SCHEMAS.PerksVerify, { ...half, holder: true }).length > 0 && validate(SCHEMAS.PerksVerify, { ...good2(), holder: false }).length > 0);
+}
+
+section("A PUBLIC KEY OF SMALL ORDER IS REFUSED BEFORE ANY SIGNATURE CHECK");
+{
+  const spki = (pub) => crypto.createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), pub]), format: "der", type: "spki" });
+  /* The System Program's address (the all-zero key) and a signature forged for it over a fixed
+     challenge (found in a few tries: R = [s]B − [j]A with k ≡ j mod 4); the identity key and the
+     constant signature it accepts. Node's own verify accepts both: the forgeries are real. */
+  const SYSTEM = "11111111111111111111111111111111";
+  const msg = "catintelligenceagency.com asks you to prove you hold this wallet, to show your $CIA holder perks.\nWallet: 11111111111111111111111111111111\nNonce: fixednonceforthetest\nIssued: 2026-09-25T12:00:00.000Z\nExpires: 2026-09-25T12:05:00.000Z\nSigning this message moves nothing: no SOL, no tokens, no approval, and it costs nothing.";
+  const forged = "3zUfhzd8z4jL1SUtsMz4mWTXvMGcAV2uArLLgk5xycPC5JSqoQFxogi6DBpG6qFbx7yDEB94WU95S2errgYpGNmm";
+  const IDENTITY = "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", idSig = "2AFv15MNPuA84RmU66xw2uMzGipcVxNpzAffoacGVvjFue3CBmf633fAWuiP9cwL9C3z3CJiGgRSFjJfeEcA6QX";
+  ok("the forgeries are real: Node's ed25519 verify accepts the System Program's and the identity's", crypto.verify(null, Buffer.from(msg), spki(Buffer.alloc(32)), bs58.decode(forged)) && crypto.verify(null, Buffer.from("any message at all"), spki(Buffer.from(bs58.decode(IDENTITY))), bs58.decode(idSig)));
+  ok("…verifyEd25519 refuses both", verifyEd25519({ address: SYSTEM, message: msg, signature: forged }) === false && verifyEd25519({ address: IDENTITY, message: "any message at all", signature: idSig }) === false);
+  const list = ["0000000000000000000000000000000000000000000000000000000000000000", "0100000000000000000000000000000000000000000000000000000000000000",
+    "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05", "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+    "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f", "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f", "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f"];
+  const withSign = (h) => { const b = Buffer.from(h, "hex"); b[31] |= 0x80; return b; };
+  ok("every small-order encoding (libsodium's list), and each with its sign bit set, is small order; a real wallet's key is not",
+    list.every((h) => isSmallOrderKey(Buffer.from(h, "hex")) && isSmallOrderKey(withSign(h))) && !isSmallOrderKey(Buffer.from(bs58.decode(holderWallet().address))));
+  const clock = testClock(Date.parse("2026-09-25T12:00:00.000Z"));
+  const db = memDb(clock);
+  let asked = 0;
+  const perks = createPerks({ db, config: testConfig(), clock, balanceOf: async () => { asked++; return 10_000_000n * CIA; } });
+  ok("no challenge is issued for the System Program's address", (await refusal((async () => perks.challenge(SYSTEM))()))?.clause === "bad_wallet");
+  db.createNonce({ nonce: "fixednonceforthetest", purpose: "perks", wallet: SYSTEM, message: msg, expiresAt: clock() + 300_000 });
+  ok("…and a verify for it, with the forged signature over a stored challenge, is refused before the signature and the balance are read", (await refusal(perks.verify({ wallet: SYSTEM, message: msg, signature: forged })))?.clause === "bad_wallet" && asked === 0);
+}
+
+section("CHALLENGES DO NOT PILE UP");
+{
+  const clock = testClock();
+  const db = memDb(clock);
+  const perks = createPerks({ db, config: testConfig(), clock, balanceOf: async () => CIA });
+  const w = holderWallet();
+  const first = perks.challenge(w.address);
+  for (let i = 0; i < 1_000; i++) perks.challenge(w.address);
+  const last = perks.challenge(w.address);
+  ok("a thousand challenges for one wallet leave one row: a newer challenge replaces its older unused one", db.countNonces() === 1 && db.getNonce(last.nonce) !== null && db.getNonce(first.nonce) === null);
+  ok("…the older one can no longer be answered", (await refusal(perks.verify({ wallet: w.address, message: first.message, signature: w.sign(first.message) })))?.clause === "unknown_challenge");
+  const r = await perks.verify({ wallet: w.address, message: last.message, signature: w.sign(last.message) });
+  perks.challenge(w.address);
+  ok("a used one stays until it expires, so it cannot be replayed", r.tier === "holder" && (await refusal(perks.verify({ wallet: w.address, message: last.message, signature: w.sign(last.message) })))?.clause === "replayed");
+  const other = holderWallet();
+  perks.challenge(other.address);
+  ok("another wallet's challenge is its own", db.countNonces() === 3);
+  clock.advance(300_001);
+  ok("expired ones are pruned (the server does it every minute)", db.pruneNonces(clock()) === 3 && db.countNonces() === 0);
 }
 
 section("GET /v1/perks: THE TIERS, AS THE OWNER SET THEM");

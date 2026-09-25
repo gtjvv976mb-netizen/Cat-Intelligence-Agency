@@ -2,8 +2,9 @@
  * THE OWNER'S COMMANDS: SIGNED REQUESTS, THE CLI, AND WHAT EACH COMMAND MAY DO.
  *
  *   · a signed request is HQ_OWNER_WALLET's ed25519 signature over the canonical command, a
- *     fresh nonce and the time; without HQ_OWNER_WALLET remote admin is off; a bad signature, a
- *     stale time and a replayed nonce are refused;
+ *     fresh nonce, the time and the server it is for (HQ_SERVER_ID); without HQ_OWNER_WALLET
+ *     remote admin is off; a bad signature, one for another server, one for a key of small order,
+ *     a stale time and a replayed nonce are refused;
  *   · the owner's admin client signs on the owner's machine from a keypair file, and HQ verifies;
  *   · agent.create makes a paper agent with its derived wallet and its paper bankroll; names pass
  *     the content rules; limits are fenced; live needs the agent's wallet typed back; skins
@@ -19,7 +20,7 @@ import bs58 from "bs58";
 import { harness, ROOT } from "./bots/test/doubles.mjs";
 import { canonical, adminMessage, verifyAdminRequest, executeAdminCommand, AdminError, COMMANDS, SPRITES } from "./services/hq/lib/admin.mjs";
 import { parseArgs, commandFor } from "./services/hq/cli.mjs";
-import { signedRequest } from "./services/hq/admin-client.mjs";
+import { signedRequest, serverIdFor } from "./services/hq/admin-client.mjs";
 import { refusal as keygenRefusal } from "./services/hq/keygen.mjs";
 import { CIA_MINT } from "./services/hq/lib/config.mjs";
 import { memDb, testConfig, testClock, addr } from "./services/hq/test/doubles.mjs";
@@ -41,9 +42,10 @@ section("A SIGNED REQUEST");
   const db = memDb(clock);
   const config = testConfig({ HQ_OWNER_WALLET: owner.address });
   const req = (command, { nonce = crypto.randomBytes(18).toString("base64url"), issuedAt = new Date(clock()).toISOString(), signer = owner } = {}) =>
-    ({ command, nonce, issuedAt, signature: signer.sign(adminMessage({ command, nonce, issuedAt })) });
+    ({ command, nonce, issuedAt, signature: signer.sign(adminMessage({ command, nonce, issuedAt, server: config.serverId })) });
   ok("the signed text is canonical: key order does not change it", canonical({ b: 1, a: { d: [1, { f: 2, e: 3 }], c: "x" } }) === canonical({ a: { c: "x", d: [1, { e: 3, f: 2 }] }, b: 1 }));
-  ok("…and says what it is", adminMessage({ command: { op: "kill", on: true }, nonce: "n", issuedAt: "t" }) === 'cia-hq admin\n{"command":{"on":true,"op":"kill"},"issuedAt":"t","nonce":"n"}');
+  ok("…and says what it is, and which server it is for", adminMessage({ command: { op: "kill", on: true }, nonce: "n", issuedAt: "t", server: "api.catintelligenceagency.com" }) === 'cia-hq admin\n{"command":{"on":true,"op":"kill"},"issuedAt":"t","nonce":"n","server":"api.catintelligenceagency.com"}');
+  ok("the server's id is HQ_SERVER_ID, api.catintelligenceagency.com unless set", config.serverId === "api.catintelligenceagency.com" && testConfig({ HQ_SERVER_ID: "hq-staging.up.railway.app" }).serverId === "hq-staging.up.railway.app");
   const good = req({ op: "agent.pause", id: 1 });
   ok("the owner's signature: the command comes back", verifyAdminRequest({ body: good, config, db, clock })?.op === "agent.pause");
   ok("the same request again: replayed", await refused(() => verifyAdminRequest({ body: good, config, db, clock })) === "replayed");
@@ -56,6 +58,20 @@ section("A SIGNED REQUEST");
   ok("a command that is not an object: bad_request", await refused(() => verifyAdminRequest({ body: { ...req({ op: "kill", on: true }), command: ["kill"] }, config, db, clock })) === "bad_request");
   ok("with no HQ_OWNER_WALLET set, remote admin is off (403) whatever is signed", await (async () => { try { verifyAdminRequest({ body: req({ op: "kill", on: true }), config: testConfig(), db, clock }); return false; } catch (e) { return e.clause === "admin_disabled" && e.status === 403; } })());
 
+  /* one owner wallet, two servers (production and a staging copy): a command signed for one is refused by the other */
+  const staging = testConfig({ HQ_OWNER_WALLET: owner.address, HQ_SERVER_ID: "hq-staging.up.railway.app" });
+  const forStaging = (() => { const command = { op: "kill", on: true }, nonce = crypto.randomBytes(18).toString("base64url"), issuedAt = new Date(clock()).toISOString();
+    return { command, nonce, issuedAt, signature: owner.sign(adminMessage({ command, nonce, issuedAt, server: staging.serverId })) }; })();
+  ok("a command the owner signed for the staging server: refused by production (bad_signature), and it spends nothing there", await refused(() => verifyAdminRequest({ body: forStaging, config, db, clock })) === "bad_signature" && db.getNonce(`admin:${forStaging.nonce}`) === null);
+  ok("…accepted by the staging server it was signed for", verifyAdminRequest({ body: forStaging, config: staging, db: memDb(clock), clock }).op === "kill");
+  const unsigned = { command: { op: "kill", on: true }, nonce: crypto.randomBytes(18).toString("base64url"), issuedAt: new Date(clock()).toISOString() };
+  ok("…and one signed with no server named (the old message): refused", await refused(() => verifyAdminRequest({ body: { ...unsigned, signature: owner.sign(`cia-hq admin\n${canonical({ command: unsigned.command, issuedAt: unsigned.issuedAt, nonce: unsigned.nonce })}`) }, config, db, clock })) === "bad_signature");
+
+  /* HQ_OWNER_WALLET set to a key of small order (the System Program's address): a signature forged for it over this exact request */
+  const sysOwner = testConfig({ HQ_OWNER_WALLET: "11111111111111111111111111111111" });
+  const forgedBody = { command: { op: "kill", on: false }, nonce: "fixednonce-0123456789", issuedAt: "2026-09-25T12:00:00.000Z", signature: "47XMu7naT17gJat5YUmvcy4Guqxse5FdGqbKN2zXHS1XW4dYTdwdcXRz8Dn9D448WF9jfFrtu5UpneF6HZuwkGFZ" };
+  ok("an owner wallet of small order: a forged signature (one Node's own verify accepts) is refused", await refused(() => verifyAdminRequest({ body: forgedBody, config: sysOwner, db: memDb(clock), clock: testClock(Date.parse("2026-09-25T12:00:00.000Z")) })) === "bad_signature");
+
   /* The owner's admin client, on the owner's own machine, from a keypair file. */
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hq-admin-test-"));
   const file = path.join(dir, "owner.json");
@@ -63,7 +79,10 @@ section("A SIGNED REQUEST");
     fs.writeFileSync(file, JSON.stringify(owner.secret64));
     const { signer, body } = signedRequest({ command: { op: "kill", on: true }, keypairPath: file, now: clock() });
     ok("the admin client signs with the keypair file: the signer is the owner's address", signer === owner.address);
-    ok("…and HQ accepts what it made", verifyAdminRequest({ body, config, db, clock }).op === "kill");
+    ok("…and HQ accepts what it made (signed for api.catintelligenceagency.com by default)", verifyAdminRequest({ body, config, db, clock }).op === "kill");
+    ok("…it names the server from --server, else the host of --url", serverIdFor({ server: "x.example" }) === "x.example" && serverIdFor({ url: "https://hq-staging.up.railway.app/" }) === "hq-staging.up.railway.app" && serverIdFor({}) === "api.catintelligenceagency.com");
+    const staged = signedRequest({ command: { op: "kill", on: true }, keypairPath: file, now: clock(), server: serverIdFor({ url: "https://hq-staging.up.railway.app" }) });
+    ok("…and what it signed for another server, production refuses", await refused(() => verifyAdminRequest({ body: staged.body, config, db, clock })) === "bad_signature");
     ok("…the body carries the command, a nonce, the time and the signature — never the key", Object.keys(body).sort().join() === "command,issuedAt,nonce,signature" && !JSON.stringify(body).includes(String(owner.secret64.slice(0, 8))));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
@@ -73,9 +92,10 @@ section("THE COMMANDS");
   const clock = testClock();
   const db = memDb(clock);
   const withdrawals = [];
+  let heldLive = [];                                   /* what the agent's wallet holds, bought live */
   const deps = { db, config: testConfig({ HQ_TREASURY_ADDRESS: addr(1) }), rpc: null, clock, agentAddress: (n) => addr(100 + n),
     withdraw: async ({ agent, lamports }) => { withdrawals.push({ id: agent.id, lamports }); return { signature: "sig" }; },
-    runtime: { refresh: async () => ({ ledger: { positions: [] } }), sell: async () => ({ ok: true }) } };
+    runtime: { refresh: async () => ({ ledger: { positions: [] } }), sell: async () => ({ ok: true }), walletLedger: () => ({ positions: heldLive }) } };
   const run = (command) => executeAdminCommand(command, { source: "test", deps });
   const created = await run({ op: "agent.create", name: "Agent Whiskers", strategy: "crying-cat-safe" });
   const a = db.getAgent(1);
@@ -96,8 +116,13 @@ section("THE COMMANDS");
   ok("…with another wallet typed: refused", await refused(() => run({ op: "agent.set", id: 1, mode: "live", confirmWallet: addr(102) })) === "confirm");
   await run({ op: "agent.set", id: 1, mode: "live", confirmWallet: addr(101) });
   ok("…with its own wallet typed: live", db.getAgent(1).mode === "live");
+  heldLive = [{ mint: addr(55), qty: 1_000n, cost: 10_000_000n }];
+  const stuck = await refused(() => run({ op: "agent.set", id: 1, mode: "paper" }));
+  ok("back to paper while the wallet still holds a coin bought live: refused (holds_positions) — its stops would stop watching real tokens", stuck === "holds_positions" && db.getAgent(1).mode === "live");
+  ok("…and where the holdings cannot be read, it stays live too", await refused(() => executeAdminCommand({ op: "agent.set", id: 1, mode: "paper" }, { source: "test", deps: { ...deps, runtime: { refresh: deps.runtime.refresh } } })) === "holds_unknown" && db.getAgent(1).mode === "live");
+  heldLive = [];
   await run({ op: "agent.set", id: 1, mode: "paper" });
-  ok("back to paper needs no confirmation", db.getAgent(1).mode === "paper");
+  ok("once liquidated, back to paper needs no confirmation", db.getAgent(1).mode === "paper");
   await run({ op: "agent.set", id: 1, limits: { stopLossPct: 12 } });
   ok("new limits merge over the agent's own, fenced", db.getAgent(1).limits.stopLossPct === 12 && db.getAgent(1).limits.maxPerTradeSol === "0.05");
   await run({ op: "agent.set", id: 1, strategy: "coinmarketcat" });

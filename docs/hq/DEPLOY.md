@@ -137,7 +137,10 @@ Optional, when you want them:
 | `HQ_PERKS_TTL_HOURS` / `HQ_CHALLENGE_TTL_SECONDS` | how long a verified tier lasts / a sign-in message lasts | `24` / `300` |
 | `HQ_INDEX_INTERVAL_SECONDS` / `HQ_MAX_HISTORY_PAGES` | how often wallets are re-read / how far back a wallet's history is read | `60` / `20` |
 | `HQ_AGENCY_LAUNCHES_URL` | the site's list of CashCat launches (never bought) | the site's `launches.json` |
-| `HQ_RATE_READ_PER_MIN`, `HQ_RATE_PERKS_PER_MIN`, `HQ_RATE_ADMIN_PER_MIN`, `HQ_STREAMS_PER_CLIENT`, `HQ_STREAMS_TOTAL` | per-visitor limits | `240`, `12`, `12`, `4`, `500` |
+| `HQ_RATE_READ_PER_MIN`, `HQ_RATE_PERKS_PER_MIN`, `HQ_RATE_ADMIN_PER_MIN` | per-visitor limits a minute | `240`, `12`, `12` |
+| `HQ_STREAMS_PER_NETWORK`, `HQ_STREAMS_TOTAL` | live streams open at once per visitor network (an IPv4 /24, an IPv6 /64), and in all | `8`, `300` |
+| `HQ_STREAM_MAX_SECONDS` | a live stream ends after this long and the page reconnects where it was (10 to 300) | `300` |
+| `HQ_SERVER_ID` | the name your signed commands are for (step 10); set it only for a second HQ, such as a test copy, to that copy's API host | `api.catintelligenceagency.com` |
 | `HQ_ADMIN_MAX_SKEW_SECONDS` | how old a signed admin command may be | `300` |
 | `HQ_RPC_WS_URL` | only if your RPC's websocket is not the `wss://` form of `HQ_RPC_URL` | derived |
 | `HQ_DATA_DIR` / `HQ_DB_PATH` | where the database lives; leave empty on Railway (the volume is used) | the volume |

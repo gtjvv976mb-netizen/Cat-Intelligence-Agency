@@ -11,7 +11,12 @@
  *   · off unless HQ_BUYBACK_LIVE=1, the treasury key, a share above 0, the owner's RPC and no kill;
  *   · a recorded Jupiter swap for another pair is refused by the allowlist (pair_not_allowed);
  *   · a run: wrap, leg one, leg two spending exactly what leg one delivered, the burn; recorded
- *     with every signature, on the stream, and on /v1/buybacks.
+ *     with every signature, the SOL it cost read from the chain, on the stream, and on /v1/buybacks;
+ *   · the review's cases: what was spent is summed over every buyback (a thousand and one of them);
+ *     a leg signed but unconfirmed counts as spent and is finished by the next run, never paid
+ *     again; a buyback that stopped between its legs is finished first and listed once.
+ * The scripted executor behaves as the real one does: it hands each signature to onSigned as it
+ * signs, and a leg that lands is read back into chain_txs, where the buyback reads it.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -27,6 +32,7 @@ import { SCHEMAS, validate } from "./services/hq/contract/schemas.mjs";
 import { checkSwapTransaction, loadLookupTables, lookupTableKeysOf, SwapCheckError } from "./src/lib/jupiter-swap.mjs";
 import { WSOL_MINT } from "./bots/lib/verified.mjs";
 import { extRpc, memDb, testConfig, testClock, addr, hqFixture, jsonTx } from "./services/hq/test/doubles.mjs";
+import { ExecutionError } from "./services/hq/lib/execution.mjs";
 import { parseSol } from "./services/hq/lib/amounts.mjs";
 
 const { ok, section, done } = harness("test-hq-buyback");
@@ -100,12 +106,15 @@ const HISTORY = [
 
 section("REVENUE: ONLY WHAT AGENTS SENT HOME WITH HQ'S MEMOS");
 {
-  const f = treasuryFlows({ rows: HISTORY.map((tx) => ({ tx })), treasury, agentWallets: new Map([[agentW, 2]]), buybacks: [{ legSigs: [leg1Sig] }] });
+  const leg2Sig = fakeSig();
+  const f = treasuryFlows({ rows: HISTORY.map((tx) => ({ tx })), treasury, agentWallets: new Map([[agentW, 2]]),
+    buybacks: [{ state: "done", legSigs: [leg1Sig, leg2Sig], sol_spent: String(parseSol("0.05") + 10_000n), detail: { boughtAt: "2026-09-25T10:00:00.000Z" } }, { state: "leg1_done", legSigs: [fakeSig()], sol_spent: String(parseSol("0.05")) }] });
   ok("fee_in 0.2 SOL (cia-hq:fee_sweep) and profit_in 0.1 SOL (cia-hq:profit_sweep): 0.3 SOL of revenue", f.feeIn === parseSol("0.2") && f.profitIn === parseSol("0.1") && f.revenue === parseSol("0.3"));
   ok("an agent's withdrawal back home is funding_in, not revenue", f.fundingIn === parseSol("0.5"));
   ok("funding an agent is funding_out", f.fundingOut === SOL);
   ok("SOL from anyone else is not revenue and not listed — even with an HQ memo on it", f.flows.every((x) => x.kind !== "fee_in" || x.lamports === parseSol("0.2")) && f.flows.length === 5 && !f.flows.some((x) => x.lamports === parseSol("3") || x.lamports === parseSol("7")));
-  ok("a recorded buyback's first leg is listed as buyback", f.flows.some((x) => x.kind === "buyback" && x.tx === leg1Sig) && f.buybackSpent > parseSol("0.05"));
+  ok("a buyback whose $CIA was bought is listed once, at its $CIA leg, with the SOL it cost", f.flows.filter((x) => x.kind === "buyback").length === 1 && f.flows.some((x) => x.kind === "buyback" && x.tx === leg2Sig && x.lamports === parseSol("0.05") + 10_000n && x.t === "2026-09-25T10:00:00.000Z") && f.buybackSpent === parseSol("0.05") + 10_000n);
+  ok("…one stopped between its legs is not listed yet", !f.flows.some((x) => x.kind === "buyback" && x.tx === leg1Sig));
   const db = memDb();
   for (const tx of HISTORY) db.putChainTx({ address: treasury, signature: tx.transaction.signatures[0], slot: tx.slot, blockTime: tx.blockTime, err: false, tx });
   db.createAgent({ id: 2, name: "Agent Two", cat: "popcat", skin: "standard", strategy: "popcat-scout", mode: "live", status: "active", wallet: agentW, limits: {}, settings: {}, paperBankroll: 1n });
@@ -138,29 +147,67 @@ section("OFF BY DEFAULT");
   ok("a share over 100% is refused at start", (() => { try { readConfig({ HQ_BUYBACK_SHARE_PCT: "101" }); return false; } catch (e) { return e instanceof ConfigError; } })());
 }
 
+/* ── a scripted treasury executor that behaves as the real one ── */
+const hypeMint = { owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", lamports: 1, data: [(() => { const b = Buffer.alloc(82); b[44] = 6; b[45] = 1; return b.toString("base64"); })(), "base64"] };
+const ciaRpc = ({ cash = SOL, wrapped = () => 0n } = {}) => extRpc({
+  getMultipleAccounts: ([list]) => ({ slot: CIA.slot, accounts: list.map((a) => (a === CIA_MINT ? CIA.mintAccount : a === CIA.curve ? CIA.curveAccount : a === HYPE ? hypeMint : null)) }),
+  getBalance: () => cash, getTokenAccountsByOwner: () => [], getTokenAccountBalance: () => wrapped(),
+});
+const RENT = 2_039_280n, FEE = 5_000n;
+let slotN = 100;
+/* A treasury transaction as the chain records it: the fee from native SOL, and each of its own
+   token accounts' amounts (wSOL's lamports move with its amount). */
+function treasuryTx(signature, { native = -FEE, tokens = [] }) {
+  const keys = [treasury, ...tokens.map((_, i) => addr(200 + i))];
+  const balances = { [treasury]: [5n * SOL, 5n * SOL + native] };
+  tokens.forEach((t, i) => { const w = t.mint === WSOL_MINT; balances[keys[i + 1]] = [RENT + (w ? BigInt(t.pre) : 0n), RENT + (w ? BigInt(t.post) : 0n)]; });
+  return jsonTx({ signature, slot: ++slotN, blockTime: 1_790_000_000 + slotN, keys, balances, tokens: tokens.map((t, i) => ({ index: i + 1, owner: treasury, mint: t.mint, decimals: t.mint === WSOL_MINT ? 9 : 6, pre: t.pre, post: t.post })) });
+}
+function scriptedTreasury(db, { delivered, calls = [], legFails = () => null, lands = () => true } = {}) {
+  const land = (signature, shape) => { const tx = treasuryTx(signature, shape); if (lands(signature, shape)) db.putChainTx({ address: treasury, signature, slot: tx.slot, blockTime: tx.blockTime, err: false, tx }); return tx; };
+  return {
+    calls, pending: new Map(),
+    async wrap({ owner, lamports, onSigned }) {
+      calls.push(["wrap", owner.kind, owner.wallet, lamports]);
+      const signature = fakeSig(); await onSigned?.(signature);
+      return { signature, tx: land(signature, { native: -(lamports + FEE), tokens: [{ mint: WSOL_MINT, pre: 0n, post: lamports }] }) };
+    },
+    async jupiterSwap(a) {
+      calls.push(["swap", a.owner.kind, a.pay.mint, a.get.mint, a.amountRaw, [...a.allowedPairs].sort().join()]);
+      const pre = legFails(a, "pre");
+      if (pre) throw pre;                                             /* refused before any signature */
+      const signature = fakeSig(); await a.onSigned?.(signature);
+      const shape = { tokens: [{ mint: a.pay.mint, pre: a.amountRaw, post: 0n }, { mint: a.get.mint, pre: 0n, post: delivered[a.get.mint] }] };
+      const post = legFails(a, "post", signature);
+      if (post) { this.pending.set(signature, shape); throw post; }      /* signed and sent, no answer */
+      return { signature, tx: land(signature, shape) };
+    },
+    async burn(a) {
+      calls.push(["burn", a.owner.kind, a.mint, a.amountRaw, a.decimals]);
+      const signature = fakeSig(); await a.onSigned?.(signature);
+      return { signature, tx: land(signature, { tokens: [{ mint: a.mint, pre: a.amountRaw, post: 0n }] }) };
+    },
+    /* the chain answers at last: a leg that was in flight lands */
+    landPending() { for (const [signature, shape] of this.pending) { const tx = treasuryTx(signature, shape); db.putChainTx({ address: treasury, signature, slot: tx.slot, blockTime: tx.blockTime, err: false, tx }); } this.pending.clear(); },
+  };
+}
+const treasuryDb = (clock, history = HISTORY.slice(0, 6)) => {
+  const db = memDb(clock);
+  for (const tx of history) db.putChainTx({ address: treasury, signature: tx.transaction.signatures[0], slot: tx.slot, blockTime: tx.blockTime, err: false, tx });
+  db.createAgent({ id: 2, name: "Agent Two", cat: "popcat", skin: "standard", strategy: "popcat-scout", mode: "live", status: "active", wallet: agentW, limits: {}, settings: {}, paperBankroll: 1n });
+  return db;
+};
+const liveBuyback = (env = {}) => testConfig({ HQ_BUYBACK_LIVE: "1", HQ_TREASURY_ADDRESS: treasury, HQ_RPC_URL: "https://rpc.test.invalid/x", HQ_BUYBACK_SHARE_PCT: "50", HQ_BUYBACK_DESTINATION: "burn", ...env });
+const delivered = { [HYPE]: 4_321_000n, [CIA_MINT]: 987_654_321n };
+
 section("ONE RUN, END TO END, ON SCRIPTED LEGS");
 {
   const clock = testClock();
-  const db = memDb(clock);
-  for (const tx of HISTORY.slice(0, 6)) db.putChainTx({ address: treasury, signature: tx.transaction.signatures[0], slot: tx.slot, blockTime: tx.blockTime, err: false, tx });
-  db.createAgent({ id: 2, name: "Agent Two", cat: "popcat", skin: "standard", strategy: "popcat-scout", mode: "live", status: "active", wallet: agentW, limits: {}, settings: {}, paperBankroll: 1n });
-  const hypeMint = { owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", lamports: 1, data: [(() => { const b = Buffer.alloc(82); b[44] = 6; b[45] = 1; return b.toString("base64"); })(), "base64"] };
-  const rpc = extRpc({
-    getMultipleAccounts: ([list]) => ({ slot: CIA.slot, accounts: list.map((a) => (a === CIA_MINT ? CIA.mintAccount : a === CIA.curve ? CIA.curveAccount : a === HYPE ? hypeMint : null)) }),
-    getBalance: () => SOL, getTokenAccountsByOwner: () => [],
-  });
-  const calls = [];
-  const delivered = { [HYPE]: 4_321_000n, [CIA_MINT]: 987_654_321n };
-  const executor = {
-    async wrap({ owner, lamports }) { calls.push(["wrap", owner.kind, owner.wallet, lamports]); return { signature: fakeSig() }; },
-    async jupiterSwap(a) {
-      calls.push(["swap", a.owner.kind, a.pay.mint, a.get.mint, a.amountRaw, [...a.allowedPairs].sort().join()]);
-      const signature = fakeSig();
-      return { signature, tx: jsonTx({ signature, keys: [treasury, addr(5)], balances: { [treasury]: [SOL, SOL - 5_000n] }, tokens: [{ index: 1, owner: treasury, mint: a.get.mint, pre: 0, post: delivered[a.get.mint] }] }) };
-    },
-    async burn(a) { calls.push(["burn", a.owner.kind, a.mint, a.amountRaw, a.decimals]); return { signature: fakeSig() }; },
-  };
-  const config = testConfig({ HQ_BUYBACK_LIVE: "1", HQ_TREASURY_ADDRESS: treasury, HQ_RPC_URL: "https://rpc.test.invalid/x", HQ_BUYBACK_SHARE_PCT: "50", HQ_BUYBACK_DESTINATION: "burn" });
+  const db = treasuryDb(clock);
+  const rpc = ciaRpc();
+  const executor = scriptedTreasury(db, { delivered });
+  const calls = executor.calls;
+  const config = liveBuyback();
   const r = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
   ok("it ran", r.ran === true, r.why);
   ok("from the treasury only: every step is the treasury's", calls.every((c) => c[1] === "treasury"));
@@ -169,29 +216,109 @@ section("ONE RUN, END TO END, ON SCRIPTED LEGS");
   ok("leg two: HYPE → $CIA, spending exactly what leg one delivered", calls[2][2] === HYPE && calls[2][3] === CIA_MINT && calls[2][4] === delivered[HYPE]);
   ok("then the burn: exactly the $CIA bought, at $CIA's 6 decimals", calls[3][0] === "burn" && calls[3][2] === CIA_MINT && calls[3][3] === delivered[CIA_MINT] && calls[3][4] === 6);
   const row = db.listBuybacks()[0];
-  ok("recorded: done, both legs' signatures and the burn's, SOL spent and $CIA bought", row.state === "done" && row.legSigs.length === 2 && row.burn_sig && row.sol_spent === String(parseSol("0.05")) && row.cia_bought === String(delivered[CIA_MINT]));
-  const ev = db.eventsAfter(0, 10).find((e) => e.kind === "buyback");
-  ok("on the stream, in the contract's shape", ev && validate(SCHEMAS.BuybackItem, ev.data).length === 0 && ev.data.solSpent === "0.05" && ev.data.ciaBought === "987.654321" && ev.data.burnTx === row.burn_sig);
+  /* the SOL that left the treasury, from the four transactions as recorded: 0.05 paid, four fees */
+  const fromChain = parseSol("0.05") + 4n * FEE;
+  ok("recorded: done, both legs' signatures and the burn's, $CIA bought, and the SOL it cost read from the chain (0.05 paid + four network fees)", row.state === "done" && row.legSigs.length === 2 && row.burn_sig && row.sol_spent === String(fromChain) && row.cia_bought === String(delivered[CIA_MINT]), row.sol_spent);
+  const ev = db.eventsAfter(0, 10).filter((e) => e.kind === "buyback");
+  ok("on the stream once, in the contract's shape, its tx the $CIA leg", ev.length === 1 && validate(SCHEMAS.BuybackItem, ev[0].data).length === 0 && ev[0].data.solSpent === "0.05002" && ev[0].data.ciaBought === "987.654321" && ev[0].data.tx === row.legSigs[1] && ev[0].data.burnTx === row.burn_sig);
   const page = buybacksObject({ db, config, limit: 50 });
-  ok("/v1/buybacks: the policy as configured and the item", validate(SCHEMAS.Buybacks, page).length === 0 && page.policy.sharePct === "50" && page.policy.destination === "burn" && page.items.length === 1);
+  ok("/v1/buybacks: the policy as configured and the item", validate(SCHEMAS.Buybacks, page).length === 0 && page.policy.sharePct === "50" && page.policy.destination === "burn" && page.items.length === 1 && page.items[0].solSpent === "0.05002");
   const s2 = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
   const s3 = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
   const s4 = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
-  ok("the next runs spend what is still owed (0.05, 0.05), then nothing: never more than revenue × share", s2.ran && s3.ran && s4.ran === false && /nothing is owed/.test(s4.why), s4.why);
+  ok("the next runs spend what is still owed, fees counted, then nothing: never more than revenue × share", s2.ran && s3.ran && s4.ran === false && /nothing is owed/.test(s4.why) && db.buybackSpentTotal() <= parseSol("0.15") + 12n * FEE, s4.why);
+  const sum = summaryObject({ db, config, views: new Map(), walletLedgers: new Map(), treasury: { sol: SOL, cia: 0n }, now: clock() });
+  const tr = treasuryObject({ db, config, balances: { sol: SOL, cia: 0n } });
+  ok("…each listed once in /v1/buybacks, the summary and the treasury's flows", buybacksObject({ db, config, limit: 50 }).items.length === 3 && sum.buybacks.count === 3 && tr.flows.filter((x) => x.kind === "buyback").length === 3);
+}
 
-  /* A run that stops between the legs still counts what it spent. */
-  const db2 = memDb(clock);
-  for (const tx of HISTORY.slice(0, 6)) db2.putChainTx({ address: treasury, signature: tx.transaction.signatures[0], slot: tx.slot, blockTime: tx.blockTime, err: false, tx });
-  db2.createAgent({ id: 2, name: "Agent Two", cat: "popcat", skin: "standard", strategy: "popcat-scout", mode: "live", status: "active", wallet: agentW, limits: {}, settings: {}, paperBankroll: 1n });
-  let legs = 0;
-  const flaky = { ...executor, async jupiterSwap(a) { legs++; if (a.get.mint === CIA_MINT) throw Object.assign(new Error("leg two failed"), { clause: "simulation_failed" }); return executor.jupiterSwap(a); } };
-  const p1 = await runBuyback({ config, db: db2, rpc, executor: flaky, treasuryReady: "ok", clock });
-  ok("a run that stops after leg one is recorded partial, with leg one's signature", p1.ran === false && db2.listBuybacks()[0].state === "partial" && db2.listBuybacks()[0].legSigs.length === 1);
-  ok("…is not shown as a completed buyback", buybacksObject({ db: db2, config, limit: 50 }).items.length === 0);
-  await runBuyback({ config, db: db2, rpc, executor: flaky, treasuryReady: "ok", clock });
-  await runBuyback({ config, db: db2, rpc, executor: flaky, treasuryReady: "ok", clock });
-  const p4 = await runBuyback({ config, db: db2, rpc, executor: flaky, treasuryReady: "ok", clock });
-  ok("…and its SOL counts as spent: after three such runs nothing more is owed", p4.ran === false && /nothing is owed/.test(p4.why) && legs === 6, p4.why);
+section("A THOUSAND AND ONE EARLIER BUYBACKS: WHAT WAS SPENT IS SUMMED OVER ALL OF THEM");
+{
+  const clock = testClock();
+  const revenue = send({ signature: fakeSig(), slot: 11, from: agentW, to: treasury, lamports: parseSol("50.05"), note: memoFor("profit_sweep", 2) });
+  const db = treasuryDb(clock, [revenue]);
+  db.tx(() => { for (let i = 0; i < 1001; i++) { clock.advance(60_000); const id = `b${i}`; db.createBuyback({ id }); db.updateBuyback(id, { state: "done", legSigs: [fakeSig(), fakeSig()], solSpent: parseSol("0.05"), ciaBought: 1n }); } });
+  const failedRows = 1500;
+  db.tx(() => { for (let i = 0; i < failedRows; i++) { clock.advance(1_000); db.createBuyback({ id: `f${i}`, state: "failed" }); } });
+  const executor = scriptedTreasury(db, { delivered });
+  const config = liveBuyback({ HQ_BUYBACK_SHARE_PCT: "100" });
+  const runs = [];
+  for (let i = 0; i < 3; i++) { clock.advance(60_000); runs.push(await runBuyback({ config, db, rpc: ciaRpc({ cash: 20n * SOL }), executor, treasuryReady: "ok", clock })); }
+  ok("50.05 SOL of revenue × 100%, 1,001 buybacks of 0.05 already made (and 1,500 failed runs since): nothing is owed, and nothing more is spent",
+    runs.every((r) => r.ran === false && /nothing is owed/.test(r.why)) && executor.calls.length === 0, runs[0].why);
+  ok("…the spend is the sum over every row, in SQL", db.buybackSpentTotal() === parseSol("50.05"));
+  const sum = summaryObject({ db, config, views: new Map(), walletLedgers: new Map(), treasury: { sol: SOL, cia: 0n }, now: clock() });
+  ok("…and the summary counts every one of them", sum.buybacks.count === 1001 && sum.buybacks.solSpent === "50.05");
+}
+
+section("A LEG SIGNED BUT UNCONFIRMED COUNTS AS SPENT, AND THE NEXT RUN FINISHES IT");
+{
+  for (const how of ["onSigned", "the error's signature only"]) {
+    const clock = testClock();
+    const db = treasuryDb(clock);
+    const ambiguous = (sig) => new ExecutionError("ambiguous", `buyback_leg ${sig} has no status after 90s`, { signature: sig });
+    let outage = true;
+    const executor = scriptedTreasury(db, { delivered, legFails: (a, when, sig) => (when === "post" && outage && a.get.mint === HYPE ? ambiguous(sig) : null) });
+    if (how !== "onSigned") { const inner = executor.jupiterSwap.bind(executor); executor.jupiterSwap = (a) => inner({ ...a, onSigned: null }); }
+    const config = liveBuyback();
+    const rpc = ciaRpc();
+    const r1 = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+    const row1 = db.listBuybacks()[0];
+    ok(`${how}: leg one signed, no answer — the run stops with the signature on the buyback, its 0.05 SOL counted as spent`, r1.stopped === true && row1.state === "leg1_sent" && row1.legSigs.length === 1 && db.buybackSpentTotal() === parseSol("0.05"), r1.why);
+    const r2 = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+    ok(`${how}: the next run, the chain still silent, waits on it: no new wrap, no new leg, one buyback`, r2.ran === false && /waiting for the chain/.test(r2.why) && executor.calls.filter((c) => c[0] === "wrap").length === 1 && executor.calls.filter((c) => c[0] === "swap").length === 1 && db.listBuybacks().length === 1);
+    ok(`${how}: …and nothing is listed yet`, buybacksObject({ db, config, limit: 50 }).items.length === 0);
+    outage = false;
+    executor.landPending();
+    const r3 = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+    const row = db.listBuybacks()[0];
+    ok(`${how}: leg one landed after all: the next run carries it on — leg two, the burn, done — without paying leg one again`, r3.ran === true && row.state === "done" && row.legSigs.length === 2 && row.legSigs[0] === row1.legSigs[0]
+      && executor.calls.filter((c) => c[0] === "swap" && c[2] === WSOL_MINT).length === 1 && executor.calls.filter((c) => c[0] === "wrap").length === 1, r3.why);
+    ok(`${how}: …listed once, with the SOL read from the chain`, buybacksObject({ db, config, limit: 50 }).items.length === 1 && row.sol_spent === String(parseSol("0.05") + 4n * FEE));
+  }
+  /* the chain says the leg failed: nothing was spent on it, and the wrapped SOL is used again */
+  const clock = testClock();
+  const db = treasuryDb(clock);
+  let wrappedNow = 0n;
+  const executor = scriptedTreasury(db, { delivered, legFails: (a, when, sig) => (when === "post" && a.get.mint === HYPE && !db.intentBySignature(sig) ? new ExecutionError("failed_on_chain", "failed", { signature: sig }) : null) });
+  const origWrap = executor.wrap.bind(executor);
+  executor.wrap = async (a) => { wrappedNow += a.lamports; return origWrap(a); };
+  const rpc = ciaRpc({ wrapped: () => wrappedNow });
+  const config = liveBuyback();
+  await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+  const sig = db.listBuybacks()[0].legSigs[0];
+  db.createIntent({ id: "leg", wallet: treasury, kind: "buyback_leg" }); db.updateIntent("leg", { state: "failed", signature: sig });
+  await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+  const rows = db.listBuybacks(10);
+  ok("a leg the chain says failed: that buyback is failed with no legs, and nothing is counted spent for it", rows.some((x) => x.state === "failed" && x.legSigs.length === 0 && x.detail?.failedLeg === sig));
+  ok("…the next buyback uses the SOL already wrapped instead of wrapping again", executor.calls.filter((c) => c[0] === "wrap").length === 1);
+}
+
+section("A BUYBACK THAT STOPPED BETWEEN ITS LEGS IS FINISHED FIRST, AND LISTED ONCE");
+{
+  const clock = testClock();
+  const db = treasuryDb(clock);
+  let broken = true;
+  const executor = scriptedTreasury(db, { delivered, legFails: (a, when) => (when === "pre" && broken && a.get.mint === CIA_MINT ? Object.assign(new Error("leg two failed"), { clause: "simulation_failed" }) : null) });
+  const config = liveBuyback();
+  const rpc = ciaRpc();
+  const p1 = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+  ok("a run that stops after leg one: recorded with leg one's signature, waiting for leg two", p1.ran === false && db.listBuybacks()[0].state === "leg1_done" && db.listBuybacks()[0].legSigs.length === 1, p1.why);
+  const empty = () => buybacksObject({ db, config, limit: 50 }).items.length === 0 && summaryObject({ db, config, views: new Map(), walletLedgers: new Map(), treasury: null, now: clock() }).buybacks.count === 0
+    && !treasuryObject({ db, config, balances: null }).flows.some((x) => x.kind === "buyback");
+  ok("…it is not shown as a buyback anywhere yet: not in /v1/buybacks, the summary or the treasury's flows", empty());
+  for (let i = 0; i < 3; i++) await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+  ok("the next runs try to finish it (leg two again), never start another: one wrap, one leg one, one buyback", executor.calls.filter((c) => c[0] === "wrap").length === 1 && executor.calls.filter((c) => c[0] === "swap" && c[3] === HYPE).length === 1
+    && executor.calls.filter((c) => c[0] === "swap" && c[3] === CIA_MINT).length === 4 && db.listBuybacks().length === 1 && db.buybackSpentTotal() === parseSol("0.05"));
+  broken = false;
+  const fin = await runBuyback({ config, db, rpc, executor, treasuryReady: "ok", clock });
+  const row = db.listBuybacks()[0];
+  const items = buybacksObject({ db, config, limit: 50 }).items;
+  const flows = treasuryObject({ db, config, balances: null }).flows.filter((x) => x.kind === "buyback");
+  ok("leg two works again: the buyback is finished (HYPE → $CIA, the burn), and listed once — the same in all three places", fin.ran === true && row.state === "done" && items.length === 1 && flows.length === 1 && flows[0].tx === items[0].tx && items[0].tx === row.legSigs[1]
+    && summaryObject({ db, config, views: new Map(), walletLedgers: new Map(), treasury: null, now: clock() }).buybacks.count === 1, fin.why);
+  ok("…its SOL is what the chain says left the treasury: 0.05 and the fees of the wrap, both legs and the burn", row.sol_spent === String(parseSol("0.05") + 4n * FEE) && items[0].solSpent === "0.05002");
+  ok("…and on the stream once", db.eventsAfter(0, 100).filter((e) => e.kind === "buyback").length === 1);
 }
 
 done();

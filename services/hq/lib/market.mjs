@@ -6,7 +6,8 @@
  *     curve read from the chain) — a liquidation value, not a last price;
  *   · anything else: DexScreener's USD price over SOL's USD price (src/lib/agent-market.mjs,
  *     with Jupiter's price API for what DexScreener does not price), read in one request.
- * A position no source prices has no mark: the ledger values it at cost and says it is unpriced.
+ * A position no source prices has no mark: the ledger values it at the latest price it knows for
+ * it (its last mark, or its last fill) and says it is unpriced.
  */
 import { createMarket } from "../../../src/lib/agent-market.mjs";
 import { PUMPFUN_VENUE, bondingCurveAddress } from "../../../vendor/executor/snipe-venue-pumpfun.mjs";

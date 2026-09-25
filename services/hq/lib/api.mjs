@@ -7,7 +7,10 @@
  * CORS answers only https://catintelligenceagency.com, https://www.catintelligenceagency.com and
  * http(s)://localhost / 127.0.0.1 on any port; any other origin gets no CORS headers (a browser
  * then refuses to read the answer) and its preflight a 403. Every client address has a budget
- * per minute (reads, perks, admin) and a cap on open streams; over it, 429 with Retry-After.
+ * per minute (reads, perks, admin); streams are capped per client network (an IPv4 /24, an
+ * IPv6 /64) and in all, and each ends after at most HQ_STREAM_MAX_SECONDS (the client resumes
+ * with Last-Event-ID and misses nothing); over a limit, 429 with Retry-After. A request must
+ * arrive whole within 15 s.
  * The client address is the socket's, or with HQ_TRUST_PROXY=1 (behind the host's edge proxy)
  * the X-Real-IP header Railway's edge sets to the client's address (docs.railway.com, Public
  * networking, specs and limits, read 2026-09-25), else the LAST X-Forwarded-For entry, the one the
@@ -27,6 +30,21 @@ export const HQ_VERSION = "0.1.0";
 const NO_STORE = Object.freeze({ "cache-control": "no-store" });
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
 export const allowedOrigin = (origin) => typeof origin === "string" && (SITE_ORIGINS.includes(origin) || LOCAL.test(origin));
+
+/** A client's network: an IPv4 address's /24, an IPv6 address's /64 (so one client with many
+ *  addresses in its own range counts once). */
+export function networkOf(ip) {
+  const s = String(ip ?? "").trim().toLowerCase().replace(/%.*$/, "");
+  const v4 = /^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
+  if (v4) return `${v4[1]}.${v4[2]}.${v4[3]}.0/24`;
+  if (s.includes(":")) {
+    const [head, tail = null] = s.split("::");
+    const h = head ? head.split(":") : [], t = tail === null ? [] : tail ? tail.split(":") : [];
+    const groups = tail === null ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t];
+    return `${groups.slice(0, 4).map((g) => (parseInt(g, 16) || 0).toString(16)).join(":")}::/64`;
+  }
+  return s || "unknown";
+}
 
 export function createRateLimiter({ clock = () => Date.now(), windowMs = 60_000 } = {}) {
   const buckets = new Map();
@@ -49,8 +67,7 @@ export function createRateLimiter({ clock = () => Date.now(), windowMs = 60_000 
 export function createApi(deps) {
   const { db, config, clock = () => Date.now() } = deps;
   const limiter = deps.limiter ?? createRateLimiter({ clock });
-  const streams = new Map();                 // client → open stream count
-  let streamsTotal = 0;
+  const streams = new Map();                 // client network → open stream count
 
   const clientOf = (req) => {
     if (config.trustProxy) {
@@ -105,7 +122,7 @@ export function createApi(deps) {
     if (req.method === "GET" && p === "/v1/leaderboard") {
       const by = url.searchParams.get("by") ?? "pnl", period = url.searchParams.get("period") ?? "all", mode = url.searchParams.get("mode");
       if (!["roi", "pnl"].includes(by)) return fail(res, 400, "bad_by", "by is roi or pnl");
-      if (!(period in PERIODS)) return fail(res, 400, "bad_period", "period is 7d, 30d or all");
+      if (!Object.hasOwn(PERIODS, period)) return fail(res, 400, "bad_period", "period is 7d, 30d or all");
       if (mode !== null && !["paper", "live"].includes(mode)) return fail(res, 400, "bad_mode", "mode is paper or live");
       return send(res, 200, leaderboard({ db, views: deps.views(), by, period, now: clock(), mode }));
     }
@@ -137,30 +154,72 @@ export function createApi(deps) {
   }
 
   /* ── the stream: the event log, replayed from Last-Event-ID, then live ── */
+  const STREAM_KINDS = new Set(["trade", "decision", "promotion", "buyback", "fee", "summary"]);
+  const SLOW_READER_BYTES = 256 * 1024;       // a client this far behind is ended; it resumes where it was
+  const live = new Set();                     // open streams: { res, last, end }
+  let broadcastAt = null, poller = null, beat = null;
+  const write = (st, e) => {
+    if (e.id <= st.last) return;
+    st.last = e.id;
+    if (!STREAM_KINDS.has(e.kind)) return;
+    st.res.write(`id: ${e.id}\nevent: ${e.kind}\ndata: ${JSON.stringify(e.data)}\n\n`);
+    if (st.res.writableLength > SLOW_READER_BYTES) st.end("slow");
+  };
+  /* One reader of the event log for every open stream, however many there are. */
+  function broadcast() {
+    if (!live.size) return;
+    if (broadcastAt === null) broadcastAt = db.lastEventId();
+    for (;;) {
+      const batch = db.eventsAfter(broadcastAt, 200);
+      if (!batch.length) break;
+      for (const e of batch) { broadcastAt = e.id; for (const st of [...live]) write(st, e); }
+      if (batch.length < 200) break;
+    }
+  }
+  function ensureTimers() {
+    if (!poller) poller = setInterval(() => { try { broadcast(); } catch { /* the next poll tries again */ } }, deps.streamPollMs ?? 1_000);
+    if (!beat) beat = setInterval(() => { for (const st of live) st.res.write(": keep-alive\n\n"); }, 15_000);
+  }
+  function stopTimersIfIdle() {
+    if (live.size) return;
+    clearInterval(poller); clearInterval(beat); poller = null; beat = null; broadcastAt = null;
+  }
   function stream(req, res) {
-    const client = clientOf(req);
-    const open = streams.get(client) ?? 0;
-    if (open >= config.rateLimit.streamsPerClient || streamsTotal >= config.rateLimit.streamsTotal) return fail(res, 429, "too_many_streams", "too many open streams", { "retry-after": "30" });
-    streams.set(client, open + 1); streamsTotal++;
+    const net = networkOf(clientOf(req));
+    const open = streams.get(net) ?? 0;
+    if (open >= config.rateLimit.streamsPerNetwork || live.size >= config.rateLimit.streamsTotal) return fail(res, 429, "too_many_streams", "too many open streams", { "retry-after": "30" });
+    streams.set(net, open + 1);
     res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store", connection: "keep-alive", "x-accel-buffering": "no", "x-content-type-options": "nosniff" });
     res.write("retry: 5000\n\n");
     const lastHeader = req.headers["last-event-id"] ?? new URL(req.url, "http://x").searchParams.get("lastEventId");
-    let last = /^\d+$/.test(String(lastHeader ?? "")) ? Number(lastHeader) : db.lastEventId();
-    /* A client that was away too long gets the newest 500, not the whole history. */
     const newest = db.lastEventId();
+    let last = /^\d+$/.test(String(lastHeader ?? "")) ? Number(lastHeader) : newest;
+    /* A client that was away too long gets the newest 500, not the whole history. */
     if (newest - last > 500) last = newest - 500;
-    const flush = () => {
-      for (const e of db.eventsAfter(last, 200)) {
-        if (!["trade", "decision", "promotion", "buyback", "fee", "summary"].includes(e.kind)) { last = e.id; continue; }
-        res.write(`id: ${e.id}\nevent: ${e.kind}\ndata: ${JSON.stringify(e.data)}\n\n`);
-        last = e.id;
-      }
+    let ended = false;
+    const st = { res, last, end: null };
+    const timer = setTimeout(() => st.end("max_age"), config.rateLimit.streamMaxMs);
+    st.end = () => {
+      if (ended) return;
+      ended = true;
+      clearTimeout(timer);
+      live.delete(st);
+      const n = (streams.get(net) ?? 1) - 1; if (n <= 0) streams.delete(net); else streams.set(net, n);
+      try { res.end(); } catch { /* gone */ }
+      stopTimersIfIdle();
     };
-    flush();
-    const poll = setInterval(() => { try { flush(); } catch { /* the next poll tries again */ } }, deps.streamPollMs ?? 1_000);
-    const beat = setInterval(() => res.write(": keep-alive\n\n"), 15_000);
-    const close = () => { clearInterval(poll); clearInterval(beat); streamsTotal--; const n = (streams.get(client) ?? 1) - 1; if (n <= 0) streams.delete(client); else streams.set(client, n); };
-    req.on("close", close);
+    req.on("close", () => st.end("closed"));
+    /* its own backlog first, then the shared broadcast */
+    for (;;) {
+      const batch = db.eventsAfter(st.last, 200);
+      for (const e of batch) { write(st, e); if (ended) return; }
+      if (batch.length < 200) break;
+    }
+    /* the shared reader starts where this backlog ended (nothing can be added in between: all of
+       this runs in one turn), so no event falls between the two */
+    if (broadcastAt === null) broadcastAt = db.lastEventId();
+    live.add(st);
+    ensureTimers();
   }
 
   async function handler(req, res) {
@@ -187,5 +246,12 @@ export function createApi(deps) {
   }
   const server = http.createServer((req, res) => { handler(req, res); });
   server.keepAliveTimeout = 65_000;
-  return Object.freeze({ server, handler, listen: (port, host) => new Promise((resolve) => server.listen(port, host, () => resolve(server.address()))), close: () => new Promise((r) => server.close(() => r())) });
+  /* a request must arrive whole, headers within 10 s and the body within 15 s (a stream's GET is
+     whole at its headers), and the server holds a bounded number of connections */
+  server.headersTimeout = 10_000;
+  server.requestTimeout = 15_000;
+  server.maxConnections = config.rateLimit.streamsTotal + 500;
+  return Object.freeze({ server, handler, openStreams: () => live.size,
+    listen: (port, host) => new Promise((resolve) => server.listen(port, host, () => resolve(server.address()))),
+    close: () => new Promise((r) => { for (const st of [...live]) st.end("closing"); server.close(() => r()); }) });
 }

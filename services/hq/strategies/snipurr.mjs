@@ -50,7 +50,7 @@ export const defaults = Object.freeze({
 });
 export function normalizeSettings(input = {}, limits = defaults.limits) {
   const s = { ...defaults.settings, ...(input ?? {}) };
-  const unknown = Object.keys(input ?? {}).filter((k) => !(k in defaults.settings));
+  const unknown = Object.keys(input ?? {}).filter((k) => !Object.hasOwn(defaults.settings, k));
   if (unknown.length) throw new Error(`unknown setting ${unknown.join(", ")} for snipurr`);
   const w = Number(s.maxWatches);
   if (!(Number.isInteger(w) && w >= 1 && w <= 50)) throw new Error("maxWatches must be 1 to 50");

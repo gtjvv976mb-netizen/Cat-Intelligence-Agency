@@ -9,7 +9,12 @@
  *     the endpoint's own shape for its kind;
  *   · CORS answers only the site's two origins and localhost; any other origin gets no CORS
  *     header, and its preflight a 403;
- *   · each client has a budget per minute; over it, 429 with Retry-After;
+ *   · each client has a budget per minute; over it, 429 with Retry-After; streams are capped per
+ *     client network (/24, /64) and in all, end after at most five minutes, and a reader that
+ *     falls behind is cut (it resumes where it was);
+ *   · a leaderboard period is one of its own three, never a property every object has;
+ *   · /health says states, never an upstream's words; a request must arrive whole in 15 s;
+ *   · an indexer pass settles the wallets' open in-flight markers from the chain;
  *   · no answer carries the RPC URL, a key, the seed, a file path or an internal error message;
  *   · the admin door is shut without HQ_OWNER_WALLET and refuses an unsigned request with it.
  */
@@ -18,7 +23,9 @@ import crypto from "node:crypto";
 import bs58 from "bs58";
 import { harness } from "./bots/test/doubles.mjs";
 import { buildHq } from "./services/hq/server.mjs";
-import { createApi, allowedOrigin } from "./services/hq/lib/api.mjs";
+import net from "node:net";
+import { createApi, allowedOrigin, networkOf } from "./services/hq/lib/api.mjs";
+import { ConfigError } from "./services/hq/lib/config.mjs";
 import { executeAdminCommand } from "./services/hq/lib/admin.mjs";
 import { SCHEMAS, STREAM_EVENTS, PATTERNS, validate } from "./services/hq/contract/schemas.mjs";
 import { numString } from "./services/hq/lib/views.mjs";
@@ -60,7 +67,8 @@ const env = { HQ_DB_PATH: DB_PATH, HQ_RPC_URL: SECRET_RPC, HQ_MASTER_SEED: TEST_
 /* The server's clock runs from noon on the day the record below is dated, so no figure depends on the day the test runs. */
 const OFFSET = Date.parse("2026-09-25T12:00:00Z") - Date.now();
 const clock = () => Date.now() + OFFSET;
-const hq = await buildHq({ env, clock, fetchImpl: fakeFetch, log: () => {}, WebSocketImpl: class { constructor() { throw new Error("no sockets in tests"); } } });
+const logged = [];
+const hq = await buildHq({ env, clock, fetchImpl: fakeFetch, log: (l) => logged.push(String(l)), retryDelaysMs: [0, 0, 0], WebSocketImpl: class { constructor() { throw new Error("no sockets in tests"); } } });
 const { db, runtime, api } = hq;
 
 /* The record: two paper agents made by the owner's command, a live agent on recorded mainnet
@@ -305,7 +313,7 @@ section("THE STREAM");
 
 section("RATE LIMITS");
 {
-  const small = createApi({ db, config: testConfig({ HQ_RATE_READ_PER_MIN: "10", HQ_RATE_PERKS_PER_MIN: "2", HQ_STREAMS_PER_CLIENT: "1", HQ_TRUST_PROXY: "1" }), views: () => new Map(), walletLedgers: () => new Map(),
+  const small = createApi({ db, config: testConfig({ HQ_RATE_READ_PER_MIN: "10", HQ_RATE_PERKS_PER_MIN: "2", HQ_STREAMS_PER_NETWORK: "1", HQ_TRUST_PROXY: "1" }), views: () => new Map(), walletLedgers: () => new Map(),
     treasury: () => null, health: () => ({ ok: true }), perks: hq.perks, adminDeps: hq.adminDeps, streamPollMs: 50 });
   const s = await small.listen(0, "127.0.0.1");
   const get = (path, headers = {}) => new Promise((resolve) => { http.get(`http://127.0.0.1:${s.port}${path}`, { headers }, (res) => { res.resume(); res.on("end", () => resolve({ status: res.statusCode, headers: res.headers })); }); });
@@ -320,7 +328,8 @@ section("RATE LIMITS");
   ok("perks have their own, smaller budget", (await get("/v1/perks/challenge?wallet=x", { "x-real-ip": "203.0.113.5" })).status === 400 && (await get("/v1/perks/challenge?wallet=x", { "x-real-ip": "203.0.113.5" })).status === 400 && (await get("/v1/perks/challenge?wallet=x", { "x-real-ip": "203.0.113.5" })).status === 429);
   const hold = http.get(`http://127.0.0.1:${s.port}/v1/stream`, { headers: { "x-real-ip": "192.0.2.9" } }, (res) => res.resume());
   await new Promise((r) => setTimeout(r, 150));
-  ok("one open stream per client here; a second is 429", (await get("/v1/stream", { "x-real-ip": "192.0.2.9" })).status === 429);
+  ok("one open stream per client network here; a second is 429", (await get("/v1/stream", { "x-real-ip": "192.0.2.9" })).status === 429);
+  ok("…and so is one from another address in the same /24 (a fresh X-Real-IP buys no fresh stream)", (await get("/v1/stream", { "x-real-ip": "192.0.2.77" })).status === 429);
   hold.destroy();
   await new Promise((r) => setTimeout(r, 100));
   await small.close();
@@ -331,6 +340,127 @@ section("RATE LIMITS");
   for (let i = 0; i < 11; i++) codes.push(await get3(`203.0.113.${i}`));
   await noTrust.close();
   ok("without HQ_TRUST_PROXY a client cannot buy a fresh budget by writing X-Forwarded-For or X-Real-IP", codes[10] === 429);
+}
+
+
+section("STREAMS: PER CLIENT NETWORK, AT MOST FIVE MINUTES, AND A READER THAT FALLS BEHIND IS CUT");
+{
+  ok("a client's network: an IPv4 address's /24, an IPv6 address's /64 (however it is written)",
+    networkOf("192.0.2.9") === "192.0.2.0/24" && networkOf("::ffff:192.0.2.200") === "192.0.2.0/24" && networkOf("2001:db8:1:2::1") === "2001:db8:1:2::/64"
+    && networkOf("2001:0db8:0001:0002:ffff:0:0:5") === "2001:db8:1:2::/64" && networkOf("2001:db8:1:3::1") !== networkOf("2001:db8:1:2::1") && networkOf("fe80::1%eth0") === "fe80:0:0:0::/64");
+  ok("the defaults: 8 streams per network, 300 in all, each at most 300 s; a longer one is refused at start",
+    testConfig().rateLimit.streamsPerNetwork === 8 && testConfig().rateLimit.streamsTotal === 300 && testConfig().rateLimit.streamMaxMs === 300_000
+    && (() => { try { testConfig({ HQ_STREAM_MAX_SECONDS: "3600" }); return false; } catch (e) { return e instanceof ConfigError; } })());
+  const cfg = testConfig({ HQ_STREAMS_PER_NETWORK: "2", HQ_STREAMS_TOTAL: "5", HQ_TRUST_PROXY: "1" });
+  const quick = createApi({ db, config: { ...cfg, rateLimit: { ...cfg.rateLimit, streamMaxMs: 400 } }, views: () => new Map(), walletLedgers: () => new Map(), treasury: () => null, health: () => ({}), perks: hq.perks, adminDeps: hq.adminDeps, streamPollMs: 20 });
+  const qs = await quick.listen(0, "127.0.0.1");
+  const agent = new http.Agent({ keepAlive: false, maxSockets: Infinity });
+  const open = (ip, headers = {}) => new Promise((resolve) => {
+    const req = http.get({ agent, host: "127.0.0.1", port: qs.port, path: "/v1/stream", headers: { "x-real-ip": ip, ...headers } }, (res) => {
+      let text = ""; res.on("data", (c) => { text += c; }); res.on("end", () => { r.ended = true; });
+      const r = { status: res.statusCode, req, res, ended: false, text: () => text };
+      resolve(r);
+    });
+    req.on("error", () => resolve({ status: "error", req, ended: true, text: () => "" }));
+  });
+  const a1 = await open("198.51.100.1"), a2 = await open("198.51.100.2"), a3 = await open("198.51.100.3");
+  ok("two streams from one /24; the third from it: 429", a1.status === 200 && a2.status === 200 && a3.status === 429);
+  const v1 = await open("2001:db8:1:2::1"), v2 = await open("2001:db8:1:2:ffff::5"), v3 = await open("2001:db8:1:2::9"), v4 = await open("2001:db8:1:3::1");
+  ok("the same for a /64: two, then 429; the next /64 is its own", v1.status === 200 && v2.status === 200 && v3.status === 429 && v4.status === 200);
+  const t1 = await open("203.0.113.50");
+  ok("and never more than HQ_STREAMS_TOTAL in all (5 here): the sixth, from a fresh network, is 429", t1.status === 429 && quick.openStreams() === 5);
+  await new Promise((r) => setTimeout(r, 700));
+  ok("each stream ends by itself after at most HQ_STREAM_MAX_SECONDS (0.4 s here), and its place is free", [a1, a2, v1, v2, v4].every((x) => x.ended) && quick.openStreams() === 0);
+  const lastSeen = db.lastEventId();
+  runtime.decide(db.getAgent(2), { action: "hold", reason: "while the client was reconnecting" });
+  const back = await open("198.51.100.1", { "last-event-id": String(lastSeen) });
+  await new Promise((r) => setTimeout(r, 100));
+  ok("…the client reconnects with Last-Event-ID and misses nothing", back.status === 200 && back.text().includes("while the client was reconnecting"));
+  back.req.destroy();
+  await new Promise((r) => setTimeout(r, 450));
+
+  /* a client that opens a stream and never reads it */
+  const sock = net.connect(qs.port, "127.0.0.1", () => sock.write("GET /v1/stream HTTP/1.1\r\nHost: x\r\nX-Real-IP: 192.0.2.150\r\n\r\n"));
+  sock.pause();
+  sock.on("error", () => {});
+  await new Promise((r) => setTimeout(r, 150));
+  const openBefore = quick.openStreams();
+  const reason = "x".repeat(480);
+  for (let i = 0; i < 40 && quick.openStreams() > 0; i++) {
+    db.tx(() => { for (let j = 0; j < 500; j++) runtime.decide(db.getAgent(2), { action: "hold", reason: `${reason}${i}` }); });
+    await new Promise((r) => setTimeout(r, 40));
+  }
+  ok("a stream whose client stops reading is ended once 256 KB wait for it, not held in memory without end", openBefore === 1 && quick.openStreams() === 0, `open ${quick.openStreams()}`);
+  sock.destroy();
+  await quick.close();
+  db.pruneHolds("2999-01-01T00:00:00.000Z");
+}
+
+section("A LEADERBOARD PERIOD IS ONE OF ITS OWN THREE");
+{
+  for (const period of ["toString", "__proto__", "constructor", "hasOwnProperty", "valueOf"]) {
+    for (const by of ["pnl", "roi"]) {
+      const r = await request("GET", `/v1/leaderboard?by=${by}&period=${period}`);
+      ok(`period=${period} (by=${by}): 400 bad_period, never a 500 or a board`, r.status === 400 && r.json?.error === "bad_period" && shape("Error", r.json).length === 0);
+    }
+  }
+}
+
+section("REQUESTS MUST ARRIVE WHOLE");
+{
+  ok("headers within 10 s, the whole request within 15 s (a stream's GET is whole at its headers), and a bounded number of connections",
+    api.server.headersTimeout === 10_000 && api.server.requestTimeout === 15_000 && Number.isInteger(api.server.maxConnections) && api.server.maxConnections === hq.config.rateLimit.streamsTotal + 500);
+}
+
+section("/health SAYS STATES; THE UPSTREAM'S WORDS GO TO THE LOG");
+{
+  const keep = { list: rpcAnswers.getSignaturesForAddress, owner: rpcAnswers.getTokenAccountsByOwner };
+  const upstream = `provider says: ${SECRET_RPC} rate limited`;
+  rpcAnswers.getSignaturesForAddress = () => { throw new Error(upstream); };
+  const before = logged.length;
+  await hq.scheduler.indexAll();
+  const h = await request("GET", "/health");
+  ok("an indexer pass whose RPC fails: /health is not ok, and says the indexer's state is error", h.json.ok === false && h.json.indexer.state === "error" && typeof h.json.indexer.at === "string");
+  ok("…and how many addresses still have older history to read (none here)", h.json.indexer.backfilling === 0);
+  ok("…with no upstream text in it: no URL, no key, no message", !h.text.includes("SECRETKEY") && !h.text.includes("rpc.example.invalid") && !/rate limited|provider/.test(h.text));
+  ok("…the detail is in the log instead", logged.slice(before).some((l) => /index /.test(l)));
+  hq.scheduler.status().jobs.buyback = { minute: 1, at: "2026-09-25T12:00:00.000Z", state: "error", result: `{"why":"${upstream}"}` };
+  const h2 = await request("GET", "/health");
+  ok("a job's entry is its time and its state, nothing else", JSON.stringify(h2.json.jobs.buyback) === JSON.stringify({ at: "2026-09-25T12:00:00.000Z", state: "error" }) && !h2.text.includes("SECRETKEY"));
+  delete hq.scheduler.status().jobs.buyback;
+  const feedWas = hq.scheduler.status().feed;
+  hq.scheduler.status().feed = { state: "dead", detail: `dial failed: wss://rpc.example.invalid/?api-key=SECRETKEY-7f3a` };
+  const h3 = await request("GET", "/health");
+  ok("the launch feed: ok or error, its detail left out", JSON.stringify(h3.json.feed) === JSON.stringify({ state: "error" }) && !h3.text.includes("SECRETKEY"));
+  hq.scheduler.status().feed = feedWas;
+  rpcAnswers.getSignaturesForAddress = keep.list;
+  await hq.scheduler.indexAll();
+  ok("the RPC back: the next pass is ok again", (await request("GET", "/health")).json.indexer.state === "ok");
+
+  /* the perks balance read failing with the RPC's own words */
+  rpcAnswers.getTokenAccountsByOwner = () => { throw new Error(upstream); };
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("ed25519");
+  const w = bs58.encode(publicKey.export({ format: "der", type: "spki" }).subarray(-32));
+  const c = await request("GET", `/v1/perks/challenge?wallet=${w}`);
+  const v = await request("POST", "/v1/perks/verify", { body: { wallet: w, message: c.json.message, signature: bs58.encode(crypto.sign(null, Buffer.from(c.json.message, "utf8"), privateKey)) } });
+  ok("a perks verify whose balance read fails: 503 in HQ's own words, the RPC's nowhere in it", v.status === 503 && v.json.error === "balance_unreadable" && v.json.message === "the $CIA balance could not be read from the chain; try again shortly" && !v.text.includes("SECRETKEY") && !/provider|rate limited/.test(v.text));
+  rpcAnswers.getTokenAccountsByOwner = keep.owner;
+}
+
+section("AN INDEXER PASS SETTLES THE WALLETS' OPEN IN-FLIGHT MARKERS");
+{
+  const wallet = db.getAgent(1).wallet;
+  const sig = bs58.encode(crypto.randomBytes(64));
+  db.createIntent({ id: "stuck-api", agentId: 1, wallet, kind: "buy", detail: { blockhash: bs58.encode(Buffer.alloc(32, 7)) } });
+  db.updateIntent("stuck-api", { state: "sent", signature: sig, lastValidBlockHeight: 100 });
+  rpcAnswers.getSignatureStatuses = () => ({ context: { slot: 1 }, value: [null] });
+  rpcAnswers.isBlockhashValid = () => ({ context: { slot: 1 }, value: true });
+  await hq.scheduler.indexAll();
+  ok("still inside its blockhash's life and unseen: left open", db.getIntent("stuck-api").state === "sent");
+  rpcAnswers.isBlockhashValid = () => ({ context: { slot: 1 }, value: false });
+  await hq.scheduler.indexAll();
+  ok("the next pass, its blockhash expired and it never seen: settled (expired), the wallet free, no restart", db.getIntent("stuck-api").state === "expired" && db.openIntents(wallet).length === 0);
+  delete rpcAnswers.getSignatureStatuses; delete rpcAnswers.isBlockhashValid;
 }
 
 section("A BUY HQ NEVER MADE");

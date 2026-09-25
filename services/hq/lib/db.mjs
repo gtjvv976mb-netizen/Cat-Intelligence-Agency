@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS intents (
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, detail_json TEXT);
 CREATE INDEX IF NOT EXISTS intents_open ON intents (state, wallet);
 CREATE UNIQUE INDEX IF NOT EXISTS intents_sig ON intents (signature) WHERE signature IS NOT NULL;
+-- one open marker per wallet, across every process that opens this file (the server, the CLI):
+-- the insert is the check
+CREATE UNIQUE INDEX IF NOT EXISTS intents_one_open ON intents (wallet) WHERE state IN ('prepared','signed','sent','landed');
 CREATE TABLE IF NOT EXISTS chain_txs (
   address TEXT NOT NULL, signature TEXT NOT NULL, slot INTEGER NOT NULL, block_time INTEGER,
   err INTEGER NOT NULL, tx_json TEXT, PRIMARY KEY (address, signature));
@@ -90,6 +93,7 @@ CREATE TABLE IF NOT EXISTS nonces (
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT, t TEXT NOT NULL, kind TEXT NOT NULL, data_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS emitted (key TEXT PRIMARY KEY, t TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS admin_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT, t TEXT NOT NULL, source TEXT NOT NULL, command_json TEXT NOT NULL, result TEXT NOT NULL);
 `;
@@ -102,6 +106,14 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
   const db = new DatabaseSync(file);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;");
   db.exec(SCHEMA);
+  /* Columns added after a table was first made: added in place, never a table rebuilt. */
+  const addColumn = (table, column, decl) => {
+    if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
+  };
+  addColumn("decisions", "rug_json", "TEXT");
+  addColumn("trades", "rug_json", "TEXT");
+  addColumn("equity", "marks_json", "TEXT");
+  addColumn("index_cursor", "resume_json", "TEXT");
   const have = db.prepare("SELECT value FROM meta WHERE key = 'schema'").get();
   if (!have) db.prepare("INSERT INTO meta (key, value) VALUES ('schema', ?)").run(String(SCHEMA_VERSION));
   else if (Number(have.value) > SCHEMA_VERSION) throw new Error(`the database was written by a newer HQ (schema ${have.value}); this build knows ${SCHEMA_VERSION}`);
@@ -143,7 +155,7 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
     updateAgent(id, patch) {
       const cols = { name: "name", cat: "cat", skin: "skin", strategy: "strategy", mode: "mode", status: "status", coinMint: "coin_mint" };
       const sets = [], vals = [];
-      for (const [k, c] of Object.entries(cols)) if (k in patch) { sets.push(`${c} = ?`); vals.push(patch[k]); }
+      for (const [k, c] of Object.entries(cols)) if (Object.hasOwn(patch, k)) { sets.push(`${c} = ?`); vals.push(patch[k]); }
       if ("limits" in patch) { sets.push("limits_json = ?"); vals.push(JSON.stringify(patch.limits)); }
       if ("settings" in patch) { sets.push("settings_json = ?"); vals.push(JSON.stringify(patch.settings)); }
       if (!sets.length) return api.getAgent(id);
@@ -210,10 +222,17 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
     listPaperTransfers: (agentId) => q("SELECT * FROM paper_transfers WHERE agent_id = ? ORDER BY t, id").all(agentId).map(plain),
 
     /* ── in-flight markers ── */
+    /** Open a marker. Returns null when the wallet already has one open (in this process or
+     *  another): the unique index decides, so two processes can never both start a transaction. */
     createIntent({ id, agentId = null, wallet, kind, mint = null, trigger = null, decisionId = null, detail = null }) {
       const t = iso();
-      q("INSERT INTO intents (id, agent_id, wallet, kind, mint, trigger, decision_id, state, created_at, updated_at, detail_json) VALUES (?, ?, ?, ?, ?, ?, ?, 'prepared', ?, ?, ?)")
-        .run(id, agentId, wallet, kind, mint, trigger, decisionId, t, t, detail === null ? null : JSON.stringify(detail));
+      try {
+        q("INSERT INTO intents (id, agent_id, wallet, kind, mint, trigger, decision_id, state, created_at, updated_at, detail_json) VALUES (?, ?, ?, ?, ?, ?, ?, 'prepared', ?, ?, ?)")
+          .run(id, agentId, wallet, kind, mint, trigger, decisionId, t, t, detail === null ? null : JSON.stringify(detail));
+      } catch (error) {
+        if (/UNIQUE constraint failed: intents\.wallet/.test(String(error?.message))) return null;
+        throw error;
+      }
       return api.getIntent(id);
     },
     getIntent: (id) => { const r = plain(q("SELECT * FROM intents WHERE id = ?").get(id)); if (r) r.detail = json(r.detail_json, null); return r; },
@@ -225,10 +244,11 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
           JSON.stringify(detail === undefined ? cur.detail : { ...(cur.detail ?? {}), ...detail }), id);
       return api.getIntent(id);
     },
-    /** Every marker not yet settled: prepared (not signed), signed (not known sent) or sent (not confirmed). */
+    /** Every marker not yet settled: prepared (not signed), signed (not known sent), sent (not
+     *  confirmed) or landed (confirmed, but not yet read back into chain_txs). */
     openIntents: (wallet = null) => (wallet
-      ? q("SELECT * FROM intents WHERE wallet = ? AND state IN ('prepared','signed','sent') ORDER BY created_at").all(wallet)
-      : q("SELECT * FROM intents WHERE state IN ('prepared','signed','sent') ORDER BY created_at").all()).map((r) => ({ ...r, detail: json(r.detail_json, null) })),
+      ? q("SELECT * FROM intents WHERE wallet = ? AND state IN ('prepared','signed','sent','landed') ORDER BY created_at").all(wallet)
+      : q("SELECT * FROM intents WHERE state IN ('prepared','signed','sent','landed') ORDER BY created_at").all()).map((r) => ({ ...r, detail: json(r.detail_json, null) })),
     intentBySignature: (sig) => { const r = plain(q("SELECT * FROM intents WHERE signature = ?").get(sig)); if (r) r.detail = json(r.detail_json, null); return r; },
     listIntents: (limit = 100) => q("SELECT * FROM intents ORDER BY created_at DESC LIMIT ?").all(limit).map((r) => ({ ...r, detail: json(r.detail_json, null) })),
 
@@ -239,12 +259,14 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
     },
     hasChainTx: (address, signature) => Boolean(q("SELECT 1 AS x FROM chain_txs WHERE address = ? AND signature = ?").get(address, signature)),
     listChainTxs: (address) => q("SELECT * FROM chain_txs WHERE address = ? ORDER BY slot, signature").all(address).map((r) => ({ ...r, tx: json(r.tx_json, null) })),
-    getCursor: (address) => plain(q("SELECT * FROM index_cursor WHERE address = ?").get(address)),
-    setCursor(address, { newest, complete, note = null }) {
-      q(`INSERT INTO index_cursor (address, newest_signature, complete, updated_at, note) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (address) DO UPDATE SET newest_signature = excluded.newest_signature, complete = excluded.complete, updated_at = excluded.updated_at, note = excluded.note`)
-        .run(address, newest ?? null, complete ? 1 : 0, iso(), note);
+    getCursor: (address) => { const r = plain(q("SELECT * FROM index_cursor WHERE address = ?").get(address)); if (r) r.resume = json(r.resume_json, null); return r; },
+    /** `resume`: a stretch of history still to read ({ before, until, newest }), or null. */
+    setCursor(address, { newest, complete, note = null, resume = null }) {
+      q(`INSERT INTO index_cursor (address, newest_signature, complete, updated_at, note, resume_json) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (address) DO UPDATE SET newest_signature = excluded.newest_signature, complete = excluded.complete, updated_at = excluded.updated_at, note = excluded.note, resume_json = excluded.resume_json`)
+        .run(address, newest ?? null, complete ? 1 : 0, iso(), note, resume === null ? null : JSON.stringify(resume));
     },
+    listCursors: () => q("SELECT * FROM index_cursor").all().map((r) => ({ ...r, resume: json(r.resume_json, null) })),
 
     /* ── what a strategy keeps about a position (entry time, peak, its own dials) ── */
     getPositionState: (agentId, mode, mint) => json(q("SELECT state_json FROM position_state WHERE agent_id = ? AND mode = ? AND mint = ?").get(agentId, mode, mint)?.state_json, null),
@@ -255,10 +277,14 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
     listPositionStates: (agentId, mode) => q("SELECT mint, state_json FROM position_state WHERE agent_id = ? AND mode = ?").all(agentId, mode).map((r) => ({ mint: r.mint, state: json(r.state_json, {}) })),
 
     /* ── equity, ranks, promotions ── */
-    addEquity({ agentId, mode, t = iso(), portfolio, netDeposits, unrealized }) {
-      q("INSERT OR REPLACE INTO equity (agent_id, mode, t, portfolio, net_deposits, unrealized) VALUES (?, ?, ?, ?, ?, ?)").run(agentId, mode, t, String(portfolio), String(netDeposits), String(unrealized));
+    /** A snapshot of the agent's value, with the quote each position had then (`marks`: mint →
+     *  { lamports, tokens }), so the drawdown and the chart can value that moment later. */
+    addEquity({ agentId, mode, t = iso(), portfolio, netDeposits, unrealized, marks = null }) {
+      const m = marks ? Object.fromEntries([...(marks instanceof Map ? marks : Object.entries(marks))].map(([k, v]) => [k, { lamports: String(v.lamports), tokens: String(v.tokens) }])) : null;
+      q("INSERT OR REPLACE INTO equity (agent_id, mode, t, portfolio, net_deposits, unrealized, marks_json) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run(agentId, mode, t, String(portfolio), String(netDeposits), String(unrealized), m ? JSON.stringify(m) : null);
     },
-    listEquity: (agentId, mode) => q("SELECT * FROM equity WHERE agent_id = ? AND mode = ? ORDER BY t").all(agentId, mode).map(plain),
+    listEquity: (agentId, mode) => q("SELECT * FROM equity WHERE agent_id = ? AND mode = ? ORDER BY t").all(agentId, mode).map((r) => ({ ...r, marks: json(r.marks_json, {}) })),
     getRank: (agentId, mode) => q("SELECT rank FROM ranks WHERE agent_id = ? AND mode = ?").get(agentId, mode)?.rank ?? null,
     setRank(agentId, mode, rank) { q("INSERT OR REPLACE INTO ranks (agent_id, mode, rank) VALUES (?, ?, ?)").run(agentId, mode, rank); },
     addPromotion({ agentId, mode, t = iso(), from, to }) { q("INSERT INTO promotions (agent_id, mode, t, from_rank, to_rank) VALUES (?, ?, ?, ?, ?)").run(agentId, mode, t, from, to); },
@@ -277,6 +303,19 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
           ciaBought === undefined ? cur.cia_bought : String(ciaBought), JSON.stringify(detail === undefined ? cur.detail : { ...(cur.detail ?? {}), ...detail }), id);
       return api.getBuyback(id);
     },
+    /** Every buyback whose first leg was signed and not found failed, over ALL rows: what the
+     *  policy has spent. `spent` is the recorded spend (the planned amount until the chain's figure
+     *  replaces it). */
+    buybackSpentTotal() {
+      let total = 0n;
+      for (const r of q("SELECT sol_spent FROM buybacks WHERE json_array_length(leg_sigs) > 0 AND state != 'failed'").all()) total += BigInt(r.sol_spent ?? 0);
+      return total;
+    },
+    /** The buybacks whose $CIA was bought, oldest first, every one of them. */
+    completedBuybacks: () => q("SELECT * FROM buybacks WHERE state IN ('bought','done') ORDER BY t").all().map((r) => ({ ...r, legSigs: json(r.leg_sigs, []), detail: json(r.detail_json, null) })),
+    /** A buyback that stopped before its $CIA leg landed, or before its burn: the next run finishes
+     *  it. (One still "wrapping" never reached a leg: its wrapped SOL is used by the next run.) */
+    unfinishedBuyback: () => { const r = q("SELECT * FROM buybacks WHERE state IN ('started','leg1_sent','leg1_done','leg2_sent','bought') ORDER BY t LIMIT 1").get(); return r ? { ...r, legSigs: json(r.leg_sigs, []), detail: json(r.detail_json, null) } : null; },
     listBuybacks: (limit = 50) => q("SELECT * FROM buybacks ORDER BY t DESC LIMIT ?").all(limit).map((r) => ({ ...r, legSigs: json(r.leg_sigs, []), detail: json(r.detail_json, null) })),
 
     /* ── single-use nonces (perks challenges, admin requests) ── */
@@ -286,7 +325,10 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
     getNonce: (nonce) => plain(q("SELECT * FROM nonces WHERE nonce = ?").get(nonce)),
     /** Mark a nonce used; true only for the one caller that used it first. */
     useNonce(nonce, at) { return q("UPDATE nonces SET used_at = ? WHERE nonce = ? AND used_at IS NULL").run(at, nonce).changes === 1; },
-    pruneNonces(before) { q("DELETE FROM nonces WHERE expires_at < ?").run(before); },
+    pruneNonces(before) { return Number(q("DELETE FROM nonces WHERE expires_at < ?").run(before).changes); },
+    /** A wallet's unused challenges of one purpose, gone (a newer challenge replaces them). */
+    dropUnusedNonces({ purpose, wallet }) { q("DELETE FROM nonces WHERE purpose = ? AND wallet = ? AND used_at IS NULL").run(purpose, wallet); },
+    countNonces: () => q("SELECT COUNT(*) AS n FROM nonces").get().n,
 
     /* ── the event log the stream replays ── */
     addEvent(kind, data, t = iso()) {
@@ -298,6 +340,8 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
     pruneEvents(keep = 5000) { const last = api.lastEventId(); q("DELETE FROM events WHERE id <= ?").run(last - keep); },
 
     /* ── small state ── */
+    /** Mark an event sent; true only the first time for `key` (each stream event is sent once). */
+    emitOnce(key) { return q("INSERT OR IGNORE INTO emitted (key, t) VALUES (?, ?)").run(key, iso()).changes === 1; },
     getKv: (key) => json(q("SELECT value FROM kv WHERE key = ?").get(key)?.value, null),
     setKv(key, value) { q("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)").run(key, JSON.stringify(value)); },
     logAdmin({ source, command, result }) { q("INSERT INTO admin_log (t, source, command_json, result) VALUES (?, ?, ?, ?)").run(iso(), source, JSON.stringify(command), String(result).slice(0, 500)); },

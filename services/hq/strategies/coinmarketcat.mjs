@@ -32,7 +32,7 @@ export const defaults = Object.freeze({
 });
 export function normalizeSettings(input = {}) {
   const s = { ...defaults.settings, ...(input ?? {}) };
-  const unknown = Object.keys(input ?? {}).filter((k) => !(k in defaults.settings));
+  const unknown = Object.keys(input ?? {}).filter((k) => !Object.hasOwn(defaults.settings, k));
   if (unknown.length) throw new Error(`unknown setting ${unknown.join(", ")} for coinmarketcat`);
   const strategy = String(s.strategy ?? "").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").trim();
   if (strategy.length > AGENT_BOUNDS.strategyMax) throw new Error(`the strategy is at most ${AGENT_BOUNDS.strategyMax} characters`);

@@ -8,7 +8,7 @@
  */
 import { solString, unitsString, priceString } from "./amounts.mjs";
 import { limitsView } from "./risk.mjs";
-import { periodPnl, realizedSince } from "./ledger.mjs";
+import { realizedSince, periodTradingPnl } from "./ledger.mjs";
 import { plainText, TEXT_MAX } from "./text.mjs";
 import { treasuryFlows, buybackItem } from "./buyback.mjs";
 import { CIA_FACTS } from "./config.mjs";
@@ -64,11 +64,14 @@ export function decisionObject(d) {
     reason: plainText(d.reason, TEXT_MAX.reason) ?? "(no reason given)", rugCheck: d.action === "buy" ? rugOf(d.rug_json) : null, mode: d.mode };
 }
 
-/** Equity points: the ledger's own (one per event) and the recorded snapshots, time ordered, at most `max`. */
-export function equitySeries({ ledger, snapshots, max = 300 }) {
+/**
+ * Equity points: the ledger's own, time ordered, at most `max`. The ledger values each point at
+ * the latest quote known then — at every event, every recorded snapshot (with its quotes) and
+ * now (with today's) — so the chart never jumps back to a trade price after a quote.
+ */
+export function equitySeries({ ledger, max = 300 }) {
   const pts = new Map();
   for (const p of ledger?.equity ?? []) if (p.t) pts.set(p.t, BigInt(p.portfolio));
-  for (const s of snapshots ?? []) pts.set(s.t, BigInt(s.portfolio));
   const list = [...pts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([t, v]) => ({ t, portfolioSol: solString(v) }));
   if (list.length <= max) return list;
   const step = list.length / max;
@@ -93,7 +96,7 @@ export function agentDetail({ agent, view, db, symbolOf }) {
     })),
     decisions: db.listDecisions(agent.id, 50).map(decisionObject),
     trades: db.listTrades(agent.id, agent.mode).slice(-100).reverse().map((r) => tradeObject(r, symbolOf)),
-    equity: equitySeries({ ledger: L, snapshots: db.listEquity(agent.id, agent.mode) }),
+    equity: equitySeries({ ledger: L }),
     fees: (L?.fees ?? []).map((f) => ({ t: f.t, sol: solString(f.lamports), tx: f.tx })),
     transfers: (L?.transfers ?? []).map((x) => ({ t: x.t, kind: x.kind, sol: solString(x.lamports), tx: x.tx })),
     promotions: db.listPromotions(agent.id, agent.mode).map((p) => ({ t: p.t, from: p.from_rank, to: p.to_rank })),
@@ -137,7 +140,8 @@ export function summaryObject({ db, config, views, walletLedgers, treasury, now 
      wallets' own transactions, never from a paper book. */
   let fees = 0n;
   for (const a of db.listAgents()) { const W = walletLedgers.get(a.id); if (W) fees += W.feesClaimed; }
-  const done = db.listBuybacks(10_000).filter((b) => b.state === "done");
+  /* every buyback whose $CIA was bought, burned yet or not, each once */
+  const done = db.completedBuybacks();
   let bSol = 0n, bCia = 0n;
   for (const b of done) { bSol += BigInt(b.sol_spent ?? 0); bCia += BigInt(b.cia_bought ?? 0); }
   return {
@@ -177,8 +181,8 @@ export function deskPage({ db, limit, before, symbolOf }) {
 export const PERIODS = Object.freeze({ "7d": 7 * 86_400_000, "30d": 30 * 86_400_000, all: null });
 /**
  * by=pnl: realized trading profit over the period, in SOL (all time: career realized). by=roi:
- * the return over the period in percent — the change in portfolio less net deposits over the
- * capital at the period's start plus what was added since. Rows are best first; the site draws
+ * the return over the period in percent — realized trading P&L in the period plus the change in
+ * unrealized over it, over depositedSol (all time: roiPct). Rows are best first; the site draws
  * one board per mode from them, never mixing the two.
  */
 export function leaderboard({ db, views, by, period, now, mode = null }) {
@@ -194,15 +198,11 @@ export function leaderboard({ db, views, by, period, now, mode = null }) {
       const pnl = PERIODS[period] === null ? L.realized : realizedSince(L, now - PERIODS[period]);
       value = solString(pnl); sort = pnl;
     } else {
-      let pnl, capital;
-      if (PERIODS[period] === null) { pnl = L.realized + L.unrealized; capital = L.netDeposits; }
-      else {
-        const points = [...db.listEquity(a.id, a.mode).map((s) => ({ t: s.t, portfolio: BigInt(s.portfolio), netDeposits: BigInt(s.net_deposits) })),
-          ...L.equity.map((p) => ({ t: p.t, portfolio: p.portfolio, netDeposits: p.netDeposits }))].filter((p) => p.t).sort((x, y) => x.t.localeCompare(y.t));
-        ({ pnl, capital } = periodPnl(points, { since: now - PERIODS[period], nowPortfolio: L.portfolio, nowNetDeposits: L.netDeposits }));
-      }
-      if (!(capital > 0n)) continue;
-      const bps = (pnl * 10_000n) / capital;
+      /* the return over the period: realized in it plus the change in unrealized over it, over
+         the SOL ever deposited; creator fees and other arrivals never count */
+      const pnl = PERIODS[period] === null ? L.realized + L.unrealized : periodTradingPnl(L, now - PERIODS[period]).pnl;
+      if (!(L.deposited > 0n)) continue;
+      const bps = (pnl * 10_000n) / L.deposited;
       value = numString(Number(bps) / 100); sort = bps;
     }
     rows.push({ agentId: a.id, value, rank: view.rank ?? "recruit", mode: a.mode, sort });
@@ -214,14 +214,15 @@ export function leaderboard({ db, views, by, period, now, mode = null }) {
 export function buybacksObject({ db, config, limit }) {
   return {
     policy: { sharePct: numString(config.buybackSharePct), sources: ["creator_fees", "trading_profit"], schedule: plainText(config.buybackCron, TEXT_MAX.schedule) ?? "not scheduled", destination: config.buybackDestination },
-    items: db.listBuybacks(limit).filter((b) => b.state === "done" && b.legSigs?.length && BigInt(b.cia_bought ?? 0) > 0n).map(buybackItem),
+    items: db.completedBuybacks().filter((b) => b.legSigs?.length && BigInt(b.cia_bought ?? 0) > 0n).map(buybackItem)
+      .sort((x, y) => String(y.t).localeCompare(String(x.t)) || String(y.tx).localeCompare(String(x.tx))).slice(0, Math.max(0, limit)),
   };
 }
 
 export function treasuryObject({ db, config, balances }) {
   if (!config.treasury) return { address: null, sol: "0", cia: "0", flows: [] };
   const agentWallets = new Map(db.listAgents().map((a) => [a.wallet, a.id]));
-  const f = treasuryFlows({ rows: db.listChainTxs(config.treasury), treasury: config.treasury, agentWallets, buybacks: db.listBuybacks(1000) });
+  const f = treasuryFlows({ rows: db.listChainTxs(config.treasury), treasury: config.treasury, agentWallets, buybacks: db.completedBuybacks() });
   return {
     address: config.treasury, sol: solString(balances?.sol ?? 0n), cia: unitsString(balances?.cia ?? 0n, CIA_FACTS.decimals),
     flows: f.flows.slice(0, 200).map((x) => ({ t: x.t, kind: x.kind, sol: solString(x.lamports), tx: x.tx })),

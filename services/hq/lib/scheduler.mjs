@@ -37,7 +37,8 @@ export function createScheduler({
   const timers = [];
   const busy = new Set();
   const last = new Map();                   // key → ms of the last run
-  const status = { startedAt: clock(), indexer: { at: null, ok: null, error: null }, feed: { state: "stopped", detail: null }, jobs: {}, recovered: null };
+  /* What /health may show: states and times only, never an upstream service's words (those go to the log). */
+  const status = { startedAt: clock(), indexer: { at: null, state: "starting", backfilling: 0 }, feed: { state: "stopped", detail: null }, jobs: {}, recovered: null };
   let feed = null, stopped = false, lastSummary = null;
   let verified = { at: 0, list: null };
 
@@ -73,21 +74,34 @@ export function createScheduler({
   const due = (key, everyMs) => clock() - (last.get(key) ?? 0) >= everyMs;
 
   /* ── the indexer ── */
+  /**
+   * One pass: every open in-flight marker settled from the chain, then every agent wallet and
+   * the treasury read, then every ledger rebuilt. One address that fails (after the indexer's own
+   * retries) is logged and left for the next pass; it never stops the others.
+   */
+  let lastBackfilling = 0;
   async function indexAll() {
     return once("index", async () => {
-      try {
-        const agents = db.listAgents();
-        for (const a of agents) await indexer.indexAddress(a.wallet);
-        if (config.treasury) await indexer.indexAddress(config.treasury);
-        for (const a of agents) await runtime.refresh(a);
-        if (config.treasury) { try { state.treasury = await treasuryBalances({ rpc, treasury: config.treasury }); } catch { /* the last read stands */ } }
-        status.indexer = { at: new Date(clock()).toISOString(), ok: true, error: null };
-        const views = new Map(agents.map((a) => [a.id, runtime.viewOf(a.id)]).filter(([, v]) => v));
-        const walletLedgers = new Map(agents.map((a) => [a.id, runtime.walletLedger(a)]));
-        const summary = summaryObject({ db, config, views, walletLedgers, treasury: state.treasury, now: clock() });
-        const { updatedAt: _u, ...comparable } = summary;
-        if (JSON.stringify(comparable) !== lastSummary) { lastSummary = JSON.stringify(comparable); db.addEvent("summary", summary); }
-      } catch (error) { status.indexer = { at: new Date(clock()).toISOString(), ok: false, error: String(error?.message ?? error).slice(0, 200) }; throw error; }
+      const failed = [];
+      if (executor && db.openIntents().length) {
+        try { await executor.settle(); } catch (error) { failed.push("settle"); log(`settle: ${error?.message ?? error}`); }
+      }
+      const agents = db.listAgents();
+      for (const address of [...agents.map((a) => a.wallet), ...(config.treasury ? [config.treasury] : [])]) {
+        try { await indexer.indexAddress(address); } catch (error) { failed.push(address); log(`index ${address}: ${error?.message ?? error}`); }
+      }
+      for (const a of agents) {
+        try { await runtime.refresh(a); } catch (error) { failed.push(`agent ${a.id}`); log(`refresh agent ${a.id}: ${error?.message ?? error}`); }
+      }
+      if (config.treasury) { try { state.treasury = await treasuryBalances({ rpc, treasury: config.treasury }); } catch (error) { log(`treasury balances: ${error?.message ?? error}`); } }
+      const backfilling = indexer.incomplete?.() ?? 0;
+      if (backfilling !== lastBackfilling) { log(`indexer: ${backfilling} address(es) still have older history to read`); lastBackfilling = backfilling; }
+      status.indexer = { at: new Date(clock()).toISOString(), state: failed.length ? "error" : "ok", backfilling };
+      const views = new Map(agents.map((a) => [a.id, runtime.viewOf(a.id)]).filter(([, v]) => v));
+      const walletLedgers = new Map(agents.map((a) => [a.id, runtime.walletLedger(a)]));
+      const summary = summaryObject({ db, config, views, walletLedgers, treasury: state.treasury, now: clock() });
+      const { updatedAt: _u, ...comparable } = summary;
+      if (JSON.stringify(comparable) !== lastSummary) { lastSummary = JSON.stringify(comparable); db.addEvent("summary", summary); }
     });
   }
 
@@ -147,11 +161,14 @@ export function createScheduler({
     const minute = Math.floor(clock() / 60_000);
     for (const j of jobs) {
       if (!cronMatches(j.parsed, minute * 60_000) || status.jobs[j.key]?.minute === minute) continue;
-      status.jobs[j.key] = { minute, at: new Date(clock()).toISOString(), result: "running" };
+      status.jobs[j.key] = { minute, at: new Date(clock()).toISOString(), state: "running" };
       once(`job:${j.key}`, async () => {
-        if (!executor) { status.jobs[j.key].result = "no executor"; return; }
-        const r = await j.run();
-        status.jobs[j.key].result = JSON.stringify(r, (k, v) => (typeof v === "bigint" ? v.toString() : v)).slice(0, 300);
+        if (!executor) { status.jobs[j.key].state = "error"; log(`job ${j.key}: no executor`); return; }
+        try {
+          const r = await j.run();
+          status.jobs[j.key].state = "ok";
+          log(`job ${j.key}: ${JSON.stringify(r, (k, v) => (typeof v === "bigint" ? v.toString() : v)).slice(0, 500)}`);
+        } catch (error) { status.jobs[j.key].state = "error"; throw error; }
       });
     }
   }
@@ -171,9 +188,11 @@ export function createScheduler({
     feedCheck();
     every(20_000, () => { cronTick().catch((e) => log(`cron: ${e?.message ?? e}`)); });
     every(10 * 60_000, refreshLaunches);
-    /* Housekeeping: spent nonces, the stream's old events, and holds past HOLDS_KEPT_DAYS (a
-       Snipurr watching every launch holds a dozen times a minute; buys, sells and their reasons stay). */
-    every(3_600_000, () => { db.pruneNonces(clock() - 86_400_000); db.pruneEvents(5_000); db.pruneHolds(new Date(clock() - HOLDS_KEPT_DAYS * 86_400_000).toISOString()); });
+    /* Housekeeping: expired nonces every minute (a challenge lives five minutes); the stream's old
+       events and holds past HOLDS_KEPT_DAYS hourly (a Snipurr watching every launch holds a dozen
+       times a minute; buys, sells and their reasons stay). */
+    every(60_000, () => { db.pruneNonces(clock()); });
+    every(3_600_000, () => { db.pruneEvents(5_000); db.pruneHolds(new Date(clock() - HOLDS_KEPT_DAYS * 86_400_000).toISOString()); });
   }
   function stop() { stopped = true; for (const t of timers) clearInterval(t); if (feed) feed.stop(); feed = null; }
 

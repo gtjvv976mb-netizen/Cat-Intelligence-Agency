@@ -31,6 +31,11 @@ export const PATTERNS = Object.freeze({
   itemId: "^[A-Za-z0-9_-]{1,64}$",
   cursor: "^[A-Za-z0-9_-]{1,128}$",
   nonce: "^[A-Za-z0-9_-]{16,128}$",
+  /* the perks challenge, line for line (API.md GET /v1/perks/challenge) */
+  challenge: "^catintelligenceagency\\.com asks you to prove you hold this wallet, to show your \\$CIA holder perks\\.\\n"
+    + "Wallet: [1-9A-HJ-NP-Za-km-z]{32,44}\\nNonce: [A-Za-z0-9_-]{16,128}\\n"
+    + "Issued: \\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z\\nExpires: \\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z\\n"
+    + "Signing this message moves nothing: no SOL, no tokens, no approval, and it costs nothing\\.$",
   /* plain text: at least one visible character, none of the hidden ones */
   plain: `^(?=[^${HIDDEN}]*[^\\s${HIDDEN}])[^${HIDDEN}]*$`,
 });
@@ -138,10 +143,14 @@ export const SCHEMAS = Object.freeze({
     items: { type: "array", items: BuybackItem } }),
   Treasury: obj({ address: nullable(address), sol: sol0, cia: units0, flows: { type: "array", items: obj({ t: iso, kind: { enum: ENUMS.flow }, sol: sol0, tx: sig }) } }),
   PerksTiers: obj({ tiers: { type: "array", items: obj({ id: { enum: ["holder", "agent", "director"] }, minCia: units0, perks }) } }),
-  /* the challenge's message is several lines of plain text: line breaks allowed, nothing else hidden */
-  PerksChallenge: obj({ wallet: address, nonce: { type: "string", pattern: PATTERNS.nonce },
-    message: { type: "string", minLength: 16, maxLength: 600, pattern: "^[^\\u0000-\\u0009\\u000b-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u202a-\\u202e\\u2066-\\u2069\\ufeff]+$" }, expiresAt: iso }),
-  PerksVerify: obj({ holder: { type: "boolean" }, balance: units0, tier: { enum: ENUMS.tier }, perks, expiresAt: iso }),
+  /* the challenge's message is exactly the contract's six lines; only the wallet, the nonce and the
+     two times vary (the site also checks they are the challenge's own, and Expires = expiresAt) */
+  PerksChallenge: obj({ wallet: address, nonce: { type: "string", pattern: PATTERNS.nonce }, message: { type: "string", pattern: PATTERNS.challenge }, expiresAt: iso }),
+  /* holder is true exactly when the tier is not none */
+  PerksVerify: { oneOf: [
+    obj({ holder: { const: true }, balance: units0, tier: { enum: ["holder", "agent", "director"] }, perks, expiresAt: iso }),
+    obj({ holder: { const: false }, balance: units0, tier: { const: "none" }, perks, expiresAt: iso }),
+  ] },
   Error: obj({ error: str, message: str }),
 });
 /** What each stream event's data is. */
@@ -176,9 +185,9 @@ export function validate(schema, value, path = "$") {
       if (s.contains && !v.some((x) => validate(s.contains, x).length === 0)) errors.push({ path: p, message: "has no entry of the kind it must contain" });
     }
     if (typeOf(v) === "object" && s.properties) {
-      for (const k of s.required ?? []) if (!(k in v)) errors.push({ path: `${p}.${k}`, message: "is missing" });
+      for (const k of s.required ?? []) if (!Object.hasOwn(v, k)) errors.push({ path: `${p}.${k}`, message: "is missing" });
       for (const [k, x] of Object.entries(v)) {
-        if (s.properties[k]) walk(s.properties[k], x, `${p}.${k}`);
+        if (Object.hasOwn(s.properties, k)) walk(s.properties[k], x, `${p}.${k}`);
         else if (s.additionalProperties === false) errors.push({ path: `${p}.${k}`, message: "is not in the contract" });
       }
     }

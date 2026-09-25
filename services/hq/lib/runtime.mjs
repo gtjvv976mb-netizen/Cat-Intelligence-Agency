@@ -83,10 +83,13 @@ export function createRuntime({
     const lastMarks = new Map();
     for (const ps of db.listPositionStates(agent.id, mode)) {
       const lm = ps.state?.lastMark;
-      if (lm && /^\d+$/.test(String(lm.lamports)) && /^[1-9]\d*$/.test(String(lm.tokens))) lastMarks.set(ps.mint, { lamports: BigInt(lm.lamports), tokens: BigInt(lm.tokens) });
+      if (lm && /^\d+$/.test(String(lm.lamports)) && /^[1-9]\d*$/.test(String(lm.tokens))) lastMarks.set(ps.mint, { lamports: BigInt(lm.lamports), tokens: BigInt(lm.tokens), at: typeof lm.at === "string" ? lm.at : null });
     }
-    const ledger = marks.size || lastMarks.size ? buildLedger(events, { marks, lastMarks }) : pre;
     const now = clock();
+    /* Every recorded snapshot, with the quotes of its moment, and now, with today's: the
+       drawdown and the chart value each position at the latest quote known at each point. */
+    const snapshots = db.listEquity(agent.id, mode).map((x) => ({ t: x.t, marks: x.marks ?? {} }));
+    const ledger = buildLedger(events, { marks, lastMarks, snapshots, now: new Date(now).toISOString() });
     db.tx(() => {
       for (const [mint, m] of marks) {
         if (!ledger.positions.some((x) => x.mint === mint)) continue;
@@ -104,10 +107,8 @@ export function createRuntime({
           db.setTradePnl(id, t.pnl, t.pnlPct === null ? null : String(t.pnlPct));
           if (!seen.has(id)) db.addEvent("trade", tradeObject(db.listTrades(agent.id, "live").find((r) => r.id === id)));
         }
-        const known = new Set((db.getKv(`fees-seen:${agent.id}`) ?? []));
-        const fresh = ledger.fees.filter((f) => f.tx && !known.has(f.tx));
-        for (const f of fresh) { db.addEvent("fee", { agentId: agent.id, t: f.t, sol: solString(f.lamports), tx: f.tx }); known.add(f.tx); }
-        if (fresh.length) db.setKv(`fees-seen:${agent.id}`, [...known].slice(-500));
+        /* each fee claim goes to the stream once, ever */
+        for (const f of ledger.fees) if (f.tx && db.emitOnce(`fee:${agent.id}:${f.tx}`)) db.addEvent("fee", { agentId: agent.id, t: f.t, sol: solString(f.lamports), tx: f.tx });
       } else {
         for (const t of ledger.trades) db.setTradePnl(t.id, t.pnl, t.pnlPct === null ? null : String(t.pnlPct));
       }
@@ -121,7 +122,8 @@ export function createRuntime({
       } else if (!db.getRank(agent.id, mode)) db.setRank(agent.id, mode, rank);
       if (now - (lastEquityAt.get(`${agent.id}:${mode}`) ?? 0) >= EQUITY_EVERY_MS) {
         lastEquityAt.set(`${agent.id}:${mode}`, now);
-        db.addEquity({ agentId: agent.id, mode, portfolio: ledger.portfolio, netDeposits: ledger.netDeposits, unrealized: ledger.unrealized });
+        db.addEquity({ agentId: agent.id, mode, t: new Date(now).toISOString(), portfolio: ledger.portfolio, netDeposits: ledger.netDeposits, unrealized: ledger.unrealized,
+          marks: new Map([...marks].filter(([mint]) => ledger.positions.some((x) => x.mint === mint))) });
       }
     });
     const tradingEquity = ledger.portfolio - ledger.netDeposits - ledger.feesClaimed - ledger.other;
@@ -163,6 +165,12 @@ export function createRuntime({
     return id;
   }
 
+  /** A curve plan is bought only if it delivers, and never above the size the risk layer allowed. */
+  function checkPlan(plan, size) {
+    if (!plan || plan.deliverable !== true || !(BigInt(plan.baseOutRaw ?? 0) > 0n)) throw Object.assign(new Error("the curve plan delivers nothing at this size"), { clause: "no_plan" });
+    if (BigInt(plan.maxQuoteInRaw) > BigInt(size)) throw Object.assign(new Error(`the curve plan may spend ${plan.maxQuoteInRaw} lamports, over the ${size} the limits allow`), { clause: "plan_over_size" });
+  }
+
   /* ── THE GATE ── */
   /**
    * A buy, proposed by a strategy: { mint, symbol, name, decimals, program, venue: "jupiter" |
@@ -201,7 +209,7 @@ export function createRuntime({
         let tokens, sol, entryInput;
         if (p.venue === "pumpfun") {
           const plan = p.plan ? await p.plan(size) : planSnipeCeiling({ curve: snipeCurveState(await readCurveForPaper(p.mint)), adapter: PUMPFUN_VENUE, solLamports: size, cfg: {} });
-          if (!plan || !(BigInt(plan.baseOutRaw) > 0n)) throw Object.assign(new Error("the curve plan delivers nothing at this size"), { clause: "no_plan" });
+          checkPlan(plan, size);
           tokens = BigInt(plan.baseOutRaw); entryInput = BigInt(plan.maxQuoteInRaw); sol = entryInput + PAPER_FEE_LAMPORTS;
         } else {
           const q = await paperJupiter({ pay: WSOL_MINT, get: p.mint, amountRaw: size, maxImpactPct: MAX_BUY_IMPACT_PCT });
@@ -218,6 +226,7 @@ export function createRuntime({
       let result;
       if (p.venue === "pumpfun") {
         const plan = p.plan ? await p.plan(size) : planSnipeCeiling({ curve: snipeCurveState((await ex().readCurve(p.mint)).curve), adapter: PUMPFUN_VENUE, solLamports: size, cfg: {} });
+        checkPlan(plan, size);
         result = await ex().pumpBuy({ owner, mint: p.mint, baseOutRaw: plan.baseOutRaw, maxQuoteInRaw: plan.maxQuoteInRaw, decisionId: decision.id });
         db.setPositionState(agent.id, "live", p.mint, { venue: "pumpfun", openedAt: clock(), entryInputLamports: String(plan.maxQuoteInRaw), peak: String(plan.maxQuoteInRaw), ...(p.state ?? {}) });
       } else {

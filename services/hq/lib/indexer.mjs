@@ -3,54 +3,110 @@
  *
  * getSignaturesForAddress pages back (1,000 at a time) to the newest signature already read,
  * and every new one is fetched with getTransaction (encoding json, versions up to 1) and kept as
- * the RPC returned it. The ledger is rebuilt from these alone. An agent wallet is new when HQ
- * derives it, so its whole history is read; an address with more history than
- * HQ_MAX_HISTORY_PAGES pages (the treasury, if the owner's old wallet is used) is read that far
- * and marked incomplete, and the treasury's figures say so.
+ * the RPC returned it. The ledger is rebuilt from these alone.
+ *
+ * NOTHING IS SKIPPED. A pass reads at most HQ_MAX_HISTORY_PAGES pages; when there is more (a
+ * wallet's long first history, or more new transactions than that since the last pass), the
+ * cursor does not jump ahead: the stretch still unread is kept as a resume point, the address is
+ * marked incomplete, and the next passes read it, oldest boundary first, until it meets what was
+ * read before. /health counts the addresses still being read and the log names them.
+ *
+ * A rate limit or a failed call is retried with backoff; an address that still fails is left for
+ * the next pass without stopping the others.
  */
 import { classifyTransaction } from "./classify.mjs";
 
-export function createIndexer({ db, rpc, log = () => {}, maxPages = 20, pageSize = 1000, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), gapMs = 0 } = {}) {
+export const RETRY_DELAYS_MS = Object.freeze([1_000, 3_000, 9_000]);
+
+export function createIndexer({ db, rpc, log = () => {}, maxPages = 20, pageSize = 1000, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), gapMs = 0, retryDelaysMs = RETRY_DELAYS_MS } = {}) {
   const busy = new Set();
 
+  /** One RPC call, retried with backoff on any failure (a 429 above all). */
+  async function withRetry(fn) {
+    for (let i = 0; ; i++) {
+      try { return await fn(); }
+      catch (error) { if (i >= retryDelaysMs.length) throw error; await sleep(retryDelaysMs[i]); }
+    }
+  }
   async function getTransaction(signature) {
-    return rpc.call("getTransaction", [signature, { encoding: "json", commitment: "confirmed", maxSupportedTransactionVersion: 1 }]);
+    return withRetry(() => rpc.call("getTransaction", [signature, { encoding: "json", commitment: "confirmed", maxSupportedTransactionVersion: 1 }]));
+  }
+  const listPage = (address, opts) => withRetry(async () => {
+    const page = await rpc.call("getSignaturesForAddress", [address, opts]);
+    if (!Array.isArray(page)) throw new Error("the RPC did not list the address's transactions");
+    return page;
+  });
+
+  /**
+   * Read back from `before` (or the newest) toward `until` (or the start of history), at most
+   * maxPages pages. Returns { sigs (newest first), reached: whether it got to `until` or the start }.
+   */
+  async function readStretch(address, { before = null, until = null }) {
+    const sigs = [];
+    let cursor = before, pages = 0;
+    for (;;) {
+      const page = await listPage(address, { limit: pageSize, commitment: "confirmed", ...(cursor ? { before: cursor } : {}), ...(until ? { until } : {}) });
+      pages++;
+      sigs.push(...page);
+      if (page.length < pageSize) return { sigs, reached: true };
+      if (pages >= maxPages) return { sigs, reached: false };
+      cursor = page[page.length - 1].signature;
+    }
+  }
+  async function store(address, sigs) {
+    let added = 0;
+    for (const s of [...sigs].reverse()) {
+      if (db.hasChainTx(address, s.signature)) continue;
+      const tx = await getTransaction(s.signature);
+      if (!tx) throw new Error(`the transaction ${s.signature} could not be read yet`);
+      db.putChainTx({ address, signature: s.signature, slot: tx.slot ?? s.slot, blockTime: tx.blockTime ?? s.blockTime ?? null, err: Boolean(tx.meta?.err), tx });
+      added++;
+      if (gapMs) await sleep(gapMs);
+    }
+    return added;
   }
 
-  /** Read what is new for `address`. Returns { added, complete }. */
+  /**
+   * Read what is new for `address`. Returns { added, complete }. With a resume point pending, the
+   * pass reads that stretch first; the newest boundary moves only when everything below it is read.
+   */
   async function indexAddress(address) {
     if (busy.has(address)) return { added: 0, complete: null, skipped: true };
     busy.add(address);
     try {
       const cursor = db.getCursor(address);
+      const resume = cursor?.resume ?? null;
+      if (resume) {
+        /* the stretch still unread: from `before` back to `until` (null: the start of history) */
+        const r = await readStretch(address, { before: resume.before, until: resume.until });
+        const added = await store(address, r.sigs);
+        if (r.reached) {
+          db.setCursor(address, { newest: resume.newest, complete: true, note: null, resume: null });
+          log(`indexer: ${address} is read in full`);
+          return { added, complete: true };
+        }
+        const next = { ...resume, before: r.sigs[r.sigs.length - 1].signature };
+        db.setCursor(address, { newest: cursor.newest_signature, complete: false, note: "reading older transactions", resume: next });
+        return { added, complete: false };
+      }
       const until = cursor?.newest_signature ?? null;
-      const fresh = [];
-      let before = null, pages = 0, reachedEnd = false;
-      for (;;) {
-        const opts = { limit: pageSize, commitment: "confirmed", ...(before ? { before } : {}), ...(until ? { until } : {}) };
-        const page = await rpc.call("getSignaturesForAddress", [address, opts]);
-        if (!Array.isArray(page)) throw new Error("the RPC did not list the address's transactions");
-        pages++;
-        fresh.push(...page);
-        if (page.length < pageSize) { reachedEnd = true; break; }
-        if (pages >= maxPages) break;
-        before = page[page.length - 1].signature;
+      const r = await readStretch(address, { until });
+      const added = await store(address, r.sigs);
+      const top = r.sigs[0]?.signature ?? until;
+      if (r.reached) {
+        db.setCursor(address, { newest: top, complete: true, note: null, resume: null });
+        return { added, complete: true };
       }
-      let added = 0;
-      /* Oldest first, so a partial run leaves a clean prefix; the cursor moves only when all are in. */
-      for (const s of [...fresh].reverse()) {
-        if (db.hasChainTx(address, s.signature)) continue;
-        const tx = await getTransaction(s.signature);
-        if (!tx) throw new Error(`the transaction ${s.signature} could not be read yet`);
-        db.putChainTx({ address, signature: s.signature, slot: tx.slot ?? s.slot, blockTime: tx.blockTime ?? s.blockTime ?? null, err: Boolean(tx.meta?.err), tx });
-        added++;
-        if (gapMs) await sleep(gapMs);
-      }
-      const complete = until ? Boolean(cursor.complete) : reachedEnd;
-      db.setCursor(address, { newest: fresh[0]?.signature ?? until, complete, note: complete ? null : `only the newest ${pages * pageSize} transactions were read` });
-      return { added, complete };
+      /* More than one pass can read: keep the old boundary until the gap below is read too. */
+      const next = { before: r.sigs[r.sigs.length - 1].signature, until, newest: top };
+      db.setCursor(address, { newest: until, complete: false, note: "reading older transactions", resume: next });
+      log(`indexer: ${address} has more history than one pass reads; the rest follows on the next passes`);
+      return { added, complete: false };
     } finally { busy.delete(address); }
   }
+
+  /** How many addresses still have history to read. */
+  const incomplete = () => db.listCursors().filter((c) => c.resume || !c.complete).length;
 
   /** A transaction HQ itself just confirmed, stored at once (the next poll would find it too). */
   function ingest({ wallet, signature, tx }) {
@@ -80,5 +136,5 @@ export function createIndexer({ db, rpc, log = () => {}, maxPages = 20, pageSize
     return out;
   }
 
-  return Object.freeze({ indexAddress, ingest, eventsFor, getTransaction });
+  return Object.freeze({ indexAddress, ingest, eventsFor, getTransaction, incomplete });
 }

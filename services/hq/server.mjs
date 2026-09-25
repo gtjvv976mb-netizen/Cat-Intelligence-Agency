@@ -30,7 +30,9 @@ import { pathToFileURL } from "node:url";
 import { agentAddress, walletReadiness, signAsAgent, signAsTreasury } from "./wallet.mjs";
 
 /** Everything wired together; exported so the tests and the local paper run build the same thing. */
-export async function buildHq({ env = process.env, fetchImpl = globalThis.fetch, clock = () => Date.now(), log = (line) => console.log(`[hq] ${line}`), WebSocketImpl = globalThis.WebSocket, signers = null } = {}) {
+const okOrError = (failed) => (failed ? "error" : "ok");
+
+export async function buildHq({ env = process.env, fetchImpl = globalThis.fetch, clock = () => Date.now(), log = (line) => console.log(`[hq] ${line}`), WebSocketImpl = globalThis.WebSocket, signers = null, retryDelaysMs = undefined } = {}) {
   const config = readConfig(env);
   const db = openDb(config.dbPath, { clock });
   const rpcUrl = config.rpcUrl ?? config.publicRpcUrl;
@@ -41,7 +43,7 @@ export async function buildHq({ env = process.env, fetchImpl = globalThis.fetch,
   const market = createMarketView({ rpc, fetchImpl, jupiter, clock });
   const rug = createRugChecker({ rpc: botsRpc, clock });
   const brain = env.ANTHROPIC_API_KEY ? createBrain({ fetchImpl, clock, apiKey: async () => env.ANTHROPIC_API_KEY || null }) : null;
-  const indexer = createIndexer({ db, rpc, maxPages: config.maxHistoryPages });
+  const indexer = createIndexer({ db, rpc, log, maxPages: config.maxHistoryPages, retryDelaysMs });
   const shared = { launches: [], treasury: null };
   let executor = null;
   const runtime = createRuntime({ config, db, clock, log, executor: () => executor, indexer, market, rug, jupiter, rpc, launches: () => shared.launches });
@@ -49,7 +51,7 @@ export async function buildHq({ env = process.env, fetchImpl = globalThis.fetch,
     signers: signers ?? { agent: (n, args) => signAsAgent(n, { ...args, env }), treasury: (args) => signAsTreasury({ ...args, env }) } });
   const scheduler = createScheduler({ config, db, runtime, indexer, executor, rpc, botsRpc, http, market, jupiter, brain, fetchImpl, clock, log, WebSocketImpl,
     treasuryReady: () => walletReadiness(env).treasurySecret, state: shared });
-  const perks = createPerks({ db, config, clock, balanceOf: (w) => readCiaBalance(rpc, w) });
+  const perks = createPerks({ db, config, clock, balanceOf: (w) => readCiaBalance(rpc, w), log });
   const adminDeps = { db, config, runtime, rpc, clock, agentAddress: (n) => agentAddress(n, { env }),
     withdraw: ({ agent, lamports }) => withdrawToTreasury({ config, db, rpc, executor, agent, lamports }) };
   const views = () => new Map(db.listAgents().map((a) => [a.id, runtime.viewOf(a.id)]).filter(([, v]) => v));
@@ -58,10 +60,13 @@ export async function buildHq({ env = process.env, fetchImpl = globalThis.fetch,
     const s = scheduler.status();
     const ready = walletReadiness(env);
     return {
-      ok: s.indexer.ok !== false, service: "cia-hq", version: HQ_VERSION, time: new Date(clock()).toISOString(), uptimeSec: Math.round((clock() - s.startedAt) / 1000),
+      ok: s.indexer.state !== "error", service: "cia-hq", version: HQ_VERSION, time: new Date(clock()).toISOString(), uptimeSec: Math.round((clock() - s.startedAt) / 1000),
       /* the kill switch is on when either the variable or the owner's console command says so */
       agents: db.listAgents().length, switches: { ...describeSwitches(config, ready), kill: config.kill || db.getKv("kill") === true }, wallets: ready.masterSeed === "ok" ? "ready" : "not ready",
-      indexer: s.indexer, feed: s.feed, jobs: s.jobs,
+      /* states and times only: an upstream service's words stay in the log (the contract's /health) */
+      indexer: { at: s.indexer.at, state: okOrError(s.indexer.state === "error"), backfilling: s.indexer.backfilling },
+      feed: { state: okOrError(["dead", "degraded"].includes(s.feed.state)) },
+      jobs: Object.fromEntries(Object.entries(s.jobs).map(([k, j]) => [k, { at: j.at, state: okOrError(j.state === "error") }])),
       lanes: Object.fromEntries(db.listAgents().filter((a) => a.strategy === "snipurr").map((a) => [a.id, laneStatus(a.id)])),
     };
   };

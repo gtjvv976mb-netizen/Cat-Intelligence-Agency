@@ -30,7 +30,7 @@ export const defaults = Object.freeze({
 
 export function normalizeSettings(input = {}) {
   const s = { ...defaults.settings, ...(input ?? {}) };
-  const unknown = Object.keys(input ?? {}).filter((k) => !(k in defaults.settings));
+  const unknown = Object.keys(input ?? {}).filter((k) => !Object.hasOwn(defaults.settings, k));
   if (unknown.length) throw new Error(`unknown setting ${unknown.join(", ")} for crying-cat-safe`);
   const liq = Number(s.minLiquidityUsd), n = Number(s.candidates);
   if (!(Number.isFinite(liq) && liq >= 1_000_000)) throw new Error("minLiquidityUsd must be at least 1,000,000 (this cat only buys deep markets)");

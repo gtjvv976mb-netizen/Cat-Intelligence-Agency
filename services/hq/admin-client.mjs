@@ -5,6 +5,8 @@
  *   node services/hq/admin-client.mjs --keypair ~/.config/solana/cia-owner.json \
  *        --url https://api.catintelligenceagency.com --command '{"op":"agent.pause","id":1}'
  *
+ * The command is signed for one server: --server, else the host of --url, else
+ * api.catintelligenceagency.com; HQ refuses a command signed for another (HQ_SERVER_ID).
  * The keypair file is the owner's admin wallet (solana-keygen's 64-number array, or a base58
  * secret in a file) whose address is HQ_OWNER_WALLET on the server. It is read here, on the
  * owner's machine, to sign one message and never sent anywhere: HQ receives the command, a fresh
@@ -18,19 +20,28 @@ import { adminMessage } from "./lib/admin.mjs";
 import { signOwnerMessage } from "./wallet.mjs";
 import { parseArgs } from "./cli.mjs";
 
+/** The server id a command is signed for: --server, else the --url's host, else the default. */
+export const DEFAULT_SERVER_ID = "api.catintelligenceagency.com";
+export function serverIdFor({ server = null, url = null } = {}) {
+  if (server) return String(server);
+  if (url) { try { return new URL(String(url)).host; } catch { /* not a URL */ } }
+  return DEFAULT_SERVER_ID;
+}
+
 /** The request body for one command. Pure but for the clock and the nonce. */
-export function signedRequest({ command, keypairPath, now = Date.now(), nonce = crypto.randomBytes(18).toString("base64url") }) {
+export function signedRequest({ command, keypairPath, server = DEFAULT_SERVER_ID, now = Date.now(), nonce = crypto.randomBytes(18).toString("base64url") }) {
   const issuedAt = new Date(now).toISOString();
-  const { address, signature } = signOwnerMessage({ keypairPath, message: adminMessage({ command, nonce, issuedAt }) });
+  const { address, signature } = signOwnerMessage({ keypairPath, message: adminMessage({ command, nonce, issuedAt, server }) });
   return { signer: address, body: { command, nonce, issuedAt, signature } };
 }
 
 async function main() {
   const { flags } = parseArgs(process.argv.slice(2));
-  if (!flags.keypair || !flags.command) { console.error("usage: admin-client.mjs --keypair <file> --command '<json>' [--url https://api.catintelligenceagency.com]"); return 1; }
+  if (!flags.keypair || !flags.command) { console.error("usage: admin-client.mjs --keypair <file> --command '<json>' [--url https://api.catintelligenceagency.com] [--server <HQ_SERVER_ID>]"); return 1; }
   let command;
   try { command = JSON.parse(flags.command); } catch { console.error("--command must be JSON, e.g. '{\"op\":\"kill\",\"on\":true}'"); return 1; }
-  const { signer, body } = signedRequest({ command, keypairPath: flags.keypair });
+  const server = serverIdFor({ server: flags.server === true ? null : flags.server, url: flags.url === true ? null : flags.url });
+  const { signer, body } = signedRequest({ command, keypairPath: flags.keypair, server });
   if (!flags.url) { console.log(JSON.stringify({ signer, body }, null, 2)); return 0; }
   const res = await fetch(`${String(flags.url).replace(/\/+$/, "")}/v1/admin`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   console.log(res.status, await res.text());

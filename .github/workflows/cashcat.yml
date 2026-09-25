@@ -75,7 +75,7 @@ jobs:
         id: push
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node bots/floor-data.mjs push .floor-data --files launches.json --message "CashCat: launch"
+        run: 'node bots/floor-data.mjs push .floor-data --files launches.json --message "CashCat: launch"'
 
   deploy:
     needs: run

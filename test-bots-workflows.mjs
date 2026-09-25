@@ -65,5 +65,11 @@ const uses = Object.values(all).flatMap((t) => [...t.matchAll(/uses: ([^\s]+)/g)
 ok("every third-party action is pinned to a commit", uses.filter((u) => !u.startsWith("./")).every((u) => /@[0-9a-f]{40}$/.test(u)), uses.join(", "));
 ok("every checkout keeps no credentials", Object.values(all).every((t) => count(t, /actions\/checkout@/g) === count(t, /persist-credentials: false/g)));
 ok("no workflow grants itself write-all", !Object.values(all).some((t) => /write-all/.test(t)));
+/* A plain (unquoted) YAML scalar may not hold ": " or " #": the first starts a mapping and the
+   second a comment. GitHub then cannot parse the file at all, and the workflow fails on every
+   push with no job run. A `--message "Popcat: callouts"` did exactly that; quote such a line. */
+const plainRuns = Object.entries(all).flatMap(([n, t]) => [...t.matchAll(/^\s*(?:- )?run: (?!['"|>])(.*)$/gm)].map((m) => [n, m[1]]));
+ok("every one-line run: that YAML would misread is quoted", plainRuns.every(([, v]) => !/: | #/.test(v)),
+  plainRuns.filter(([, v]) => /: | #/.test(v)).map(([n, v]) => `${n}: ${v}`).join("; ") || `${plainRuns.length} plain run lines`);
 
 done();

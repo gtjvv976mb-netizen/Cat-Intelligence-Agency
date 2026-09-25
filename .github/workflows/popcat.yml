@@ -55,7 +55,7 @@ jobs:
         id: push
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node bots/floor-data.mjs push .floor-data --files callouts.json,popcat-state.json --message "Popcat: callouts"
+        run: 'node bots/floor-data.mjs push .floor-data --files callouts.json,popcat-state.json --message "Popcat: callouts"'
 
   deploy:
     needs: run

@@ -9,6 +9,10 @@
 # CASHCAT_WALLET_ADDRESS, and the optional caps in bots/cashcat/config.mjs. A launch it made is
 # appended to launches.json on the floor-data branch and the site is deployed.
 #
+# Its schedule runs as the GitHub account that last changed this file. A commit whose author is
+# not a GitHub account leaves the schedule with no one to run as, and it never fires; this line
+# was saved through the GitHub API so the owner's account is the one on record.
+#
 # The job runs in the "cashcat" environment. Keep CASHCAT_WALLET_SECRET and PINATA_JWT there
 # (Settings → Environments → cashcat, deployment branches: main only), not in the repository's
 # secrets: then a workflow run on any other branch or pull request cannot read them.

@@ -5,6 +5,10 @@
 # six-hour window, then deploys the site. Without POPCAT_LIVE it is a dry run that prints what it
 # would publish. Either way the run's summary (the Actions tab) shows the pick and its draft.
 #
+# Its schedule runs as the GitHub account that last changed this file. A commit whose author is
+# not a GitHub account leaves the schedule with no one to run as, and it never fires; this line
+# was saved through the GitHub API so the owner's account is the one on record.
+#
 # Why every fifteen minutes: pump.fun lists only its newest 1,050 coins, about forty minutes of
 # launches, and GitHub may run a schedule late or skip it. At this pace one skipped run still
 # leaves the next inside the listing, and Popcat's queue (popcat-state.json) keeps every cat coin

@@ -33,7 +33,7 @@ export function out(href, text, cls = "") {
 export const setState = (state) => { document.documentElement.dataset.hq = state; };
 
 /* ── mode, sign, amount ─────────────────────────────────────────────────── */
-const MODE_WORDS = { live: "Live", paper: "Paper", chain: "On chain", mixed: "Paper + live" };
+const MODE_WORDS = { live: "Live", paper: "Paper", chain: "On chain" };
 export function modeTag(mode) {
   const t = el("span", `mode mode-${mode}`, MODE_WORDS[mode] || mode);
   t.title = mode === "paper" ? "Paper: simulated from live quotes. Nothing signed, no money." : mode === "live" ? "Live: real SOL, every trade on chain." : mode === "chain" ? "A transaction on Solana, linked." : "";
@@ -167,14 +167,15 @@ export const RANK_LIST = RANKS;
 /* ── one line of the trading desk: a trade or a decision ───────────────── */
 export const TRIGGER_WORDS = { strategy: "Strategy", stop_loss: "Stop loss", take_profit: "Take profit", trailing_stop: "Trailing stop", daily_limit: "Daily loss limit", manual: "Manual" };
 export const CHECK_WORDS = { mint_authority: "Mint authority", freeze_authority: "Freeze authority", holders: "Holders", creator_share: "Creator's share" };
-/* Every buy passes a rug check first (the contract's rule). HQ's answer may carry the check's
-   result; when it does not, the line says so rather than inventing one. */
+/* Crying Cat's rug check, as HQ sends it: every buy trade carries a passed one; a buy decision
+   carries it once the check ran, and a refused one means no trade followed. A buy decision made
+   before the check says so. */
 export function rugLine(item) {
   const d = el("div", "rug");
   const rc = item.rugCheck;
-  if (!rc) { d.append(el("b", "no", "Rug check"), el("i", "", "Checked before any buy, by HQ's rule; HQ did not send this check's result.")); return d; }
-  d.append(el("b", "", "Rug check passed"));
-  for (const c of rc.checks) d.append(el("span", c.pass ? "" : "f", `${CHECK_WORDS[c.id]}${c.detail ? `: ${c.detail}` : ""}`));
+  if (!rc) { d.append(el("b", "no", "Rug check"), el("i", "", "Not run yet: no buy is made before it passes.")); return d; }
+  d.append(el("b", rc.passed ? "" : "fail", rc.passed ? "Rug check passed" : "Rug check refused this buy"));
+  for (const c of rc.checks) d.append(el("span", c.pass ? "" : "f", `${CHECK_WORDS[c.id]}: ${c.detail}`));
   return d;
 }
 export function deskRow(item, agents, { fresh = false, withAgent = true } = {}) {
@@ -208,6 +209,6 @@ export function deskRow(item, agents, { fresh = false, withAgent = true } = {}) 
   if (item.kind === "trade") side.append(txLink(item.tx, item.mode));
   li.append(main, side);
   if (item.kind === "decision") li.append(el("p", "desk-reason", item.reason));
-  if (item.kind === "trade" && item.side === "buy") li.append(rugLine(item));
+  if ((item.kind === "trade" && item.side === "buy") || (item.kind === "decision" && item.action === "buy")) li.append(rugLine(item));
   return li;
 }

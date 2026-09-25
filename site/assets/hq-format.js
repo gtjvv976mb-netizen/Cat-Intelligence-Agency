@@ -9,12 +9,18 @@
    The ranks and the strategies are the contract's tables, word for word; test-site.mjs reads
    them out of docs/hq/API.md and compares. */
 
+/* The contract's formats, exactly ("Formats, exactly" in docs/hq/API.md; test-site.mjs reads
+   them out of the file and compares). */
 export const BASE58 = "[1-9A-HJ-NP-Za-km-z]";
 export const ADDRESS = new RegExp(`^${BASE58}{32,44}$`);
 export const SIGNATURE = new RegExp(`^${BASE58}{64,90}$`);
-/* A decimal string: an optional minus, no leading zeros, no exponent, no separators. */
-export const DECIMAL = /^-?(0|[1-9]\d{0,29})(\.\d{1,18})?$/;
-export const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,6})?Z$/;
+/* SOL: at most nine decimals (a lamport). Token units, prices and percentages: any number of
+   decimals. Both: an optional minus, no leading zeros, no exponent, no "+", no separators. */
+export const SOL = /^-?(0|[1-9]\d*)(\.\d{1,9})?$/;
+export const UNITS = /^-?(0|[1-9]\d*)(\.\d+)?$/;
+export const DECIMAL = UNITS;
+export const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,3})?Z$/;
+export const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/;
 export const MINUS = "−";
 
 /* ── the contract's tables ─────────────────────────────────────────────── */
@@ -75,6 +81,7 @@ export const skinOf = (agent) => (agent && Object.prototype.hasOwnProperty.call(
 
 /* ── decimals, on the digits ──────────────────────────────────────────── */
 export const isDecimal = (s) => typeof s === "string" && DECIMAL.test(s);
+export const isSol = (s) => typeof s === "string" && SOL.test(s);
 function parts(s) {
   if (!isDecimal(s)) throw new TypeError(`not a decimal string: ${String(s).slice(0, 40)}`);
   const neg = s.startsWith("-");
@@ -152,7 +159,7 @@ export function fmtPct(s, { signed = true } = {}) {
   return write(roundDec(s, places), signed) + "%";
 }
 /* Token units: compact above a thousand (12.3K, 4.56M, 1.23B), plain below. */
-const UNITS = [["K", 3], ["M", 6], ["B", 9]];
+const COMPACT = [["K", 3], ["M", 6], ["B", 9]];
 function shift(s, k) {   // s / 10^k, on the digits
   const { neg, int, frac } = parts(s);
   const padded = int.padStart(k + 1, "0");
@@ -161,13 +168,14 @@ function shift(s, k) {   // s / 10^k, on the digits
 }
 export function fmtTokens(s) {
   const a = decAbs(s);
-  for (let u = UNITS.length - 1; u >= 0; u--) {
-    const [unit, k] = UNITS[u];
+  for (let u = COMPACT.length - 1; u >= 0; u--) {
+    const [unit, k] = COMPACT[u];
     if (decCmp(a, "1" + "0".repeat(k)) < 0) continue;
     const v = shift(s, k), whole = parts(decAbs(v)).int.length;
     const r = roundDec(v, whole >= 3 ? 0 : whole === 2 ? 1 : 2);
-    if (decCmp(decAbs(r), "1000") >= 0 && u < UNITS.length - 1) return write(roundDec(shift(s, UNITS[u + 1][1]), 2), false) + UNITS[u + 1][0];
-    return write(r, false) + unit;
+    const trim = (x) => (x.includes(".") ? x.replace(/0+$/, "").replace(/\.$/, "") : x);   // 1.00M is 1M
+    if (decCmp(decAbs(r), "1000") >= 0 && u < COMPACT.length - 1) return write(trim(roundDec(shift(s, COMPACT[u + 1][1]), 2)), false) + COMPACT[u + 1][0];
+    return write(trim(r), false) + unit;
   }
   const r = roundDec(s, decCmp(a, "1") >= 0 ? 2 : Math.min(9, leadingZeros(a) + 3));
   return write(r.includes(".") ? r.replace(/0+$/, "").replace(/\.$/, "") : r, false);
@@ -271,24 +279,10 @@ export function base58(bytes) {
   return "1".repeat(zeros) + digits.reverse().map((d) => B58[d]).join("");
 }
 
-/* ── the agency's record, by mode, from each agent's own HQ figures ──── */
-/* Paper and live are never added together: every total here is one mode's. Sums are exact;
-   the deepest drawdown is the worst single agent's (drawdowns do not add up). */
-export function modeTotals(agents) {
-  const out = {};
-  for (const mode of ["live", "paper"]) {
-    const mine = agents.filter((a) => a.mode === mode);
-    const s = (k) => decSum(mine.map((a) => a.stats[k]));
-    const wins = mine.reduce((n, a) => n + a.stats.wins, 0), losses = mine.reduce((n, a) => n + a.stats.losses, 0);
-    out[mode] = {
-      agents: mine.length, active: mine.filter((a) => a.status === "active").length,
-      balanceSol: s("balanceSol"), portfolioSol: s("portfolioSol"),
-      realizedPnlSol: s("realizedPnlSol"), unrealizedPnlSol: s("unrealizedPnlSol"),
-      tradingPnlSol: decAdd(s("realizedPnlSol"), s("unrealizedPnlSol")),
-      feesClaimedSol: s("feesClaimedSol"), depositedSol: s("depositedSol"), withdrawnSol: s("withdrawnSol"),
-      trades: mine.reduce((n, a) => n + a.stats.trades, 0), wins, losses, winRatePct: winRate(wins, losses),
-      worstDrawdownPct: decMax(mine.map((a) => a.stats.maxDrawdownPct)),
-    };
-  }
-  return out;
+/* ── one mode's record, as the summary gives it ────────────────────────── */
+/* HQ's summary has a live block and a paper block (docs/hq/API.md, ModeSummary); they are never
+   added together. This reads one: its win rate from its wins and losses, and whether it has any
+   agent at all. */
+export function modeRecord(block) {
+  return { ...block, hasAgents: block.agents.total > 0, winRatePct: winRate(block.wins, block.losses) };
 }

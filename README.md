@@ -48,24 +48,24 @@ money, each from its own wallet, and every figure is computed from their transac
 reads it through the public API in [docs/hq/API.md](docs/hq/API.md), and through one module,
 `site/assets/hq-client.js`, the only file in `site/` that may fetch or open an event stream. It
 calls only the origin set as `hqApi` in `site/assets/config.js`, and only if that is
-`https://api.catintelligenceagency.com` (or `http://localhost:<port>` in development).
-`site/assets/hq-validate.js` checks every answer against the contract before a page draws it,
-as text. With `hqApi` empty, as it ships until HQ is online, every HQ page says HQ is coming
-online and shows no number.
+`https://api.catintelligenceagency.com`; each HQ page's Content-Security-Policy lets it connect
+to itself and that origin and nowhere else. `site/assets/hq-validate.js` checks every answer
+against the contract before a page draws it, as text. With `hqApi` empty, as it ships until HQ
+is online, every HQ page says HQ is coming online and shows no number.
 
 To work on the pages without HQ, run the mock, which answers every endpoint with clearly fake,
-contract-shaped data and streams events (it is never deployed, and nothing in `site/` names it):
+contract-shaped data and streams events, and serves `site/` pointed at it (it is never
+deployed, and nothing in `site/` names it):
 
 ```sh
-node scripts/hq-mock.mjs --port 8787 [--mode mixed|paper|live] [--empty] [--rug]
+node scripts/hq-mock.mjs --port 8787 --site 8080 [--mode mixed|paper|live] [--empty]
 ```
 
-(`--rug` adds a rug-check result to each buy, a field the site shows but the contract does not
-carry yet.)
-
-then serve `site/` locally with a `config.js` whose `hqApi` is `"http://127.0.0.1:8787"`.
-`test-hq-site.mjs` checks the validators, the number formats and the client's rules, and every
-answer the mock gives; `test-site.mjs` pins the pages to the contract.
+then open `http://127.0.0.1:8080/hq/`. That development server, and only it, sets `hqApi` to the
+mock and adds the mock's origin to each page's policy; `hq-client.js` accepts a localhost HQ only
+on a page itself served from localhost. `test-hq-site.mjs` checks the validators, the number
+formats and the client's rules, and every answer the mock gives; `test-site.mjs` pins the pages
+to the contract.
 
 ## The work floor, and how to post a case
 

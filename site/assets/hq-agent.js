@@ -183,8 +183,9 @@ function drawPositions(a) {
 function sideCell(t) {
   const c = [el("span", `side ${t.side}`, t.side)];
   if (t.side === "buy") {
-    const r = el("span", "sub-line", t.rugCheck ? "rug check ✓" : "rug-checked by rule");
-    r.title = t.rugCheck ? t.rugCheck.checks.map((x) => `${CHECK_WORDS[x.id]}: ${x.pass ? "pass" : "fail"}${x.detail ? ` (${x.detail})` : ""}`).join("; ") : "HQ checks every buy first; this answer did not include the check's result.";
+    /* Every buy trade carries Crying Cat's passed check; its checks are in the title. */
+    const r = el("span", "sub-line", "rug check ✓");
+    r.title = t.rugCheck.checks.map((x) => `${CHECK_WORDS[x.id]}: ${x.pass ? "pass" : "fail"} (${x.detail})`).join("; ");
     c.push(r);
   }
   return c;

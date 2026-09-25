@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
 <title>$CIA holder perks — Cat Intelligence Agency</title>
 <meta name="description" content="$CIA holder perks at the Cat Intelligence Agency: prove you hold $CIA with one message signature in Phantom, never a transaction, and see your tier, the agent skins and the vote on the next agent. Cosmetic or a say, never a head start.">
 <meta name="theme-color" content="#0b0716">
@@ -111,6 +111,17 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
       <h2 class="panel-title" id="result-title">Your tier <span class="aside-note" id="result-note"></span></h2>
       <div class="tier"><p class="tier-name" id="tier-name"></p><p class="wallet-line" id="tier-balance"></p></div>
       <ul class="perk-list" id="perk-list"></ul>
+    </div>
+  </div>
+</section>
+
+<section class="hq-sec alt" id="tiers" aria-labelledby="tiers-title">
+  <div class="wrap">
+    <p class="kicker">The tiers</p>
+    <h2 id="tiers-title">What each tier <em>needs.</em></h2>
+    <p class="sub">The owner sets the tiers and the $CIA each needs; this page shows them as HQ sends them, and never writes a threshold of its own. A tier is a look or a say, never money and never a head start.</p>
+    <div class="tiers" id="tier-list">
+      <p class="board-empty">The tiers, with the $CIA each needs and the perks it brings, are listed here once HQ is online.</p>
     </div>
   </div>
 </section>

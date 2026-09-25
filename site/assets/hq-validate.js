@@ -4,18 +4,24 @@
 
      · an unknown field, or a missing one, refuses the object (a changed contract fails loudly
        here instead of drawing something nobody checked);
-     · every amount must be a decimal string ("12.5", "-0.03"): a JSON number, an exponent, a
-       separator, a leading zero or a blank is refused;
+     · every amount must be a decimal string in the contract's exact format ("12.5", "-0.03"; SOL
+       to nine decimals at most): a JSON number, an exponent, a "+", a separator, a leading zero
+       or a blank is refused;
      · every address must be base58 of an address's length, every signature base58 of a
-       signature's, every time a real ISO-8601 UTC instant;
-     · every word is plain text of a bounded length, with no control, bidi or zero-width
-       characters (the pages draw it with textContent, never as markup);
+       signature's, every time a real ISO-8601 UTC instant, every sprite or skin id an id;
+     · a field is null only where the contract says it may be;
+     · names HQ gives (its agents', its own words) must be plain text with no control, bidi or
+       zero-width character; text HQ passes on from elsewhere (a token's symbol or name, a
+       model's reason) has any such character removed, and is cut to a bounded length. The pages
+       draw every word with textContent, never as markup;
      · a live trade must carry its transaction, and a paper trade must not (paper signs nothing);
-     · a mode is paper or live, and one board never mixes them.
+       every buy trade carries Crying Cat's passed rug check, and no sell or hold carries one;
+     · a mode is paper or live: the summary has one block for each, and one board never mixes
+       them.
 
    In a list, one bad entry is dropped (and counted, so the page can say so) rather than taking
    the whole list down; a bad top-level object is refused whole. Pure: no page, no network. */
-import { ADDRESS, SIGNATURE, isDecimal, isIsoTime, RANK_IDS, STRATEGIES, CATS } from "./hq-format.js";
+import { ADDRESS, SIGNATURE, SLUG, isDecimal, isSol, isIsoTime, decCmp, RANK_IDS, STRATEGIES, CATS } from "./hq-format.js";
 
 export class HqInvalid extends Error {
   constructor(problem) { super(problem); this.name = "HqInvalid"; }
@@ -33,11 +39,25 @@ function exact(o, path, required, optional = []) {
 }
 const HIDDEN = /[\u0000-\u001f\u007f-\u009f­؜ᅟᅠ឴឵᠎​-‏‪-‮⁠-⁯ㅤ︀-️﻿ﾠ￰-￻]/u;
 
+/* Text from elsewhere, made safe to show: hidden characters removed (a line break kept where
+   asked), spaces folded, cut to max. Empty after that is refused. Written back in place: the
+   object is HQ's freshly parsed answer, never anything the page already holds. */
+function clean(o, k, path, max, { nullable = false, lines = false } = {}) {
+  const v = o[k];
+  if (v === null && nullable) return;
+  if (typeof v !== "string") bad(`${path}.${k}`, "must be text");
+  let t = [...v].filter((ch) => (lines && ch === "\n") || !HIDDEN.test(ch)).join("").replace(lines ? /[^\S\n]+/g : /\s+/g, " ").trim();
+  if (!t) bad(`${path}.${k}`, "has no visible text");
+  if ([...t].length > max) t = [...t].slice(0, max - 1).join("") + "…";
+  o[k] = t;
+}
+
 const V = {
-  dec(o, k, path, { nullable = false, nonNegative = false } = {}) {
+  /* "sol": SOL, to nine decimals at most; "units": token units, prices and percentages. */
+  dec(o, k, path, { nullable = false, nonNegative = false, fmt = "sol" } = {}) {
     const v = o[k];
     if (v === null && nullable) return;
-    if (!isDecimal(v)) bad(`${path}.${k}`, "must be a decimal string");
+    if (!(fmt === "sol" ? isSol(v) : isDecimal(v))) bad(`${path}.${k}`, fmt === "sol" ? "must be a decimal string of SOL" : "must be a decimal string");
     if (nonNegative && v.startsWith("-")) bad(`${path}.${k}`, "must not be negative");
   },
   int(o, k, path, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
@@ -63,12 +83,6 @@ const V = {
     if (v === null && nullable) return;
     if (typeof v !== "string" || v.length < min || v.length > max || v.trim().length === 0 || HIDDEN.test(v)) bad(`${path}.${k}`, `must be plain text of ${min} to ${max} characters`);
   },
-  /* A decision's reason may run to a few lines (a model's words); still no control, bidi or
-     zero-width character but the line break. */
-  reason(o, k, path) {
-    const v = o[k];
-    if (typeof v !== "string" || v.length < 1 || v.length > 1000 || v.trim().length === 0 || HIDDEN.test(v.replace(/\n/g, " "))) bad(`${path}.${k}`, "must be plain text of 1 to 1000 characters");
-  },
   pattern(o, k, path, re, what, { nullable = false } = {}) {
     if (o[k] === null && nullable) return;
     if (typeof o[k] !== "string" || !re.test(o[k])) bad(`${path}.${k}`, `must be ${what}`);
@@ -82,15 +96,12 @@ export const TRIGGERS = Object.freeze(["strategy", "stop_loss", "take_profit", "
 export const FLOW_KINDS = Object.freeze(["fee_in", "profit_in", "buyback", "funding_out", "funding_in"]);
 export const TIERS = Object.freeze(["none", "holder", "agent", "director"]);
 export const BUYBACK_SOURCES = Object.freeze(["creator_fees", "trading_profit"]);
-/* The rug check each buy passes (API.md "Strategies": mint and freeze authority, holders,
-   creator share). The contract does not yet carry the result on a trade; the site accepts it,
-   optionally, in this shape (see rugCheck below) and says so where it is missing. */
+/* Crying Cat's rug check, made before a buy: mint and freeze authority, holders, the creator's
+   share (API.md, RugCheck). */
 export const RUG_CHECKS = Object.freeze(["mint_authority", "freeze_authority", "holders", "creator_share"]);
 const ITEM_ID = /^[A-Za-z0-9][A-Za-z0-9_:.-]{0,127}$/;
 export const CURSOR = /^[A-Za-z0-9_:.=+/-]{1,256}$/;
-/* A sprite or skin id. The contract does not list them: the site draws the seven brand cats and
-   the kit's skins, and falls back to the strategy's cat and the rank's skin for any other. */
-const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/;
+const NONCE = /^[A-Za-z0-9_:.=+/-]{1,128}$/;
 const NUMBER = /^\d{3,4}$/;
 
 /* A list: each entry checked on its own; the bad ones are dropped and counted. */
@@ -105,10 +116,9 @@ function list(v, path, one, { max = 1000 } = {}) {
 }
 
 /* ── the shapes ─────────────────────────────────────────────────────────── */
-function summary(o, path = "summary") {
-  exact(o, path, ["mode", "updatedAt", "agents", "trades24h", "solInAgentWallets", "tradingPnlSol", "creatorFeesClaimedSol", "buybacks", "treasury"]);
-  V.oneOf(o, "mode", path, ["paper", "live", "mixed"]);
-  V.time(o, "updatedAt", path);
+/* One mode's block of the summary: that mode's agents only. */
+function modeSummary(o, path) {
+  exact(o, path, ["agents", "trades24h", "solInAgentWallets", "tradingPnlSol", "wins", "losses", "maxDrawdownPct"]);
   exact(o.agents, `${path}.agents`, ["active", "total"]);
   V.int(o.agents, "active", `${path}.agents`); V.int(o.agents, "total", `${path}.agents`);
   if (o.agents.active > o.agents.total) bad(`${path}.agents`, "has more active agents than agents");
@@ -117,21 +127,32 @@ function summary(o, path = "summary") {
   V.dec(o, "solInAgentWallets", path, { nonNegative: true });
   exact(o.tradingPnlSol, `${path}.tradingPnlSol`, ["realized", "unrealized"]);
   V.dec(o.tradingPnlSol, "realized", `${path}.tradingPnlSol`); V.dec(o.tradingPnlSol, "unrealized", `${path}.tradingPnlSol`);
+  V.int(o, "wins", path); V.int(o, "losses", path);
+  /* The worst single agent's drawdown, never a sum: null with no agents, and only then. */
+  V.dec(o, "maxDrawdownPct", path, { nullable: true, nonNegative: true, fmt: "units" });
+  if ((o.maxDrawdownPct === null) !== (o.agents.total === 0)) bad(`${path}.maxDrawdownPct`, "is null exactly when the mode has no agents");
+  return o;
+}
+function summary(o, path = "summary") {
+  exact(o, path, ["updatedAt", "live", "paper", "creatorFeesClaimedSol", "buybacks", "treasury"]);
+  V.time(o, "updatedAt", path);
+  modeSummary(o.live, `${path}.live`);
+  modeSummary(o.paper, `${path}.paper`);
   V.dec(o, "creatorFeesClaimedSol", path, { nonNegative: true });
   exact(o.buybacks, `${path}.buybacks`, ["count", "solSpent", "ciaBought"]);
   V.int(o.buybacks, "count", `${path}.buybacks`);
-  V.dec(o.buybacks, "solSpent", `${path}.buybacks`, { nonNegative: true }); V.dec(o.buybacks, "ciaBought", `${path}.buybacks`, { nonNegative: true });
+  V.dec(o.buybacks, "solSpent", `${path}.buybacks`, { nonNegative: true }); V.dec(o.buybacks, "ciaBought", `${path}.buybacks`, { nonNegative: true, fmt: "units" });
   treasuryHead(o.treasury, `${path}.treasury`, ["address", "sol", "cia"]);
   return o;
 }
 function treasuryHead(o, path, fields) {
   exact(o, path, fields);
-  V.address(o, "address", path, { nullable: true });   // null until the treasury is set
-  V.dec(o, "sol", path, { nonNegative: true }); V.dec(o, "cia", path, { nonNegative: true });
+  V.address(o, "address", path, { nullable: true });   // null while no treasury is configured
+  V.dec(o, "sol", path, { nonNegative: true }); V.dec(o, "cia", path, { nonNegative: true, fmt: "units" });
 }
 
 const AGENT_FIELDS = ["id", "number", "name", "cat", "skin", "rank", "strategy", "mode", "status", "coin", "wallet", "hiredAt", "stats"];
-const STAT_DECIMALS = ["balanceSol", "portfolioSol", "realizedPnlSol", "unrealizedPnlSol", "careerRealizedSol", "feesClaimedSol", "depositedSol", "withdrawnSol", "maxDrawdownPct"];
+const STAT_SOL = ["balanceSol", "portfolioSol", "realizedPnlSol", "unrealizedPnlSol", "careerRealizedSol", "feesClaimedSol", "depositedSol", "withdrawnSol"];
 function agentFields(o, path) {
   V.int(o, "id", path, { min: 1 });
   V.pattern(o, "number", path, NUMBER, "a three- or four-digit agent number");
@@ -144,14 +165,15 @@ function agentFields(o, path) {
   V.oneOf(o, "status", path, ["active", "paused", "retired"]);
   if (o.coin !== null) {
     exact(o.coin, `${path}.coin`, ["mint", "symbol", "name"]);
-    /* A coin registered by its mint alone may have no symbol or name yet. */
-    V.address(o.coin, "mint", `${path}.coin`); V.text(o.coin, "symbol", `${path}.coin`, { max: 16, nullable: true }); V.text(o.coin, "name", `${path}.coin`, { max: 48, nullable: true });
+    /* Its symbol and name are null while the coin's metadata cannot be read. */
+    V.address(o.coin, "mint", `${path}.coin`); clean(o.coin, "symbol", `${path}.coin`, 16, { nullable: true }); clean(o.coin, "name", `${path}.coin`, 48, { nullable: true });
   }
   V.address(o, "wallet", path);
   V.time(o, "hiredAt", path);
-  const s = exact(o.stats, `${path}.stats`, [...STAT_DECIMALS, "trades", "wins", "losses", "roiPct"]);
-  for (const k of STAT_DECIMALS) V.dec(s, k, `${path}.stats`, { nonNegative: ["balanceSol", "portfolioSol", "careerRealizedSol", "feesClaimedSol", "depositedSol", "withdrawnSol", "maxDrawdownPct"].includes(k) });
-  V.dec(s, "roiPct", `${path}.stats`, { nullable: true });
+  const s = exact(o.stats, `${path}.stats`, [...STAT_SOL, "trades", "wins", "losses", "maxDrawdownPct", "roiPct"]);
+  for (const k of STAT_SOL) V.dec(s, k, `${path}.stats`, { nonNegative: !["realizedPnlSol", "unrealizedPnlSol"].includes(k) });
+  V.dec(s, "maxDrawdownPct", `${path}.stats`, { nonNegative: true, fmt: "units" });
+  V.dec(s, "roiPct", `${path}.stats`, { nullable: true, fmt: "units" });
   for (const k of ["trades", "wins", "losses"]) V.int(s, k, `${path}.stats`);
   if (s.wins + s.losses > s.trades) bad(`${path}.stats`, "has more wins and losses than trades");
   return o;
@@ -163,7 +185,7 @@ function rugCheck(o, path) {
   V.bool(o, "passed", path);
   const { items, problems } = list(o.checks, `${path}.checks`, (c, p) => {
     exact(c, p, ["id", "pass", "detail"]);
-    V.oneOf(c, "id", p, RUG_CHECKS); V.bool(c, "pass", p); V.text(c, "detail", p, { max: 120, nullable: true });
+    V.oneOf(c, "id", p, RUG_CHECKS); V.bool(c, "pass", p); clean(c, "detail", p, 120);
     return c;
   }, { max: 12 });
   if (problems.length) bad(path, `has a check that is not well formed (${problems[0]})`);
@@ -172,40 +194,46 @@ function rugCheck(o, path) {
 }
 
 function decision(o, path = "decision") {
-  exact(o, path, ["kind", "id", "t", "agentId", "action", "mint", "symbol", "reason", "mode"], ["rugCheck"]);
+  exact(o, path, ["kind", "id", "t", "agentId", "action", "mint", "symbol", "reason", "rugCheck", "mode"]);
   if (o.kind !== "decision") bad(`${path}.kind`, 'must be "decision"');
   V.pattern(o, "id", path, ITEM_ID, "an id");
   V.time(o, "t", path);
   V.int(o, "agentId", path, { min: 1 });
   V.oneOf(o, "action", path, ["buy", "sell", "hold"]);
   V.address(o, "mint", path, { nullable: true });
-  V.text(o, "symbol", path, { max: 16, nullable: true });
-  V.reason(o, "reason", path);
+  clean(o, "symbol", path, 16, { nullable: true });
+  clean(o, "reason", path, 1000, { lines: true });
   V.oneOf(o, "mode", path, MODES);
-  if (own(o, "rugCheck") && o.rugCheck !== null) rugCheck(o.rugCheck, `${path}.rugCheck`);
+  /* A buy decision carries the check once it ran (passed or refused); a sell or a hold never. */
+  if (o.rugCheck !== null) {
+    if (o.action !== "buy") bad(`${path}.rugCheck`, "is only for a buy");
+    rugCheck(o.rugCheck, `${path}.rugCheck`);
+  }
   return o;
 }
 function trade(o, path = "trade") {
-  exact(o, path, ["kind", "id", "t", "agentId", "side", "mint", "symbol", "sol", "tokens", "price", "pnlSol", "pnlPct", "trigger", "tx", "mode"], ["rugCheck"]);
+  exact(o, path, ["kind", "id", "t", "agentId", "side", "mint", "symbol", "sol", "tokens", "price", "pnlSol", "pnlPct", "trigger", "rugCheck", "tx", "mode"]);
   if (o.kind !== "trade") bad(`${path}.kind`, 'must be "trade"');
   V.pattern(o, "id", path, ITEM_ID, "an id");
   V.time(o, "t", path);
   V.int(o, "agentId", path, { min: 1 });
   V.oneOf(o, "side", path, ["buy", "sell"]);
   V.address(o, "mint", path);
-  V.text(o, "symbol", path, { max: 16 });
-  V.dec(o, "sol", path, { nonNegative: true }); V.dec(o, "tokens", path, { nonNegative: true }); V.dec(o, "price", path, { nonNegative: true });
-  V.dec(o, "pnlSol", path, { nullable: true }); V.dec(o, "pnlPct", path, { nullable: true });
+  clean(o, "symbol", path, 16);
+  V.dec(o, "sol", path, { nonNegative: true }); V.dec(o, "tokens", path, { nonNegative: true, fmt: "units" }); V.dec(o, "price", path, { nonNegative: true, fmt: "units" });
+  V.dec(o, "pnlSol", path, { nullable: true }); V.dec(o, "pnlPct", path, { nullable: true, fmt: "units" });
   V.oneOf(o, "trigger", path, TRIGGERS);
   V.oneOf(o, "mode", path, MODES);
   V.signature(o, "tx", path, { nullable: true });
   if (o.mode === "live" && o.tx === null) bad(`${path}.tx`, "is missing on a live trade");
   if (o.mode === "paper" && o.tx !== null) bad(`${path}.tx`, "is set on a paper trade, which signs nothing");
-  if (own(o, "rugCheck") && o.rugCheck !== null) {
-    if (o.side !== "buy") bad(`${path}.rugCheck`, "is only for a buy");
+  /* Every buy trade carries Crying Cat's check, and it passed (a refused buy is a decision, and
+     no trade follows it); a sell never carries one. */
+  if (o.side === "buy") {
+    if (o.rugCheck === null) bad(`${path}.rugCheck`, "is missing on a buy: every buy is rug-checked first");
     rugCheck(o.rugCheck, `${path}.rugCheck`);
     if (!o.rugCheck.passed) bad(`${path}.rugCheck`, "failed, yet the buy went through");
-  }
+  } else if (o.rugCheck !== null) bad(`${path}.rugCheck`, "is only for a buy");
   return o;
 }
 function deskItem(o, path) {
@@ -214,24 +242,26 @@ function deskItem(o, path) {
   if (o.kind === "decision") return decision(o, path);
   return bad(`${path}.kind`, 'must be "trade" or "decision"');
 }
-function promotion(o, path, { withAgent = false } = {}) {
-  exact(o, path, ["t", "from", "to"], withAgent ? ["agentId", "mode"] : []);
-  if (own(o, "mode")) V.oneOf(o, "mode", path, MODES);
+/* In a dossier a promotion and a fee are listed under their agent; on the stream they say whose
+   they are (a promotion its agent and mode, a fee its agent). */
+function promotion(o, path, { onStream = false } = {}) {
+  exact(o, path, onStream ? ["agentId", "mode", "t", "from", "to"] : ["t", "from", "to"]);
+  if (onStream) { V.int(o, "agentId", path, { min: 1 }); V.oneOf(o, "mode", path, MODES); }
   V.time(o, "t", path); V.oneOf(o, "from", path, RANK_IDS); V.oneOf(o, "to", path, RANK_IDS);
   if (RANK_IDS.indexOf(o.to) <= RANK_IDS.indexOf(o.from)) bad(path, "is not a promotion (a loss never demotes)");
-  if (own(o, "agentId")) V.int(o, "agentId", path, { min: 1 });
   return o;
 }
-function fee(o, path, { withAgent = false } = {}) {
-  exact(o, path, ["t", "sol", "tx"], withAgent ? ["agentId"] : []);
+function fee(o, path, { onStream = false } = {}) {
+  exact(o, path, onStream ? ["agentId", "t", "sol", "tx"] : ["t", "sol", "tx"]);
+  if (onStream) V.int(o, "agentId", path, { min: 1 });
   V.time(o, "t", path); V.dec(o, "sol", path, { nonNegative: true }); V.signature(o, "tx", path);
-  if (own(o, "agentId")) V.int(o, "agentId", path, { min: 1 });
   return o;
 }
 function buyback(o, path) {
   exact(o, path, ["t", "solSpent", "ciaBought", "price", "tx", "burnTx"]);
   V.time(o, "t", path);
-  V.dec(o, "solSpent", path, { nonNegative: true }); V.dec(o, "ciaBought", path, { nonNegative: true }); V.dec(o, "price", path, { nonNegative: true, nullable: true });
+  /* A buyback is always a real transaction: its tx and price are never null; only burnTx is. */
+  V.dec(o, "solSpent", path, { nonNegative: true }); V.dec(o, "ciaBought", path, { nonNegative: true, fmt: "units" }); V.dec(o, "price", path, { nonNegative: true, fmt: "units" });
   V.signature(o, "tx", path); V.signature(o, "burnTx", path, { nullable: true });
   return o;
 }
@@ -252,16 +282,16 @@ export function validateAgentDetail(raw, wantId = null) {
   if (wantId !== null && raw.id !== wantId) throw new HqInvalid(`agent.id is ${raw.id}, not the ${wantId} asked for`);
   const L = exact(raw.limits, `${path}.limits`, ["maxPerTradeSol", "maxOpenPositions", "stopLossPct", "takeProfitPct", "trailingStopPct", "dailyLossLimitSol"]);
   V.dec(L, "maxPerTradeSol", `${path}.limits`, { nonNegative: true }); V.int(L, "maxOpenPositions", `${path}.limits`);
-  V.dec(L, "stopLossPct", `${path}.limits`, { nonNegative: true }); V.dec(L, "takeProfitPct", `${path}.limits`, { nonNegative: true });
-  V.dec(L, "trailingStopPct", `${path}.limits`, { nullable: true, nonNegative: true }); V.dec(L, "dailyLossLimitSol", `${path}.limits`, { nonNegative: true });
+  V.dec(L, "stopLossPct", `${path}.limits`, { nonNegative: true, fmt: "units" }); V.dec(L, "takeProfitPct", `${path}.limits`, { nonNegative: true, fmt: "units" });
+  V.dec(L, "trailingStopPct", `${path}.limits`, { nullable: true, nonNegative: true, fmt: "units" }); V.dec(L, "dailyLossLimitSol", `${path}.limits`, { nonNegative: true });
   const problems = [];
   const take = (r) => { problems.push(...r.problems); return r.items; };
   const positions = take(list(raw.positions, `${path}.positions`, (p, pp) => {
     exact(p, pp, ["mint", "symbol", "costSol", "valueSol", "entryPrice", "price", "pnlSol", "pnlPct", "openedAt"]);
-    V.address(p, "mint", pp); V.text(p, "symbol", pp, { max: 16 });
-    for (const k of ["costSol", "valueSol", "entryPrice"]) V.dec(p, k, pp, { nonNegative: true });
+    V.address(p, "mint", pp); clean(p, "symbol", pp, 16);
+    V.dec(p, "costSol", pp, { nonNegative: true }); V.dec(p, "valueSol", pp, { nonNegative: true }); V.dec(p, "entryPrice", pp, { nonNegative: true, fmt: "units" });
     /* With no quote for the token just now, the price and its percent are null, never guessed. */
-    V.dec(p, "price", pp, { nonNegative: true, nullable: true }); V.dec(p, "pnlSol", pp); V.dec(p, "pnlPct", pp, { nullable: true }); V.time(p, "openedAt", pp);
+    V.dec(p, "price", pp, { nonNegative: true, nullable: true, fmt: "units" }); V.dec(p, "pnlSol", pp); V.dec(p, "pnlPct", pp, { nullable: true, fmt: "units" }); V.time(p, "openedAt", pp);
     return p;
   }, { max: 100 }));
   const mine = (x, p) => { if (x.agentId !== raw.id) bad(`${p}.agentId`, "is another agent's"); if (x.mode !== raw.mode) bad(`${p}.mode`, "is not this agent's mode"); return x; };
@@ -292,7 +322,7 @@ export function validateLeaderboard(raw, want = {}) {
   if (want.period && raw.period !== want.period) throw new HqInvalid(`leaderboard.period is ${raw.period}, not ${want.period}`);
   const { items, problems } = list(raw.rows, "leaderboard.rows", (r, p) => {
     exact(r, p, ["agentId", "value", "rank", "mode"]);
-    V.int(r, "agentId", p, { min: 1 }); V.dec(r, "value", p); V.oneOf(r, "rank", p, RANK_IDS); V.oneOf(r, "mode", p, MODES);
+    V.int(r, "agentId", p, { min: 1 }); V.dec(r, "value", p, { fmt: "units" }); V.oneOf(r, "rank", p, RANK_IDS); V.oneOf(r, "mode", p, MODES);
     return r;
   }, { max: 500 });
   /* Paper and live are ranked separately: two boards, never one. */
@@ -302,10 +332,10 @@ export function validateLeaderboard(raw, want = {}) {
 export function validateBuybacks(raw) {
   exact(raw, "buybacks", ["policy", "items"]);
   const P = exact(raw.policy, "buybacks.policy", ["sharePct", "sources", "schedule", "destination"]);
-  V.dec(P, "sharePct", "buybacks.policy", { nonNegative: true });
+  V.dec(P, "sharePct", "buybacks.policy", { nonNegative: true, fmt: "units" });
   if (!Array.isArray(P.sources) || P.sources.length === 0 || P.sources.length > BUYBACK_SOURCES.length || new Set(P.sources).size !== P.sources.length || !P.sources.every((s) => BUYBACK_SOURCES.includes(s)))
     throw new HqInvalid(`buybacks.policy.sources must list ${BUYBACK_SOURCES.join(" and/or ")}`);
-  V.text(P, "schedule", "buybacks.policy", { max: 160 });
+  clean(P, "schedule", "buybacks.policy", 160);
   V.oneOf(P, "destination", "buybacks.policy", ["burn", "treasury"]);
   const { items, problems } = list(raw.items, "buybacks.items", buyback, { max: 500 });
   return { value: { policy: P, items: items.sort(newestFirst) }, problems };
@@ -314,44 +344,64 @@ export function validateTreasury(raw) {
   exact(raw, "treasury", ["address", "sol", "cia", "flows"]);
   treasuryHead({ address: raw.address, sol: raw.sol, cia: raw.cia }, "treasury", ["address", "sol", "cia"]);
   const { items, problems } = list(raw.flows, "treasury.flows", (f, p) => {
-    exact(f, p, ["t", "kind", "sol", "tx"]); V.time(f, "t", p); V.oneOf(f, "kind", p, FLOW_KINDS); V.dec(f, "sol", p); V.signature(f, "tx", p); return f;
+    /* Never negative: a flow's direction is its kind. */
+    exact(f, p, ["t", "kind", "sol", "tx"]); V.time(f, "t", p); V.oneOf(f, "kind", p, FLOW_KINDS); V.dec(f, "sol", p, { nonNegative: true }); V.signature(f, "tx", p); return f;
   }, { max: 1000 });
   return { value: { address: raw.address, sol: raw.sol, cia: raw.cia, flows: items.sort(newestFirst) }, problems };
 }
-/* GET /v1/perks/challenge: the contract names it, not its shape; the site reads
-   { wallet, message, expiresAt } (and a nonce, if HQ sends one) and signs the message only if
-   it is text that names the wallet that is signing it. */
+/* GET /v1/perks: the tiers, lowest first, each with the $CIA it needs, as the owner set them. */
+export const TIER_IDS = Object.freeze(["holder", "agent", "director"]);
+export function validateTiers(raw) {
+  exact(raw, "perks", ["tiers"]);
+  if (!Array.isArray(raw.tiers) || raw.tiers.length > TIER_IDS.length) throw new HqInvalid("perks.tiers must be a list of at most three tiers");
+  raw.tiers.forEach((t, i) => {
+    const p = `perks.tiers[${i}]`;
+    exact(t, p, ["id", "minCia", "perks"]);
+    V.oneOf(t, "id", p, TIER_IDS); V.dec(t, "minCia", p, { nonNegative: true, fmt: "units" });
+    if (!Array.isArray(t.perks) || t.perks.length > 20) bad(`${p}.perks`, "must be a list of at most 20 perks");
+    t.perks.forEach((_, j) => clean(t.perks, j, `${p}.perks`, 120));
+    if (i > 0) {
+      const prev = raw.tiers[i - 1];
+      if (TIER_IDS.indexOf(t.id) <= TIER_IDS.indexOf(prev.id)) bad(p, "is out of order, or repeats a tier");
+      if (decCmp(t.minCia, prev.minCia) < 0) bad(`${p}.minCia`, "is lower than the tier below it");
+    }
+  });
+  return { value: raw, problems: [] };
+}
+/* GET /v1/perks/challenge: { wallet, nonce, message, expiresAt }. The site signs the message only
+   if it is plain text, untouched, that names the site, the wallet signing it and the nonce. */
 export function validateChallenge(raw, wallet) {
-  exact(raw, "challenge", ["wallet", "message", "expiresAt"], ["nonce"]);
-  if (own(raw, "nonce")) V.pattern(raw, "nonce", "challenge", /^[A-Za-z0-9_:.=+/-]{1,128}$/, "a nonce");
+  exact(raw, "challenge", ["wallet", "nonce", "message", "expiresAt"]);
   V.address(raw, "wallet", "challenge");
   if (raw.wallet !== wallet) throw new HqInvalid("challenge.wallet is not the connected wallet");
-  if (typeof raw.message !== "string" || raw.message.length < 16 || raw.message.length > 600 || /[\u0000-\u0009\u000b-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/.test(raw.message))
+  V.pattern(raw, "nonce", "challenge", NONCE, "a nonce");
+  if (typeof raw.message !== "string" || raw.message.length < 16 || raw.message.length > 600 || /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/.test(raw.message))
     throw new HqInvalid("challenge.message must be 16 to 600 characters of plain text");
-  if (!raw.message.includes(wallet)) throw new HqInvalid("challenge.message does not name the wallet signing it");
+  for (const [what, needle] of [["the site", "catintelligenceagency.com"], ["the wallet signing it", wallet], ["its nonce", raw.nonce]])
+    if (!raw.message.includes(needle)) throw new HqInvalid(`challenge.message does not name ${what}`);
   V.time(raw, "expiresAt", "challenge");
   return { value: raw, problems: [] };
 }
 export function validatePerks(raw) {
   exact(raw, "perks", ["holder", "balance", "tier", "perks", "expiresAt"]);
-  V.bool(raw, "holder", "perks"); V.dec(raw, "balance", "perks", { nonNegative: true }); V.oneOf(raw, "tier", "perks", TIERS);
+  V.bool(raw, "holder", "perks"); V.dec(raw, "balance", "perks", { nonNegative: true, fmt: "units" }); V.oneOf(raw, "tier", "perks", TIERS);
   if (raw.holder !== (raw.tier !== "none")) throw new HqInvalid("perks.holder and perks.tier disagree");
-  const { items, problems } = list(raw.perks, "perks.perks", (p, path) => { V.text({ p }, "p", path, { max: 80 }); return p; }, { max: 20 });
-  if (problems.length) throw new HqInvalid(problems[0]);
+  if (!Array.isArray(raw.perks) || raw.perks.length > 20) throw new HqInvalid("perks.perks must be a list of at most 20 perks");
+  raw.perks.forEach((_, j) => clean(raw.perks, j, "perks.perks", 120));
   V.time(raw, "expiresAt", "perks");
-  return { value: { ...raw, perks: items }, problems: [] };
+  return { value: raw, problems: [] };
 }
 
-/* GET /v1/stream: each event's data is the object its endpoint returns. A promotion and a fee
-   name no agent in their endpoint's shape; on the stream they may carry "agentId". */
+/* GET /v1/stream: each event's data is the object its endpoint returns, except that a promotion
+   and a fee say whose they are. */
 export const STREAM_EVENTS = Object.freeze(["trade", "decision", "promotion", "buyback", "fee", "summary"]);
 export function validateStreamEvent(type, raw) {
   switch (type) {
     case "trade": return trade(raw, "stream.trade");
     case "decision": return decision(raw, "stream.decision");
-    case "promotion": return promotion(raw, "stream.promotion", { withAgent: true });
+    case "promotion": return promotion(raw, "stream.promotion", { onStream: true });
     case "buyback": return buyback(raw, "stream.buyback");
-    case "fee": return fee(raw, "stream.fee", { withAgent: true });
+    case "fee": return fee(raw, "stream.fee", { onStream: true });
     case "summary": return summary(raw, "stream.summary");
     default: throw new HqInvalid(`stream event "${String(type).slice(0, 20)}" is not in the contract`);
   }

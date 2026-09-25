@@ -1,11 +1,10 @@
 /* TRANSPARENCY: the /investors/ page.
    The $CIA mint comes from the one config (and is shown whether or not HQ is online); the rest
-   comes from HQ through hq-client.js: the summary, the buyback policy and log, the treasury and
-   its flows, and the agents, whose own records are summed per mode for the agency's trading
-   record. Live and paper are never added together. Text only; every link from a checked
-   address or signature. */
+   comes from HQ through hq-client.js: the summary (whose live and paper blocks are the agency's
+   trading record, shown apart and never added together), the buyback policy and log, and the
+   treasury and its flows. Text only; every link from a checked address or signature. */
 import { hqClient } from "./hq-client.js";
-import { ADDRESS, fmtSol, fmtTokens, fmtPrice, fmtPct, decSign, decSub, modeTotals, solscanToken, gmgn } from "./hq-format.js";
+import { ADDRESS, fmtSol, fmtTokens, fmtPrice, fmtPct, decSign, modeRecord, solscanToken, gmgn } from "./hq-format.js";
 import { $, el, out, setState, sol, pct, when, keepTime, txLink, walletLink, stat, refusedNote, whyNot, setPill } from "./hq-ui.js";
 
 const hq = hqClient();
@@ -31,8 +30,8 @@ let stopStream = null, streamedOnce = false;
 async function boot() {
   setState("loading");
   setPill(pill, "connecting");
-  const [s, b, t, a] = await Promise.allSettled([hq.summary(), hq.buybacks({ limit: 100 }), hq.treasury(), hq.agents()]);
-  if ([s, b, t, a].every((r) => r.status === "rejected")) {
+  const [s, b, t] = await Promise.allSettled([hq.summary(), hq.buybacks({ limit: 100 }), hq.treasury()]);
+  if ([s, b, t].every((r) => r.status === "rejected")) {
     setState("error"); setPill(pill, "down");
     $("#hq-error-title").textContent = whyNot(s.reason);
     return;
@@ -41,7 +40,7 @@ async function boot() {
   drawSummary(s);
   drawBuybacks(b);
   drawTreasury(t);
-  drawRecord(a);
+  drawRecord(s);
   if (!stopStream) stopStream = hq.stream({ onEvent, onState });
 }
 
@@ -54,7 +53,7 @@ function drawSummary(r) {
     stat({ label: "Treasury, SOL", value: sol(s.treasury.sol), sub: s.treasury.address ? walletLink(s.treasury.address) : "Its address is not set yet.", mode: "chain" }),
     stat({ label: "Treasury, $CIA", value: el("span", "amt", fmtTokens(s.treasury.cia)), sub: "$CIA the treasury holds.", mode: "chain" }),
     stat({ label: "$CIA bought back", value: sol(s.buybacks.solSpent), sub: `${fmtTokens(s.buybacks.ciaBought)} $CIA in ${s.buybacks.count} ${s.buybacks.count === 1 ? "buyback" : "buybacks"}`, mode: "chain" }),
-    stat({ label: "Creator fees claimed", value: sol(s.creatorFeesClaimedSol), sub: "The agents' coins' fees. Not trading profit.", mode: s.mode === "mixed" ? "chain" : s.mode }),
+    stat({ label: "Creator fees claimed", value: sol(s.creatorFeesClaimedSol), sub: "The agents' coins' fees. Not trading profit.", mode: "chain" }),
   );
 }
 
@@ -110,7 +109,8 @@ function drawTreasury(r) {
     [{ label: "When" }, { label: "Flow" }, { label: "SOL", num: true }, { label: "Transaction" }],
     t.flows.map((f) => {
       const [name, dir] = FLOWS[f.kind];
-      const amount = el("span", `amt flow-${dir}`, `${dir === "in" ? "+" : "−"}${fmtSol(f.sol.replace(/^-/, ""))}`);
+      /* Never negative: the sign shown is the flow's direction, from its kind. */
+      const amount = el("span", `amt flow-${dir}`, `${dir === "in" ? "+" : "−"}${fmtSol(f.sol)}`);
       return [when(f.t), name, amount, txLink(f.tx, "live")];
     }),
   ));
@@ -118,33 +118,31 @@ function drawTreasury(r) {
   if (note) $("#flows").append(note);
 }
 
+/* The agency's trading record: the summary's live block and paper block, side by side. */
 function drawRecord(r) {
   for (const mode of ["live", "paper"]) {
     const slot = $(`[data-mode="${mode}"] [data-slot="record"]`);
-    if (r.status === "rejected") { slot.replaceChildren(el("p", "fail", `The agents could not be loaded: ${whyNot(r.reason)}`)); continue; }
-    const T = modeTotals(r.value.value.agents)[mode];
-    if (!T.agents) { slot.replaceChildren(el("p", "board-empty", mode === "live" ? "No agent trades real SOL yet, so there is no live record." : "No agent trades on paper.")); continue; }
+    if (r.status === "rejected") { slot.replaceChildren(el("p", "fail", `The record could not be loaded: ${whyNot(r.reason)}`)); continue; }
+    const T = modeRecord(r.value.value[mode]);
+    if (!T.hasAgents) { slot.replaceChildren(el("p", "board-empty", mode === "live" ? "No agent trades real SOL yet, so there is no live record." : "No agent trades on paper.")); continue; }
     const g = el("div", "stats");
-    const net = decSub(T.depositedSol, T.withdrawnSol);
     g.append(
-      stat({ label: "Trading P&L, realized", value: sol(T.realizedPnlSol, { signed: true }), mode, cls: "key" }),
-      stat({ label: "Trading P&L, unrealized", value: sol(T.unrealizedPnlSol, { signed: true }), mode, cls: "key" }),
+      stat({ label: "Trading P&L, realized", value: sol(T.tradingPnlSol.realized, { signed: true }), mode, cls: "key" }),
+      stat({ label: "Trading P&L, unrealized", value: sol(T.tradingPnlSol.unrealized, { signed: true }), mode, cls: "key" }),
       stat({ label: "Win rate", value: T.winRatePct === null ? el("span", "amt flat", "n/a") : el("span", "amt", `${T.winRatePct}%`), sub: `${T.wins} won`, mode, cls: "key" }),
       stat({ label: "Losing trades", value: el("span", `amt ${T.losses ? "down" : ""}`, String(T.losses)), sub: `of ${T.wins + T.losses} closed`, mode, cls: "key" }),
-      stat({ label: "Deepest drawdown", value: T.worstDrawdownPct === null ? el("span", "amt flat", "n/a") : pct(decSign(T.worstDrawdownPct) > 0 ? `-${T.worstDrawdownPct}` : T.worstDrawdownPct), sub: "Of any one agent.", mode }),
-      stat({ label: "Net deposits", value: sol(net), sub: `${T.agents} ${T.agents === 1 ? "agent" : "agents"}, ${T.trades} trades`, mode }),
-      stat({ label: "Creator fees claimed", value: sol(T.feesClaimedSol), sub: "Not trading profit.", mode }),
-      stat({ label: "Portfolio", value: sol(T.portfolioSol), sub: "Free SOL plus positions.", mode }),
+      stat({ label: "Deepest drawdown", value: T.maxDrawdownPct === null ? el("span", "amt flat", "n/a") : pct(decSign(T.maxDrawdownPct) > 0 ? `-${T.maxDrawdownPct}` : T.maxDrawdownPct), sub: "Of any one agent.", mode }),
+      stat({ label: "Trades, last 24 hours", value: el("span", "amt", String(T.trades24h.count)), sub: `${fmtSol(T.trades24h.volumeSol)} SOL traded`, mode }),
+      stat({ label: "SOL in agent wallets", value: sol(T.solInAgentWallets), sub: "Free SOL the agents hold.", mode }),
+      stat({ label: "Agents", value: el("span", "amt", String(T.agents.total)), sub: `${T.agents.active} at work`, mode }),
     );
     slot.replaceChildren(g);
-    const note = mode === "live" ? refusedNote(r.value.problems.length) : null;
-    if (note) slot.append(note);
   }
 }
 
 function onEvent(type, data) {
   if (type === "buyback") { buybacks.unshift(data); drawBuybackLog(); hq.treasury().then((v) => drawTreasury({ status: "fulfilled", value: v }), () => {}); }
-  else if (type === "summary") drawSummary({ status: "fulfilled", value: { value: data, problems: [] } });
+  else if (type === "summary") { const r = { status: "fulfilled", value: { value: data, problems: [] } }; drawSummary(r); drawRecord(r); }
   else if (type === "promotion" || type === "trade") { /* the record moves with every trade; reloaded when the stream comes back, not on each */ }
 }
 function onState(st) {

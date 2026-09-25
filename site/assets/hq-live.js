@@ -6,7 +6,7 @@
    reloads the agents and the boards. Paper and live are never added together: when HQ runs
    both, the summary is shown per mode, from each agent's own figures. */
 import { hqClient } from "./hq-client.js";
-import { CATS, catOf, coinLabel, fmtSol, fmtTokens, decAdd, decSign, modeTotals, pumpFun, solscanToken } from "./hq-format.js";
+import { CATS, catOf, coinLabel, fmtSol, fmtTokens, decAdd, decSign, modeRecord, pumpFun, solscanToken } from "./hq-format.js";
 import {
   $, $$, el, out, setState, modeTag, sol, pct, when, keepTime, agentHref, portrait, rankChip,
   strategyChip, statusChip, stat, refusedNote, whyNot, setPill, deskRow, walletLink,
@@ -57,60 +57,52 @@ async function reloadAgents() {
 function soonReloadAgents() { clearTimeout(agentsTimer); agentsTimer = setTimeout(reloadAgents, 15_000); }
 
 /* ── the summary ────────────────────────────────────────────────────────── */
+/* HQ's summary has a live block and a paper block, never added together, each read as HQ sends
+   it; creator fees, buybacks and the treasury are the agency's own, on chain. */
 const drawdown = (x) => (x === null ? el("span", "amt flat", "n/a") : pct(decSign(x) > 0 ? `-${x}` : x));
-const winCard = (t, mode) => stat({ label: "Win rate", value: t.winRatePct === null ? el("span", "amt flat", "n/a") : el("span", "amt", `${t.winRatePct}%`), sub: `${t.wins} won · ${t.losses} lost, of closed trades`, mode, cls: "key" });
-const ddCard = (t, mode) => stat({ label: "Deepest drawdown", value: drawdown(t.worstDrawdownPct), sub: "The furthest any one agent has fallen from its peak.", mode, cls: "key" });
+const MODE_LINE = { live: "Real SOL, every trade on chain", paper: "Simulated from live quotes, nothing signed" };
+const NO_AGENTS = { live: "No agent trades real SOL yet. Its figures appear here the moment one does.", paper: "No agent trades on paper just now." };
+function modeRow(mode, block) {
+  const t = modeRecord(block);
+  const r = el("div", "mode-row");
+  const h = el("h3");
+  h.append(modeTag(mode), MODE_LINE[mode]);
+  if (!t.hasAgents) { r.append(h, el("p", "mode-none", NO_AGENTS[mode])); return r; }
+  h.append(el("span", "mode-count", `${t.agents.active} of ${t.agents.total} agents at work`));
+  const g = el("div", "stats six");
+  g.append(
+    stat({ label: "Trading P&L, realized", value: sol(t.tradingPnlSol.realized, { signed: true }), sub: "Closed trades. Creator fees are not in it.", mode, cls: "key" }),
+    stat({ label: "Trading P&L, unrealized", value: sol(t.tradingPnlSol.unrealized, { signed: true }), sub: "Open positions, at the latest price.", mode, cls: "key" }),
+    stat({ label: "Win rate", value: t.winRatePct === null ? el("span", "amt flat", "n/a") : el("span", "amt", `${t.winRatePct}%`), sub: `${t.wins} won · ${t.losses} lost, of closed trades`, mode, cls: "key" }),
+    stat({ label: "Deepest drawdown", value: drawdown(t.maxDrawdownPct), sub: "The furthest any one agent has fallen from its peak.", mode, cls: "key" }),
+    stat({ label: "Trades, last 24 hours", value: el("span", "amt", String(t.trades24h.count)), sub: `${fmtSol(t.trades24h.volumeSol)} SOL traded`, mode }),
+    stat({ label: "SOL in agent wallets", value: sol(t.solInAgentWallets), sub: "Free SOL the agents hold.", mode }),
+  );
+  r.append(h, g);
+  return r;
+}
 function drawSummary() {
   const box = $("#stats");
   const s = S.summary;
-  const agents = [...S.agents.values()];
-  const T = modeTotals(agents);
   if (!s) {
     box.replaceChildren(el("p", "fail", `The summary could not be loaded (${whyNot(S.summaryError)}). The agents and the desk below are HQ's own.`));
     return;
   }
-  $("#hq-mode").replaceChildren(modeTag(s.mode));
+  const modes = ["live", "paper"].filter((m) => s[m].agents.total > 0);
+  $("#hq-mode").replaceChildren(...modes.map(modeTag));
+  $("#hq-agents").textContent = modes.length ? modes.map((m) => `${m === "live" ? "Live" : "Paper"}: ${s[m].agents.active} of ${s[m].agents.total} at work`).join(" · ") : "No agent hired yet";
   $("#hq-updated").replaceChildren("Updated ", when(s.updatedAt));
-  const buyback = stat({ label: "$CIA bought back", value: sol(s.buybacks.solSpent), sub: `${fmtTokens(s.buybacks.ciaBought)} $CIA in ${s.buybacks.count} ${s.buybacks.count === 1 ? "buyback" : "buybacks"}`, mode: "chain" });
-  const treasury = stat({ label: "Agency treasury", value: sol(s.treasury.sol), sub: [`${fmtTokens(s.treasury.cia)} $CIA · `, s.treasury.address ? walletLink(s.treasury.address) : "address not set yet"], mode: "chain" });
-  $("#hq-agents").textContent = `${s.agents.active} of ${s.agents.total} agents at work`;
-  if (s.mode !== "mixed") {
-    const m = s.mode, t = T[m];
-    const key = el("div", "stats four"), rest = el("div", "stats five");
-    key.append(
-      stat({ label: "Trading P&L, realized", value: sol(s.tradingPnlSol.realized, { signed: true }), sub: "From closed trades. Creator fees are not in it.", mode: m, cls: "key" }),
-      stat({ label: "Trading P&L, unrealized", value: sol(s.tradingPnlSol.unrealized, { signed: true }), sub: "Open positions, at the latest price.", mode: m, cls: "key" }),
-      winCard(t, m), ddCard(t, m));
-    rest.append(
-      stat({ label: "Trades, last 24 hours", value: el("span", "amt", String(s.trades24h.count)), sub: `${fmtSol(s.trades24h.volumeSol)} SOL traded`, mode: m }),
-      stat({ label: "SOL in agent wallets", value: sol(s.solInAgentWallets), sub: "Free SOL the agents hold.", mode: m }),
-      stat({ label: "Creator fees claimed", value: sol(s.creatorFeesClaimedSol), sub: "From the agents' own coins. Never trading profit.", mode: m }),
-      buyback, treasury);
-    box.className = "mode-rows hero-stats";
-    box.replaceChildren(key, rest);
-    return;
-  }
-  /* Both modes running: HQ's summary adds them up, so the site shows each mode's own figures,
-     summed from each agent's record, and leaves out what HQ reports only for both together. */
-  const row = (mode) => {
-    const t = T[mode];
-    const r = el("div", "mode-row");
-    const h = el("h3"); h.append(modeTag(mode), mode === "live" ? "Real SOL" : "Simulated, nothing signed");
-    const g = el("div", "stats six");
-    g.append(
-      stat({ label: "Trading P&L, realized", value: sol(t.realizedPnlSol, { signed: true }), mode, cls: "key" }),
-      stat({ label: "Trading P&L, unrealized", value: sol(t.unrealizedPnlSol, { signed: true }), mode, cls: "key" }),
-      winCard(t, mode), ddCard(t, mode),
-      stat({ label: "SOL in agent wallets", value: sol(t.balanceSol), sub: `${t.active} of ${t.agents} agents at work`, mode }),
-      stat({ label: "Creator fees claimed", value: sol(t.feesClaimedSol), sub: "Never counted as trading profit.", mode }),
-    );
-    r.append(h, g);
-    return r;
-  };
+  const chain = el("div", "mode-row");
+  const h = el("h3"); h.append(modeTag("chain"), "The agency's own, on chain");
+  const g = el("div", "stats three");
+  g.append(
+    stat({ label: "Creator fees claimed", value: sol(s.creatorFeesClaimedSol), sub: "From the agents' own coins. Never trading profit.", mode: "chain" }),
+    stat({ label: "$CIA bought back", value: sol(s.buybacks.solSpent), sub: `${fmtTokens(s.buybacks.ciaBought)} $CIA in ${s.buybacks.count} ${s.buybacks.count === 1 ? "buyback" : "buybacks"}`, mode: "chain" }),
+    stat({ label: "Agency treasury", value: sol(s.treasury.sol), sub: s.treasury.address ? [`${fmtTokens(s.treasury.cia)} $CIA · `, walletLink(s.treasury.address)] : "No treasury is set yet, so buybacks are off.", mode: "chain" }),
+  );
+  chain.append(h, g);
   box.className = "mode-rows hero-stats";
-  const chain = el("div", "stats six"); chain.append(buyback, treasury);
-  box.replaceChildren(row("live"), row("paper"), chain,
-    el("p", "note-line", `HQ runs paper and live agents. Its trade count for the last 24 hours (${s.trades24h.count}) covers both, so it is not split here; every trade on the desk below is marked.`));
+  box.replaceChildren(modeRow("live", s.live), modeRow("paper", s.paper), chain);
 }
 
 /* ── the tape: the agency's coins ──────────────────────────────────────── */

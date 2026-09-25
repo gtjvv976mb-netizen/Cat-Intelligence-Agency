@@ -926,18 +926,20 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
 
   /* One module, one origin, the contract's paths. */
   const client = src["hq-client.js"];
-  ok("hq-client.js: one production origin, api.catintelligenceagency.com, and localhost only for development",
-    client.includes('export const HQ_ORIGINS = Object.freeze(["https://api.catintelligenceagency.com"]);') && client.includes("const DEV_ORIGIN = /^http:\\/\\/(localhost|127\\.0\\.0\\.1):([1-9]\\d{1,4})$/;"));
+  ok("hq-client.js: one production origin, api.catintelligenceagency.com, and localhost only in development, for a page itself served from localhost",
+    client.includes('export const HQ_ORIGINS = Object.freeze(["https://api.catintelligenceagency.com"]);') && client.includes("const DEV_ORIGIN = /^http:\\/\\/(localhost|127\\.0\\.0\\.1):([1-9]\\d{1,4})$/;")
+      && client.includes('const DEV_HOSTS = ["localhost", "127.0.0.1"];') && client.includes("return m && Number(m[2]) <= 65535 && DEV_HOSTS.includes(pageHost) ? s : \"\";"));
   ok("hq-client.js: no cookies, no referrer, no cache, no redirects, a timeout and a size cap",
     ['credentials: "omit"', 'cache: "no-store"', 'redirect: "error"', 'referrerPolicy: "no-referrer"', 'mode: "cors"', "TIMEOUT_MS = 12_000", "MAX_BYTES = 2_000_000"].every((x) => client.includes(x)));
   const contractPaths = new Set([...API.matchAll(/`(?:GET|POST) (\/v1\/[\w/:]+)/g)].map((m) => m[1]));
   const clientPaths = new Set([...code(client).matchAll(/["`](\/v1\/[\w/]*)(\$\{[^}]+\})?/g)].map((m) => m[1] + (m[2] ? ":id" : "")));
-  ok("hq-client.js calls the contract's endpoints and nothing else", contractPaths.size === 10 && [...clientPaths].every((x) => contractPaths.has(x)) && [...contractPaths].every((x) => clientPaths.has(x)), [...clientPaths].join(" "));
+  ok("hq-client.js calls the contract's endpoints and nothing else", contractPaths.size === 11 && [...clientPaths].every((x) => contractPaths.has(x)) && [...contractPaths].every((x) => clientPaths.has(x)), [...clientPaths].join(" "));
   ok("its one POST is /v1/perks/verify, carrying the wallet, the message and the signature",
     (code(client).match(/post:/g) || []).length === 1 && client.includes('call("/v1/perks/verify", null, validatePerks, { post: { wallet, message, signature } })') && client.includes('method: post ? "POST" : "GET"'));
-  ok("every answer goes through a validator before a page sees it", (code(client).match(/call\("/g) || []).length + (code(client).match(/call\(`/g) || []).length === 9 && /return check\(raw\);/.test(client) && /validateStreamEvent\(type, JSON\.parse\(e\.data\)\)/.test(client) && /e\.origin !== origin/.test(client));
-  const CSP = `<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">`;
-  ok("each HQ page's own policy lets it connect to itself and HQ only", HQ_PAGES.every((k) => html[k].includes(CSP)));
+  ok("every answer goes through a validator before a page sees it", (code(client).match(/call\("/g) || []).length + (code(client).match(/call\(`/g) || []).length === 10 && /return check\(raw\);/.test(client) && /validateStreamEvent\(type, JSON\.parse\(e\.data\)\)/.test(client) && /e\.origin !== origin/.test(client));
+  const CSP = `<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">`;
+  ok("each HQ page's own policy lets it connect to itself and HQ's origin only, and never to localhost", HQ_PAGES.every((k) => html[k].includes(CSP) && (html[k].match(/Content-Security-Policy/g) || []).length === 1)
+    && !Object.values(html).some((p) => /localhost|127\.0\.0\.1/.test(p)));
   const MODULE = { hq: "hq-live.js", agent: "hq-agent.js", investors: "hq-investors.js", perks: "hq-perks.js" };
   ok("each HQ page reads the config first, then its own module", HQ_PAGES.every((k) => {
     const up = k === "agent" ? "../../" : "../";
@@ -975,7 +977,20 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
     /pre\.textContent = challenge\.message;/.test(src["hq-perks.js"]) && /provider\.signMessage\(new TextEncoder\(\)\.encode\(challenge\.message\), "utf8"\)/.test(src["hq-perks.js"]) && /hq\.verify\(\{ wallet, message: challenge\.message, signature \}\)/.test(src["hq-perks.js"]));
   ok("every figure on the HQ pages is drawn with its mode", ["hq-live.js", "hq-agent.js", "hq-band.js"].every((f) => code(src[f]).split("\n").filter((l) => /stat\(\{ label/.test(l)).every((l) => /mode/.test(l)))
     && code(src["hq-investors.js"]).split("\n").filter((l) => /stat\(\{ label/.test(l) && !/label: "(Share|From|When|Then)"/.test(l)).every((l) => /mode/.test(l)));
-  ok("paper and live are never added together: mixed summaries are shown per mode, from each agent's own record", /if \(s\.mode !== "mixed"\)/.test(src["hq-live.js"]) && /modeTotals\(/.test(src["hq-live.js"]) && /for \(const mode of \["live", "paper"\]\)/.test(src["hq-format.js"]));
+  ok("paper and live are never added together: every summary figure is read from its mode's own block, as HQ sends it",
+    /box\.replaceChildren\(modeRow\("live", s\.live\), modeRow\("paper", s\.paper\), chain\);/.test(src["hq-live.js"]) && /const t = modeRecord\(s\[mode\]\);/.test(src["hq-band.js"])
+      && /const T = modeRecord\(r\.value\.value\[mode\]\);/.test(src["hq-investors.js"]) && !HQ_JS.some((f) => /mixed|modeTotals|decSum\(/.test(code(src[f]))));
+  /* The formats are the contract's, character for character. */
+  const fmtLine = (label) => (API.match(new RegExp(`${label}: \`([^\`]+)\``)) || [])[1];
+  ok("the site's formats are the contract's exactly: SOL, token units, prices and percentages, sprite and skin ids",
+    fmtLine("SOL") === HF.SOL.source && fmtLine("Token units, prices and percentages:\\s*") === undefined && /Token units, prices and percentages:\s*`\^-\?\(0\|\[1-9\]\\d\*\)\(\\\.\\d\+\)\?\$`/.test(API)
+      && (API.match(/percentages:\s*`([^`]+)`/) || [])[1] === HF.UNITS.source && (API.match(/\(`cat`, `skin`\): `([^`]+)`/) || [])[1] === HF.SLUG.source
+      && /Times: `YYYY-MM-DDTHH:MM:SS\(\.sss\)Z`/.test(API) && HF.ISO_TIME.source.endsWith("(\\.\\d{1,3})?Z$") && /base58, 32–44 characters/.test(API) && /base58, 64–90 characters/.test(API)
+      && HF.ADDRESS.source.endsWith("{32,44}$") && HF.SIGNATURE.source.endsWith("{64,90}$"));
+  ok("the perks page shows the tiers HQ sends, and writes no threshold of its own", /tiers = \(await hq\.tiers\(\)\)\.value\.tiers;/.test(src["hq-perks.js"]) && /fmtTokens\(t\.minCia\)/.test(src["hq-perks.js"])
+    && !/\d/.test(textOf((html.perks.match(/<section class="hq-sec alt" id="tiers"[\s\S]*?<\/section>/) || [""])[0])) && has("perks", "never writes a threshold of its own"));
+  ok("every buy is shown with Crying Cat's check: passed on a trade, passed or refused on a decision, or not run yet", /Rug check refused this buy/.test(src["hq-ui.js"]) && /Not run yet: no buy is made before it passes\./.test(src["hq-ui.js"])
+    && /\(item\.kind === "trade" && item\.side === "buy"\) \|\| \(item\.kind === "decision" && item\.action === "buy"\)/.test(src["hq-ui.js"]) && !/did not send this check's result/.test(Object.values(src).join(" ")));
 
   /* HQ and Investors in every bar. */
   const hqIn = (k, href, current) => new RegExp(`<a class="hqlink" href="${href.replace(/[./]/g, "\\$&")}"${current ? ' aria-current="page"' : ""}>HQ</a>`).test(barOf(html[k]));

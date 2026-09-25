@@ -10,13 +10,40 @@
    It never asks Phantom to sign or send a transaction of any kind (test-site.mjs pins the
    calls this file makes), never stores anything, and sends HQ exactly
    the wallet, the message and the signature, through hq-client.js, the site's one way onto
-   the network. HQ answers with the tier and the perks, checked against the contract. */
+   the network. HQ answers with the tier and the perks, checked against the contract. The tiers
+   and the $CIA each needs come from HQ too (GET /v1/perks): this page writes no threshold. */
 import { hqClient } from "./hq-client.js";
 import { ADDRESS, fmtTokens, fmtUtc, base58 } from "./hq-format.js";
 import { $, el, setState, walletLink, whyNot } from "./hq-ui.js";
 
 const hq = hqClient();
 const TIERS = { none: "Not a holder", holder: "Holder", agent: "Agent", director: "Director" };
+let tiers = null;
+
+/* The tiers, as the owner set them and HQ sends them, lowest first. */
+async function loadTiers() {
+  const box = $("#tier-list");
+  try { tiers = (await hq.tiers()).value.tiers; } catch (e) {
+    box.replaceChildren(el("p", "fail", `The tiers could not be loaded: ${whyNot(e)}`));
+    return;
+  }
+  drawTiers();
+}
+function drawTiers(mine = "") {
+  const box = $("#tier-list");
+  if (!tiers) return;
+  if (!tiers.length) { box.replaceChildren(el("p", "board-empty", "No tiers are set yet.")); return; }
+  box.replaceChildren(...tiers.map((t) => {
+    const card = el("article", `tier-card${t.id === mine ? " mine" : ""}`);
+    const head = el("div", "tier-head");
+    head.append(el("h3", "", TIERS[t.id]), el("p", "tier-min", `${fmtTokens(t.minCia)} $CIA or more`));
+    if (t.id === mine) head.append(el("span", "tier-yours", "Your tier"));
+    const list = el("ul", "perk-list");
+    list.append(...(t.perks.length ? t.perks.map((p) => el("li", "", p)) : [el("li", "", "No perks listed for this tier yet.")]));
+    card.append(head, list);
+    return card;
+  }));
+}
 const status = (text) => { $("#perk-status").textContent = text; };
 let wallet = "", challenge = null, provider = null;
 
@@ -98,6 +125,7 @@ async function sign() {
   $("#result-note").textContent = `Good until ${fmtUtc(perks.expiresAt)}; after that, sign again.`;
   $("#perk-list").replaceChildren(...(perks.perks.length ? perks.perks.map((p) => el("li", "", p)) : [el("li", "", perks.holder ? "HQ lists no perks for this tier yet." : "No perks: this wallet holds no $CIA, or less than the holder tier needs.")]));
   $("#result").hidden = false;
+  drawTiers(perks.tier);
   status("Checked. Nothing was sent from your wallet, and nothing is stored on this page.");
 }
 
@@ -106,6 +134,7 @@ $("#sign").addEventListener("click", sign);
 if (hq.online) {
   setState("online");
   $("#connect").disabled = false;
+  loadTiers();
   status(phantom() ? "" : "Phantom is not in this browser. Open this page in a browser with the Phantom extension, or in the browser inside the Phantom app on a phone.");
 } else {
   setState("offline");

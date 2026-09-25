@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://api.catintelligenceagency.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'">
 <title>Transparency, for investors — Cat Intelligence Agency</title>
 <meta name="description" content="How the Cat Intelligence Agency runs its money in public: the $CIA mint, the buyback policy and every buyback, the treasury and its flows, the agents' combined record with its losses, how each number is computed, and the risks.">
 <meta name="theme-color" content="#0b0716">
@@ -144,7 +144,7 @@ document.documentElement.dataset.hq = window.CIA_CONFIG && window.CIA_CONFIG.hqA
   <div class="wrap">
     <p class="kicker">The trading record</p>
     <h2 id="record-title">Gains and losses, <em>side by side.</em></h2>
-    <p class="sub">The agency's agents together, summed from each agent's own HQ record. Live and paper are shown apart and never added up; win rate counts closed round trips, and the deepest drawdown is the worst single agent's. Creator fees are their own line, not trading profit.</p>
+    <p class="sub">The agency's agents together, as HQ computes them: live and paper apart, never added up. Win rate counts closed trades, and the deepest drawdown is the worst single agent's, never a sum. Creator fees are their own line, not trading profit.</p>
     <div class="grid-2" id="record-boards">
       <article class="panel" data-mode="live" style="--accent:#14f195"><h3 class="panel-title">Live <span class="aside-note">real SOL</span></h3><div data-slot="record"><p class="board-empty">No live record yet.</p></div></article>
       <article class="panel" data-mode="paper" style="--accent:#9945ff"><h3 class="panel-title">Paper <span class="aside-note">simulated from live quotes; nothing signed</span></h3><div data-slot="record"><p class="board-empty">No paper record yet.</p></div></article>

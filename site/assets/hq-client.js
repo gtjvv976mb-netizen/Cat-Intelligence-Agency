@@ -4,8 +4,11 @@
    only Agency HQ, the agency's own server, at the origin set as hqApi in assets/config.js:
 
      · the origin must be exactly https://api.catintelligenceagency.com, or, for development
-       only, http://localhost:<port> or http://127.0.0.1:<port>. Anything else, an empty value
-       included, means HQ is not online, and every HQ page says so instead of showing numbers;
+       only and only on a page itself served from localhost, http://localhost:<port> or
+       http://127.0.0.1:<port>. Anything else, an empty value included, means HQ is not online,
+       and every HQ page says so instead of showing numbers. (The pages' own policy lets them
+       connect to themselves and HQ's origin and nowhere else; the development server under
+       scripts/ adds its mock's origin to it, and to nothing it deploys.)
      · the paths are the contract's (docs/hq/API.md) and nothing else: every query value is
        checked (an id is a whole number, a cursor is a cursor, a wallet is base58) before it
        goes into a URL;
@@ -18,7 +21,7 @@
    wallet, the challenge message and the message signature, and nothing else. */
 import {
   HqInvalid, STREAM_EVENTS, CURSOR, validateStreamEvent, validateSummary, validateAgents, validateAgentDetail, validateDesk,
-  validateLeaderboard, validateBuybacks, validateTreasury, validateChallenge, validatePerks,
+  validateLeaderboard, validateBuybacks, validateTreasury, validateTiers, validateChallenge, validatePerks,
 } from "./hq-validate.js";
 import { ADDRESS, SIGNATURE } from "./hq-format.js";
 
@@ -27,13 +30,16 @@ const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1):([1-9]\d{1,4})$/;
 const TIMEOUT_MS = 12_000;
 const MAX_BYTES = 2_000_000;
 
-/* The HQ origin config.js names, if it is one the site may call; "" otherwise. */
-export function hqOrigin(raw) {
+const DEV_HOSTS = ["localhost", "127.0.0.1"];
+const pageHostname = () => (typeof location !== "undefined" && typeof location.hostname === "string" ? location.hostname : "");
+/* The HQ origin config.js names, if it is one the site may call; "" otherwise. A localhost HQ is
+   one only for a page that is itself served from localhost: in development, never on the site. */
+export function hqOrigin(raw, pageHost = pageHostname()) {
   if (typeof raw !== "string") return "";
   const s = raw.trim().replace(/\/$/, "");
   if (HQ_ORIGINS.includes(s)) return s;
   const m = s.match(DEV_ORIGIN);
-  return m && Number(m[2]) <= 65535 ? s : "";
+  return m && Number(m[2]) <= 65535 && DEV_HOSTS.includes(pageHost) ? s : "";
 }
 
 export class HqError extends Error {
@@ -47,8 +53,8 @@ const signalFor = () => {
   const c = new AbortController(); setTimeout(() => c.abort(), TIMEOUT_MS); return c.signal;
 };
 
-export function hqClient(cfg = (typeof window !== "undefined" && window.CIA_CONFIG) || {}) {
-  const origin = hqOrigin(cfg.hqApi);
+export function hqClient(cfg = (typeof window !== "undefined" && window.CIA_CONFIG) || {}, pageHost = pageHostname()) {
+  const origin = hqOrigin(cfg.hqApi, pageHost);
   const online = origin !== "";
 
   async function call(path, query, check, { post = null } = {}) {
@@ -97,6 +103,7 @@ export function hqClient(cfg = (typeof window !== "undefined" && window.CIA_CONF
     },
     buybacks: ({ limit = 50 } = {}) => call("/v1/buybacks", { limit: limitOf(limit, 200) }, validateBuybacks),
     treasury: () => call("/v1/treasury", null, validateTreasury),
+    tiers: () => call("/v1/perks", null, validateTiers),
     challenge: (wallet) => {
       if (typeof wallet !== "string" || !ADDRESS.test(wallet)) throw new HqError("invalid", "not a wallet address");
       return call("/v1/perks/challenge", { wallet }, (raw) => validateChallenge(raw, wallet));

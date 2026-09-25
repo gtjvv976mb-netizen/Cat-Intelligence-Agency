@@ -2,11 +2,13 @@
    Reads GET /v1/agents/:id through hq-client.js (checked against the contract there) and draws
    it as text: who the agent is and how far it is from its next rank, its record with the losses
    as plain as the gains, its portfolio over time, what it is not allowed to do, and every
-   position, trade, decision, fee, transfer and promotion, each transaction linked. The live
-   stream adds this agent's new trades and decisions, and reloads its figures after each. */
+   position, trade, decision, fee, transfer and promotion, each transaction linked. A position
+   with no recent quote says so, and how HQ values it. The live stream adds this agent's new
+   trades and decisions, and reloads its figures after each. */
 import { hqClient } from "./hq-client.js";
 import {
   CATS, STRATEGIES, RANKS, catOf, coinLabel, fmtSol, fmtPct, fmtTokens, fmtPrice, fmtUtc, fmtDate, decSub, decSign, rankProgress, winRate,
+  staleMark, STALE_WORDS, unpricedLine,
 } from "./hq-format.js";
 import {
   $, el, setState, modeTag, sol, pct, when, keepTime, txLink, tokenLink, walletLink, coinLinks, portrait, rankArt, rankChip,
@@ -105,9 +107,9 @@ function drawStats(a) {
   const key = el("div", "stats four"), rest = el("div", "stats six");
   key.append(
     stat({ label: "Trading P&L, realized", value: sol(s.realizedPnlSol, { signed: true }), sub: "From closed trades. Fees are not in it.", mode: m, cls: "key" }),
-    stat({ label: "Trading P&L, unrealized", value: sol(s.unrealizedPnlSol, { signed: true }), sub: "Open positions, at the latest price.", mode: m, cls: "key" }),
+    stat({ label: "Trading P&L, unrealized", value: sol(s.unrealizedPnlSol, { signed: true }), sub: s.unpricedPositions > 0 ? `Open positions. ${unpricedLine(s.unpricedPositions)}.` : "Open positions, at their latest quote.", mode: m, cls: "key" }),
     stat({ label: "Win rate", value: wr === null ? el("span", "amt flat", "n/a") : el("span", "amt", `${wr}%`), sub: `${s.wins} won · ${s.losses} lost`, mode: m, cls: "key" }),
-    stat({ label: "Max drawdown", value: pct(decSign(s.maxDrawdownPct) > 0 ? `-${s.maxDrawdownPct}` : s.maxDrawdownPct), sub: "Its largest fall from a peak of its trading value, positions at the latest quote.", mode: m, cls: "key" }),
+    stat({ label: "Max drawdown", value: pct(decSign(s.maxDrawdownPct) > 0 ? `-${s.maxDrawdownPct}` : s.maxDrawdownPct), sub: "Its largest fall from a peak of its trading value, positions at their latest quote or valued down without one.", mode: m, cls: "key" }),
   );
   rest.append(
     stat({ label: "Portfolio value", value: sol(s.portfolioSol), sub: "Free SOL plus open positions.", mode: m }),
@@ -118,6 +120,7 @@ function drawStats(a) {
     stat({ label: "Net deposits", value: sol(net, { signed: decSign(net) < 0 }), sub: `${fmtSol(s.depositedSol)} in · ${fmtSol(s.withdrawnSol)} out`, mode: m }),
   );
   $("#agent-stats").replaceChildren(key, rest);
+  if (s.unpricedPositions > 0) $("#agent-stats").append(el("p", "stale-note", `${unpricedLine(s.unpricedPositions)}. HQ has had no quote for ${s.unpricedPositions === 1 ? "it" : "them"} in the last hour, so every figure here counts ${s.unpricedPositions === 1 ? "it" : "each"} at the lower of its last price and its cost, or at 0 after 24 hours without a quote. Its positions below say which.`));
   $("#mode-line").textContent = m === "paper" ? "This agent trades on paper: its figures are simulated from live quotes, and nothing is signed." : "This agent trades real SOL: every trade below is on chain.";
 }
 
@@ -172,13 +175,29 @@ function table(cols, rows, empty) {
   wrap.append(t);
   return wrap;
 }
+/* Each position: its cost with its entry price under it, its price now with when it was last
+   quoted under it, and its value. One with no quote for an hour has no price, and says how HQ
+   values it: at the lower of its last price and its cost, or at 0 after 24 hours. */
+function quoted(p) {
+  const line = el("span", "sub-line");
+  if (p.markAt === null) line.textContent = "never quoted";
+  else line.append("quoted ", when(p.markAt));
+  return line;
+}
 function drawPositions(a) {
   $("#positions-note").textContent = `${a.positions.length} open, of at most ${a.limits.maxOpenPositions}`;
-  $("#positions").replaceChildren(table(
-    [{ label: "Token" }, { label: "Cost", num: true }, { label: "Value", num: true }, { label: "Entry", num: true }, { label: "Now", num: true }, { label: "P&L", num: true }, { label: "Opened" }],
-    a.positions.map((p) => [tokenLink(p.mint, p.symbol), sol(p.costSol), sol(p.valueSol), fmtPrice(p.entryPrice), p.price === null ? el("span", "tx none", "no quote") : fmtPrice(p.price),
+  const marks = a.positions.map((p) => staleMark(p));
+  const box = $("#positions");
+  box.replaceChildren(table(
+    [{ label: "Token" }, { label: "Cost", num: true }, { label: "Price now", num: true }, { label: "Value", num: true }, { label: "P&L", num: true }, { label: "Opened" }],
+    a.positions.map((p, i) => [tokenLink(p.mint, p.symbol), [sol(p.costSol), el("span", "sub-line", `entry ${fmtPrice(p.entryPrice)}`)],
+      [p.price === null ? el("span", "tx none", "no recent price") : fmtPrice(p.price), quoted(p)],
+      marks[i] ? [sol(p.valueSol), el("span", "sub-line stale", STALE_WORDS[marks[i]])] : sol(p.valueSol),
       [sol(p.pnlSol, { signed: true }), el("span", "sub-line", p.pnlPct === null ? "" : fmtPct(p.pnlPct))], when(p.openedAt)]),
     "No open positions: every SOL is free in its wallet."));
+  const many = (kind) => { const n = marks.filter((m) => m === kind).length; return n === 1 ? "1 position" : `${n} positions`; };
+  if (marks.includes("down")) box.append(el("p", "stale-note", `No recent price: ${many("down")} valued at the lower of the last price and the cost. HQ has had no quote in the last hour; after 24 hours without one, a position counts at 0.`));
+  if (marks.includes("zero")) box.append(el("p", "stale-note", `Valued at 0 after 24 h without a quote: ${many("zero")}. A coin that stops trading never keeps its last good price.`));
 }
 function sideCell(t) {
   const c = [el("span", `side ${t.side}`, t.side)];
@@ -233,7 +252,7 @@ function onEvent(type, data) {
 }
 function onState(st, info) {
   setPill(pill, st);
-  if (st === "live" && info && info.fresh) load({ quiet: true });   // back without Last-Event-ID: refetch
+  if (st === "live" && info && info.fresh) load({ quiet: true });   // back without Last-Event-ID, or HQ could not resume (a reset): refetch
 }
 
 $("#retry").addEventListener("click", () => load());

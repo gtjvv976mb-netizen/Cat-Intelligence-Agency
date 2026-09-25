@@ -6,10 +6,10 @@
    reloads the agents and the boards. Paper and live are never added together: when HQ runs
    both, the summary is shown per mode, from each agent's own figures. */
 import { hqClient } from "./hq-client.js";
-import { CATS, catOf, coinLabel, fmtSol, fmtTokens, decAdd, decSign, modeRecord, pumpFun, solscanToken } from "./hq-format.js";
+import { CATS, catOf, coinLabel, fmtSol, fmtTokens, decAdd, decSign, modeRecord, pumpFun, solscanToken, unpricedLine } from "./hq-format.js";
 import {
   $, $$, el, out, setState, modeTag, sol, pct, when, keepTime, agentHref, portrait, rankChip,
-  strategyChip, statusChip, stat, refusedNote, whyNot, setPill, deskRow, walletLink,
+  strategyChip, statusChip, stat, refusedNote, whyNot, setPill, deskRow, walletLink, unpricedNote,
 } from "./hq-ui.js";
 
 const hq = hqClient();
@@ -54,7 +54,9 @@ async function reloadAgents() {
   takeAgents(r[0]);
   drawSummary(); drawTape(); drawRecruits(); drawDesk();
 }
-function soonReloadAgents() { clearTimeout(agentsTimer); agentsTimer = setTimeout(reloadAgents, 15_000); }
+/* After trades, the agents' figures are read again, at most every 15 seconds (a steady run of
+   trades must not keep putting it off). */
+function soonReloadAgents() { if (!agentsTimer) agentsTimer = setTimeout(() => { agentsTimer = 0; reloadAgents(); }, 15_000); }
 
 /* ── the summary ────────────────────────────────────────────────────────── */
 /* HQ's summary has a live block and a paper block, never added together, each read as HQ sends
@@ -72,13 +74,16 @@ function modeRow(mode, block) {
   const g = el("div", "stats six");
   g.append(
     stat({ label: "Trading P&L, realized", value: sol(t.tradingPnlSol.realized, { signed: true }), sub: "Closed trades. Creator fees are not in it.", mode, cls: "key" }),
-    stat({ label: "Trading P&L, unrealized", value: sol(t.tradingPnlSol.unrealized, { signed: true }), sub: "Open positions, at the latest price.", mode, cls: "key" }),
+    stat({ label: "Trading P&L, unrealized", value: sol(t.tradingPnlSol.unrealized, { signed: true }), sub: "Open positions, at their latest quote or valued down without one.", mode, cls: "key" }),
     stat({ label: "Win rate", value: t.winRatePct === null ? el("span", "amt flat", "n/a") : el("span", "amt", `${t.winRatePct}%`), sub: `${t.wins} won · ${t.losses} lost, of closed trades`, mode, cls: "key" }),
-    stat({ label: "Deepest drawdown", value: drawdown(t.maxDrawdownPct), sub: "The worst single agent's fall from a peak, positions at the latest quote.", mode, cls: "key" }),
+    stat({ label: "Deepest drawdown", value: drawdown(t.maxDrawdownPct), sub: "The worst single agent's fall from a peak, positions marked the same way.", mode, cls: "key" }),
     stat({ label: "Trades, last 24 hours", value: el("span", "amt", String(t.trades24h.count)), sub: `${fmtSol(t.trades24h.volumeSol)} SOL traded`, mode }),
     stat({ label: "SOL in agent wallets", value: sol(t.solInAgentWallets), sub: "Free SOL the agents hold.", mode }),
   );
   r.append(h, g);
+  /* The summary counts every agent's positions as HQ values them; say so when any has no recent price. */
+  const stale = unpricedNote([...S.agents.values()], mode);
+  if (stale) r.append(stale);
   return r;
 }
 function drawSummary() {
@@ -146,10 +151,11 @@ function recruitCard(a) {
   add("Trading P&L", sol(decAdd(a.stats.realizedPnlSol, a.stats.unrealizedPnlSol), { signed: true }));
   add("Return", pct(a.stats.roiPct));
   add("Won / lost", el("span", "amt", `${a.stats.wins} / ${a.stats.losses}`));
+  const stale = a.stats.unpricedPositions > 0 ? el("p", "recruit-stale", unpricedLine(a.stats.unpricedPositions)) : null;
   const foot = el("div", "recruit-foot");
   foot.append(el("span", "", a.coin ? `Coin ${coinLabel(a.coin)}` : "No coin of its own"));
   const hired = el("span", "", "Hired "); hired.append(when(a.hiredAt)); foot.append(hired);
-  body.append(no, el("h3", "", a.name), chips, nums, foot);
+  body.append(no, el("h3", "", a.name), chips, nums, ...(stale ? [stale] : []), foot);
   card.append(pad, body);
   card.setAttribute("aria-label", `Agent ${a.number}, ${a.name}: open its dossier`);
   return card;
@@ -271,7 +277,8 @@ function onEvent(type, data) {
   else if (type === "promotion") { reloadAgents(); loadBoards(); }
 }
 /* A quiet reconnection (HQ ends each stream within five minutes) misses nothing and changes
-   nothing here; only a stream that came back without Last-Event-ID, or after an outage, refetches. */
+   nothing here; a stream that came back without Last-Event-ID or after an outage, or that HQ
+   could not resume (a reset), reloads everything the page shows, and the stream reads on. */
 function onState(st, info) {
   setPill(pill, st);
   if (st === "live" && info && info.fresh) resync();
@@ -283,7 +290,7 @@ async function resync() {
     const have = new Set(S.desk.map((x) => x.id));
     S.desk = [...d.value.value.items.filter((x) => !have.has(x.id)), ...S.desk].sort((a, b) => Date.parse(b.t) - Date.parse(a.t));
   }
-  drawSummary(); drawDesk(); reloadAgents();
+  drawSummary(); drawDesk(); reloadAgents(); loadBoards();
 }
 
 $("#retry").addEventListener("click", boot);

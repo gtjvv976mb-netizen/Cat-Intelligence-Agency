@@ -72,7 +72,10 @@ const V = {
     if (o[k] === null && nullable) return;
     if (!values.includes(o[k])) bad(`${path}.${k}`, `must be one of ${values.join(", ")}`);
   },
-  time(o, k, path) { if (!isIsoTime(o[k])) bad(`${path}.${k}`, "must be an ISO-8601 UTC time"); },
+  time(o, k, path, { nullable = false } = {}) {
+    if (o[k] === null && nullable) return;
+    if (!isIsoTime(o[k])) bad(`${path}.${k}`, "must be an ISO-8601 UTC time");
+  },
   address(o, k, path, { nullable = false } = {}) {
     if (o[k] === null && nullable) return;
     if (typeof o[k] !== "string" || !ADDRESS.test(o[k])) bad(`${path}.${k}`, "must be a base58 address");
@@ -179,11 +182,12 @@ function agentFields(o, path) {
   }
   V.address(o, "wallet", path);
   V.time(o, "hiredAt", path);
-  const s = exact(o.stats, `${path}.stats`, [...STAT_SOL, "trades", "wins", "losses", "maxDrawdownPct", "roiPct"]);
+  const s = exact(o.stats, `${path}.stats`, [...STAT_SOL, "trades", "wins", "losses", "maxDrawdownPct", "roiPct", "unpricedPositions"]);
   for (const k of STAT_SOL) V.dec(s, k, `${path}.stats`, { nonNegative: !["realizedPnlSol", "unrealizedPnlSol"].includes(k) });
   V.dec(s, "maxDrawdownPct", `${path}.stats`, { nonNegative: true, fmt: "units" });
   V.dec(s, "roiPct", `${path}.stats`, { nullable: true, fmt: "units" });
-  for (const k of ["trades", "wins", "losses"]) V.int(s, k, `${path}.stats`);
+  /* unpricedPositions: its open positions with no quote in the last hour, valued down (below). */
+  for (const k of ["trades", "wins", "losses", "unpricedPositions"]) V.int(s, k, `${path}.stats`);
   if (s.wins + s.losses > s.trades) bad(`${path}.stats`, "has more wins and losses than trades");
   return o;
 }
@@ -298,11 +302,18 @@ export function validateAgentDetail(raw, wantId = null) {
   const problems = [];
   const take = (r) => { problems.push(...r.problems); return r.items; };
   const positions = take(list(raw.positions, `${path}.positions`, (p, pp) => {
-    exact(p, pp, ["mint", "symbol", "costSol", "valueSol", "entryPrice", "price", "pnlSol", "pnlPct", "openedAt"]);
+    exact(p, pp, ["mint", "symbol", "costSol", "valueSol", "entryPrice", "price", "pnlSol", "pnlPct", "markAt", "openedAt"]);
     V.address(p, "mint", pp); clean(p, "symbol", pp, TEXT_MAX.symbol);
     V.dec(p, "costSol", pp, { nonNegative: true }); V.dec(p, "valueSol", pp, { nonNegative: true }); V.dec(p, "entryPrice", pp, { nonNegative: true, fmt: "units" });
-    /* With no quote for the token just now, the price and its percent are null, never guessed. */
-    V.dec(p, "price", pp, { nonNegative: true, nullable: true, fmt: "units" }); V.dec(p, "pnlSol", pp); V.dec(p, "pnlPct", pp, { nullable: true, fmt: "units" }); V.time(p, "openedAt", pp);
+    V.dec(p, "price", pp, { nonNegative: true, nullable: true, fmt: "units" }); V.dec(p, "pnlSol", pp); V.dec(p, "pnlPct", pp, { nullable: true, fmt: "units" });
+    V.time(p, "markAt", pp, { nullable: true }); V.time(p, "openedAt", pp);
+    /* markAt is when its latest quote was read, null if it never had one. With no quote for an
+       hour its price and percent are null, never guessed, and it is valued down: at the lower of
+       its last price and its cost, and at 0 after 24 hours. So without a price it is never worth
+       more than it cost. */
+    if (p.markAt === null && p.price !== null) bad(`${pp}.price`, "is set on a position that was never quoted");
+    if (p.price === null && p.pnlPct !== null) bad(`${pp}.pnlPct`, "is set on a position with no recent quote");
+    if (p.price === null && decCmp(p.valueSol, p.costSol) > 0) bad(`${pp}.valueSol`, "is above its cost with no recent quote (it is valued down)");
     return p;
   }, { max: 100 }));
   const mine = (x, p) => { if (x.agentId !== raw.id) bad(`${p}.agentId`, "is another agent's"); if (x.mode !== raw.mode) bad(`${p}.mode`, "is not this agent's mode"); return x; };
@@ -422,10 +433,13 @@ export function validatePerks(raw) {
 }
 
 /* GET /v1/stream: each event's data is the object its endpoint returns, except that a promotion
-   and a fee say whose they are. */
+   and a fee say whose they are. A stream HQ cannot resume from the client's Last-Event-ID starts
+   with a reset, whose data is {} and nothing else: the page reloads what it shows, then reads on. */
 export const STREAM_EVENTS = Object.freeze(["trade", "decision", "promotion", "buyback", "fee", "summary"]);
+export const STREAM_RESET = "reset";
 export function validateStreamEvent(type, raw) {
   switch (type) {
+    case STREAM_RESET: if (!isObject(raw) || Object.keys(raw).length) bad("stream.reset", "must be {} and nothing else"); return raw;
     case "trade": return trade(raw, "stream.trade");
     case "decision": return decision(raw, "stream.decision");
     case "promotion": return promotion(raw, "stream.promotion", { onStream: true });

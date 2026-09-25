@@ -28,7 +28,7 @@ import { fileURLToPath } from "node:url";
 import * as F from "./site/assets/hq-format.js";
 import * as V from "./site/assets/hq-validate.js";
 import { hqClient, hqOrigin, HqError, HQ_ORIGINS } from "./site/assets/hq-client.js";
-import { mockWorld } from "./scripts/hq-mock.mjs";
+import { mockWorld, resumeFrom } from "./scripts/hq-mock.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -158,11 +158,35 @@ const good = {
     (() => { const o = clone(good.agents); o.agents[1].coin.symbol = null; o.agents[1].coin.name = null; o.agents[2].cat = "agent-cat"; return V.validateAgents(o).problems.length === 0; })()
       && (() => { const o = clone(good.summary); o.treasury.address = null; return !refuses(() => V.validateSummary(o)); })()
       && F.coinLabel({ mint: "EDVtiBjPVeHTeKuvv1TMSC3vdsMUabZSaaoLRpiTpump", symbol: null, name: null }) === "EDVt…pump" && F.catOf({ cat: "agent-cat", strategy: "popcat-scout" }) === "popcat" && F.catOf({ cat: "snipurr", strategy: "popcat-scout" }) === "snipurr");
-  ok("a position with no quote has a null price and percent; a paper agent's transfers carry no transaction, a live agent's must",
-    (() => { const d = clone(W.agent(2)); d.positions = [{ ...clone(W.agent(4).positions[0]), price: null, pnlPct: null }]; return V.validateAgentDetail(d, 2).problems.length === 0; })()
+  ok("a position with no recent quote has a null price and percent; a paper agent's transfers carry no transaction, a live agent's must",
+    (() => { const d = clone(W.agent(2)); d.positions = [clone(W.agent(4).positions[1])]; return d.positions[0].price === null && d.positions[0].pnlPct === null && V.validateAgentDetail(d, 2).problems.length === 0; })()
       && (() => { const d = clone(W.agent(1)); d.transfers[0].tx = null; return d.mode === "paper" && V.validateAgentDetail(d, 1).problems.length === 0; })()
       && (() => { const d = clone(W.agent(2)); d.transfers[0].tx = null; return d.mode === "live" && V.validateAgentDetail(d, 2).problems.length === 1; })());
   ok("a dossier for another id than the one asked for is refused", refuses(() => V.validateAgentDetail(clone(good.detail), 3)));
+  /* Agent 4 holds three positions: quoted, then one with no quote for three hours, then quoted.
+     Agent 8's third has had none for thirty hours, and is valued at 0. */
+  const posProblems = (patch, i = 0, id = 4) => { const d = clone(W.agent(id)); Object.assign(d.positions[i], patch); for (const k of Object.keys(patch)) if (patch[k] === undefined) delete d.positions[i][k]; return V.validateAgentDetail(d, id).problems.length; };
+  const P0 = W.agent(4).positions[0], P1 = W.agent(4).positions[1];
+  ok("a position says when it was last quoted: markAt, an ISO time, or null if it never was; missing, or not a time, drops it",
+    P0.price !== null && F.isIsoTime(P0.markAt) && posProblems({}) === 0 && posProblems({ markAt: undefined }) === 1 && ["yesterday", 1758794400, "2026-09-25", ""].every((markAt) => posProblems({ markAt }) === 1)
+      && posProblems({ markAt: null, price: null, pnlPct: null, valueSol: P0.costSol }) === 0);
+  ok("with no quote for an hour a position has no price and no percent, and is never worth more than it cost; one never quoted has no price",
+    P1.price === null && P1.pnlPct === null && F.decCmp(P1.valueSol, P1.costSol) <= 0 && posProblems({}, 1) === 0
+      && posProblems({ markAt: null }) === 1 && posProblems({ price: null }) === (P0.pnlPct === null ? 0 : 1) && posProblems({ pnlPct: "12.5" }, 1) === 1
+      && posProblems({ valueSol: F.decAdd(P1.costSol, "0.0001") }, 1) === 1 && posProblems({ valueSol: P1.costSol }, 1) === 0 && posProblems({ valueSol: "0" }, 1) === 0
+      && W.agent(8).positions[2].valueSol === "0" && V.validateAgentDetail(clone(W.agent(8)), 8).problems.length === 0);
+  const unpriced = (x) => { const o = clone(good.agents); if (x === undefined) delete o.agents[0].stats.unpricedPositions; else o.agents[0].stats.unpricedPositions = x; return V.validateAgents(o).problems.length; };
+  ok("an agent says how many of its positions have no recent price: unpricedPositions, a whole number from 0, required",
+    unpriced(0) === 0 && unpriced(3) === 0 && [undefined, -1, 1.5, "1", null, true].every((x) => unpriced(x) === 1)
+      && (() => { const d = clone(W.agent(4)); delete d.stats.unpricedPositions; return refuses(() => V.validateAgentDetail(d, 4)); })());
+  const at = (h) => new Date(Date.parse("2026-09-25T12:00:00Z") - h * 3_600_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  const now = Date.parse("2026-09-25T12:00:00Z");
+  const pos = (patch) => ({ costSol: "0.2", valueSol: "0.15", price: null, pnlPct: null, markAt: at(3), openedAt: at(5), ...patch });
+  ok("a page reads how HQ valued a position with no recent price: at the lower of its last price and its cost, or at 0 after 24 hours",
+    F.staleMark(pos({ price: "0.000001", pnlPct: "-25" }), now) === null && F.staleMark(pos({}), now) === "down" && F.staleMark(pos({ valueSol: "0", markAt: at(30), openedAt: at(40) }), now) === "zero"
+      && F.staleMark(pos({ valueSol: "0" }), now) === "down" && F.staleMark(pos({ valueSol: "0", markAt: null, openedAt: at(26) }), now) === "zero" && F.staleMark(pos({ valueSol: "0.1", markAt: at(30), openedAt: at(40) }), now) === "down"
+      && F.unpricedLine(1) === "1 position without a recent price, valued down" && F.unpricedLine(2) === "2 positions without a recent price, valued down"
+      && JSON.stringify(F.STALE_WORDS) === '{"down":"lower of last price and cost","zero":"0 after 24 h without a quote"}');
 
   const trade = clone(good.detail.trades.find((t) => t.side === "buy"));
   const T = (patch) => ({ ...clone(trade), ...patch });
@@ -264,6 +288,9 @@ const good = {
     !refuses(() => V.validateStreamEvent("summary", clone(good.summary))) && !refuses(() => V.validateStreamEvent("fee", { agentId: 3, t: "2026-09-25T10:00:00Z", sol: "0.1", tx: "5".repeat(88) }))
       && refuses(() => V.validateStreamEvent("fee", { t: "2026-09-25T10:00:00Z", sol: "0.1", tx: "5".repeat(88) })) && refuses(() => V.validateStreamEvent("fee", { t: "2026-09-25T10:00:00Z", sol: "0.1", tx: "5".repeat(88), agent: 3 })) && refuses(() => V.validateStreamEvent("tip", {}))
       && refuses(() => V.validateStreamEvent("buyback", { ...clone(good.buybacks.items[0]), agentId: 1 })));
+  ok("a reset is the stream's own: its data is {} and nothing else, and it is not one of the events the endpoints return",
+    V.STREAM_RESET === "reset" && !V.STREAM_EVENTS.includes("reset") && !refuses(() => V.validateStreamEvent("reset", {}))
+      && [{ from: 3 }, { id: null }, [], null, "", 0, "{}", Object.create(null)].every((x) => refuses(() => V.validateStreamEvent("reset", x))));
   ok("non-objects are refused: arrays, strings, null, objects with a strange prototype", [[], "x", null, 5, Object.create({ mode: "live" })].every((x) => refuses(() => V.validateSummary(x))));
 }
 
@@ -340,7 +367,8 @@ section("THE CLIENT CALLS ONLY HQ");
     close() { this.readyState = 2; }
     open() { this.readyState = 1; this.onopen && this.onopen(); }
     drop(closed = false) { this.readyState = closed ? 2 : 0; this.onerror && this.onerror(); }
-    emit(type, data) { for (const fn of this.listeners[type] || []) fn({ origin: "https://api.catintelligenceagency.com", data: JSON.stringify(data) }); }
+    emit(type, data) { this.emitRaw(type, JSON.stringify(data)); }
+    emitRaw(type, data, origin = "https://api.catintelligenceagency.com") { for (const fn of this.listeners[type] || []) fn({ origin, data }); }
   }
   globalThis.EventSource = FakeES;
   let clock = 0; const timers = [];
@@ -349,7 +377,7 @@ section("THE CLIENT CALLS ONLY HQ");
   const advance = (ms) => { const end = clock + ms; for (;;) { timers.sort((a, b) => a.at - b.at); const t = timers[0]; if (!t || t.at > end) break; timers.shift(); clock = t.at; t.fn(); } clock = end; };
   const live = hqClient({ hqApi: "https://api.catintelligenceagency.com" });
   const seen = [], got = [];
-  const stop = live.stream({ onEvent: (type, d) => got.push(type), onState: (st, info) => seen.push(info ? `${st}:${info.fresh}` : st) }, { tick, untick, now: () => clock });
+  const stop = live.stream({ onEvent: (type, d) => got.push(type), onState: (st, info) => seen.push(info ? `${st}:${info.fresh}${info.reset ? ":reset" : ""}` : st) }, { tick, untick, now: () => clock });
   const es1 = FakeES.all[0];
   es1.open();
   ok("the stream opens on the contract's path and says live", es1.url === "https://api.catintelligenceagency.com/v1/stream" && JSON.stringify(seen) === '["connecting","live:false"]');
@@ -366,6 +394,20 @@ section("THE CLIENT CALLS ONLY HQ");
   ok("only a failure that lasts says \"down\"", seen.at(before - 1) === "reconnecting" && seen.at(-1) === "down" && FakeES.all.length > 1);
   const esN = FakeES.all.at(-1); esN.open();
   ok("a new stream after the browser gave up comes back live and tells the page to refetch, since it could not resume", seen.at(-1) === "live:true" && es1.readyState === 2);
+  esN.drop(); advance(3_000); esN.open();   // a quiet reconnection, with Last-Event-ID
+  const n0 = seen.length, g0 = got.length;
+  esN.emit("reset", {});
+  esN.emit("trade", clone(W.agent(2).trades[1]));
+  ok("a reset (HQ could not resume from Last-Event-ID) tells the page to reload everything it shows, and the stream reads on",
+    seen.length === n0 + 1 && seen.at(-1) === "live:true:reset" && esN.readyState === 1 && FakeES.all.at(-1) === esN && got.length === g0 + 1 && got.at(-1) === "trade");
+  esN.emit("reset", { from: 3 }); esN.emit("reset", []); esN.emitRaw("reset", ""); esN.emitRaw("reset", "{}", "https://evil.example");
+  ok("a reset with any data but {}, or from anywhere but HQ, is refused: no reload", seen.length === n0 + 1);
+  esN.drop(true); advance(40_000);
+  const esR = FakeES.all.at(-1); esR.open();
+  const n2 = seen.length;
+  esR.emit("reset", {});
+  ok("after an outage the reopened stream asks for one reload, and a reset that follows at once asks for no second one; after other events, it does",
+    seen.at(-1) === "live:true" && seen.at(-2) === "down" && seen.length === n2 && (esR.emit("fee", { agentId: 3, t: "2026-09-25T10:00:00Z", sol: "0.1", tx: "5".repeat(88) }), esR.emit("reset", {}), seen.length === n2 + 1 && seen.at(-1) === "live:true:reset"));
   stop(); delete globalThis.EventSource;
 }
 
@@ -389,6 +431,16 @@ section("THE MOCK IS THE CONTRACT'S SHAPE, AND STAYS OUT OF THE SITE");
     items.filter((x) => x.kind === "trade" && x.side === "buy").every((x) => x.rugCheck && x.rugCheck.passed) && items.some((x) => x.kind === "decision" && x.rugCheck && !x.rugCheck.passed)
       && items.filter((x) => (x.kind === "trade" ? x.side : x.action) !== "buy").every((x) => x.rugCheck === null)
       && Array.from({ length: 200 }, () => all3.nextEvent()).some((e) => e.type === "decision" && e.data.action === "buy" && e.data.rugCheck === null));
+  const marks = all3.agents().agents.flatMap((a) => all3.agent(a.id).positions.map((p) => F.staleMark(p)));
+  ok("the mock holds positions with no recent quote, valued as the contract says (one at the lower of last price and cost, one at 0), and each agent counts its own",
+    marks.includes("down") && marks.includes("zero") && marks.filter(Boolean).length === 2
+      && all3.agents().agents.every((a) => a.stats.unpricedPositions === all3.agent(a.id).positions.filter((p) => p.price === null).length));
+  const kept = [{ id: 5, type: "trade" }, { id: 6, type: "fee" }, { id: 7, type: "summary" }];
+  const ids = (xs) => xs.map((e) => (e.type === "reset" ? `reset@${e.id}` : e.id)).join();
+  ok("the mock's stream resumes from Last-Event-ID while it keeps what was missed, and otherwise starts with a reset, as HQ does",
+    ids(resumeFrom(kept, NaN, 7)) === "" && ids(resumeFrom(kept, 7, 7)) === "" && ids(resumeFrom(kept, 5, 7)) === "6,7" && ids(resumeFrom(kept, 4, 7)) === "5,6,7"
+      && ids(resumeFrom(kept, 3, 7)) === "reset@7" && ids(resumeFrom(kept, 9, 7)) === "reset@7" && ids(resumeFrom([], 6, 7)) === "reset@7"
+      && resumeFrom(kept, 1, 7).every((e) => !refuses(() => V.validateStreamEvent(e.type, clone(e.data)))));
   const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
   const siteText = walk(path.join(here, "site")).filter((f) => /\.(html|js|css|json)$/.test(f)).map((f) => [f, fs.readFileSync(f, "utf8")]);
   const leaks = siteText.filter(([, t]) => /hq-mock|Mock Mittens|Test Tabby|\bMock:|127\.0\.0\.1:8787/.test(t)).map(([f]) => path.relative(here, f));

@@ -253,6 +253,22 @@ export function winRate(wins, losses) {
   return `${Math.floor(tenths / 10)}.${tenths % 10}`;
 }
 
+/* ── positions without a recent quote (API.md, positions) ──────────────── */
+/* HQ values a position with no quote for an hour at the lower of its last price and its cost
+   (its price is then null), and at 0 once it has had none for 24 hours. What a page says of one:
+   null while it is priced, "zero" when HQ counts it at 0 after a day without a quote, "down"
+   otherwise. Read from what HQ sent (a value of 0, and no quote since a day before now).
+   STALE_WORDS is how a table cell says it, beside the value. */
+const DAY_MS = 86_400_000;
+export function staleMark(p, now = Date.now()) {
+  if (p.price !== null) return null;
+  const since = Date.parse(p.markAt === null ? p.openedAt : p.markAt);
+  return decSign(p.valueSol) === 0 && now - since >= DAY_MS ? "zero" : "down";
+}
+export const STALE_WORDS = Object.freeze({ down: "lower of last price and cost", zero: "0 after 24 h without a quote" });
+/* An agent's stats.unpricedPositions, said plainly: "2 positions without a recent price, valued down". */
+export const unpricedLine = (n) => `${n} ${n === 1 ? "position" : "positions"} without a recent price, valued down`;
+
 /* ── links: built only from a validated address or signature ────────── */
 export const solscanTx = (sig) => (typeof sig === "string" && SIGNATURE.test(sig) ? `https://solscan.io/tx/${sig}` : "");
 export const solscanAccount = (a) => (typeof a === "string" && ADDRESS.test(a) ? `https://solscan.io/account/${a}` : "");

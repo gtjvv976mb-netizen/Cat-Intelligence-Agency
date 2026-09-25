@@ -20,7 +20,7 @@
    All of it is GET, except the one POST the contract has: /v1/perks/verify, which carries the
    wallet, the challenge message and the message signature, and nothing else. */
 import {
-  HqInvalid, STREAM_EVENTS, CURSOR, validateStreamEvent, validateSummary, validateAgents, validateAgentDetail, validateDesk,
+  HqInvalid, STREAM_EVENTS, STREAM_RESET, CURSOR, validateStreamEvent, validateSummary, validateAgents, validateAgentDetail, validateDesk,
   validateLeaderboard, validateBuybacks, validateTreasury, validateTiers, validateChallenge, validatePerks,
 } from "./hq-validate.js";
 import { ADDRESS, SIGNATURE } from "./hq-format.js";
@@ -123,10 +123,17 @@ export function hqClient(cfg = (typeof window !== "undefined" && window.CIA_CONF
        gives up (an error status, say), a new stream is opened, later each time; that one starts
        without Last-Event-ID, so onState("live", { fresh: true }) tells the page to refetch what
        it may have missed. The first open is onState("live", { fresh: false }), and so is every
-       quiet reconnection (no call at all while the page never saw it away). */
+       quiet reconnection (no call at all while the page never saw it away).
+
+       When HQ can no longer resume from the Last-Event-ID the browser sent (it is older than the
+       events HQ keeps), the stream's first event is a reset, whose data must be {} and nothing
+       else: onState("live", { fresh: true, reset: true }) tells the page to reload everything it
+       shows from the endpoints, and the stream reads on. (Unless the stream's opening already
+       asked for that, after an outage, and nothing has come since: one reload is enough.) A
+       reset with any other data is refused like any bad event. */
     stream({ onEvent, onState = () => {} }, { graceMs = 8_000, downMs = 30_000, tick = setTimeout, untick = clearTimeout, now = () => Date.now() } = {}) {
       if (!online || typeof EventSource === "undefined") { onState("down"); return () => {}; }
-      let es = null, stopped = false, tries = 0, reopenTimer = 0, watchTimer = 0, awaySince = 0, shown = "connecting", opened = false, fresh = false;
+      let es = null, stopped = false, tries = 0, reopenTimer = 0, watchTimer = 0, awaySince = 0, shown = "connecting", opened = false, fresh = false, reloadAsked = false;
       const show = (st, info) => { if (st !== shown || st === "live") { shown = st; onState(st, info); } };
       /* While the stream is away, look again later: "reconnecting" after the grace, "down" after longer. */
       const watch = () => {
@@ -145,6 +152,7 @@ export function hqClient(cfg = (typeof window !== "undefined" && window.CIA_CONF
           const gap = fresh || shown === "down";   // a new stream, or a real outage: refetch to be sure
           awaySince = 0; untick(watchTimer);
           if (!opened || wasShownAway || gap) show("live", { fresh: opened && gap });
+          reloadAsked = opened && gap;
           opened = true; fresh = false;
         };
         es.onerror = () => {
@@ -156,17 +164,22 @@ export function hqClient(cfg = (typeof window !== "undefined" && window.CIA_CONF
             reopenTimer = tick(open, Math.min(60_000, 3_000 * 2 ** tries++));
           }
         };
+        /* An event's data, checked like any answer; undefined if it is refused. */
+        const read = (type, e) => {
+          if (e.origin !== origin || typeof e.data !== "string" || e.data.length > MAX_BYTES) return undefined;
+          try { return validateStreamEvent(type, JSON.parse(e.data)); } catch (err) {
+            console.warn(`HQ stream: refused a "${type}" event:`, err && err.message);
+            return undefined;
+          }
+        };
         for (const type of STREAM_EVENTS) {
-          es.addEventListener(type, (e) => {
-            if (e.origin !== origin || typeof e.data !== "string" || e.data.length > MAX_BYTES) return;
-            let data;
-            try { data = validateStreamEvent(type, JSON.parse(e.data)); } catch (err) {
-              console.warn(`HQ stream: refused a "${type}" event:`, err && err.message);
-              return;
-            }
-            onEvent(type, data);
-          });
+          es.addEventListener(type, (e) => { const data = read(type, e); if (data !== undefined) { reloadAsked = false; onEvent(type, data); } });
         }
+        es.addEventListener(STREAM_RESET, (e) => {
+          if (read(STREAM_RESET, e) === undefined) return;
+          if (!reloadAsked) show("live", { fresh: true, reset: true });
+          reloadAsked = true;
+        });
       };
       onState("connecting");
       open();

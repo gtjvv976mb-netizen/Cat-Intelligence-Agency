@@ -8,11 +8,15 @@
  * Events, with Last-Event-ID. Its addresses and signatures are random base58: they point at
  * nothing. Nothing in site/ names it.
  *
- *   node scripts/hq-mock.mjs [--port 8787] [--mode mixed|paper|live] [--empty] [--site 8080] [--stream-seconds 300]
+ *   node scripts/hq-mock.mjs [--port 8787] [--mode mixed|paper|live] [--empty] [--site 8080] [--stream-seconds 300] [--keep 200]
  *
- * --empty answers with no agents at all. Like HQ, the mock ends each stream after at most five
- * minutes (--stream-seconds sets it shorter, to watch the pages reconnect); the browser comes
- * back with Last-Event-ID and the mock replays what it missed. --site also serves site/ at http://127.0.0.1:<port>
+ * --empty answers with no agents at all. Two positions have no recent quote, as the contract
+ * values them: one at the lower of its last price and its cost, one at 0 after a day without one.
+ * Like HQ, the mock ends each stream after at most five minutes (--stream-seconds sets it
+ * shorter, to watch the pages reconnect); the browser comes back with Last-Event-ID and the mock
+ * replays what it missed. It keeps the last 200 events for that (--keep sets how many); a client
+ * whose Last-Event-ID is older than those gets a reset first, and reloads (--keep 0 sends a reset
+ * on every reconnection that missed anything). --site also serves site/ at http://127.0.0.1:<port>
  * for development, pointed at the mock: its config.js gets hqApi set to the mock's origin, and
  * each page's Content-Security-Policy lets it connect to the mock too (the committed pages
  * connect only to themselves and https://api.catintelligenceagency.com). test-hq-site.mjs checks
@@ -89,6 +93,7 @@ export function mockWorld({ seed = 7, mode = "mixed", empty = false, now = Date.
         careerRealizedSol: dec(career), feesClaimedSol: dec(r() * 1.4), depositedSol: dec(deposited), withdrawnSol: dec(withdrawn),
         trades: (wins + losses) * 2 + Math.floor(r() * 3), wins, losses, maxDrawdownPct: dec(4 + r() * 30, 2),
         roiPct: dec(((realized + unreal) / deposited) * 100, 2),   // over the SOL ever deposited (gross)
+        unpricedPositions: 0,   // counted from its positions below
       },
     };
     agents.push(a);
@@ -124,19 +129,29 @@ export function mockWorld({ seed = 7, mode = "mixed", empty = false, now = Date.
     /* A paper agent's deposits are book entries, with no transaction. */
     const ptx = () => (agentMode === "paper" ? null : sig());
     const transfers = [{ t: iso((count - i) * 26 * H), kind: "deposit", sol: dec(deposited), tx: ptx() }, ...(withdrawn ? [{ t: iso(20 * H), kind: "withdrawal", sol: dec(withdrawn), tx: ptx() }] : [])];
+    /* Quoted within minutes, but for two: one with no quote for three hours, valued at the lower of
+       its last price and its cost, and one with none for thirty hours, valued at 0. */
+    const positions = Array.from({ length: i % 4 }, (_, k) => {
+      const cost = 0.05 + r() * 0.2, pct = (r() - 0.45) * 50;
+      const entry = 0.0000009 + r() * 0.00001;
+      const stale = i === 3 && k === 1 ? "down" : i === 7 && k === 2 ? "zero" : null;
+      const mint = addr(), symbol = pick(TOKENS);
+      if (stale === "down") {
+        const value = Math.min(cost, cost * (1 + pct / 100));
+        return { mint, symbol, costSol: dec(cost), valueSol: dec(value), entryPrice: roundDec(entry.toFixed(12), 12), price: null, pnlSol: dec(value - cost), pnlPct: null, markAt: iso(3 * H), openedAt: iso(5 * H) };
+      }
+      if (stale === "zero") return { mint, symbol, costSol: dec(cost), valueSol: "0", entryPrice: roundDec(entry.toFixed(12), 12), price: null, pnlSol: dec(-cost), pnlPct: null, markAt: iso(30 * H), openedAt: iso(40 * H) };
+      return { mint, symbol, costSol: dec(cost), valueSol: dec(cost * (1 + pct / 100)), entryPrice: roundDec(entry.toFixed(12), 12),
+        price: roundDec((entry * (1 + pct / 100)).toFixed(12), 12), pnlSol: dec((cost * pct) / 100), pnlPct: dec(pct, 2), markAt: iso((k + 1) * 4 * 60_000), openedAt: iso((k + 1) * 2.5 * H) };
+    });
+    a.stats.unpricedPositions = positions.filter((p) => p.price === null).length;
     const promotions = [];
     const ri = RANKS.findIndex((x) => x.id === rank);
     for (let k = 1; k <= ri; k++) promotions.push({ t: iso((ri - k + 1) * 9 * H), from: RANKS[k - 1].id, to: RANKS[k].id });
     details.set(id, {
       ...a,
       limits: { maxPerTradeSol: "0.25", maxOpenPositions: 3, stopLossPct: "20", takeProfitPct: "50", trailingStopPct: i % 2 ? "12" : null, dailyLossLimitSol: "0.5" },
-      positions: Array.from({ length: i % 4 }, (_, k) => {
-        const cost = 0.05 + r() * 0.2, pct = (r() - 0.45) * 50;
-        const entry = 0.0000009 + r() * 0.00001;
-        const quoted = !(i === 3 && k === 1);   // one position with no quote just now
-        return { mint: addr(), symbol: pick(TOKENS), costSol: dec(cost), valueSol: dec(cost * (1 + pct / 100)), entryPrice: roundDec(entry.toFixed(12), 12),
-          price: quoted ? roundDec((entry * (1 + pct / 100)).toFixed(12), 12) : null, pnlSol: dec((cost * pct) / 100), pnlPct: quoted ? dec(pct, 2) : null, openedAt: iso((k + 1) * 2.5 * H) };
-      }),
+      positions,
       decisions, trades, equity, fees, transfers, promotions,
     });
   }
@@ -259,7 +274,18 @@ function serveSite(port, mockOrigin) {
 }
 
 /* ── the mock HQ ────────────────────────────────────────────────────────── */
-function serve({ port, site, streamSeconds = 300, ...opts }) {
+/* What a stream sends first, given the client's Last-Event-ID (last), the events kept (log, oldest
+   first) and the newest id: nothing for a new stream or one that missed nothing; what it missed,
+   when the log still holds all of it; otherwise a reset (data {}), as HQ sends, carrying the newest
+   id so the next reconnection resumes from there. An id from before a restart is one it cannot
+   resume from either. */
+export function resumeFrom(log, last, latest) {
+  if (!Number.isSafeInteger(last) || last === latest) return [];
+  const oldest = log.length ? log[0].id : latest + 1;
+  if (last > latest || last + 1 < oldest) return [{ id: latest, type: "reset", data: {} }];
+  return log.filter((e) => e.id > last);
+}
+function serve({ port, site, streamSeconds = 300, keep = 200, ...opts }) {
   const world = mockWorld(opts);
   const clients = new Set();
   const log = [];
@@ -274,7 +300,7 @@ function serve({ port, site, streamSeconds = 300, ...opts }) {
   const send = (res, e) => res.write(`id: ${e.id}\nevent: ${e.type}\ndata: ${JSON.stringify(e.data)}\n\n`);
   setInterval(() => {
     const e = { id: ++eventId, ...world.nextEvent() };
-    log.push(e); if (log.length > 200) log.shift();
+    log.push(e); while (log.length > keep) log.shift();
     for (const c of clients) send(c, e);
   }, 2500).unref();
   const server = http.createServer((req, res) => {
@@ -306,8 +332,8 @@ function serve({ port, site, streamSeconds = 300, ...opts }) {
       case "/v1/stream": {
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive", ...cors(req) });
         res.write("retry: 3000\n\n");
-        const last = Number(req.headers["last-event-id"]);
-        if (Number.isSafeInteger(last)) for (const e of log) if (e.id > last) send(res, e);
+        const lastHeader = req.headers["last-event-id"];
+        for (const e of resumeFrom(log, /^\d{1,15}$/.test(lastHeader || "") ? Number(lastHeader) : NaN, eventId)) send(res, e);
         clients.add(res);
         /* HQ ends a stream after at most five minutes; the client reconnects with Last-Event-ID. */
         const end = setTimeout(() => { clients.delete(res); res.end(); }, Math.min(300, streamSeconds) * 1000);
@@ -324,5 +350,5 @@ function serve({ port, site, streamSeconds = 300, ...opts }) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : d; };
-  serve({ port: Number(arg("--port", "8787")), mode: arg("--mode", "mixed"), empty: process.argv.includes("--empty"), seed: Number(arg("--seed", "7")), site: arg("--site", "") ? Number(arg("--site", "")) : 0, streamSeconds: Number(arg("--stream-seconds", "300")) });
+  serve({ port: Number(arg("--port", "8787")), mode: arg("--mode", "mixed"), empty: process.argv.includes("--empty"), seed: Number(arg("--seed", "7")), site: arg("--site", "") ? Number(arg("--site", "")) : 0, streamSeconds: Number(arg("--stream-seconds", "300")), keep: Math.max(0, Number(arg("--keep", "200")) || 0) });
 }

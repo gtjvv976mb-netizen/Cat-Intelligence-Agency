@@ -2,14 +2,16 @@
    The $CIA mint comes from the one config (and is shown whether or not HQ is online); the rest
    comes from HQ through hq-client.js: the summary (whose live and paper blocks are the agency's
    trading record, shown apart and never added together), the buyback policy and log, and the
-   treasury and its flows. Text only; every link from a checked address or signature. */
+   treasury and its flows. The agents are read too, only to say when any of them holds a position
+   with no recent price, which the record counts valued down. Text only; every link from a
+   checked address or signature. */
 import { hqClient } from "./hq-client.js";
 import { ADDRESS, fmtSol, fmtTokens, fmtPrice, fmtPct, decSign, modeRecord, solscanToken, gmgn } from "./hq-format.js";
-import { $, el, out, setState, sol, pct, when, keepTime, txLink, walletLink, stat, refusedNote, whyNot, setPill } from "./hq-ui.js";
+import { $, el, out, setState, sol, pct, when, keepTime, txLink, walletLink, stat, refusedNote, whyNot, setPill, unpricedNote } from "./hq-ui.js";
 
 const hq = hqClient();
 const pill = $("#pill");
-let stopStream = null;
+let stopStream = null, agents = [], agentsTimer = 0, lastSummary = null;
 
 /* ── $CIA, from the config: the mint, and its Solscan and GMGN pages ──── */
 (function ciaCard() {
@@ -27,16 +29,20 @@ let stopStream = null;
 })();
 
 /* ── HQ's figures ──────────────────────────────────────────────────────── */
-async function boot() {
-  setState("loading");
-  setPill(pill, "connecting");
-  const [s, b, t] = await Promise.allSettled([hq.summary(), hq.buybacks({ limit: 100 }), hq.treasury()]);
+/* quiet: a reload while the page already shows HQ's figures (the stream came back without
+   Last-Event-ID, or HQ could not resume it): the figures stay up until the new ones arrive. */
+async function boot({ quiet = false } = {}) {
+  if (!quiet) { setState("loading"); setPill(pill, "connecting"); }
+  const [s, b, t, a] = await Promise.allSettled([hq.summary(), hq.buybacks({ limit: 100 }), hq.treasury(), hq.agents()]);
   if ([s, b, t].every((r) => r.status === "rejected")) {
+    if (quiet) return;
     setState("error"); setPill(pill, "down");
     $("#hq-error-title").textContent = whyNot(s.reason);
     return;
   }
   setState("online");
+  if (a.status === "fulfilled") agents = a.value.value.agents;
+  lastSummary = s;
   drawSummary(s);
   drawBuybacks(b);
   drawTreasury(t);
@@ -118,7 +124,8 @@ function drawTreasury(r) {
   if (note) $("#flows").append(note);
 }
 
-/* The agency's trading record: the summary's live block and paper block, side by side. */
+/* The agency's trading record: the summary's live block and paper block, side by side; under
+   each, a note when any of that mode's agents holds a position with no recent price. */
 function drawRecord(r) {
   for (const mode of ["live", "paper"]) {
     const slot = $(`[data-mode="${mode}"] [data-slot="record"]`);
@@ -137,20 +144,30 @@ function drawRecord(r) {
       stat({ label: "Agents", value: el("span", "amt", String(T.agents.total)), sub: `${T.agents.active} at work`, mode }),
     );
     slot.replaceChildren(g);
+    const stale = unpricedNote(agents, mode);
+    if (stale) slot.append(stale);
   }
+}
+async function reloadAgents() {
+  try { agents = (await hq.agents()).value.agents; } catch { return; }
+  if (lastSummary) drawRecord(lastSummary);
 }
 
 function onEvent(type, data) {
   if (type === "buyback") { buybacks.unshift(data); drawBuybackLog(); hq.treasury().then((v) => drawTreasury({ status: "fulfilled", value: v }), () => {}); }
-  else if (type === "summary") { const r = { status: "fulfilled", value: { value: data, problems: [] } }; drawSummary(r); drawRecord(r); }
+  else if (type === "summary") {
+    const r = { status: "fulfilled", value: { value: data, problems: [] } };
+    lastSummary = r; drawSummary(r); drawRecord(r);
+    if (!agentsTimer) agentsTimer = setTimeout(() => { agentsTimer = 0; reloadAgents(); }, 15_000);   // which agents hold unpriced positions, at most every 15 s
+  }
   else if (type === "promotion" || type === "trade") { /* the record moves with every trade; reloaded when the stream comes back, not on each */ }
 }
 function onState(st, info) {
   setPill(pill, st);
-  if (st === "live" && info && info.fresh) boot();   // back without Last-Event-ID: refetch
+  if (st === "live" && info && info.fresh) boot({ quiet: true });   // back without Last-Event-ID, or HQ could not resume (a reset): reload everything
 }
 
-$("#retry").addEventListener("click", boot);
+$("#retry").addEventListener("click", () => boot());
 keepTime();
 if (hq.online) boot();
 else { setState("offline"); setPill(pill, "offline"); }

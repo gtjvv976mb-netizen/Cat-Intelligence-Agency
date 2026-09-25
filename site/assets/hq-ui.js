@@ -7,7 +7,7 @@
    colour. */
 import {
   fmtSol, fmtPct, fmtPrice, fmtAgo, fmtUtc, signClass, solscanTx, solscanAccount, solscanToken, pumpFun, shortAddr, agentPath,
-  RANKS, rankOf, SKINS, RANK_ART, CATS, STRATEGIES, skinOf, ticker,
+  RANKS, rankOf, SKINS, RANK_ART, CATS, STRATEGIES, skinOf, ticker, unpricedLine,
 } from "./hq-format.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
@@ -145,6 +145,15 @@ export function stat({ label, value, sub = "", mode = null, cls = "" }) {
 export function refusedNote(n) {
   if (!n) return null;
   return el("p", "refused", `HQ sent ${n} ${n === 1 ? "entry" : "entries"} this page could not verify against the contract, so ${n === 1 ? "it is" : "they are"} not shown.`);
+}
+/* Where a summary or a record draws on one mode's agents: how many of their positions have no
+   recent price, and so are valued down in its figures (HQ's stats.unpricedPositions). Null when
+   none has. One mode only: paper and live are never added together. */
+export function unpricedNote(agents, mode) {
+  const mine = agents.filter((a) => a.mode === mode && a.stats.unpricedPositions > 0);
+  if (!mine.length) return null;
+  const n = mine.reduce((k, a) => k + a.stats.unpricedPositions, 0);
+  return el("p", "stale-note", `${unpricedLine(n)}, held by ${mine.length} ${mode} ${mine.length === 1 ? "agent" : "agents"}. These figures count ${n === 1 ? "it" : "each"} at the lower of its last price and its cost, or at 0 after 24 hours without a quote.`);
 }
 /* What a failed load says, by why it failed. */
 export function whyNot(e) {

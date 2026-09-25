@@ -1022,12 +1022,38 @@ section("AGENCY HQ: LIVE, OR SAYS IT IS NOT");
   ok("a rug check's four checks are the contract's, in its order", JSON.stringify(HV.RUG_CHECKS) === JSON.stringify((fmt(/"id": "([a-z_|]+)"/) || "").split("|")) && /exactly four entries, one per id, in that order/.test(API));
   ok("the pages say how HQ now counts: return over all the SOL deposited (and over a period), drawdown from marked value with deposits, withdrawals and fees neutral, buybacks in two legs with fees in and counted once",
     has("investors", "over all the SOL ever deposited with the agent: a withdrawal or a profit sweep does not change it") && has("investors", "Over 7 or 30 days, the realized P&L in the period plus the change in unrealized over it")
-      && has("investors", "with open positions valued at their latest quote. Deposits, withdrawals and creator fees neither make a drawdown nor hide one.")
+      && has("investors", "with open positions valued at their latest quote, or valued down without one, as above. Deposits, withdrawals and creator fees neither make a drawdown nor hide one.")
       && has("investors", "each buyback is two swaps from the treasury, SOL to HYPE and HYPE to $CIA") && has("investors", "network fees included, read from the chain") && has("investors", "is finished first by the next run, and is listed once")
       && has("hq", "Return over the period is the realized trading P&L in it plus the change in unrealized over it, over all the SOL ever deposited with the agent") && !/net deposits\./.test(src["hq-agent.js"]));
   ok("a stream HQ ends (it does, within five minutes) comes back quietly: the pages refetch only when it came back without Last-Event-ID or after an outage",
     ["hq-live.js", "hq-agent.js", "hq-investors.js"].every((f) => /if \(st === "live" && info && info\.fresh\)/.test(src[f]) && !/streamedOnce/.test(src[f]))
       && /graceMs = 8_000, downMs = 30_000/.test(src["hq-client.js"]) && (src["hq-client.js"].match(/new EventSource\(/g) || []).length === 1);
+  /* A position without a recent quote is valued down, and a stream HQ cannot resume starts with a reset. */
+  const apiKeys = (re) => [...((API.match(re) || [])[1] || "").matchAll(/"(\w+)":/g)].map((m) => m[1]);
+  const posKeys = apiKeys(/"positions": \[ \{([\s\S]*?)\} \]/), statKeys = apiKeys(/"stats": \{([\s\S]*?)\} \}/);
+  const MW = (await import("./scripts/hq-mock.mjs")).mockWorld({ mode: "mixed" });
+  const copy = (x) => JSON.parse(JSON.stringify(x));
+  ok("a position's fields and an agent's stats are the contract's, markAt and unpricedPositions among them, and each is required",
+    posKeys.length === 10 && posKeys.includes("markAt") && statKeys.length === 14 && statKeys.at(-1) === "unpricedPositions"
+      && JSON.stringify(Object.keys(MW.agent(4).positions[0])) === JSON.stringify(posKeys) && JSON.stringify(Object.keys(MW.agent(4).stats)) === JSON.stringify(statKeys)
+      && posKeys.every((k) => { const d = copy(MW.agent(4)); delete d.positions[0][k]; return HVC.validateAgentDetail(d, 4).problems.length === 1; })
+      && statKeys.every((k) => { const o = copy(MW.agents()); delete o.agents[0].stats[k]; return HVC.validateAgents(o).problems.length === 1; }), `${posKeys.length} position fields, ${statKeys.length} stats`);
+  ok("the contract says how a position without a recent quote is valued, and the site checks it: no price or percent, never above its cost",
+    /With none for an hour, `price` and `pnlPct` are null\s+and `valueSol` is the lower of its last price and its cost; after 24 hours with none it is valued\s+at 0/.test(API)
+      && /if \(p\.price === null && decCmp\(p\.valueSol, p\.costSol\) > 0\) bad\(/.test(src["hq-validate.js"]) && /if \(p\.price === null && p\.pnlPct !== null\) bad\(/.test(src["hq-validate.js"]));
+  ok("the dossier shows each position's last quote, and says how one without a recent price is valued; its stats say how many there are",
+    /if \(p\.markAt === null\) line\.textContent = "never quoted";\s+else line\.append\("quoted ", when\(p\.markAt\)\);/.test(src["hq-agent.js"]) && /\[p\.price === null \? el\("span", "tx none", "no recent price"\) : fmtPrice\(p\.price\), quoted\(p\)\]/.test(src["hq-agent.js"])
+      && /No recent price: \$\{many\("down"\)\} valued at the lower of the last price and the cost\./.test(src["hq-agent.js"]) && /Valued at 0 after 24 h without a quote: \$\{many\("zero"\)\}\./.test(src["hq-agent.js"])
+      && /if \(s\.unpricedPositions > 0\) \$\("#agent-stats"\)\.append\(el\("p", "stale-note", `\$\{unpricedLine\(s\.unpricedPositions\)\}\. HQ has had no quote/.test(src["hq-agent.js"]));
+  ok("an agent's card says when it holds positions without a recent price, and so do the HQ summary and the trading record, per mode",
+    /const stale = a\.stats\.unpricedPositions > 0 \? el\("p", "recruit-stale", unpricedLine\(a\.stats\.unpricedPositions\)\) : null;/.test(src["hq-live.js"])
+      && /const stale = unpricedNote\(\[\.\.\.S\.agents\.values\(\)\], mode\);/.test(src["hq-live.js"]) && /const stale = unpricedNote\(agents, mode\);/.test(src["hq-investors.js"])
+      && /a\.mode === mode && a\.stats\.unpricedPositions > 0/.test(src["hq-ui.js"]) && has("investors", "A position with no quote for an hour is valued at the lower of its last price and its cost, and at 0 after 24 hours without one"));
+  ok("a reset on the stream (data {} and nothing else) makes each page reload everything it shows, and the stream reads on",
+    /the stream's first event is `reset` \(data `\{\}`\), and the\s+client reloads what it shows from the endpoints before reading on/.test(API)
+      && /case STREAM_RESET: if \(!isObject\(raw\) \|\| Object\.keys\(raw\)\.length\) bad\(/.test(src["hq-validate.js"])
+      && /es\.addEventListener\(STREAM_RESET, \(e\) => \{\s+if \(read\(STREAM_RESET, e\) === undefined\) return;\s+if \(!reloadAsked\) show\("live", \{ fresh: true, reset: true \}\);/.test(src["hq-client.js"])
+      && /drawSummary\(\); drawDesk\(\); reloadAgents\(\); loadBoards\(\);/.test(src["hq-live.js"]) && /info\.fresh\) load\(\{ quiet: true \}\)/.test(src["hq-agent.js"]) && /info\.fresh\) boot\(\{ quiet: true \}\)/.test(src["hq-investors.js"]));
   ok("the perks page shows the tiers HQ sends, and writes no threshold of its own", /tiers = \(await hq\.tiers\(\)\)\.value\.tiers;/.test(src["hq-perks.js"]) && /fmtTokens\(t\.minCia\)/.test(src["hq-perks.js"])
     && !/\d/.test(textOf((html.perks.match(/<section class="hq-sec alt" id="tiers"[\s\S]*?<\/section>/) || [""])[0])) && has("perks", "never writes a threshold of its own"));
   ok("every buy is shown with Crying Cat's check: passed on a trade, passed or refused on a decision, or not run yet", /Rug check refused this buy/.test(src["hq-ui.js"]) && /Not run yet: no buy is made before it passes\./.test(src["hq-ui.js"])

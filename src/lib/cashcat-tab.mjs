@@ -39,7 +39,13 @@
  *
  * THE JOURNAL keeps every launch (its mint, signature, trend or topic, cost) and every refusal,
  * newest first. A launch is written as "sending" BEFORE it is signed, so a worker that dies
- * mid-send still counts it against the day and leaves it for the user to check.
+ * mid-send still counts it against the day and leaves it for the user to check. Trimming it to
+ * JOURNAL_MAX never drops a launch that still blocks the next one or counts against the day.
+ *
+ * THE SETTINGS are read, changed and written under one lock (withSettings), so a disarm or a cap
+ * changed while the alarm's tick reads them is never overwritten by that tick; and an automatic
+ * run checks it is still armed, for the same wallet and caps, before it pins and again before
+ * anything is signed.
  *
  * StonkFun, and pump.fun coins quoted in a stock, stay the agency's CashCat's for now: this tab
  * launches SOL-quoted pump.fun coins only. Everything is injected; this file touches no chrome.*
@@ -159,6 +165,13 @@ export const COUNTS_AGAINST_DAY = Object.freeze(["sending", "launched", "unknown
 export function launchesOn(journal, day) {
   return journal.filter((j) => COUNTS_AGAINST_DAY.includes(j.kind) && utcDay(j.at) === day).length;
 }
+/** Kept past JOURNAL_MAX: a launch with no known outcome (it blocks the next one), and any launch
+ *  of the last two days (it counts against a UTC day's cap). Refusals are what gets trimmed. */
+const JOURNAL_KEEP_MS = 2 * 24 * 3_600_000;
+export function trimJournal(journal, now) {
+  return journal.filter((e, i) => i < JOURNAL_MAX || e.kind === "sending" || e.kind === "unknown"
+    || (COUNTS_AGAINST_DAY.includes(e.kind) && now - Number(e.at) < JOURNAL_KEEP_MS));
+}
 
 /**
  * The CashCat tab's worker side.
@@ -176,8 +189,22 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
 
   const loadSettings = async () => readSettings(await storage.get(CASHCAT_TAB_KEYS.settings));
   const saveSettingsRaw = (s) => storage.set(CASHCAT_TAB_KEYS.settings, s);
+  /* Every read-change-write of the settings runs under this one lock, in turn: a disarm, a cap
+     changed in Options and the alarm's tick never interleave, so none overwrites another. */
+  let settingsTurn = Promise.resolve();
+  function withSettings(fn) {
+    const run = settingsTurn.then(async () => fn(await loadSettings()));
+    settingsTurn = run.catch(() => {});
+    return run;
+  }
+  const armedFor = (settings, wallet) => settings.auto.on === true && Boolean(wallet) && settings.auto.armed?.sentence === autoArmSentence({ wallet, settings });
+  /** An automatic run, before it pins and before it signs: still armed, for this wallet, with these caps. */
+  async function stillArmed(wallet) {
+    const now = await loadSettings();
+    if (!armedFor(now, wallet)) refuse("disarmed", "auto mode was disarmed, or a cap changed, while this run was under way: nothing was signed");
+  }
   const loadJournal = async () => { const j = await storage.get(CASHCAT_TAB_KEYS.journal); return Array.isArray(j) ? j.filter(isObject) : []; };
-  const saveJournal = (j) => storage.set(CASHCAT_TAB_KEYS.journal, j.slice(0, JOURNAL_MAX));
+  const saveJournal = (j) => storage.set(CASHCAT_TAB_KEYS.journal, trimJournal(j, clock()));
   async function journalAdd(entry) { const j = await loadJournal(); const e = { at: clock(), ...entry }; await saveJournal([e, ...j]); return e; }
   async function journalUpdate(mint, patch) {
     const j = await loadJournal();
@@ -332,6 +359,7 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
     const settings = await loadSettings();
     const journal = await loadJournal();
     const p = await preflight({ mode, settings, journal });
+    if (mode === "auto") await stillArmed(p.wallet);
     const r = await judged(draft, { requireModel: mode === "auto" });
     if (!r.ok) refuse("draft_refused", r.refusals.join("; "));
     const { png } = await renderLogo({ ticker: draft.symbol, kitten: draft.kitten, background: draft.background });
@@ -342,10 +370,12 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
       /* Everything decidable before an upload is decided first, with a placeholder URI of the
          real length: a launch a guard would refuse never pins files. */
       await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: uriFor("pumpfun", `bafkrei${"a".repeat(52)}`) });
+      if (mode === "auto") await stillArmed(p.wallet);
       stage = "pinning";
       const pinned = await pinata.pin({ logoPng: png, coin: { name: draft.name, symbol: draft.symbol }, buildDoc });
       stage = "checking";
       const built = await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: pinned.uri });
+      if (mode === "auto") await stillArmed(p.wallet);
       await journalAdd({ kind: "sending", mode, mint, creator: p.wallet, name: draft.name, symbol: draft.symbol, topic: draft.topic, source: draft.source, uri: pinned.uri,
         simulatedSpendSol: sol(built.spentLamports) });
       stage = "signing";
@@ -436,36 +466,49 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
       if (!c.wallet) refuse("no_autopilot", "create the autopilot wallet first");
       if (!c.ready) refuse("checklist", `not armed: ${c.items.filter((i) => !i.ok).map((i) => i.name.replace(/_/g, " ")).join(", ")}`);
       if (typeof sentence !== "string" || sentence.trim() !== c.expected) refuse("sentence", "the sentence does not match, byte for byte; copy it from above the box");
-      settings.auto.on = true;
-      settings.auto.armed = { sentence: c.expected, at: clock(), wallet: c.wallet };
-      settings.auto.nextAt = clock() + FIRST_AUTO_DELAY_MS;
-      await saveSettingsRaw(settings);
-      await journalAdd({ kind: "armed", mode: "auto", message: `auto mode armed: at most ${settings.auto.maxPerDay} a day, every ${settings.auto.everyHours} h at most, first run at ${new Date(settings.auto.nextAt).toISOString().slice(11, 16)} UTC` });
-      return { ok: true, nextAt: settings.auto.nextAt };
+      /* Armed only as the sentence reads: if a cap changed since it was printed, it does not arm. */
+      const armed = await withSettings(async (now) => {
+        if (autoArmSentence({ wallet: c.wallet, settings: now }) !== c.expected) refuse("sentence", "a cap changed since the sentence was printed; copy the new one");
+        now.auto.on = true;
+        now.auto.armed = { sentence: c.expected, at: clock(), wallet: c.wallet };
+        now.auto.nextAt = clock() + FIRST_AUTO_DELAY_MS;
+        await saveSettingsRaw(now);
+        return now;
+      });
+      await journalAdd({ kind: "armed", mode: "auto", message: `auto mode armed: at most ${armed.auto.maxPerDay} a day, every ${armed.auto.everyHours} h at most, first run at ${new Date(armed.auto.nextAt).toISOString().slice(11, 16)} UTC` });
+      return { ok: true, nextAt: armed.auto.nextAt };
     });
   }
 
   async function disarmAuto(why = "you disarmed it") {
-    const settings = await loadSettings();
-    const was = settings.auto.on;
-    settings.auto.on = false; settings.auto.armed = null; settings.auto.nextAt = null;
-    await saveSettingsRaw(settings);
+    const was = await withSettings(async (settings) => {
+      const on = settings.auto.on;
+      settings.auto.on = false; settings.auto.armed = null; settings.auto.nextAt = null;
+      await saveSettingsRaw(settings);
+      return on;
+    });
     if (was) await journalAdd({ kind: "disarmed", mode: "auto", message: `auto mode disarmed: ${why}` });
     return { ok: true };
   }
 
   /** On the worker's alarm: one automatic launch when armed, due, and every guard is green. */
   async function autoTick() {
-    const settings = await loadSettings();
-    if (!settings.auto.on) return { ran: false, why: "off" };
-    const f = fences();
-    const wallet = f?.wallet() ?? null;
-    if (!wallet || settings.auto.armed?.sentence !== autoArmSentence({ wallet, settings })) { await disarmAuto("the wallet or a cap changed since it was armed"); return { ran: false, why: "disarmed" }; }
-    if (!Number.isFinite(settings.auto.nextAt) || settings.auto.nextAt > clock()) return { ran: false, why: "not due" };
-    if (busy) return { ran: false, why: "busy" };
-    /* The next run is scheduled first: a refusal never retries every half minute. */
-    settings.auto.nextAt = clock() + settings.auto.everyHours * 3_600_000;
-    await saveSettingsRaw(settings);
+    /* Read, judged and rescheduled under the settings' lock: a disarm or a cap change that lands
+       at the same moment is never overwritten by this tick. */
+    const due = await withSettings(async (settings) => {
+      if (!settings.auto.on) return { ran: false, why: "off" };
+      const wallet = fences()?.wallet() ?? null;
+      if (!armedFor(settings, wallet)) return { ran: false, why: "disarmed", disarm: true };
+      if (!Number.isFinite(settings.auto.nextAt) || settings.auto.nextAt > clock()) return { ran: false, why: "not due" };
+      if (busy) return { ran: false, why: "busy" };
+      /* The next run is scheduled first: a refusal never retries every half minute. */
+      settings.auto.nextAt = clock() + settings.auto.everyHours * 3_600_000;
+      await saveSettingsRaw(settings);
+      return { go: true, settings };
+    });
+    if (due.disarm) { await disarmAuto("the wallet or a cap changed since it was armed"); return { ran: false, why: "disarmed" }; }
+    if (!due.go) return due;
+    const { settings } = due;
     return exclusive("auto mode", async () => {
       try {
         const journal = await loadJournal();
@@ -480,7 +523,9 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
       } catch (e) {
         const clause = e?.clause ?? "error";
         await journalAdd({ kind: "refused", mode: "auto", clause, message: String(e?.message ?? e).slice(0, 300) });
-        if (!(e instanceof CashcatError) && !["failed_on_chain", "expired"].includes(clause)) await disarmAuto(`a launch failed in a way that needs you to look (${clause})`);
+        /* A failure that is not a plain refusal, or a launch whose outcome could not be read back,
+           needs the owner: auto mode stops until they look. */
+        if ((!(e instanceof CashcatError) || clause === "read_back") && !["failed_on_chain", "expired"].includes(clause)) await disarmAuto(`a launch failed in a way that needs you to look (${clause})`);
         return { ran: true, ok: false, clause, message: String(e?.message ?? e) };
       }
     });
@@ -489,9 +534,11 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
   /* ── what the popup and Popcat read ──────────────────────────────────────────────────── */
 
   async function saveSettings(input) {
-    const prev = await loadSettings();
-    const next = normalizeCashcatSettings(isObject(input) ? input : {}, prev);
-    await saveSettingsRaw(next);
+    const { prev, next } = await withSettings(async (prev) => {
+      const next = normalizeCashcatSettings(isObject(input) ? input : {}, prev);
+      await saveSettingsRaw(next);
+      return { prev, next };
+    });
     if (prev.auto.on && !next.auto.on) await journalAdd({ kind: "disarmed", mode: "auto", message: "auto mode disarmed: a cap changed" });
     return next;
   }

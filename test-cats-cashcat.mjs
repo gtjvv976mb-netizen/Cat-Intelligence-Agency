@@ -511,4 +511,68 @@ section("8. AUTO MODE: ARMED BY A SENTENCE, CAPPED, NO DEV BUY, NEVER A BUY OR A
   ok("a sentence armed for another wallet disarms at the next tick", (await z.tab.autoTick()).why === "disarmed" && (await z.tab.status()).settings.auto.on === false);
 }
 
+section("9. A DISARM WINS: NO TICK OVERWRITES IT, AND A RUN IN FLIGHT SIGNS NOTHING AFTER IT");
+{
+  const probe = network();
+  const usable = (await readTrends({ http: probe.http })).usable;
+  let hook = null;
+  const proposal = () => { hook?.(); return { skip: false, trend: usable[0].title, name: "Race Cat", symbol: "RACECAT", tagline: "A cat's calm look at what everyone is searching for.", kitten: "black", background: "mint" }; };
+  const armedWorld = async () => {
+    const w = await world({ net: network({ proposal }) });
+    await w.tab.armAuto({ sentence: autoArmSentence({ wallet: w.WALLET, settings: CASHCAT_TAB_DEFAULTS }) });
+    w.T.now += FIRST_AUTO_DELAY_MS;
+    return w;
+  };
+  const a = await armedWorld();
+  /* The owner presses Disarm at the moment the alarm's tick reads the settings. */
+  const [, tick] = await Promise.all([a.tab.disarmAuto(), a.tab.autoTick()]);
+  ok("a disarm and a due tick at the same moment: the disarm stands, and nothing is launched",
+    (await a.tab.status()).settings.auto.on === false && a.chain.st.sent.length === 0 && a.net.uploads.length === 0, JSON.stringify({ tick: tick?.why ?? tick?.clause, sent: a.chain.st.sent.length }));
+  const c = await armedWorld();
+  const [, capTick] = await Promise.all([c.tab.saveSettings({ auto: { everyHours: 24 } }), c.tab.autoTick()]);
+  const cs = (await c.tab.status()).settings.auto;
+  ok("a cap changed at the moment of a due tick: the new cap is kept, auto mode is off, and nothing is launched",
+    cs.everyHours === 24 && cs.on === false && c.chain.st.sent.length === 0, JSON.stringify({ tick: capTick?.why ?? capTick?.clause, every: cs.everyHours, on: cs.on }));
+  const b = await armedWorld();
+  hook = () => { hook = null; b.tab.disarmAuto(); };          // disarmed while the model drafts the coin
+  const midway = await b.tab.autoTick();
+  ok("disarmed while a run is drafting: the run stops before anything is pinned or signed (disarmed), and it stays off",
+    b.chain.st.sent.length === 0 && b.net.uploads.length === 0 && midway.ok === false && midway.clause === "disarmed" && (await b.tab.status()).settings.auto.on === false, JSON.stringify({ clause: midway.clause, sent: b.chain.st.sent.length }));
+}
+
+section("10. THE JOURNAL NEVER FORGETS A LAUNCH THAT STILL BLOCKS OR COUNTS");
+{
+  const w = await world({});
+  await w.tab.draftTyped(GOOD);
+  const openMint = Keypair.generate().publicKey.toBase58(), landedMint = Keypair.generate().publicKey.toBase58();
+  await w.storage.set(CASHCAT_TAB_KEYS.journal, [
+    { at: w.T.now, kind: "sending", mode: "manual", mint: openMint, creator: w.WALLET, symbol: "OPENCAT" },
+    { at: w.T.now - 60_000, kind: "launched", mode: "manual", mint: landedMint, creator: w.WALLET, symbol: "LANDCAT" },
+  ]);
+  /* Two hundred launches refused because that one is unresolved, each refusal journaled. */
+  for (let i = 0; i < 200; i++) await throwsClause(() => w.tab.launch({ confirmTicker: "RAINCAT" }), "unresolved");
+  const j = await w.storage.get(CASHCAT_TAB_KEYS.journal);
+  ok("after two hundred refusals the launch with no known outcome is still in the journal, and still blocks the next (unresolved)",
+    j.some((e) => e.mint === openMint && e.kind === "sending") && (await throwsClause(() => w.tab.prepare(), "unresolved"))?.clause === "unresolved", `${j.length} entries`);
+  ok("…and today's launches still count against the day's cap", (await w.tab.status()).launchesToday === 2 && j.some((e) => e.mint === landedMint));
+  ok("…while the refusals themselves are trimmed to the journal's size", j.filter((e) => e.kind === "refused").length <= 200 && j.length <= 202);
+}
+
+section("11. SNIPURR NEVER TRADES A COIN YOUR OWN WALLET CREATED");
+{
+  const { w, out } = launched;
+  await w.engine.setConfig({ lane: "observe", requireSocials: false });
+  const notice = (creator) => ({ mint: out.mint, creator, slot: w.chain.st.slot, noticeAt: w.T.now, source: "logsSubscribe", raw: { name: GOOD.name, symbol: GOOD.symbol } });
+  const r = await w.engine.handleNotice(notice(w.WALLET));
+  ok("a new pump.fun coin whose creator is the autopilot wallet (a CashCat launch) is refused at its own gate (own_coin), and no position is opened for it",
+    r?.entered === false && r?.refusedAt === "own_coin" && !w.engine.state.snipes?.[out.mint] && w.engine.state.attempts?.[out.mint]?.detail === "own_coin", JSON.stringify({ entered: r?.entered, refusedAt: r?.refusedAt ?? r?.verdict?.gate }));
+  const w2 = await world({});
+  await w2.tab.draftTyped(GOOD);
+  const out2 = await w2.tab.launch({ confirmTicker: "RAINCAT" });
+  await w2.engine.setConfig({ lane: "observe", requireSocials: false });
+  const r2 = await w2.engine.handleNotice({ mint: out2.mint, creator: null, slot: w2.chain.st.slot, noticeAt: w2.T.now, source: "logsSubscribe", raw: {} });
+  ok("…and so is one whose notice names no creator, when its bonding curve records the autopilot wallet as the creator",
+    r2?.entered === false && r2?.refusedAt === "own_coin" && !w2.engine.state.snipes?.[out2.mint], JSON.stringify({ entered: r2?.entered, refusedAt: r2?.refusedAt ?? r2?.verdict?.gate }));
+}
+
 done();

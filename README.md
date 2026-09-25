@@ -542,7 +542,9 @@ the coin's pump.fun curve names its creator; whether the coin has graduated or h
 curve has sold; and whether it copies an established cat coin, when the mint carries its name. A
 token too big to list (the RPC refuses, or the answer passes the size cap) is read from its 20
 largest accounts, and the count says it was not counted. A wallet, a token account or an empty
-address is said to be one. A red flag is what the chain said at that moment, never an accusation.
+address is said to be one. The name and ticker the mint carries on chain are drawn as text, with
+any direction override or invisible character dropped. One check runs at a time, at most one
+every three seconds. A red flag is what the chain said at that moment, never an accusation.
 **Grumpy Cat** (fake hype) is not in the extension: telling real hype from fake needs social data
 it does not have.
 
@@ -607,6 +609,10 @@ retries every half minute.
 **The journal** keeps every launch — its mint, its signature, its topic or trend, what it cost —
 and every refusal. A launch is written as "sending" before it is signed; a launch whose outcome
 could not be read blocks the next until you check it on Solscan and mark it, and disarms auto mode.
+The journal keeps its newest 200 entries, and never trims away a launch that still blocks the next
+one or counts against the day's cap. A disarm, or a cap changed in Options, always wins over a
+run on the alarm: the settings are changed under one lock, and a run checks it is still armed
+before it pins and again before anything is signed.
 
 ### Permissions and hosts, for the Chrome Web Store
 
@@ -1142,6 +1148,10 @@ What is true on autopilot, plainly:
   On autopilot the tab is needed only to fund; a locked autopilot wallet is the same stop.
 - **A buy window that sits past 25 s is abandoned.** A declined buy is never re-asked.
 - **One live position at a time** by default, on either signer.
+- **Never a coin you launched.** A new coin whose creator is one of this browser's own wallets
+  (the autopilot wallet, so every CashCat launch, or the connected Phantom wallet), as the notice
+  names it or as its bonding curve records it, is refused at `own_coin` before any gate and
+  never opened, on paper or live (`test-cats-cashcat.mjs`).
 - **The checklist is the condition.** The sentence alone does not arm: every item the popup
   lists under "Before this lane may spend money" must be green (a stock listed with no stop
   chosen, for one, keeps the lane unarmed with the sentence typed).

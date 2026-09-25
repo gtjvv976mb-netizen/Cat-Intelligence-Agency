@@ -337,6 +337,12 @@ export function createHawkEngine({
       autopilot: onAutopilot() ? autopilotView() : null,
     });
   }
+  /** The wallets this browser signs with: the autopilot wallet and the connected Phantom wallet. */
+  function ownWallets() {
+    const out = [];
+    for (const w of [sessionSigner?.wallet?.(), bridge.wallet?.()]) if (typeof w === "string" && w) out.push(w);
+    return out;
+  }
   function armed() {
     if (config.lane !== "execute") return false;
     const signer = activeSigner();
@@ -525,6 +531,20 @@ export function createHawkEngine({
     hops.push({ hop: "accounts", atMs: clock() });
     const curve = decodeCurve(read, mint);
     hops.push({ hop: "decode", atMs: clock() });
+    /* A coin this browser's own wallet created — a CashCat launch from the autopilot wallet, or
+       anything the connected Phantom wallet launched — is never bought or sold by this lane: its
+       creator, as the notice names it or as its bonding curve records it, is one of our wallets. */
+    const ownCreator = [notice?.creator, curve?.creator].find((c) => typeof c === "string" && ownWallets().includes(c)) ?? null;
+    if (ownCreator) {
+      const message = `its creator ${short(ownCreator)} is this browser's own wallet: the lane never trades a coin you launched`;
+      S.counters.refused++;
+      S.refusals.unshift({ at: now, mint, gate: "own_coin", message, name: notice?.raw?.name ?? null, symbol: notice?.raw?.symbol ?? null, launchSharePct: null, quoteMint: null });
+      if (S.refusals.length > 60) S.refusals.length = 60;
+      S.attempts[mint] = { at: now, outcome: "refused", detail: "own_coin" };
+      say(`${short(mint)}: refused at own_coin — ${message}`);
+      await persist();
+      return { verdict: null, entered: false, refusedAt: "own_coin" };
+    }
     /* A curve quoted in a listed stock: that stock's mint account is already in the read. */
     const curveStock = stockQuoteOf(curve);
     let quote = null, quoteNote = null;

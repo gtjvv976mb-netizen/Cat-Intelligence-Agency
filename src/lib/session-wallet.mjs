@@ -55,6 +55,9 @@
  * async. The secret entry is written to `session` and only ever to `session`; the no-key
  * test scans this file for the line that says otherwise.
  *
+ * `createMintKeys` is the other key this file holds: a CashCat launch's new mint, made for one
+ * create transaction, used once to sign it beside the payer, and dropped — memory only.
+ *
  * `createSessionSigner` is the engine's bridge shape, { isReady(), wallet(), signTransaction() }.
  * The engine reads isReady() and wallet() synchronously, so the signer answers from the
  * keystore's last read; the host calls `refresh()` when the worker starts and after every
@@ -323,6 +326,64 @@ export function createSessionSigner({ keystore, clock = Date.now } = {}) {
       } finally { secret.fill(0); }
     },
   };
+}
+
+/* ── the ephemeral mint key: a CashCat launch ─────────────────────────────────────────
+   pump.fun's create_v2 names the NEW MINT as a signer, so each launch needs a fresh keypair for
+   its mint, and that keypair must sign the create beside the payer. It is a key, so it is made
+   here and nowhere else: createMintKeys() holds each one in this module's memory only — never in
+   `storage`, never in `session`, never in a message, a log or a return value (only its public
+   address leaves) — uses it ONCE to add the mint's signature to a create transaction whose
+   message the caller has already checked and simulated, and drops it. A launch that does not
+   happen drops it too (forget), and a key older than MINT_KEY_TTL_MS is dropped on the next call.
+   After the create lands the mint's authority belongs to pump.fun's program, so the key is worth
+   nothing afterwards; it still never leaves this file. The payer's own signature is the session
+   signer's (above), asked for after this one: VersionedTransaction.sign fills its own slot and
+   keeps the mint's. */
+export const MINT_KEY_TTL_MS = 10 * 60_000;
+export const MAX_MINT_KEYS = 4;
+
+export function createMintKeys({ clock = Date.now } = {}) {
+  const held = new Map();       // mint address → { keypair, madeAt }
+  const dropOld = () => { for (const [address, e] of held) if (clock() - e.madeAt > MINT_KEY_TTL_MS) held.delete(address); };
+  return Object.freeze({
+    /** A fresh mint for one launch. Only its address leaves this module. */
+    newMint() {
+      dropOld();
+      if (held.size >= MAX_MINT_KEYS) throw new SessionWalletError("too_many_mints", `${held.size} launches are already being prepared; finish or cancel one first`);
+      const keypair = Keypair.generate();
+      const address = keypair.publicKey.toBase58();
+      held.set(address, { keypair, madeAt: clock() });
+      return address;
+    },
+    holds(address) { dropOld(); return held.has(address); },
+    count() { dropOld(); return held.size; },
+    /** A launch that will not happen drops its mint key. */
+    forget(address) { held.delete(address); },
+    /**
+     * Add the mint's signature to a create transaction. The transaction must require exactly two
+     * signatures, the payer's first and this mint's second, and the message is not changed: the
+     * caller checked and simulated these bytes, and the engine compares them again before it
+     * sends. The key is dropped whatever happens: it signs once.
+     */
+    signAsMint({ txBase64, mint, payer } = {}) {
+      const entry = held.get(mint);
+      held.delete(mint);
+      if (!entry) throw new SessionWalletError("no_mint", "this mint was not made here, or its key was already used or dropped");
+      if (clock() - entry.madeAt > MINT_KEY_TTL_MS) throw new SessionWalletError("mint_expired", "the mint's key was made too long ago; prepare the launch again");
+      let tx;
+      try { tx = VersionedTransaction.deserialize(fromBase64(txBase64)); }
+      catch (error) { throw new SessionWalletError("bad_transaction", `the launch transaction could not be read: ${error?.message ?? error}`); }
+      const signers = tx.message.staticAccountKeys.slice(0, tx.message.header.numRequiredSignatures).map((k) => k.toBase58());
+      if (signers.length !== 2 || signers[0] !== payer || signers[1] !== mint)
+        throw new SessionWalletError("bad_signers", `a launch is signed by the payer then the new mint, and only them; this one names ${signers.map(short).join(", ")}`);
+      const before = tx.message.serialize();
+      tx.sign([entry.keypair]);
+      if (!sameBytes(before, tx.message.serialize())) throw new SessionWalletError("changed", "the message changed while the mint signed");
+      return Object.freeze({ signedBase64: toBase64(tx.serialize()) });
+    },
+    toJSON() { return { held: held.size }; },
+  });
 }
 
 /* ── the transfers around a session: fund it, sweep it, sweep what it still holds ──── */

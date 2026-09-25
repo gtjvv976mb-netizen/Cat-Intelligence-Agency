@@ -383,7 +383,7 @@ const CATS = {
   "grumpy-cat": { name: "Grumpy Cat", accent: "#e8742c", status: "On X" },
   cashcat: { name: "CashCat", accent: "#f5c542", status: "Bot" },
   popcat: { name: "Popcat", accent: "#ff4fd8", status: "Bot" },
-  snipurr: { name: "Snipurr", accent: "#14f195", status: "Software · inside CoinMarketCat" },
+  snipurr: { name: "Snipurr", accent: "#14f195", status: "Software · in the extension" },
 };
 const cards = Object.fromEntries([...html.agency.matchAll(/<article class="agent[^"]*" id="agent-([a-z-]+)" data-cat="([a-z-]+)"[^>]*style="--accent:(#[0-9a-f]{6})">([\s\S]*?)<\/article>/g)]
   .map((m) => [m[1], { cat: m[2], accent: m[3], body: m[4] }]));
@@ -420,8 +420,8 @@ ok("Popcat's card says the character is not the $POPCAT memecoin, and $CIA is no
       && (text.agency.split(PICK_DISCLOSURE).length - 1) === 2 && textOf(html.floor.match(/<template id="tpl-popcat">[\s\S]*?<\/template>/)[0]).includes(PICK_DISCLOSURE)
       && ["README.md", path.join("brand", "COPY.md")].every((f) => fs.readFileSync(path.join(here, f), "utf8").replace(/\s+/g, " ").includes(PICK_DISCLOSURE)));
   ok("no page says a bot is being built any more", !Object.values(text).some((t) => /being built/i.test(t)));
-  ok("Snipurr's card: the sniper lane inside CoinMarketCat, software, linking to that lane, its desk and the console",
-    /data-beat="The sniper lane · software"/.test(html.agency) && textOf(cards.snipurr?.body || "").includes("the sniper lane inside CoinMarketCat")
+  ok("Snipurr's card: the sniper lane beside CoinMarketCat in the agency's extension, software, linking to that lane, its desk and the console",
+    /data-beat="The sniper lane · software"/.test(html.agency) && textOf(cards.snipurr?.body || "").includes("the sniper lane beside CoinMarketCat") && textOf(cards.snipurr?.body || "").includes("A lane of the Cat Intelligence Agency extension")
       && ["coinmarketcat/#snipurr", "./floor/#snipurr", "console/"].every((h) => (cards.snipurr?.body || "").includes(`href="${h}"`)));
   ok("the headline counts six agents, four of them software: two characters, the extension and its lane, the two bots; the Director is the mascot, not one of the six",
     has("agency", "Six agents. Four of them are software.") && !has("agency", "Two of them are software.")
@@ -573,9 +573,9 @@ for (const [cat, want] of Object.entries(CATS)) {
 }
 ok("CoinMarketCat's station links to its page and the console; the Director's holds the announcements",
   /href="\.\.\/coinmarketcat\/"/.test(tpl.coinmarketcat) && /href="\.\.\/console\/"/.test(tpl.coinmarketcat) && /Agency announcements/.test(tpl.director));
-ok("Snipurr's station: software inside CoinMarketCat, the old sniper screen, and links to its lane on CoinMarketCat's page and to the console",
+ok("Snipurr's station: software in the agency's extension, beside CoinMarketCat, the old sniper screen, and links to its lane on CoinMarketCat's page and to the console",
   /href="\.\.\/coinmarketcat\/#snipurr"/.test(tpl.snipurr) && /href="\.\.\/console\/"/.test(tpl.snipurr)
-    && textOf(tpl.snipurr).includes("Software · inside CoinMarketCat") && /FIELD REPORT \| SNIPURR/.test(tpl.snipurr) && /alt="Snipurr's monitor: a green candle chart under a sniper crosshair/.test(tpl.snipurr));
+    && textOf(tpl.snipurr).includes("Software · in the extension") && textOf(tpl.snipurr).includes("the sniper lane beside CoinMarketCat") && /FIELD REPORT \| SNIPURR/.test(tpl.snipurr) && /alt="Snipurr's monitor: a green candle chart under a sniper crosshair/.test(tpl.snipurr));
 ok("CoinMarketCat's station shows the agent console, the hoodie tabby, and the disclaimer",
   /alt="CoinMarketCat's monitor: its agent console/.test(tpl.coinmarketcat) && /style="--w:175;--h:209"/.test(tpl.coinmarketcat) && textOf(tpl.coinmarketcat).includes("CoinMarketCat is not affiliated with CoinMarketCap."));
 ok("the floor has a \"Latest from the floor\" feed, with the same empty state", /id="latest"/.test(floorHtml) && has("floor", "Latest from the floor.") && /id="feed-empty" hidden/.test(floorHtml) && /id="feed-list" hidden/.test(floorHtml));
@@ -767,7 +767,7 @@ ok("no coin's picture is ever drawn: the only pictures the floor's script sets a
 
 section("THE SEVEN-CAT KIT");
 /* The art the site is built from, pinned: CoinMarketCat is the hoodie tabby (its own sprite,
-   agent pair, console screen and the extension's icons), Snipurr is the old CoinMarketCat art
+   agent pair, console screen and the site's CoinMarketCat icons), Snipurr is the old CoinMarketCat art
    under its own name, the floor has seven desks, the roster seven kittens. Change a file here
    on purpose, and its pin with it. */
 /* sha256 prefixes. The four snipurr files are CoinMarketCat's old sprite, agent pair and sniper
@@ -789,7 +789,7 @@ for (const [f, [hash, w, h]] of Object.entries(KIT)) {
 const same = (a, b) => fs.existsSync(a) && fs.existsSync(b) && sha256(a) === sha256(b);
 ok("the site's link preview and hero pictures are the kit's banners, byte for byte",
   ["og-1200x630.jpg", "site-hero-1200x514.jpg", "site-hero-2400x1029.jpg"].every((f) => same(path.join(SITE, "assets", f), path.join(here, "brand", "banner", f))));
-ok("the site's CoinMarketCat icons are the extension's, byte for byte", ["32", "128", "512"].every((n) => same(path.join(SITE, "icons", `coinmarketcat-${n}.png`), path.join(here, "icons", `coinmarketcat-${n}.png`))));
+ok("the site's CoinMarketCat icons are the kit's, byte for byte", ["32", "128", "512"].every((n) => same(path.join(SITE, "icons", `coinmarketcat-${n}.png`), path.join(here, "icons", `coinmarketcat-${n}.png`))));
 ok("every sprite on the site is its kit sprite at the kit's size", Object.keys(CATS).every((c) => JSON.stringify(pngSize(path.join(SITE, "assets", "sprites", `${c}.png`))) === JSON.stringify(pngSize(path.join(here, "brand", "sprites", `${c}.png`)))));
 ok("the cards and stations draw each sprite at its own size, and CoinMarketCat in its hoodie", Object.entries({ agency: html.agency, floor: html.floor, cat: html.cat }).every(([, p]) =>
   [...p.matchAll(/src="(?:\.\.\/)?assets\/sprites\/([a-z-]+)\.png" width="(\d+)" height="(\d+)"/g)].every((m) => {

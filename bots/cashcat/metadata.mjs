@@ -46,6 +46,28 @@ export function buildDocument({ name, symbol, tagline, trendTitle, imageUri, ven
   };
 }
 
+/**
+ * The disclosure a coin launched FROM THE EXTENSION carries. It is the user's coin, not the
+ * agency's: it does not say it is from the Cat Intelligence Agency, carries no agency website,
+ * and credits the tool only when the user ticks "made with CashCat" (off by default).
+ */
+export function userDisclosure({ topic, madeWithCashCat = false }) {
+  const t = String(topic ?? "").replace(/\s+/g, " ").trim();
+  if (!t) throw new MetadataError("no_topic", "a coin names the topic it riffs on, so its disclosure can say it is not affiliated with it");
+  return `Not financial advice. Not affiliated with ${t}.${madeWithCashCat === true ? " Made with CashCat." : ""}`;
+}
+
+/** The metadata document of a user's coin: pump.fun's shape, no website, no socials. */
+export function buildUserDocument({ name, symbol, tagline, topic, imageUri, madeWithCashCat = false }) {
+  return {
+    name, symbol,
+    description: `${tagline} — ${userDisclosure({ topic, madeWithCashCat })}`,
+    image: imageUri,
+    showName: true,
+    createdOn: "https://pump.fun",
+  };
+}
+
 /** The on-chain URI for a pinned document, per venue (see verified.mjs). */
 export const uriFor = (venue, cid) => (venue === "stonkfun" ? stonkfunMetadataUri(cid) : pumpMetadataUri(cid));
 
@@ -65,12 +87,14 @@ async function pin(http, jwt, { bytes, filename, contentType }) {
 
 /**
  * Pin the logo and the document, read the document back, and return { uri, imageCid,
- * documentCid, document }. Throws MetadataError on any mismatch.
+ * documentCid, document }. Throws MetadataError on any mismatch. The JWT goes in one header, to
+ * Pinata's upload API and nowhere else: the read-back is a keyless request to the public gateway.
  */
-export async function pinMetadata({ http, jwt, logoPng, coin, venue }) {
+export async function pinMetadata({ http, jwt, logoPng, coin, venue, buildDoc = null }) {
   if (typeof jwt !== "string" || !jwt) throw new MetadataError("no_pinata", "PINATA_JWT is not set");
   const imageCid = await pin(http, jwt, { bytes: logoPng, filename: `${coin.symbol.toLowerCase()}.png`, contentType: "image/png" });
-  const document = buildDocument({ ...coin, imageUri: uriFor(venue, imageCid), venue });
+  /* The bot's document by default; the extension passes buildUserDocument for a user's coin. */
+  const document = buildDoc ? buildDoc({ imageUri: uriFor(venue, imageCid) }) : buildDocument({ ...coin, imageUri: uriFor(venue, imageCid), venue });
   const documentCid = await pin(http, jwt, { bytes: Buffer.from(JSON.stringify(document)), filename: `${coin.symbol.toLowerCase()}.json`, contentType: "application/json" });
   const back = await http.json(URLS.pinataGateway(documentCid), { timeoutMs: 60_000 });
   for (const k of Object.keys(document)) {

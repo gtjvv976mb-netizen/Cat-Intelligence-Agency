@@ -1,7 +1,8 @@
 /**
  * THE WIRE BETWEEN THE FOUR PLACES THIS EXTENSION RUNS.
  *
- *   popup / options / welcome ──runtime.sendMessage──▶ background (the agent, the Snipurr lane's engine, the autopilot wallet)
+ *   popup / options / welcome ──runtime.sendMessage──▶ background (the agent, the Snipurr lane's engine, the autopilot wallet,
+ *                                                       Popcat, Crying Cat and CashCat)
  *   background ──tabs.sendMessage──▶ content script ──window.postMessage──▶ injected (Phantom)
  *
  * Every message carries `type` from one of the tables below. Nothing else is accepted:
@@ -77,6 +78,43 @@ export const AGENT = Object.freeze({
 });
 export const AGENT_CARRIES_SECRET = Object.freeze([AGENT.SET_API_KEY]);
 export const AGENT_RETURNS_SECRET = Object.freeze([]);
+
+/**
+ * popup / options → background: THE AGENCY'S OTHER CATS. Popcat (the cat-coin scanner), Crying
+ * Cat (the rug check for one mint) and CashCat (launch a cat coin of your own). Tables apart from
+ * UI, AUTOPILOT and AGENT, answered for the extension's own pages only, never for a web page or
+ * a content script. None carries transaction bytes: CashCat builds every byte in the worker and
+ * its launches are signed by the autopilot wallet through the engine's fences. One message
+ * carries a secret — the owner's Pinata JWT, sent once from Options to be kept in
+ * chrome.storage.local, read by the worker alone and sent only to Pinata's upload API — and none
+ * hands one back. test-cats-no-leak.mjs pins exactly which.
+ */
+export const POPCAT = Object.freeze({
+  STATUS: "cia:popcat:status",           // → the checked coins (validated, text only), the queue, the RPC, the limits
+  SCAN: "cia:popcat:scan",               // one scan step now (the popup, while it shows the Popcat tab)
+  SET_BACKGROUND: "cia:popcat:set-background", // { on } — scan on the half-minute alarm too (off by default)
+  CLEAR: "cia:popcat:clear",
+});
+export const CRYING = Object.freeze({
+  CHECK: "cia:crying:check",             // { input } — a mint address or a pump.fun coin link, checked strictly → the report
+});
+export const CASHCAT = Object.freeze({
+  STATUS: "cia:cashcat:status",
+  SAVE_SETTINGS: "cia:cashcat:save-settings",   // { settings } — dev buy, "made with CashCat", model, auto mode's caps
+  SET_PINATA_JWT: "cia:cashcat:set-pinata-jwt", // { jwt } — the one message that carries a secret; never returned
+  CLEAR_PINATA_JWT: "cia:cashcat:clear-pinata-jwt",
+  DRAFT: "cia:cashcat:draft",                   // { idea: { name, symbol, tagline, topic, kitten?, background? } } — judged by the rules and the model
+  DRAFT_FROM_TREND: "cia:cashcat:draft-from-trend",
+  CLEAR_DRAFT: "cia:cashcat:clear-draft",
+  PREVIEW: "cia:cashcat:preview",               // → the draft's logo, drawn in the worker, as a PNG data URL
+  PREPARE: "cia:cashcat:prepare",               // every check and the simulation; nothing pinned, signed or sent
+  LAUNCH: "cia:cashcat:launch",                 // { confirmTicker } — pin, check, simulate, sign (the new mint, then the autopilot wallet), send
+  MARK_CHECKED: "cia:cashcat:mark-checked",     // { mint, landed } — the user checked an unresolved launch on an explorer
+  ARM_AUTO: "cia:cashcat:arm-auto",             // { sentence } — typed, compared byte for byte
+  DISARM_AUTO: "cia:cashcat:disarm-auto",
+});
+export const CATS_CARRIES_SECRET = Object.freeze([CASHCAT.SET_PINATA_JWT]);
+export const CATS_RETURNS_SECRET = Object.freeze([]);
 
 /** background → content → injected (requests), and back (replies with the same id) */
 export const BRIDGE = Object.freeze({

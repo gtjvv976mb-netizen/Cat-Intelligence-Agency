@@ -84,25 +84,36 @@ export function decodeComputeBudget(data) {
 export { COMPUTE_BUDGET_PROGRAM };
 
 /**
- * A legacy Transaction's message, read back into plain data the check can reason about:
+ * A transaction's message, read back into plain data the check can reason about:
  * { feePayer, signers[], instructions: [{ programId, accounts: [{ pubkey, isSigner, isWritable }], data }] }.
- * It reads the COMPILED message (what the signature covers), never the builder's objects.
+ * It reads the COMPILED message (what the signature covers), never the builder's objects: a legacy
+ * Message (the bots' Transaction) or a v0 MessageV0 (what the extension builds and its wallets
+ * sign). A v0 message that loads accounts from an address lookup table is refused: every account
+ * a check reasons about must be in the bytes it read, not in a table someone else controls.
  */
 export function readMessage(message) {
-  const keys = message.accountKeys.map((k) => k.toBase58());
+  const v0 = Array.isArray(message?.compiledInstructions);
+  if (v0 && (message.addressTableLookups ?? []).length) {
+    throw Object.assign(new Error("the message loads accounts from an address lookup table; every account must be in the message itself"), { clause: "lookup_tables" });
+  }
+  const keys = (v0 ? message.staticAccountKeys : message.accountKeys).map((k) => k.toBase58());
   const h = message.header;
   const isSigner = (i) => i < h.numRequiredSignatures;
   const isWritable = (i) => (i < h.numRequiredSignatures
     ? i < h.numRequiredSignatures - h.numReadonlySignedAccounts
     : i < keys.length - h.numReadonlyUnsignedAccounts);
+  const ixs = v0
+    ? message.compiledInstructions.map((ix) => ({ programIdIndex: ix.programIdIndex, accounts: [...ix.accountKeyIndexes], data: Buffer.from(ix.data) }))
+    : message.instructions.map((ix) => ({ programIdIndex: ix.programIdIndex, accounts: ix.accounts, data: Buffer.from(bs58.decode(ix.data)) }));
   return {
     feePayer: keys[0],
     signers: keys.slice(0, h.numRequiredSignatures),
     accountKeys: keys,
-    instructions: message.instructions.map((ix) => ({
+    version: v0 ? 0 : "legacy",
+    instructions: ixs.map((ix) => ({
       programId: keys[ix.programIdIndex],
       accounts: ix.accounts.map((i) => ({ pubkey: keys[i], isSigner: isSigner(i), isWritable: isWritable(i) })),
-      data: Buffer.from(bs58.decode(ix.data)),
+      data: ix.data,
     })),
   };
 }

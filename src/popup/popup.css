@@ -118,12 +118,15 @@ label.venue .pill{margin-left:auto}
 .item .tag.pending,.item .tag.unsampled,.item .tag.waited_out{border-color:var(--warn);color:var(--warn)}
 .item .tag.venue{border-color:var(--teal);color:var(--cream)}
 #venueCard .item .m,#venueCard .item .t{overflow-wrap:anywhere}
-/* the lanes: the agent first, Snipurr (the sniper lane) beside it; the wallet cards serve both */
-.tabs{display:grid;grid-template-columns:1fr 1fr;margin:10px 12px 0;border:1px solid var(--card-line);border-radius:8px;overflow:hidden}
-.tabs button{background:var(--panel);color:var(--ink-soft);border:0;padding:8px 0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+/* the cats: one tab each, with its pixel sprite. A card names the tabs it belongs to in
+   data-tabs; the popup hides the others (the wallet cards serve the lanes that sign). */
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);margin:10px 12px 0;border:1px solid var(--card-line);border-radius:8px;overflow:hidden}
+.tabs button{background:var(--panel);color:var(--ink-soft);border:0;padding:6px 0 5px;font-size:9.5px;font-weight:700;letter-spacing:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.tabs button img{height:30px;width:auto;image-rendering:pixelated}
+.tabs button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .tabs button+button{border-left:1px solid var(--card-line)}
 .tabs button.on{background:var(--teal);color:var(--cream)}
-body[data-tab="agent"] .card[data-tab="snipurr"],body[data-tab="snipurr"] .card[data-tab="agent"]{display:none !important}
+.card.offtab{display:none !important}
 .card.agent{border-color:var(--sol-green)}
 .pills{display:flex;gap:5px;flex:none}
 .pill.paper{border-color:var(--sol-green);color:var(--sol-soft)}
@@ -144,3 +147,44 @@ body[data-tab="agent"] .card[data-tab="snipurr"],body[data-tab="snipurr"] .card[
 #agJournal{max-height:220px}
 .hint a{color:var(--amber);text-decoration:none}
 .hint a:hover{text-decoration:underline}
+
+/* the brand: the agency's name across the top, its line beneath it */
+.brand{font-size:18px;white-space:nowrap;min-width:0}
+.brand .sub{display:block;margin:2px 0 0;font-size:9.5px}
+.top .pill{flex:none;white-space:nowrap}
+/* On CashCat's tab the autopilot wallet card is the launch's signer: it says so, and the lanes'
+   signer switch is not shown there. */
+#autopilotCard .cc-only{display:none}
+#autopilotCard.for-cashcat .cc-only{display:block}
+#autopilotCard.for-cashcat > .k.lanes-only,#autopilotCard.for-cashcat #signerSeg,#autopilotCard.for-cashcat #signerHint{display:none}
+/* Popcat, CashCat, Crying Cat */
+.card.cat.popcat{border-color:#ff4fd8}
+.card.cat.cashcat{border-color:#f5c542}
+.card.cat.crying{border-color:#5ab8ff}
+.item .tag.clean{border-color:var(--good);color:var(--good)}
+.item .tag.flagged{border-color:var(--bad);color:var(--bad)}
+.item details{grid-column:1 / -1;margin-top:3px}
+.item details summary{font-size:10.5px;color:var(--ink-faint)}
+.checks{width:100%;border-collapse:collapse;margin:4px 0}
+.checks td{font-size:10.5px;padding:2px 3px;border-bottom:1px solid rgba(46,33,72,.5);vertical-align:top;overflow-wrap:anywhere}
+.checks td.res{font-family:"JetBrains Mono",monospace;font-size:9.5px;text-transform:uppercase;white-space:nowrap}
+.checks td.res.pass{color:var(--good)} .checks td.res.fail{color:var(--bad)} .checks td.res.info{color:var(--ink-faint)}
+.links{grid-column:1 / -1;display:flex;gap:10px;flex-wrap:wrap;margin-top:3px;font-size:10.5px}
+.links a{color:var(--amber);text-decoration:none}
+.links a:hover{text-decoration:underline}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;margin-top:6px}
+.formgrid label{display:flex;flex-direction:column;gap:3px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.formgrid label.wide{grid-column:1 / -1}
+.formgrid input,.formgrid select,#cryInput,#ccConfirm{background:var(--panel);color:var(--ink);border:1px solid var(--card-line);border-radius:6px;padding:6px 7px;font:12px "JetBrains Mono",monospace;min-width:0;text-transform:none;letter-spacing:0}
+#cryInput,#ccConfirm{flex:1}
+.coinrow{display:flex;gap:10px;align-items:flex-start;margin-top:6px}
+.coinrow .logo{width:120px;height:120px;border-radius:8px;border:1px solid var(--card-line);image-rendering:pixelated;flex:none}
+.coinfacts{min-width:0;overflow-wrap:anywhere}
+.plan{margin-top:8px;padding:8px;border:1px solid var(--card-line);border-radius:6px;background:var(--panel);font-size:11.5px;color:var(--ink-soft)}
+.plan b{color:var(--ink)}
+.report{margin-top:10px}
+.report .verdict{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;letter-spacing:.06em}
+.report .verdict.clean{color:var(--good)} .report .verdict.flagged{color:var(--bad)}
+.report ul.notes{margin:6px 0 0;padding-left:16px;font-size:11.5px;color:var(--ink-soft)}
+.report ul.notes li{margin:3px 0}
+.report .mintline{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--ink-faint);word-break:break-all}

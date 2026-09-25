@@ -19,9 +19,11 @@
  * last decisions with their rationale and what became of each action. Its buttons are the
  * owner's controls — start (live only with the typed sentence), pause, decide now,
  * liquidate all, withdraw, stop — each one AGENT message. The page never sees the API key.
- * The second tab is Snipurr, the pump.fun sniper lane, exactly as it was.
+ * The second tab is Snipurr, the pump.fun sniper lane, exactly as it was. The other three —
+ * Popcat, CashCat and Crying Cat — are drawn by ./cats.mjs, as text only.
  */
 import { UI, AUTOPILOT, AGENT } from "../lib/protocol.mjs";
+import { createCatTabs } from "./cats.mjs";
 
 const $ = (id) => document.getElementById(id);
 const send = (type, payload = {}) => chrome.runtime.sendMessage({ type, ...payload });
@@ -396,10 +398,17 @@ function setTab(next) {
   tab = next;
   document.body.dataset.tab = next;
   for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("on", b.dataset.tab === next);
+  for (const c of document.querySelectorAll(".card[data-tabs]")) c.classList.toggle("offtab", !c.dataset.tabs.split(" ").includes(next));
+  /* On CashCat's tab the autopilot wallet card follows the draft: it is the launch's signer. */
+  const ap = $("autopilotCard");
+  ap.classList.toggle("for-cashcat", next === "cashcat");
+  if (next === "cashcat") $("cashcatAutoCard").before(ap); else $("walletCard").after(ap);
+  cats.show(next);
   renderPill();
 }
 function renderPill() {
   const pill = $("lanePill");
+  if (cats.owns(tab)) { const p = cats.pill(tab); pill.textContent = p.text; pill.className = `pill ${p.cls}`; return; }
   if (tab === "agent" && ag) {
     const a = ag.agent;
     pill.textContent = a.status === "running" ? `${a.mode} · running` : a.status === "paused" ? `${a.mode} · paused` : "agent stopped";
@@ -487,7 +496,9 @@ async function agentCall(type, payload, button) {
     return res;
   } finally { if (button) button.disabled = false; await refreshAgent(); }
 }
+const cats = createCatTabs({ send, toast, onChange: () => renderPill() });
 for (const b of document.querySelectorAll("#tabs button")) b.addEventListener("click", () => setTab(b.dataset.tab));
+setTab("agent");
 $("lnkAgentOptions").addEventListener("click", (e) => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
 $("btnAgCopyAck").addEventListener("click", () => { $("agAckInput").value = ag?.agent?.armability?.expectedAck ?? ""; });
 $("btnAgStart").addEventListener("click", async () => {

@@ -2,7 +2,8 @@
  * THE CHECK BEFORE CASHCAT SIGNS ANYTHING.
  *
  * CashCat builds its own transactions, and it still reads every one back from its COMPILED
- * message (the bytes the signature will cover), not from the objects that built it, and
+ * message (the bytes the signature will cover; a legacy message for the bot, a v0 message with no
+ * lookup table for the extension's CashCat tab), not from the objects that built it, and
  * refuses anything that is not exactly one of the shapes below. Then it simulates, and the
  * simulation must show the wallet spending no more than the stated budget. A refusal names
  * its clause; nothing is signed after one.
@@ -35,6 +36,10 @@ export class TxRefused extends Error {
   constructor(clause, message) { super(message); this.name = "TxRefused"; this.clause = clause; }
 }
 const refuse = (clause, message) => { throw new TxRefused(clause, message); };
+/** The compiled message, read; a message the reader refuses (a v0 lookup table) is refused here by name. */
+function read(message) {
+  try { return readMessage(message); } catch (e) { return refuse(e.clause ?? "message", e.message); }
+}
 
 const sameAccounts = (actual, expected) => actual.length === expected.length && actual.every((a, i) =>
   a.pubkey === expected[i].pubkey.toBase58() && a.isSigner === expected[i].isSigner && a.isWritable === expected[i].isWritable);
@@ -60,7 +65,7 @@ function signersMustBe(msg, wallet, others = []) {
 
 /** A launch transaction: one of the three venues' create instructions, as planned. */
 export function checkLaunchMessage(message, { wallet, mint, venue, coin, plan = null }) {
-  const msg = readMessage(message);
+  const msg = read(message);
   signersMustBe(msg, wallet, [mint]);
   const rest = computeBudgetOnly(msg.instructions);
   if (rest.length !== 1) refuse("instructions", `${rest.length} instructions besides the compute budget; a launch has exactly one`);
@@ -100,7 +105,7 @@ export function checkLaunchMessage(message, { wallet, mint, venue, coin, plan = 
 
 /** The optional dev buy, a separate transaction after the launch landed. */
 export function checkDevBuyMessage(message, { wallet, mint, maxSpendLamports }) {
-  const msg = readMessage(message);
+  const msg = read(message);
   signersMustBe(msg, wallet);
   const rest = computeBudgetOnly(msg.instructions);
   if (rest.length !== 2) refuse("instructions", "a dev buy is one account create and one buy_v2");
@@ -119,7 +124,7 @@ export function checkDevBuyMessage(message, { wallet, mint, maxSpendLamports }) 
 }
 
 export function checkCollectFeeMessage(message, { wallet }) {
-  const msg = readMessage(message);
+  const msg = read(message);
   signersMustBe(msg, wallet);
   const rest = computeBudgetOnly(msg.instructions);
   if (rest.length !== 1) refuse("instructions", "a fee claim is exactly one instruction");

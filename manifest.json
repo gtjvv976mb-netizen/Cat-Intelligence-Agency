@@ -1,21 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "CoinMarketCat — the agentic trading cat",
-  "short_name": "COINMARKETCAT",
+  "name": "Cat Intelligence Agency",
+  "short_name": "Cat Intel",
   "version": "0.1.0",
-  "description": "CoinMarketCat: agentic trading for Solana in plain English, with Snipurr, the pump.fun sniper cat",
+  "description": "Five cats: CoinMarketCat (AI trading), Snipurr (sniper), Popcat (cat-coin scanner), CashCat (coin launcher), Crying Cat (rug check)",
   "minimum_chrome_version": "116",
   "icons": {
-    "32": "icons/coinmarketcat-32.png",
-    "128": "icons/coinmarketcat-128.png",
-    "512": "icons/coinmarketcat-512.png"
+    "32": "icons/cia-32.png",
+    "128": "icons/cia-128.png",
+    "512": "icons/cia-512.png"
   },
   "action": {
-    "default_title": "COINMARKETCAT",
+    "default_title": "Cat Intelligence Agency",
     "default_popup": "popup.html",
     "default_icon": {
-      "32": "icons/coinmarketcat-32.png",
-      "128": "icons/coinmarketcat-128.png"
+      "32": "icons/cia-32.png",
+      "128": "icons/cia-128.png"
     }
   },
   "options_page": "options.html",

@@ -23,7 +23,7 @@
 import bs58 from "bs58";
 import { checkProposal } from "../lib/content-rules.mjs";
 import { tickerFree } from "./tickers.mjs";
-import { KITTENS, BACKGROUNDS } from "./logo.mjs";
+import { KITTENS, BACKGROUNDS } from "./logo-layout.mjs";
 import { ModelError } from "../lib/model.mjs";
 import { WSOL_MINT } from "../lib/verified.mjs";
 import { validateLaunches } from "../../site/assets/launches.js";
@@ -132,11 +132,19 @@ export function deterministicRefusals(coin, verifiedIndex) {
   return out;
 }
 
+/** Who is asking, in the two system prompts: CashCat itself (the bot), or someone drafting a coin
+ *  of their own in the extension. The rules text after it is the same for both. */
+export const CASHCAT_PERSONA = Object.freeze({
+  propose: "You are CashCat, the Cat Intelligence Agency's auto-launcher. You invent one small, playful memecoin: a cat's take on something trending. "
+    + "Every coin is launched automatically with a disclosure that it is a bot's riff, unaffiliated, and not financial advice.",
+  review: "You are a strict content reviewer for an automated memecoin launcher. Refuse anything that breaks a rule or comes close. When in doubt, refuse.",
+});
+
 /**
  * Invent one coin. Returns { coin, attempts[], reviewed } or { coin: null, attempts[] }.
- * `requireModel` (live) refuses the template fallback.
+ * `requireModel` (live) refuses the template fallback. `persona` names who is asking (above).
  */
-export async function inventCoin({ model, trends, verifiedIndex, requireModel, log }) {
+export async function inventCoin({ model, trends, verifiedIndex, requireModel, log, persona = CASHCAT_PERSONA }) {
   const attempts = [];
   if (!trends.length) return { coin: null, attempts, why: "no usable trend" };
   if (!model?.hasKey) {
@@ -157,8 +165,7 @@ export async function inventCoin({ model, trends, verifiedIndex, requireModel, l
     try {
       input = await model.callTool({
         tool: PROPOSE_TOOL,
-        system: "You are CashCat, the Cat Intelligence Agency's auto-launcher. You invent one small, playful memecoin: a cat's take on something trending. "
-          + "Every coin is launched automatically with a disclosure that it is a bot's riff, unaffiliated, and not financial advice.\n\n" + RULES_TEXT,
+        system: persona.propose + "\n\n" + RULES_TEXT,
         user: `Trending now:\n${trendLines(pool)}\n\n${feedback}Propose one coin with ${PROPOSE_TOOL.name}, or skip.`,
       });
     } catch (e) {
@@ -175,7 +182,7 @@ export async function inventCoin({ model, trends, verifiedIndex, requireModel, l
       try {
         review = validateReview(await model.callTool({
           tool: REVIEW_TOOL,
-          system: "You are a strict content reviewer for an automated memecoin launcher. Refuse anything that breaks a rule or comes close. When in doubt, refuse.\n\n" + RULES_TEXT,
+          system: persona.review + "\n\n" + RULES_TEXT,
           user: `Proposed coin:\n${JSON.stringify({ name: coin.name, ticker: coin.symbol, tagline: coin.tagline, riffs_on: coin.trend.title, headlines_about_that_topic: coin.trend.news.slice(0, 3) }, null, 1)}\n\nReview it with ${REVIEW_TOOL.name}.`,
         }));
       } catch (e) {

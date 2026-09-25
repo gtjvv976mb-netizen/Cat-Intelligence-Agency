@@ -24,6 +24,12 @@
  * stay banned. The built bundles for the page-facing scripts and the UI must not carry
  * the secret's storage key at all.
  *
+ * What is pinned about CashCat's launch: the new mint's keypair — a key — is made, used once and
+ * dropped in the key file (createMintKeys), in memory only; the worker hands its holder to
+ * CashCat's tab alone, which reaches a signature only after the bot's own pre-sign check and a
+ * simulation of the same bytes, and only through the engine's fences bound to the autopilot
+ * wallet. Popcat and Crying Cat sign nothing. The files of bots/ the bundles import hold no key.
+ *
  * What is pinned about the agent (src/lib/agent-*.mjs): its files name only their own hosts,
  * hold nothing key-shaped, sign nothing, and never reach the sweep; its runner reaches a
  * signature once, through the engine's fences bound to the autopilot wallet, after its own
@@ -266,6 +272,72 @@ console.log("\nTHE AGENT'S NETWORK AND SIGNING\n──────────�
   ok("a plain sweep is refused while the agent holds live positions (its own Withdraw closes those rows)", /case AUTOPILOT\.SWEEP: \{[\s\S]*?liveHeld\(\)[\s\S]*?return await autopilotSweep\(msg\);/.test(bg));
 }
 
+console.log("\nTHE MINT'S KEY AND THE AGENCY'S OTHER CATS\n──────────────────────────────────────────");
+{
+  /* CashCat's launch needs a second signature: the new mint's. That keypair is a key, so it is
+     made, used once and dropped in the key file (createMintKeys), memory only; the worker makes
+     one holder of them and hands it to CashCat's tab, which asks it for an address and for one
+     signature, after the bot's own pre-sign check and a simulation of the same bytes. Popcat and
+     Crying Cat read and sign nothing. And every file of bots/ the extension's bundles pull in holds
+     no key either: the bot's wallet module never reaches the browser. */
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
+  const keyText = strip(fs.readFileSync(path.join(here, KEY_FILE), "utf8"));
+  const mk = keyText.slice(keyText.indexOf("export function createMintKeys"), keyText.indexOf("export function", keyText.indexOf("export function createMintKeys") + 10));
+  ok("createMintKeys lives in the key file, and makes each mint key there", mk.length > 200 && /Keypair\.generate\(\)/.test(mk));
+  ok("…holds it in memory only: never storage, never session, never a log", !/\bstorage\.|\bsession\.|console\./.test(mk) && /const held = new Map\(\)/.test(mk));
+  ok("…gives out the address and a signature, and its JSON is a count", /return address;/.test(mk) && /toJSON\(\) \{ return \{ held: held\.size \}; \}/.test(mk) && /signedBase64: toBase64\(tx\.serialize\(\)\)/.test(mk));
+  ok("…signs once: the key is dropped before it signs, whatever happens next", /const entry = held\.get\(mint\);\s*held\.delete\(mint\);/.test(mk));
+  ok("…and only a transaction whose signers are exactly the payer and that mint, its message unchanged", /signers\.length !== 2 \|\| signers\[0\] !== payer \|\| signers\[1\] !== mint/.test(mk) && /sameBytes\(before, tx\.message\.serialize\(\)\)/.test(mk));
+  const bg = strip(fs.readFileSync(path.join(here, KEY_HOST), "utf8"));
+  ok("the worker makes one holder and hands it to CashCat's tab, and nowhere else", (bg.match(/\bmintKeys\b/g) ?? []).length === 2 && /const mintKeys = createMintKeys\(\);/.test(bg) && /createCashcatTab\(\{[\s\S]*?mintKeys, hasApiKey, log, notify,\s*\}\);/.test(bg));
+  const signAsMintSites = files.map((f) => path.relative(here, f)).filter((rel) => /signAsMint/.test(strip(fs.readFileSync(path.join(here, rel), "utf8")))).sort();
+  ok("signAsMint is named in the key file and CashCat's tab only", JSON.stringify(signAsMintSites) === JSON.stringify([KEY_FILE, path.join("src", "lib", "cashcat-tab.mjs")].sort()), signAsMintSites.join(", "));
+  const tab = strip(fs.readFileSync(path.join(here, "src", "lib", "cashcat-tab.mjs"), "utf8"));
+  const pipe = tab.slice(tab.indexOf("async function launchPipeline"), tab.indexOf("async function launch("));
+  const at = (re) => pipe.search(re);
+  ok("CashCat's tab reaches a signature through the mint's key once and the engine's fences (autopilot-bound) for the launch, after the check and the simulation of the same bytes",
+    (tab.match(/mintKeys\.signAsMint\(/g) ?? []).length === 1 && at(/const built = await buildCheckSimulate\(\{ rpc: p\.rpc, wallet: p\.wallet, mint, draft, uri: pinned\.uri \}\)/) >= 0
+      && at(/const built = await buildCheckSimulate/) < at(/mintKeys\.signAsMint\(\{ txBase64: built\.txBase64/) && at(/mintKeys\.signAsMint/) < at(/p\.f\.signSendConfirm\(\{ txBase64: byMint\.signedBase64/));
+  const bcs = tab.slice(tab.indexOf("async function buildCheckSimulate"), tab.indexOf("const bufAcc"));
+  ok("…where the check reads the compiled message before the simulation, and the simulation is held to the launch budget", bcs.indexOf("checkLaunchMessage(tx.message") > 0 && bcs.indexOf("checkLaunchMessage(tx.message") < bcs.indexOf("rpc.simulateTransaction(") && /checkSimulation\(sim, \{ walletBefore: before, walletAfter: sim\?\.accounts\?\.\[0\]\?\.lamports, maxSpendLamports: LAUNCH_BUDGET_LAMPORTS, mustLog: "Instruction: CreateV2" \}\)/.test(bcs));
+  const dev = tab.slice(tab.indexOf("async function devBuy"), tab.indexOf("/** What every launch needs"));
+  ok("…and the dev buy only through the same fences, after the bot's dev-buy check and a simulation", dev.indexOf("checkDevBuyMessage(") > 0 && dev.indexOf("checkDevBuyMessage(") < dev.indexOf("f.signSendConfirm(") && dev.indexOf("checkSimulation(") < dev.indexOf("f.signSendConfirm("));
+  ok("…a manual launch's only: auto mode's dev buy is 0", /const devBuySol = mode === "auto" \? 0 : settings\.devBuySol;/.test(tab) && /if \(p\.devBuySol > 0 && mode === "manual"\)/.test(tab));
+  ok("…and it never asks Phantom: the tab holds no bridge", !/bridge|phantom\.|signTransaction/i.test(tab.replace(/Phantom is not offered|CASHCAT_SIGNER_NOTE[^\n]*/g, "")));
+  for (const rel of ["popcat-tab.mjs", "crying-cat.mjs", "cashcat-draft.mjs", "cashcat-logo.mjs", "cashcat-tab.mjs"].map((f) => path.join("src", "lib", f))) {
+    const code = strip(fs.readFileSync(path.join(here, rel), "utf8"));
+    /* Crying Cat's words name the one link form it reads an address out of; it never fetches it. */
+    const hostless = code.replace(/\(https:\/\/pump\.fun\/coin\/<address>\)/g, "");
+    ok(`${rel}: names no host itself (its hosts come from the bots' verified list), touches no chrome.* API or page storage, logs nothing`, !/https?:\/\//.test(hostless) && !/chrome\.|localStorage|sessionStorage|indexedDB|console\./.test(code));
+  }
+  for (const rel of ["popcat-tab.mjs", "crying-cat.mjs", "cashcat-draft.mjs", "cashcat-logo.mjs"].map((f) => path.join("src", "lib", f))) {
+    const code = strip(fs.readFileSync(path.join(here, rel), "utf8"));
+    ok(`${rel}: signs nothing and reaches no signer`, !/\.sign\(|signTransaction|signSendConfirm|signAsMint|partialSign|mintKeys/.test(code));
+  }
+
+  /* The files of bots/ (and site/) the extension's bundles import, found by following the import
+     statements from the six entries: none may hold a key. */
+  const { ENTRIES } = await import("./build.mjs");
+  const seen = new Set();
+  const queue = Object.values(ENTRIES).map((e) => path.join(here, "src", e));
+  while (queue.length) {
+    const f = queue.pop();
+    if (seen.has(f) || !fs.existsSync(f)) continue;
+    seen.add(f);
+    const t = strip(fs.readFileSync(f, "utf8"));
+    for (const m of t.matchAll(/(?:^|\n)\s*(?:import|export)\s[^;]*?from\s+"(\.{1,2}\/[^"]+)"|(?:^|\n)\s*import\s+"(\.{1,2}\/[^"]+)"/g)) queue.push(path.resolve(path.dirname(f), m[1] ?? m[2]));
+  }
+  const outside = [...seen].map((f) => path.relative(here, f)).filter((rel) => !rel.startsWith("src" + path.sep)).sort();
+  const botsInBundle = outside.filter((rel) => rel.startsWith("bots" + path.sep));
+  ok("the bundles import the bots' pure modules (the checks, the content rules, the builders, the pre-sign check)", ["bots/popcat/checks.mjs", "bots/lib/content-rules.mjs", "bots/cashcat/pumpfun.mjs", "bots/lib/txcheck.mjs", "bots/cashcat/logo-layout.mjs"].every((r) => botsInBundle.includes(r.split("/").join(path.sep))), botsInBundle.join(", "));
+  ok("…and never the bot's wallet, its launch loop, its Node renderer, its logger or its data files", !botsInBundle.some((rel) => /cashcat[\\/](wallet|launch|run|logo)\.mjs$|lib[\\/](data|log)\.mjs$|floor-data\.mjs$/.test(rel)), botsInBundle.join(", "));
+  for (const rel of outside) {
+    const text = fs.readFileSync(path.join(here, rel), "utf8");
+    const hits = BANNED.filter(([re]) => re.test(text)).map(([, what]) => what);
+    ok(`${rel} (in the bundle): holds no key`, hits.length === 0, hits.join(", "));
+  }
+}
+
 console.log("\nTHE KEY FILE\n────────────");
 {
   const text = fs.readFileSync(path.join(here, KEY_FILE), "utf8");
@@ -285,6 +357,7 @@ console.log("\nTHE KEY FILE\n────────────");
   ok("no use of the secret entry key goes through `storage.`", secretLines.every((l) => !/\bstorage\./.test(l)));
   ok("its header states the trade-off plainly", /bigger attack surface than one on a server/.test(prose));
   ok("its header states the rule", /only this file may touch a secret key/i.test(prose));
+  ok("its header names the second key it holds: a launch's mint, made, used once and dropped", /createMintKeys/.test(prose) && /used once/.test(prose) && /dropped/.test(prose));
   const importers = files.map((f) => path.relative(here, f)).filter((rel) => rel !== KEY_FILE && /session-wallet/.test(fs.readFileSync(path.join(here, rel), "utf8")));
   ok("nothing but the background host imports it", importers.every((rel) => rel === KEY_HOST), importers.length ? importers.join(", ") : "no importer yet; background.mjs may wire it");
 }

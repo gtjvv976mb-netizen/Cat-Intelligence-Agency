@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>COINMARKETCAT — options: the agent, and Snipurr's lane</title>
+<title>Cat Intelligence Agency — options: CoinMarketCat, CashCat, Popcat and Snipurr</title>
 <link rel="stylesheet" href="popup.css">
 <style>
   html,body{width:auto;max-width:760px;margin:0 auto;padding:0 16px 40px}
@@ -48,12 +48,17 @@
   .counter{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
   .agentbar{position:sticky;bottom:0;background:var(--card);padding:10px 0;border-top:1px solid var(--card-line)}
   .truth{font-size:11.5px;color:var(--warn);border-left:3px solid var(--warn);padding:2px 0 2px 8px;margin:8px 0}
+  fieldset.cashcat{border-color:#f5c542}
+  fieldset.popcat{border-color:#ff4fd8}
 </style>
 </head>
 <body>
-<h1>COINMARKET<em>CAT</em> options</h1>
-<p class="lead">CoinMarketCat is agentic trading for Solana, in plain English: an agent that follows the strategy you write, inside limits it cannot change. Snipurr, the pump.fun sniper cat, is its other lane, further down. CoinMarketCat is not affiliated with CoinMarketCap.</p>
+<h1>Cat <em>Intelligence</em> Agency options</h1>
+<p class="lead">One extension, five cats: <b>CoinMarketCat</b>, agentic trading for Solana in plain English (first, below); <b>CashCat</b>, which launches a cat coin of your own, and <b>Popcat</b>, the cat-coin scanner (after it); <b>Snipurr</b>, the pump.fun sniper lane (last); and <b>Crying Cat</b>, the rug check, which needs only your RPC. CoinMarketCat is not affiliated with CoinMarketCap.</p>
+<h2 class="lane">CoinMarketCat <em>(the agent)</em></h2>
 <form id="agentForm" autocomplete="off"></form>
+<h2 class="lane">CashCat <em>and</em> Popcat</h2>
+<form id="catsForm" autocomplete="off"></form>
 <h2 class="lane">Snipurr <em>(sniper lane)</em></h2>
 <p class="lead">Every dial Snipurr's lane reads. The defaults are the executor's own, except the three the record moved — marked in brass. Blank means "the policy's own default".</p>
 <form id="form"></form>

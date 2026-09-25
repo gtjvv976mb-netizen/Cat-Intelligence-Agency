@@ -722,10 +722,17 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, st
   async function stockLaunch({ pairMint, preparedId, confirmTicker } = {}) {
     return exclusive("launching a stock cat", async () => {
       const rec = preparedRec;
-      if (!rec || typeof preparedId !== "string" || rec.id !== preparedId) refuse("prepare_first", "check the launch first: a stock cat is launched only from a check made in the last ten minutes");
-      preparedRec = null;
       let stored = null;
+      /* The record check sits inside the try, as the first thing it does, so a launch refused for
+         want of a check (prepare_first) is journaled like every other refusal: the owner's list of
+         stock-cat refusals is then the whole story, including a second press after a refused
+         launch had already used the record up. It is still the first check, and the record is
+         still dropped only once it has matched, so a wrong id never spends someone's real check.
+         With no record there is no checked pair to name, so the journal names the pair that was
+         asked for, and only when it is one of the pairs (never a stray string from a message). */
       try {
+        if (!rec || typeof preparedId !== "string" || rec.id !== preparedId) refuse("prepare_first", "check the launch first: a stock cat is launched only from a check made in the last ten minutes");
+        preparedRec = null;
         if (clock() - rec.at > STOCKCAT_LIMITS.prepareTtlMs) refuse("prepare_stale", "the check is more than ten minutes old: check the launch again");
         if (rec.pairMint !== pairMint) refuse("pair_changed", "the pair is not the one that was checked: check the launch again");
         const pair = pairOf(pairMint);
@@ -737,7 +744,8 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, st
         return await launchPipeline({ draft: stored.draft, mode: "manual", venue: "stonkfun", pair, prepared: rec });
       } catch (e) {
         if (e instanceof CashcatError && !["busy", "read_back"].includes(e.clause))
-          await journalAdd({ kind: "refused", mode: "manual", venue: "stonkfun", clause: e.clause, message: String(e.message).slice(0, 300), symbol: stored?.draft?.symbol ?? null, pairMint: rec.pairMint });
+          await journalAdd({ kind: "refused", mode: "manual", venue: "stonkfun", clause: e.clause, message: String(e.message).slice(0, 300), symbol: stored?.draft?.symbol ?? null,
+            pairMint: rec?.pairMint ?? (typeof pairMint === "string" ? pairByMint(pairMint.trim())?.mint ?? null : null) });
         throw e;
       }
     });

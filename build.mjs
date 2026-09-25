@@ -145,6 +145,13 @@ export const HOSTS_CALLED = Object.freeze([
   ["api.coingecko.com", "CashCat", "CoinGecko's trending categories, for drafting from a trend"],
   ["lite-api.jup.ag", "CashCat, CoinMarketCat", "Jupiter's token list: no CashCat draft may take a verified token's ticker or name, and a custom CoinMarketCat mint must be a cat coin by its name there"],
   ["www.stonkfun.xyz", "CoinMarketCat", "StonkFun's public API, keyless: whether LaunchLab launches are on, which stocks are ready to pair, a stock cat's pricing (every number checked on chain before it is built) and, when the owner asks, its launch record"],
+  /* The one fixed host that is an RPC. With no RPC set in Options, the worker's catRpcFor falls
+     back to bots/lib/rpc.mjs PUBLIC_RPC, so Popcat's scan and Crying Cat's check do send it a
+     read. It is listed here as well as in the README because the list has to hold both ways: the
+     README showed this row for a build while this list left it out, and the test only compared
+     this list against the README, so nothing noticed. The stock cats' planner makes a client for
+     it too but refuses the public endpoint before any call (clause no_rpc), so it is not named. */
+  ["api.mainnet-beta.solana.com", "Popcat, Crying Cat", "tried for reads only when no RPC is set; it answers 403 to the extension, and both then ask for an RPC"],
 ]);
 
 export function buildOptions({ outdir = DIST } = {}) {

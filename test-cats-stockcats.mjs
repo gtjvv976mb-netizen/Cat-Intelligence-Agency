@@ -399,7 +399,13 @@ section("6. ARMED BY THE CHECK ALONE: EVERY WAY A LAUNCH IS REFUSED BEFORE IT RU
   const noPrep = await world({});
   const d = await PICK(noPrep);
   await SC(noPrep).draft({ pairMint: SPY.mint, idea: d });
-  ok("prepare_first: nothing was checked", (await throwsClause(() => SC(noPrep).launch({ pairMint: SPY.mint, preparedId: "stockcat-x", confirmTicker: d.symbol }), "prepare_first"))?.clause === "prepare_first");
+  const firstRefused = (await throwsClause(() => SC(noPrep).launch({ pairMint: SPY.mint, preparedId: "stockcat-x", confirmTicker: d.symbol }), "prepare_first"))?.clause;
+  await throwsClause(() => SC(noPrep).launch({ pairMint: "not a pair", preparedId: "stockcat-x", confirmTicker: d.symbol }), "prepare_first");
+  const noPrepJ = ((await noPrep.storage.get(CASHCAT_TAB_KEYS.journal)) ?? []).filter((x) => x.kind === "refused" && x.venue === "stonkfun");
+  /* With no check made there is no checked pair, so the journal names the pair asked for — and
+     only a real pair: a stray string from a message is journaled as no pair at all. */
+  ok("prepare_first: nothing was checked — refused, and journaled with the pair asked for (a stray string: none)", firstRefused === "prepare_first"
+    && noPrepJ.map((x) => `${x.clause}:${x.pairMint}`).join() === `prepare_first:null,prepare_first:${SPY.mint}`, JSON.stringify(noPrepJ.map((x) => x.pairMint)));
   const cases = [
     ["prepare_stale", "the check is over ten minutes old", async (w, p) => { w.T.now += STOCKCAT_LIMITS.prepareTtlMs + 1; return { pairMint: SPY.mint, preparedId: p.preparedId, confirmTicker: p.draft.symbol }; }],
     ["pair_changed", "another pair than the one checked", async (w, p) => ({ pairMint: PLTR.mint, preparedId: p.preparedId, confirmTicker: p.draft.symbol })],

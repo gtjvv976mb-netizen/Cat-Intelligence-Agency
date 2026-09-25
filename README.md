@@ -622,7 +622,7 @@ console page only. The host permissions, and why each is needed:
 
 | Host permission | Why |
 |---|---|
-| `https://*/*` | The Solana RPC is whatever https URL the user pastes in Options (Helius, Triton, QuickNode or their own node), so no fixed host list can name it; every other request goes to one of the fixed hosts listed with its reason (the agent's model, prices and swaps; Popcat's pump.fun listing and IPFS metadata; CashCat's trends, verified-token list and Pinata uploads). A fetch permission only: the extension injects nothing into any page but the agency's console page. |
+| `https://*/*` | The Solana RPC is whatever https URL the user pastes in Options (Helius, Triton, QuickNode or their own node), so no fixed host list can name it; every other request goes to one of the fixed hosts listed with its reason (the agent's model, prices and swaps; Popcat's pump.fun listing and IPFS metadata; CashCat's trends, verified-token list and Pinata uploads; CoinMarketCat's stock cats: StonkFun's pairs, pricing and launch records). A fetch permission only: the extension injects nothing into any page but the agency's console page. |
 | `wss://*/*` | Snipurr's live feed is one logsSubscribe websocket to the same user-chosen RPC (its wss URL, or the one derived from the https URL). |
 
 Every fixed host the extension calls, which cat calls it, and why:
@@ -636,11 +636,12 @@ Every fixed host the extension calls, which cat calls it, and why:
 | `datapi.jup.ag` | Snipurr | Jupiter's newest launchpad pools, only if the user chooses that feed |
 | `frontend-api-v3.pump.fun` | Popcat | pump.fun's newest coins and a creator's launch count |
 | `pump.mypinata.cloud` | Popcat | a coin's metadata by its IPFS CID, to see whether it names a social link (none is shown or followed) |
-| `gateway.pinata.cloud` | Popcat, CashCat | the same metadata by CID; CashCat reads back what it pinned |
-| `uploads.pinata.cloud` | CashCat | pins the logo and metadata of the user's coin, with the user's own Pinata JWT |
+| `gateway.pinata.cloud` | Popcat, CashCat, CoinMarketCat | the same metadata by CID; CashCat reads back what it pinned |
+| `uploads.pinata.cloud` | CashCat, CoinMarketCat | pins the logo and metadata of the user's coin, with the user's own Pinata JWT |
 | `trends.google.com` | CashCat | Google Trends' US trending-searches feed, for drafting from a trend |
 | `api.coingecko.com` | CashCat | CoinGecko's trending categories, for drafting from a trend |
 | `lite-api.jup.ag` | CashCat, CoinMarketCat | Jupiter's token list: no CashCat draft may take a verified token's ticker or name, and a custom CoinMarketCat mint must be a cat coin by its name there |
+| `www.stonkfun.xyz` | CoinMarketCat | StonkFun's public API, keyless: whether LaunchLab launches are on, which stocks are ready to pair, a stock cat's pricing (every number checked on chain before it is built) and, when the owner asks, its launch record |
 | `api.mainnet-beta.solana.com` | Popcat, Crying Cat | tried for reads only when no RPC is set; it answers 403 to the extension, and both then ask for an RPC |
 | a new coin's metadata host (usually an IPFS gateway) | Snipurr | its socials check (on by default): one read of the document its creator named, with a deadline and a size cap; its links are never followed |
 

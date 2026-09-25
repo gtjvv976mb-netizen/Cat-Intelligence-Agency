@@ -307,7 +307,7 @@ console.log("\nTHE MINT'S KEY AND THE AGENCY'S OTHER CATS\n───────
   ok("…VENUE_RUN: pump.fun and StonkFun only, each at the bot's own budget and compute limit, each with the log its simulation must show",
     JSON.stringify(Object.keys(VENUE_RUN).sort()) === '["pumpfun","stonkfun"]' && ["pumpfun", "stonkfun"].every((v) => VENUE_RUN[v].budget === MAX_LAUNCH_SPEND_LAMPORTS[v] && VENUE_RUN[v].compute === COMPUTE_LIMITS[v])
       && VENUE_RUN.pumpfun.mustLog === "Instruction: CreateV2" && VENUE_RUN.stonkfun.mustLog === "Instruction: InitializeWithToken2022");
-  ok("…and a stock cat's launch is armed only by the check's own record, used once, before any of it runs", /const rec = preparedRec;\s*if \(!rec [^\n]*refuse\("prepare_first"/.test(tab) && /preparedRec = null;\s*let stored = null;/.test(tab));
+  ok("…and a stock cat's launch is armed only by the check's own record, used once, before any of it runs", /const rec = preparedRec;\s*let stored = null;\s*try \{\s*if \(!rec [^\n]*refuse\("prepare_first"[^\n]*\n\s*preparedRec = null;\n/.test(tab));
   const dev = tab.slice(tab.indexOf("async function devBuy"), tab.indexOf("/** What every launch needs"));
   ok("…and the dev buy only through the same fences, after the bot's dev-buy check and a simulation", dev.indexOf("checkDevBuyMessage(") > 0 && dev.indexOf("checkDevBuyMessage(") < dev.indexOf("f.signSendConfirm(") && dev.indexOf("checkSimulation(") < dev.indexOf("f.signSendConfirm("));
   ok("…a manual launch's only: auto mode's dev buy is 0", /const devBuySol = mode === "auto" \? 0 : settings\.devBuySol;/.test(tab) && /if \(p\.devBuySol > 0 && mode === "manual"\)/.test(tab));

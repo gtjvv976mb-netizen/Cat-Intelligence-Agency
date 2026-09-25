@@ -111,11 +111,30 @@ console.log("\nEVERY HOST PERMISSION, JUSTIFIED\n──────────�
   const { POPCAT_TAB_HOSTS } = await import("./src/lib/popcat-tab.mjs");
   const { DRAFT_HOSTS } = await import("./src/lib/cashcat-draft.mjs");
   const { STOCKCAT_HOSTS } = await import("./src/lib/stockcats.mjs");
-  const called = new Set([...POPCAT_TAB_HOSTS, ...DRAFT_HOSTS, ...STOCKCAT_HOSTS, "uploads.pinata.cloud", "gateway.pinata.cloud", ...[...named].filter((h) => ["api.anthropic.com", "api.dexscreener.com", "api.geckoterminal.com", "api.jup.ag", "datapi.jup.ag"].includes(h))]);
+  /* The public mainnet RPC is a fixed host too: with no RPC set, the worker's catRpcFor falls
+     back to it for Popcat's and Crying Cat's reads, so it is taken from the constant itself. */
+  const { PUBLIC_RPC } = await import("./bots/lib/rpc.mjs");
+  const called = new Set([...POPCAT_TAB_HOSTS, ...DRAFT_HOSTS, ...STOCKCAT_HOSTS, "uploads.pinata.cloud", "gateway.pinata.cloud", new URL(PUBLIC_RPC).host, ...[...named].filter((h) => ["api.anthropic.com", "api.dexscreener.com", "api.geckoterminal.com", "api.jup.ag", "datapi.jup.ag"].includes(h))]);
   ok("every fixed host the cats call is listed with who calls it and why", [...called].every((h) => listed.has(h)), [...called].filter((h) => !listed.has(h)).join(", ") || `${called.size} hosts`);
   ok("…and the README's table of hosts lists each", HOSTS_CALLED.every(([h]) => readme.includes(`\`${h}\``)));
   ok("…word for word: the host, who calls it and why, as one row of that table", HOSTS_CALLED.every(([h, who, why]) => readme.includes(`| \`${h}\` | ${who} | ${why} |`)),
     HOSTS_CALLED.filter(([h, who, why]) => !readme.includes(`| \`${h}\` | ${who} | ${why} |`)).map(([h]) => h).join(", "));
+  /* The other direction. The README once listed api.mainnet-beta.solana.com while HOSTS_CALLED
+     did not, and every check above reads from HOSTS_CALLED, so none could see it. This one reads
+     the README's own table: every row that names a host (in backticks) is a row of HOSTS_CALLED,
+     word for word and in the same order. The one row without backticks, "a new coin's metadata
+     host", names no fixed host, so it is the README's alone. The README is read raw here, not
+     with its whitespace folded, because a table row is one line. */
+  {
+    const raw = fs.readFileSync(path.join(here, "README.md"), "utf8");
+    const table = raw.split("Every fixed host the extension calls, which cat calls it, and why:")[1]?.split(/\n\n(?=\S)/).find((b) => b.trimStart().startsWith("| Host |")) ?? "";
+    const rows = table.split("\n").filter((l) => /^\| `[^`]+` \|/.test(l)).map((l) => l.match(/^\| `([^`]+)` \| (.*?) \| (.*) \|$/)?.slice(1) ?? [l]);
+    const want = HOSTS_CALLED.map((r) => r.join(" ¦ "));
+    const have = rows.map((r) => r.join(" ¦ "));
+    ok("every host in the README's table is in HOSTS_CALLED, word for word and in the same order: the list holds both ways",
+      rows.length > 0 && JSON.stringify(have) === JSON.stringify(want),
+      have.filter((r) => !want.includes(r)).map((r) => r.split(" ¦ ")[0]).join(", ") || `${rows.length} rows`);
+  }
   ok("the stock cats call StonkFun's API, listed as CoinMarketCat's", STOCKCAT_HOSTS.length === 1 && HOSTS_CALLED.some(([h, who]) => h === STOCKCAT_HOSTS[0] && who === "CoinMarketCat"));
   ok("no permission was added for the three new cats: still storage, alarms and notifications", perms.every((p) => ALLOWED_PERMISSIONS.has(p)) && perms.length === 3, perms.join(", "));
 }

@@ -1,0 +1,80 @@
+# Agency HQ (services/hq/): its tests, and its Docker image built and started, on every push and
+# pull request that touches HQ or the shared modules it runs. Deployment is not done here:
+# Railway watches the repository and builds services/hq/Dockerfile itself on a push to the
+# branch its service follows (docs/hq/DEPLOY.md: RAILWAY_DOCKERFILE_PATH and the watch paths),
+# and with "Wait for CI" on it deploys only after these checks pass. Nothing here holds a
+# secret; the image is started in paper mode with none set, and must answer /health.
+name: HQ
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/hq/**"
+      - "src/lib/**"
+      - "src/shims/**"
+      - "vendor/executor/**"
+      - "bots/lib/**"
+      - "bots/popcat/**"
+      - "bots/cashcat/**"
+      - "bots/test/doubles.mjs"
+      - "fixtures/**"
+      - "test-hq-*.mjs"
+      - "docs/hq/**"
+      - "scripts/test-all.mjs"
+      - ".dockerignore"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hq.yml"
+  pull_request:
+    paths:
+      - "services/hq/**"
+      - "src/lib/**"
+      - "src/shims/**"
+      - "vendor/executor/**"
+      - "bots/lib/**"
+      - "bots/popcat/**"
+      - "bots/cashcat/**"
+      - "bots/test/doubles.mjs"
+      - "fixtures/**"
+      - "test-hq-*.mjs"
+      - "docs/hq/**"
+      - "scripts/test-all.mjs"
+      - ".dockerignore"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hq.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hq:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: HQ's own dependencies (services/hq/package.json, kept out of the extension build)
+        run: npm ci --prefix services/hq
+      - name: HQ's tests (every test-hq-*.mjs)
+        run: node scripts/test-all.mjs test-hq-
+      - name: The image Railway builds (services/hq/Dockerfile, from the repository root)
+        run: docker build -f services/hq/Dockerfile -t cia-hq:ci .
+      - name: The image starts in paper mode with no secrets and answers /health
+        run: |
+          docker run -d --name hq -p 8787:8787 -e HQ_DATA_DIR=/data cia-hq:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8787/health > health.json; then break; fi
+            sleep 1
+          done
+          cat health.json
+          node -e 'const h = JSON.parse(require("fs").readFileSync("health.json", "utf8")); if (h.ok !== true || h.switches.live !== false || h.switches.buyback !== "off") process.exit(1);'
+          docker logs hq
+          docker stop -t 15 hq

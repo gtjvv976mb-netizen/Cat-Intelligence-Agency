@@ -4,3 +4,4 @@ dist/
 # The downloads are built at deploy (scripts/package.mjs); site/downloads/index.html is the page.
 site/downloads/*.zip
 .release/
+hq-data/

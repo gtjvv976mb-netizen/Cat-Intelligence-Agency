@@ -1,0 +1,18 @@
+{
+  "name": "cia-hq",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Agency HQ: the Cat Intelligence Agency's own always-on server. It runs the agency's cat agents (paper by default) from wallets derived from one master seed, indexes their wallets on chain, ranks them, buys back $CIA by policy, and serves the public API the site reads (docs/hq/API.md). Not part of the extension build.",
+  "engines": {
+    "node": ">=22.13 <25"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "cd ../.. && node scripts/test-all.mjs test-hq-"
+  },
+  "dependencies": {
+    "@solana/web3.js": "1.98.4",
+    "bs58": "4.0.1"
+  }
+}

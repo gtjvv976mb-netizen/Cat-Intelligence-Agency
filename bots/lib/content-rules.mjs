@@ -29,7 +29,9 @@
  * stripped, Cyrillic and Greek look-alikes and Latin small capitals read as the Latin letters
  * they imitate, lower case, common look-alike digits read as letters), on compounds —
  * "TrumpCat" is "trump" + "cat" and is refused; "trumpet" is not — on letters spelt out one by
- * one ("M.U.S.K.") and on a listed word split in two ("Cat Girl"). A list can never be
+ * one ("M.U.S.K.") and on a listed word split in two ("Cat Girl"); and each field is also read as
+ * whole words, apostrophes dropped and camelCase not split, so a brand spelt with a capital inside
+ * ("SpaceX", "OpenAI", "JPMorgan") or an apostrophe ("McDonald's") is caught. A list can never be
  * complete; that is why the model reviews too, and why the lists err toward refusing.
  */
 import { createHash } from "node:crypto";
@@ -231,6 +233,27 @@ function personNameHit(words) {
 }
 
 /**
+ * The two readings of one field a listed term is matched against.
+ *
+ * `split` is wordsOf: camelCase split, so "TrumpCat" is "trump" + "cat". `whole` is the same
+ * text with its apostrophes dropped and camelCase NOT split. Both are needed, because splitting
+ * breaks the brands whose own spelling carries a capital inside the word: "SpaceX" splits into
+ * "space" + "x", "OpenAI" into "open" + "ai", "JPMorgan" into "jp" + "morgan", and a half of one
+ * or two letters is too short for the split-word rule to rejoin (that rule wants both halves three
+ * letters or longer, so "cat's hot" never reads as "shot"). An apostrophe splits too:
+ * "McDonald's" was "mcdonald" + "s". Every one of those four passed checkFields until 2026-09-25,
+ * and SPCXx (SpaceX) and MCDx (McDonald's) are stocks a stock cat can be paired with, so the gap
+ * was a way to name a coin for the company behind its pair. Reading the whole words as well
+ * closes it; CashCat, the bot and Popcat share this file, so all three are fixed at once.
+ */
+function readings(value) {
+  const split = wordsOf(value);
+  const whole = normalize(String(value ?? "").replace(/['\u2019]/g, "")).split(" ").filter(Boolean);
+  return { split, whole };
+}
+const readingHits = ({ split, whole }, norm, opts) => wordHits(split, norm, opts) || wordHits(whole, norm, opts);
+
+/**
  * Run the list rules over labelled fields. Returns { ok, violations: [{ rule, term, field }] }.
  * `skip` names rules not to apply to these fields.
  */
@@ -238,10 +261,11 @@ export function checkFields(fields, { skip = [] } = {}) {
   const violations = [];
   for (const [field, value] of Object.entries(fields)) {
     if (value === undefined || value === null || value === "") continue;
-    const words = wordsOf(value);
+    const read = readings(value);
+    const words = read.split;
     for (const [rule, list] of LIST_RULES) {
       if (skip.includes(rule)) continue;
-      for (const [term, norm] of list) if (wordHits(words, norm, { person: rule === "real_person" })) { violations.push({ rule, term, field }); break; }
+      for (const [term, norm] of list) if (readingHits(read, norm, { person: rule === "real_person" })) { violations.push({ rule, term, field }); break; }
     }
     if (!skip.includes("real_person")) {
       const hit = personNameHit(words);
@@ -254,6 +278,28 @@ export function checkFields(fields, { skip = [] } = {}) {
     if (!skip.includes("link")) {
       const m = String(value).normalize("NFKC").replace(INVISIBLE, "").match(LINKISH);
       if (m) violations.push({ rule: "link", term: m[0], field });
+    }
+  }
+  return { ok: violations.length === 0, violations };
+}
+
+/**
+ * The same matching, over lists the caller brings: { [rule]: terms[] }. Stock cats use it for the
+ * words of the stock a coin is paired with (its symbol, its root ticker, the words of its name,
+ * and the people, mascots and brands the research row sourced), so a pair's own terms are held to
+ * exactly the compounds, look-alikes, spelt-out letters and split words the fixed lists are.
+ * Returns { ok, violations: [{ rule, term, field }] }; one violation per rule and field, the first
+ * term that hit.
+ */
+export function checkTerms(fields, lists) {
+  const violations = [];
+  const prepared = Object.entries(lists ?? {}).map(([rule, terms]) => [rule, [...new Set((terms ?? []).map((t) => String(t ?? "")))]
+    .map((t) => [t, normalize(t)]).filter(([, n]) => n.length > 0)]);
+  for (const [field, value] of Object.entries(fields)) {
+    if (value === undefined || value === null || value === "") continue;
+    const read = readings(value);
+    for (const [rule, list] of prepared) {
+      for (const [term, norm] of list) if (readingHits(read, norm)) { violations.push({ rule, term, field }); break; }
     }
   }
   return { ok: violations.length === 0, violations };

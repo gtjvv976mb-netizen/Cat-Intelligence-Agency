@@ -132,7 +132,14 @@ section("TEXT ONLY: NO PICTURE, NO LINK BUT PUMP.FUN'S AND SOLSCAN'S");
   const popup = fs.readFileSync(path.join(ROOT, "src", "popup", "cats.mjs"), "utf8");
   const code = popup.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
   ok("the popup draws the tab with textContent and createElement, and never assigns innerHTML", !/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(code) && /textContent/.test(code) && /createElement/.test(code));
-  ok("…and draws a link only when it is pump.fun's coin page or Solscan's, checked again there", /const SAFE_LINK = \/\^https:\\\/\\\/\(pump\\\.fun\\\/coin\|solscan\\\.io\\\/\(account\|tx\)\)/.test(code) && /if \(!l \|\| typeof l\.href !== "string" \|\| !SAFE_LINK\.test\(l\.href\)\) continue;/.test(code));
+  ok("…and draws a link only when it is pump.fun's coin page, a stock cat's StonkFun page or Solscan's, checked again there", /const SAFE_LINK = \/\^https:\\\/\\\/\(pump\\\.fun\\\/coin\|solscan\\\.io\\\/\(account\|tx\)\|www\\\.stonkfun\\\.xyz\\\/token\)\\\/\[1-9A-HJ-NP-Za-km-z\]\{32,90\}\$\//.test(code) && /if \(!l \|\| typeof l\.href !== "string" \|\| !SAFE_LINK\.test\(l\.href\)\) continue;/.test(code));
+  const { SAFE_LINK } = await import("./src/popup/cats.mjs").catch(() => ({ SAFE_LINK: null }));
+  const safe = SAFE_LINK ?? new RegExp(code.match(/const SAFE_LINK = \/(.*)\/;/)[1]);
+  ok("…which opens a StonkFun token page and nothing else of StonkFun's, nor any look-alike host", safe.test("https://www.stonkfun.xyz/token/XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W")
+    && !safe.test("https://www.stonkfun.xyz/api/public/v1/tokens/XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W") && !safe.test("https://stonkfun.xyz.evil/token/XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W")
+    && !safe.test("https://www.stonkfun.xyz/token/XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W?ref=1"));
+  const stock = fs.readFileSync(path.join(ROOT, "src", "popup", "stockcats.mjs"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
+  ok("the stock cats' card draws with textContent too, never innerHTML, and links only through the same checked list", !/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(stock) && /textContent/.test(stock) && /import \{ linkList \} from "\.\/cats\.mjs";/.test(stock) && !/"a"/.test(stock) && !/"img"|\.src =/.test(stock));
   ok("…opened in a new tab with no referrer and no opener", /rel: "noopener noreferrer"/.test(code) && /target: "_blank"/.test(code));
   ok("…and shows no image but CashCat's own logo, drawn in this browser", (code.match(/"img"|\.src =/g) ?? []).length === 1 && /\$\("ccLogo"\)\.src = res\.dataUrl/.test(code) && /res\.dataUrl\.startsWith\("data:image\/png;base64,"\)/.test(code));
 }

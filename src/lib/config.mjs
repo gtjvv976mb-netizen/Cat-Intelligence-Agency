@@ -99,6 +99,57 @@ export const XSTOCK_BUILTIN = Object.freeze([
 ].map(([symbol, name, mint]) => Object.freeze({ symbol, name, mint, source: "xstocks.com/us/products, read 2026-09-24" })));
 
 /**
+ * THE xSTOCKS A STOCK CAT MAY BE PAIRED WITH ON STONKFUN: the fifteen above, plus the nine more
+ * that StonkFun lists as launchable and LaunchLab-ready and that the official product page lists
+ * too (https://xstocks.com/us/products, its __NEXT_DATA__ products list, read 2026-09-25; the
+ * rows are kept in fixtures/bots/stonkfun/2026-09-25/xstocks-official-24.json and a test matches
+ * every one by mint). A separate list, so XSTOCK_BUILTIN — the trading lanes' focus list, pinned
+ * at fifteen by their tests — does not change. `stonkfun` and `stonkfunName` are the symbol and
+ * name StonkFun's own /pairs answer gives the same mint (StonkFun spells Apple's "APPLX" and
+ * Berkshire's "BRKX"); a stock cat's rules keep a coin clear of those spellings too.
+ *
+ * Left out, on purpose (the tab says so, as counts with these reasons, never as pairs): every
+ * other quote StonkFun lists. Backpack's tokens — stocks and crypto alike — have no official
+ * issuer list and no authority allow-list here; prestocks and tessera carry a transfer fee; the
+ * rest are not tokenised stocks at all.
+ */
+const STONKFUN_NAMES = Object.freeze({
+  SPYx: ["SPYX", "SP500"], NVDAx: ["NVDAX", "NVIDIA"], GOOGLx: ["GOOGLX", "GOOGLE"], QQQx: ["QQQX", "QQQ"], TSLAx: ["TSLAX", "TESLA"],
+  CRCLx: ["CRCLX", "CIRCLE"], COINx: ["COINX", "COIN"], MSTRx: ["MSTRX", "MICROSTRATEGY"], AMZNx: ["AMZNX", "AMAZON"], HOODx: ["HOODX", "HOOD"],
+  SPCXx: ["SPCXX", "SPACEX"], AAPLx: ["APPLX", "APPLE"], GLDx: ["GLDX", "GOLD"], METAx: ["METAX", "META"], MSFTx: ["MSFTX", "MSFT"],
+});
+export const STONKFUN_XSTOCKS = Object.freeze([
+  ...XSTOCK_BUILTIN.map((b) => Object.freeze({ symbol: b.symbol, name: b.name, mint: b.mint, stonkfun: STONKFUN_NAMES[b.symbol][0], stonkfunName: STONKFUN_NAMES[b.symbol][1], source: b.source })),
+  ...[
+    ["PLTRx", "Palantir xStock", "XsoBhf2ufR8fTyNSjqfU71DYGaE6Z3SUGAidpzriAA4", "PLTRX", "PLTR"],
+    ["GMEx", "Gamestop xStock", "Xsf9mBktVB9BSU5kf4nHxPq5hCBJ2j2ui3ecFGxPRGc", "GMEX", "GME"],
+    ["STRCx", "Strategy PP Variable xStock", "Xs78JED6PFZxWc2wCEPspZW9kL3Se5J7L5TChKgsidH", "STRCX", "STRCX"],
+    ["MCDx", "McDonald's xStock", "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2", "MCDX", "MCDX"],
+    ["BRK.Bx", "Berkshire Hathaway xStock", "Xs6B6zawENwAbWVi7w92rjazLuAr5Az59qgWKcNb45x", "BRKX", "BRKX"],
+    ["KOx", "Coca-Cola xStock", "XsaBXg8dU5cPM6ehmVctMkVqoiRG2ZjMo1cyBJ3AykQ", "KOX", "COCA COLA"],
+    ["INTCx", "Intel xStock", "XshPgPdXFRWB8tP1j82rebb2Q9rPgGX37RuqzohmArM", "INTCX", "INTC"],
+    ["VIDAx", "Vida Global xStock", "XsfCC9VL4DamVGNgdJpfLXB3sBVa158Gbx8sh7NzmTk", "VIDAX", "VIDAX"],
+    ["DFDVx", "DFDV xStock", "Xs2yquAgsHByNzx68WJC55WHjHBvG9JsMB7CWjTLyPy", "DFDV", "DFDV"],
+  ].map(([symbol, name, mint, stonkfun, stonkfunName]) => Object.freeze({ symbol, name, mint, stonkfun, stonkfunName, source: "xstocks.com/us/products, read 2026-09-25" })),
+]);
+
+/**
+ * THE AUTHORITIES EVERY ONE OF THOSE 24 MINTS CARRIED when each was read over RPC on 2026-09-25
+ * (getMultipleAccounts; fixtures/bots/stonkfun/2026-09-25/accounts-xstocks.json): one issuer's
+ * keys, the same on all 24. A stock cat's quote is refused (quote_issuer) when its mint names any
+ * other key in these seats: a look-alike mint with the right symbol but another issuer is not the
+ * xStock it claims to be. The issuer keeps real powers over the stock, and the tab says so before
+ * a launch: the freeze/pause key can freeze the pool's stock account or pause the mint, and the
+ * permanent delegate can move stock out of any account, the pool's included.
+ */
+export const XSTOCK_AUTHORITIES = Object.freeze({
+  mint: "7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj",
+  freeze: "JDq14BWvqCRFNu1krb12bcRpbGtJZ1FLEakMw6FdxJNs",       // also the Pausable authority
+  permanentDelegate: "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq", // also the metadata update authority
+  scaledUi: "S7vYFFWH6BjJyEsdrPQpqpYTqLTrPRK6KW3VwsJuRaS",
+});
+
+/**
  * WHAT IS NOT MEASURED ABOUT THE xSTOCK VENUE, IN WORDS THE UI PRINTS. Every figure in
  * RECORD is from pump.fun launches paid in SOL; none of it is about these pools.
  */

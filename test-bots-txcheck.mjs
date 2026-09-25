@@ -7,10 +7,12 @@
  * name, before a signature: a System transfer out of the wallet, a token transfer, a memo, an
  * extra signer, another fee payer, a third compute-budget instruction or an outsized price, a
  * swapped account, another creator, a mayhem or custom-fee flag, another coin's name or URI,
- * StonkFun's reward platform, another raise, vesting, a transfer fee. And the simulation must
- * succeed, log the right instruction, and cost the wallet no more than the budget.
+ * StonkFun's reward platform, another raise, vesting, a transfer fee. The extension's own v0
+ * StonkFun launch (a stock cat), recorded with its mainnet simulation, passes; the same
+ * instructions through an address lookup table do not. And the simulation must succeed, log the
+ * right instruction, and cost the wallet no more than the budget.
  */
-import { Transaction, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
+import { Transaction, PublicKey, SystemProgram, TransactionInstruction, VersionedTransaction, TransactionMessage, AddressLookupTableAccount } from "@solana/web3.js";
 import { harness, fixture } from "./bots/test/doubles.mjs";
 import { checkLaunchMessage, checkDevBuyMessage, checkCollectFeeMessage, checkSimulation, TxRefused } from "./bots/lib/txcheck.mjs";
 import { createV2Ix, createV2CustomPairIx, customPairAccounts, collectCreatorFeeIx, encodeCreateV2, createV2Accounts } from "./bots/cashcat/pumpfun.mjs";
@@ -35,6 +37,8 @@ const pumpLaunch = (m, extra = {}) => verdict(() => checkLaunchMessage(m, { wall
 const stonkLaunch = (m) => verdict(() => checkLaunchMessage(m, { wallet: WALLET, mint: MINT, venue: "stonkfun", coin, plan }));
 const good = () => createV2Ix({ mint: MINT, user: WALLET, ...coin });
 const stonk = (over = {}) => initializeIx({ payer: WALLET, mint: MINT, quoteMint: plan.quote.mint, quoteTokenProgram: plan.quote.tokenProgram, globalConfig: plan.globalConfig, curveRule: plan.curveRule, ...coin, raiseRaw: plan.raiseRaw, cpmmCreatorFeeOn: 0, ...over });
+const sim = (over = {}) => ({ err: null, logs: ["Program log: Instruction: CreateV2"], unitsConsumed: 95_000, ...over });
+const simV = (s, o) => verdict(() => checkSimulation(s, { walletBefore: 1_000_000_000, walletAfter: 994_450_300, maxSpendLamports: 15_000_000, mustLog: "Instruction: CreateV2", ...o }));
 const transferOut = SystemProgram.transfer({ fromPubkey: new PublicKey(WALLET), toPubkey: new PublicKey(OTHER), lamports: 1_000_000 });
 
 section("THE PLANNED LAUNCHES PASS");
@@ -75,6 +79,26 @@ ok("a compute limit over 1.4M → compute_budget", pumpLaunch(tx([good()], { cb:
   ok("vesting → vesting", stonkLaunch(tx([instruction(LAUNCHLAB_PROGRAM, initializeAccounts({ payer: WALLET, mint: MINT, quoteMint: plan.quote.mint, quoteTokenProgram: plan.quote.tokenProgram, globalConfig: plan.globalConfig, curveRule: plan.curveRule }), vest)])) === "vesting");
   ok("the curve rule left off → accounts", stonkLaunch(tx([instruction(LAUNCHLAB_PROGRAM, initializeAccounts({ payer: WALLET, mint: MINT, quoteMint: plan.quote.mint, quoteTokenProgram: plan.quote.tokenProgram, globalConfig: plan.globalConfig, curveRule: plan.curveRule }).slice(0, 15), encodeInitialize({ ...coin, raiseRaw: plan.raiseRaw }))])) === "accounts");
   ok("a System transfer beside it → instructions", stonkLaunch(tx([stonk(), transferOut])) === "instructions");
+  const rewardPlan = { ...plan, platformConfig: STONKFUN_PLATFORM_REWARD };
+  ok("a plan that itself names the reward platform, with the accounts to match → platform", verdict(() => checkLaunchMessage(tx([instruction(LAUNCHLAB_PROGRAM, reward, encodeInitialize({ ...coin, raiseRaw: plan.raiseRaw }))]), { wallet: WALLET, mint: MINT, venue: "stonkfun", coin, plan: rewardPlan })) === "platform");
+}
+
+section("THE EXTENSION'S OWN v0 STONKFUN LAUNCH (a stock cat), AS SIMULATED ON MAINNET ON 2026-09-25");
+for (const symbol of ["SPYx", "PLTRx"]) {
+  /* The bytes the extension builds for a stock cat (src/lib/tx.mjs, a v0 message), recorded with
+     the plan they were built from and their mainnet simulation (fixtures/bots/stonkfun/2026-09-25/). */
+  const f = fixture(`stonkfun/2026-09-25/simulate-initialize-v0-${symbol}.json`);
+  const v0 = VersionedTransaction.deserialize(Buffer.from(f.transactionBase64, "base64"));
+  const p = { ...f.plan, raiseRaw: BigInt(f.plan.raiseRaw) };
+  const check = (message, over = {}) => verdict(() => checkLaunchMessage(message, { wallet: f.payer, mint: f.mint, venue: "stonkfun", coin: f.coin, plan: p, ...over }));
+  ok(`${symbol}: a v0 message with no lookup table, signed by exactly the payer and the new mint, passes the check`, v0.version === 0 && v0.message.addressTableLookups.length === 0 && v0.message.header.numRequiredSignatures === 2 && check(v0.message) === "passed");
+  ok(`${symbol}: …and its simulation succeeded, logged InitializeWithToken2022 and spent inside the StonkFun budget`, f.result.err === null && f.result.logs.some((l) => l.includes("Instruction: InitializeWithToken2022"))
+    && f.result.payerBefore - f.result.payerAfter <= 15_000_000 && simV({ err: null, logs: f.result.logs, unitsConsumed: f.result.unitsConsumed }, { walletBefore: f.result.payerBefore, walletAfter: f.result.payerAfter, mustLog: "Instruction: InitializeWithToken2022" }) === "passed",
+    `${f.result.payerBefore - f.result.payerAfter} lamports, ${f.result.unitsConsumed} units`);
+  const ixs = TransactionMessage.decompile(v0.message).instructions;
+  const table = new AddressLookupTableAccount({ key: new PublicKey(OTHER), state: { deactivationSlot: 2n ** 64n - 1n, lastExtendedSlot: 0, lastExtendedSlotStartIndex: 0, authority: undefined, addresses: [new PublicKey(TOKEN_2022_PROGRAM)] } });
+  const withTable = new TransactionMessage({ payerKey: new PublicKey(f.payer), recentBlockhash: f.blockhash, instructions: ixs }).compileToV0Message([table]);
+  ok(`${symbol}: the same instructions through an address lookup table → lookup_tables`, withTable.addressTableLookups.length === 1 && check(withTable) === "lookup_tables");
 }
 
 section("THE CREATOR-FEE CLAIM");
@@ -83,8 +107,6 @@ ok("a claim for someone else's vault → accounts", verdict(() => checkCollectFe
 ok("a claim with a transfer beside it → instructions", verdict(() => checkCollectFeeMessage(tx([collectCreatorFeeIx({ creator: WALLET }), transferOut]), { wallet: WALLET })) === "instructions");
 
 section("THE SIMULATION");
-const sim = (over = {}) => ({ err: null, logs: ["Program log: Instruction: CreateV2"], unitsConsumed: 95_000, ...over });
-const simV = (s, o) => verdict(() => checkSimulation(s, { walletBefore: 1_000_000_000, walletAfter: 994_450_300, maxSpendLamports: 15_000_000, mustLog: "Instruction: CreateV2", ...o }));
 ok("a successful simulation inside the budget passes", simV(sim()) === "passed");
 ok("a failed simulation → simulation", simV(sim({ err: { InstructionError: [2, { Custom: 6000 }] } })) === "simulation");
 ok("a spend over the budget → spend", simV(sim(), { walletAfter: 900_000_000 }) === "spend");

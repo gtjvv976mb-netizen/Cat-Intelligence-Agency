@@ -2,7 +2,7 @@
  * THE WIRE BETWEEN THE FOUR PLACES THIS EXTENSION RUNS.
  *
  *   popup / options / welcome ──runtime.sendMessage──▶ background (the agent, the Snipurr lane's engine, the autopilot wallet,
- *                                                       Popcat, Crying Cat and CashCat)
+ *                                                       Popcat, Crying Cat, CashCat and the stock cats)
  *   background ──tabs.sendMessage──▶ content script ──window.postMessage──▶ injected (Phantom)
  *
  * Every message carries `type` from one of the tables below. Nothing else is accepted:
@@ -113,6 +113,25 @@ export const CASHCAT = Object.freeze({
   ARM_AUTO: "cia:cashcat:arm-auto",             // { sentence } — typed, compared byte for byte
   DISARM_AUTO: "cia:cashcat:disarm-auto",
 });
+/**
+ * popup → background: STOCK CATS, in CoinMarketCat's tab — one cat coin of the owner's own for each
+ * xStock StonkFun lists, launched on StonkFun from the autopilot wallet, by hand, one at a time
+ * (src/lib/stockcats.mjs, and `stockCats` in src/lib/cashcat-tab.mjs). Answered for the extension's
+ * own pages only. None carries a secret or transaction bytes: LAUNCH carries the pair, the id of
+ * the check the worker made and keeps in its own memory, and the ticker the owner typed. A launch
+ * that read back unclean is cleared with CashCat's own MARK_CHECKED.
+ */
+export const STOCKCATS = Object.freeze({
+  LIST: "cia:stockcats:list",                   // → the 24 pairs, their research and cats, the draft, the journal, the caps
+  REFRESH: "cia:stockcats:refresh",             // read StonkFun's pairs now: which are ready, and the other quotes as counts
+  SUGGEST: "cia:stockcats:suggest",             // { pairMint } → names that pass every rule (no model)
+  DRAFT: "cia:stockcats:draft",                 // { pairMint, idea: { name, symbol, tagline, kitten?, background? } } — judged
+  PREPARE: "cia:stockcats:prepare",             // { pairMint } — every check, the plan proved on chain, the simulation; nothing pinned, signed or sent
+  LAUNCH: "cia:stockcats:launch",               // { pairMint, preparedId, confirmTicker } — within ten minutes of PREPARE, once
+  ADOPTION: "cia:stockcats:adoption",           // { mint } — has StonkFun adopted it? Read when the owner asks
+  SETTINGS: "cia:stockcats:settings",           // { maxPerDay } — 1 to 6 launches a UTC day, every launch from the extension counted
+});
+
 export const CATS_CARRIES_SECRET = Object.freeze([CASHCAT.SET_PINATA_JWT]);
 export const CATS_RETURNS_SECRET = Object.freeze([]);
 

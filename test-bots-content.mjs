@@ -9,14 +9,15 @@
  * letters; and the evasions a word list meets: Cyrillic and Greek look-alikes and small
  * capitals, an invisible character inside a word, letters spelt out one by one ("M.U.S.K."), a
  * listed word split in two ("Cat Girl") and nickname endings ("Trumpy"), each without refusing
- * its false friends ("wary", "teeny", "cat's hot", "it is is"). The
+ * its false friends ("wary", "teeny", "cat's hot", "it is is"); brands spelt with a capital inside
+ * or an apostrophe ("SpaceX", "OpenAI", "JPMorgan", "McDonald's"), read as whole words too. The
  * trend gate on the recorded Google Trends and CoinGecko answers. Then cat detection
  * (bots/lib/catdetect.mjs): every cat word, glued names and tickers, and the false friends —
  * catch, cattle, education, category, location, vacation, catalyst, caterpillar, catfish,
  * catwalk, scatter, concatenate, polecat, muscat — and the two-word rule for descriptions.
  */
 import { harness, fixture } from "./bots/test/doubles.mjs";
-import { normalize, wordsOf, checkFields, checkProposal, checkTrend, displaySafe, HATE_HASHES, hashTerm, TICKER } from "./bots/lib/content-rules.mjs";
+import { normalize, wordsOf, checkFields, checkProposal, checkTrend, checkTerms, displaySafe, HATE_HASHES, hashTerm, TICKER } from "./bots/lib/content-rules.mjs";
 import { detectCat, catWordIn, CAT_WORDS } from "./bots/lib/catdetect.mjs";
 import { parseGoogleTrends, parseCoingeckoTrending } from "./bots/cashcat/trends.mjs";
 
@@ -51,6 +52,25 @@ section("BRANDS, TEAMS, CHARACTERS AND OTHER TOKENS");
 for (const n of ["Nike Cat", "Hello Kitty Coin", "Garfield Cat", "Grumpy Cat Coin", "Popcat Two", "Solana Cat", "Yankees Cat", "White Sox Kitty"])
   ok(`"${n}"`, refused({ name: n }, "brand"));
 ok("the trend \"white sox\" is dropped", !checkTrend({ title: "white sox", news: [] }).ok);
+
+section("BRANDS SPELT WITH A CAPITAL INSIDE, OR AN APOSTROPHE");
+{
+  /* Found on 2026-09-25: splitting camelCase broke "SpaceX" into "space" + "x", "OpenAI" into
+     "open" + "ai", "JPMorgan" into "jp" + "morgan", and the apostrophe broke "McDonald's" into
+     "mcdonald" + "s"; the split-word rule wants both halves three letters long, so all four
+     passed. The rules now read the whole words too. */
+  for (const n of ["SpaceX Cat", "McDonald's Cat", "McDonald\u2019s Cat", "OpenAI Cat", "JPMorgan Cat"])
+    ok(`"${n}" is refused as a brand`, refused({ name: n }, "brand"), JSON.stringify(checkProposal({ ...good, name: n }).violations));
+  ok("…and so is the same brand in a tagline or a ticker", refused({ tagline: "A cat who naps on the SpaceX launch pad." }, "brand") && !displaySafe({ name: "Green Cat", symbol: "OPENAI" }).ok);
+  ok("the false friends still pass: \"Cat Intelligence\", \"Cat Intelligence Agency\", \"Trumpet Cat\", \"DoomCat\"",
+    ["Cat Intelligence", "Cat Intelligence Agency", "Trumpet Cat", "DoomCat"].every((name) => checkProposal({ ...good, name }).ok));
+  ok("the apostrophe is dropped only for the whole-word reading: \"The cat's hot take\" still passes", checkProposal({ ...good, tagline: "The cat's hot take on pickleball, served from the bench." }).ok);
+  const t = checkTerms({ name: "Tesla Tabby Cat", tagline: "A tabby on a sign." }, { pair_term: ["TSLAx", "Tesla"], other_pair: ["NVIDIA"] });
+  ok("checkTerms holds a caller's own list to the same matching: a pair's name in a coin's name is found by rule, term and field",
+    !t.ok && t.violations.length === 1 && t.violations[0].rule === "pair_term" && t.violations[0].term === "Tesla" && t.violations[0].field === "name");
+  ok("…glued, spelt with look-alikes, or with a capital inside", !checkTerms({ name: "TeslaCat" }, { x: ["Tesla"] }).ok && !checkTerms({ name: "Т3sla Cat" }, { x: ["Tesla"] }).ok && !checkTerms({ name: "SpaceX Kitty" }, { x: ["SpaceX"] }).ok);
+  ok("…and an empty list, or an empty term, refuses nothing", checkTerms({ name: "Any Cat" }, { x: [], y: [""] }).ok);
+}
 
 section("ENDORSEMENT AND OFFICIAL CLAIMS");
 for (const t of ["The official cat of autumn.", "A verified kitty for the season.", "The real cat everyone waited for.", "Our partner cat for the fall."])

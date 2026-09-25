@@ -24,7 +24,8 @@
  *   6.  pause (the model not asked, the protections still running), resume, liquidate all
  *       (everything sold, then paused), stop (what is held keeps its protections);
  *   7.  the model can change no limit and reach no withdrawal: a "withdraw" is refused and
- *       nothing moves; the spec is byte-for-byte what the owner saved;
+ *       nothing moves; the spec is byte-for-byte what the owner saved; a coin the owner launched
+ *       (CashCat's or a stock cat) leaves the universe and a buy of it is refused (own_launch);
  *   8.  the journal is capped; the state survives a restart; the API key is never stored,
  *       journaled or logged by the runner;
  *   LIVE
@@ -367,6 +368,34 @@ section("7. THE MODEL CAN CHANGE NO LIMIT AND REACH NO WITHDRAWAL");
   const runnerSource = fs.readFileSync(new URL("./src/lib/agent-runner.mjs", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1");
   ok("the runner's code names no sweep builder and no transfer: there is no path from a decision to a withdrawal",
     !/buildSweepTransaction|buildTokenSweepTransaction|autopilotSweep|SystemProgram|TransferChecked|session-wallet/.test(runnerSource));
+}
+
+section("7b. THE OWNER'S OWN LAUNCHES ARE NEVER BOUGHT, AND LEAVE THE UNIVERSE (own_launch)");
+{
+  /* CashCat's journal (its pump.fun coins and the stock cats) is handed in as ownLaunches: a coin
+     the owner launched is not in what the model is shown, and a buy of one is refused by name. */
+  const w = createWorld();
+  const mk = (ownLaunches) => createAgentRunner({ clock: w.clock, storage: w.storage, market: w.market, brain: w.brain, jupiter: w.jupiter, ownLaunches,
+    hasApiKey: async () => Boolean(w.key), log: (l) => w.logs.push(l), notify: (n) => w.notes.push(n) });
+  const r = mk(async () => ({ launches: [{ mint: POPCAT, creator: newKey() }], wallets: [] }));
+  await r.saveSpec({ ...SPEC, name: "Own-launch cat" });
+  await r.start();
+  w.decisions.push({ rationale: "Buy both.", actions: [buy(POPCAT, 20, "mine"), buy(MEW, 20, "not mine")] });
+  await r.tick();
+  const req = w.anthropic.filter((a) => a.path === "/v1/messages").at(-1);
+  const ctx = JSON.parse(req.body.messages[0].content.replace(/^[^\n]*\n/, ""));
+  ok("a coin the owner launched is not in the market the model is shown", !ctx.market.some((m) => m.mint === POPCAT) && ctx.market.some((m) => m.mint === MEW), ctx.market.map((m) => m.symbol).join(", "));
+  const refused = journalOf(r, "refusal").filter((x) => x.clause === "own_launch");
+  ok("a buy of it is refused by name (own_launch) and journaled; the other buy fills", refused.length === 1 && refused[0].mint === POPCAT && journalOf(r, "fill").map((f) => f.symbol).join() === "MEW"
+    && journalOf(r, "decision")[0].outcomes.some((o) => o.mint === POPCAT && o.outcome === "refused" && o.clause === "own_launch"));
+  const w2 = createWorld();
+  const r2 = createAgentRunner({ clock: w2.clock, storage: w2.storage, market: w2.market, brain: w2.brain, jupiter: w2.jupiter, hasApiKey: async () => true,
+    ownLaunches: async () => { throw new Error("storage unreadable"); } });
+  await r2.saveSpec({ ...SPEC, name: "Blind cat" });
+  await r2.start();
+  w2.decisions.push({ rationale: "Buy.", actions: [buy(MEW, 20, "x")] });
+  await r2.tick();
+  ok("when the owner's launches cannot be read, no buy goes, under the same clause", journalOf(r2, "fill").length === 0 && journalOf(r2, "refusal").some((x) => x.clause === "own_launch" && x.mint === MEW));
 }
 
 section("8. THE JOURNAL IS CAPPED; THE STATE SURVIVES; THE KEY IS NEVER KEPT");

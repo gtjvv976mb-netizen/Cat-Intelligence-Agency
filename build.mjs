@@ -126,7 +126,7 @@ const ICONS = Object.freeze([
  * README repeats them for the Chrome Web Store's review.
  */
 export const HOST_PERMISSION_REASONS = Object.freeze({
-  "https://*/*": "The Solana RPC is whatever https URL the user pastes in Options (Helius, Triton, QuickNode or their own node), so no fixed host list can name it; every other request goes to one of the fixed hosts listed with its reason (the agent's model, prices and swaps; Popcat's pump.fun listing and IPFS metadata; CashCat's trends, verified-token list and Pinata uploads). A fetch permission only: the extension injects nothing into any page but the agency's console page.",
+  "https://*/*": "The Solana RPC is whatever https URL the user pastes in Options (Helius, Triton, QuickNode or their own node), so no fixed host list can name it; every other request goes to one of the fixed hosts listed with its reason (the agent's model, prices and swaps; Popcat's pump.fun listing and IPFS metadata; CashCat's trends, verified-token list and Pinata uploads; CoinMarketCat's stock cats: StonkFun's pairs, pricing and launch records). A fetch permission only: the extension injects nothing into any page but the agency's console page.",
   "wss://*/*": "Snipurr's live feed is one logsSubscribe websocket to the same user-chosen RPC (its wss URL, or the one derived from the https URL).",
 });
 
@@ -139,11 +139,12 @@ export const HOSTS_CALLED = Object.freeze([
   ["datapi.jup.ag", "Snipurr", "Jupiter's newest launchpad pools, only if the user chooses that feed"],
   ["frontend-api-v3.pump.fun", "Popcat", "pump.fun's newest coins and a creator's launch count"],
   ["pump.mypinata.cloud", "Popcat", "a coin's metadata by its IPFS CID, to see whether it names a social link (none is shown or followed)"],
-  ["gateway.pinata.cloud", "Popcat, CashCat", "the same metadata by CID; CashCat reads back what it pinned"],
-  ["uploads.pinata.cloud", "CashCat", "pins the logo and metadata of the user's coin, with the user's own Pinata JWT"],
+  ["gateway.pinata.cloud", "Popcat, CashCat, CoinMarketCat", "the same metadata by CID; CashCat reads back what it pinned"],
+  ["uploads.pinata.cloud", "CashCat, CoinMarketCat", "pins the logo and metadata of the user's coin, with the user's own Pinata JWT"],
   ["trends.google.com", "CashCat", "Google Trends' US trending-searches feed, for drafting from a trend"],
   ["api.coingecko.com", "CashCat", "CoinGecko's trending categories, for drafting from a trend"],
   ["lite-api.jup.ag", "CashCat, CoinMarketCat", "Jupiter's token list: no CashCat draft may take a verified token's ticker or name, and a custom CoinMarketCat mint must be a cat coin by its name there"],
+  ["www.stonkfun.xyz", "CoinMarketCat", "StonkFun's public API, keyless: whether LaunchLab launches are on, which stocks are ready to pair, a stock cat's pricing (every number checked on chain before it is built) and, when the owner asks, its launch record"],
 ]);
 
 export function buildOptions({ outdir = DIST } = {}) {

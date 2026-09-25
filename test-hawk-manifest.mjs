@@ -110,9 +110,13 @@ console.log("\nEVERY HOST PERMISSION, JUSTIFIED\n──────────�
   const named = new Set(catFiles.flatMap((f) => [...strip(fs.readFileSync(path.join(here, f), "utf8")).matchAll(/https:\/\/([a-z0-9.-]+\.[a-z]{2,})/g)].map((m) => m[1])));
   const { POPCAT_TAB_HOSTS } = await import("./src/lib/popcat-tab.mjs");
   const { DRAFT_HOSTS } = await import("./src/lib/cashcat-draft.mjs");
-  const called = new Set([...POPCAT_TAB_HOSTS, ...DRAFT_HOSTS, "uploads.pinata.cloud", "gateway.pinata.cloud", ...[...named].filter((h) => ["api.anthropic.com", "api.dexscreener.com", "api.geckoterminal.com", "api.jup.ag", "datapi.jup.ag"].includes(h))]);
+  const { STOCKCAT_HOSTS } = await import("./src/lib/stockcats.mjs");
+  const called = new Set([...POPCAT_TAB_HOSTS, ...DRAFT_HOSTS, ...STOCKCAT_HOSTS, "uploads.pinata.cloud", "gateway.pinata.cloud", ...[...named].filter((h) => ["api.anthropic.com", "api.dexscreener.com", "api.geckoterminal.com", "api.jup.ag", "datapi.jup.ag"].includes(h))]);
   ok("every fixed host the cats call is listed with who calls it and why", [...called].every((h) => listed.has(h)), [...called].filter((h) => !listed.has(h)).join(", ") || `${called.size} hosts`);
   ok("…and the README's table of hosts lists each", HOSTS_CALLED.every(([h]) => readme.includes(`\`${h}\``)));
+  ok("…word for word: the host, who calls it and why, as one row of that table", HOSTS_CALLED.every(([h, who, why]) => readme.includes(`| \`${h}\` | ${who} | ${why} |`)),
+    HOSTS_CALLED.filter(([h, who, why]) => !readme.includes(`| \`${h}\` | ${who} | ${why} |`)).map(([h]) => h).join(", "));
+  ok("the stock cats call StonkFun's API, listed as CoinMarketCat's", STOCKCAT_HOSTS.length === 1 && HOSTS_CALLED.some(([h, who]) => h === STOCKCAT_HOSTS[0] && who === "CoinMarketCat"));
   ok("no permission was added for the three new cats: still storage, alarms and notifications", perms.every((p) => ALLOWED_PERMISSIONS.has(p)) && perms.length === 3, perms.join(", "));
 }
 

@@ -38,7 +38,7 @@ import { createBrain } from "./src/lib/agent-brain.mjs";
 import { createDraftDesk, typedDraft, USER_PERSONA } from "./src/lib/cashcat-draft.mjs";
 import { createLogoRenderer } from "./src/lib/cashcat-logo.mjs";
 import {
-  createCashcatTab, normalizeCashcatSettings, autoArmSentence, CASHCAT_TAB_DEFAULTS, CASHCAT_TAB_KEYS, LAUNCH_BUDGET_LAMPORTS, FIRST_AUTO_DELAY_MS,
+  createCashcatTab, normalizeCashcatSettings, autoArmSentence, CASHCAT_TAB_DEFAULTS, CASHCAT_TAB_KEYS, LAUNCH_BUDGET_LAMPORTS, FIRST_AUTO_DELAY_MS, CASHCAT_VENUE_NOTE,
 } from "./src/lib/cashcat-tab.mjs";
 import { createKeystore, createSessionSigner, createMintKeys, MINT_KEY_TTL_MS } from "./src/lib/session-wallet.mjs";
 import { createHawkEngine, memoryStore } from "./src/lib/engine.mjs";
@@ -323,6 +323,8 @@ let launched = null;
   ok("\"Check the launch\" runs every check and the recorded simulation, and pins, signs and sends nothing",
     plan.ok === true && plan.simulatedSpendSol === Number(CREATE_SPEND) / 1e9 && plan.budgetSol === LAUNCH_BUDGET_LAMPORTS / 1e9 && w.chain.st.sent.length === 0 && w.net.uploads.length === 0 && w.mintKeys.count() === 0, JSON.stringify({ spend: plan.simulatedSpendSol }));
   ok("…and shows no dev buy by default, and the disclosure the coin will carry", plan.devBuySol === 0 && plan.disclosure === "Not financial advice. Not affiliated with rainy weather.");
+  ok("the tab says where its coins go, and where the stock cats are", CASHCAT_VENUE_NOTE === "SOL-quoted pump.fun coins here. Stock cats, one per xStock on StonkFun, are in CoinMarketCat's tab. pump.fun coins quoted in a stock stay the agency's CashCat's."
+    && (await w.tab.status()).notes.venue === CASHCAT_VENUE_NOTE);
   ok("a launch without the ticker typed to confirm it is refused", (await throwsClause(() => w.tab.launch({}), "confirm"))?.clause === "confirm" && (await throwsClause(() => w.tab.launch({ confirmTicker: "RAIN" }), "confirm"))?.clause === "confirm");
   const out = await w.tab.launch({ confirmTicker: "$raincat" });
   launched = { w, out };
@@ -350,6 +352,8 @@ let launched = null;
   ok("the journal records the launch: its mint, signature, topic and what it cost, read back from the chain",
     j[0]?.kind === "launched" && j[0].mint === out.mint && j[0].signature === out.signature && j[0].topic === GOOD.topic && j[0].costSol === Number(CREATE_SPEND) / 1e9 && j[0].creator === w.WALLET && j[0].mintClean === true);
   ok("the only links it gives are the coin on pump.fun and the launch on Solscan", out.links.map((l) => l.href).join() === `https://pump.fun/coin/${out.mint},https://solscan.io/tx/${out.signature}`);
+  ok("the journal names the venue, pump.fun, and carries no stock cat's fields (pair, pool)", j[0].venue === "pumpfun" && out.venue === "pumpfun" && !("pair" in j[0]) && !("pool" in j[0]));
+  ok("…the document says it was created on pump.fun, as before", doc?.createdOn === "https://pump.fun");
   const unresolved = await world({});
   await unresolved.tab.draftTyped(GOOD);
   await unresolved.storage.set(CASHCAT_TAB_KEYS.journal, [{ at: unresolved.T.now, kind: "sending", mode: "manual", mint: out.mint, creator: unresolved.WALLET, symbol: "RAINCAT" }]);

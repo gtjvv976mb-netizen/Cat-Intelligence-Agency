@@ -1,0 +1,439 @@
+{
+ "url": "https://xstocks.com/us/products",
+ "readAt": "2026-09-25T13:08:50.699Z",
+ "note": "The 24 rows, matched by Solana address, of the 1100 products in the page's embedded __NEXT_DATA__ products list, read live 2026-09-25 (readAt is when the page was saved). The extension never calls this host.",
+ "products": [
+  {
+   "slug": "gold-xstock",
+   "name": "Gold xStock",
+   "symbol": "GLDx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558bbf26aa6db296bd72b_GLDx.png",
+   "addresses": {
+    "ethereum": "0x2380f2673c640fb67e2d6b55b44c62f0e0e69da9",
+    "solana": "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re",
+    "ton": "EQC49j6vUmrarJzSOlZfNHYHoNEHX3__0oX1dZLEfE7Vyybe",
+    "ink": "0x2380f2673c640fb67e2d6b55b44c62f0e0e69da9",
+    "bsc": "0x2380f2673c640fb67e2d6b55b44c62f0e0e69da9",
+    "tron": "TQnorYAdiQTAEexqaB53MFpKpnLAdMe4sw",
+    "mantle": "0x2380f2673c640fb67e2d6b55b44c62f0e0e69da9",
+    "xLayer": "0x2380f2673c640fb67e2d6b55b44c62f0e0e69da9",
+    "arbitrum": "0x2380f2673c640fb67e2d6b55b44c62f0e0e69da9",
+    "optimism": "0x2380f2673c640fb67e2d6b55b44c62f0e0e69da9"
+   }
+  },
+  {
+   "slug": "tesla-xstock",
+   "name": "Tesla xStock",
+   "symbol": "TSLAx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558f9a5d8bb1d73db841b_TSLAx.png",
+   "addresses": {
+    "ethereum": "0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0",
+    "solana": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+    "ton": "EQB4IwqWZPUczntdry8vSN2tsJKt-9F7iIb7gEFREYYOB563",
+    "ink": "0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0",
+    "bsc": "0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0",
+    "tron": "TTfj39Vm7ATpNJMsfDUWYVzxK8mPPA4yYE",
+    "mantle": "0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0",
+    "xLayer": "0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0",
+    "arbitrum": "0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0",
+    "optimism": "0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0"
+   }
+  },
+  {
+   "slug": "sp500-xstock",
+   "name": "SP500 xStock",
+   "symbol": "SPYx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6a9865b36967fd31d0415ecf_SPYx.png",
+   "addresses": {
+    "ethereum": "0x90a2a4c76b5d8c0bc892a69ea28aa775a8f2dd48",
+    "solana": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+    "ton": "EQB1fyBAA9qQDP6LEGaF3cbU-Xbr-p6ESBZGnqlHkHIHAJZv",
+    "ink": "0x90a2a4c76b5d8c0bc892a69ea28aa775a8f2dd48",
+    "bsc": "0x90a2a4c76b5d8c0bc892a69ea28aa775a8f2dd48",
+    "tron": "TKN6A3wSWHdZGanW5wBFkeFq2Yw3rhGqNz",
+    "mantle": "0x90a2a4c76b5d8c0bc892a69ea28aa775a8f2dd48",
+    "xLayer": "0x90a2a4c76b5d8c0bc892a69ea28aa775a8f2dd48",
+    "arbitrum": "0x90a2a4c76b5d8c0bc892a69ea28aa775a8f2dd48",
+    "optimism": "0x90a2a4c76b5d8c0bc892a69ea28aa775a8f2dd48"
+   }
+  },
+  {
+   "slug": "apple-xstock",
+   "name": "Apple xStock",
+   "symbol": "AAPLx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab5589b93cedf3d16c0ef20_AAPLx.png",
+   "addresses": {
+    "ethereum": "0x9d275685dc284c8eb1c79f6aba7a63dc75ec890a",
+    "solana": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+    "ton": "EQDsjAwfKo-6FVZv2EYt-1CaZTY_ZL-pfkSId6jeQchNwmdo",
+    "ink": "0x9d275685dc284c8eb1c79f6aba7a63dc75ec890a",
+    "bsc": "0x9d275685dc284c8eb1c79f6aba7a63dc75ec890a",
+    "tron": "TZ7nsyCuQq1cusCtex6V4qbzWcb3NbibAM",
+    "mantle": "0x9d275685dc284c8eb1c79f6aba7a63dc75ec890a",
+    "xLayer": "0x9d275685dc284c8eb1c79f6aba7a63dc75ec890a",
+    "arbitrum": "0x9d275685dc284c8eb1c79f6aba7a63dc75ec890a",
+    "optimism": "0x9d275685dc284c8eb1c79f6aba7a63dc75ec890a"
+   }
+  },
+  {
+   "slug": "nvidia-xstock",
+   "name": "NVIDIA xStock",
+   "symbol": "NVDAx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6aa0128df63915dbafacef5d_NVDAx.png",
+   "addresses": {
+    "ethereum": "0xc845b2894dbddd03858fd2d643b4ef725fe0849d",
+    "solana": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+    "ton": "EQCva-Of7acQdU_piADdlcbzsFtA-xJwZoctz8ZOXBdBoaB8",
+    "ink": "0xc845b2894dbddd03858fd2d643b4ef725fe0849d",
+    "bsc": "0xc845b2894dbddd03858fd2d643b4ef725fe0849d",
+    "tron": "TNMR6r9Z4cL7eWNrNQ4e4sm2XPhhifexZU",
+    "mantle": "0xc845b2894dbddd03858fd2d643b4ef725fe0849d",
+    "xLayer": "0xc845b2894dbddd03858fd2d643b4ef725fe0849d",
+    "arbitrum": "0xc845b2894dbddd03858fd2d643b4ef725fe0849d",
+    "optimism": "0xc845b2894dbddd03858fd2d643b4ef725fe0849d"
+   }
+  },
+  {
+   "slug": "nasdaq-xstock",
+   "name": "Nasdaq xStock",
+   "symbol": "QQQx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6a98659599bcd3762d9a1494_QQQx.png",
+   "addresses": {
+    "ethereum": "0xa753a7395cae905cd615da0b82a53e0560f250af",
+    "solana": "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+    "ton": "EQCe6utwqROmrO_cOUUvVNYkvyecUjfugtugvhUwlVYSEm7x",
+    "ink": "0xa753a7395cae905cd615da0b82a53e0560f250af",
+    "bsc": "0xa753a7395cae905cd615da0b82a53e0560f250af",
+    "tron": "TVBbuZ4hUisCPSsrR46BCQHDGtsBNAMjVh",
+    "mantle": "0xa753a7395cae905cd615da0b82a53e0560f250af",
+    "xLayer": "0xa753a7395cae905cd615da0b82a53e0560f250af",
+    "arbitrum": "0xa753a7395cae905cd615da0b82a53e0560f250af",
+    "optimism": "0xa753a7395cae905cd615da0b82a53e0560f250af"
+   }
+  },
+  {
+   "slug": "microstrategy-xstock",
+   "name": "MicroStrategy xStock",
+   "symbol": "MSTRx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558cf24c352a05e78a8eb_MSTRx.png",
+   "addresses": {
+    "ethereum": "0xae2f842ef90c0d5213259ab82639d5bbf649b08e",
+    "solana": "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+    "ton": "EQBbsLYH5sD74gYO4DOoj0QsHaNL81NLD13AdhkmD0Up-46H",
+    "ink": "0xae2f842ef90c0d5213259ab82639d5bbf649b08e",
+    "bsc": "0xae2f842ef90c0d5213259ab82639d5bbf649b08e",
+    "tron": "TYiMPNKE31VcfwaYgU8Wn1RzjLDi932LkV",
+    "mantle": "0xae2f842ef90c0d5213259ab82639d5bbf649b08e",
+    "xLayer": "0xae2f842ef90c0d5213259ab82639d5bbf649b08e",
+    "arbitrum": "0xae2f842ef90c0d5213259ab82639d5bbf649b08e",
+    "optimism": "0xae2f842ef90c0d5213259ab82639d5bbf649b08e"
+   }
+  },
+  {
+   "slug": "coinbase-xstock",
+   "name": "Coinbase xStock",
+   "symbol": "COINx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558adbc3408d91827ce28_COINx.png",
+   "addresses": {
+    "ethereum": "0x364f210f430ec2448fc68a49203040f6124096f0",
+    "solana": "Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu",
+    "ton": "EQCvk4Oq2l5Yts_S7Q4j08fB9Ftzx3IY-7UI1AqssyKGDt_I",
+    "ink": "0x364f210f430ec2448fc68a49203040f6124096f0",
+    "bsc": "0x364f210f430ec2448fc68a49203040f6124096f0",
+    "tron": "TCaGwbURbmdYkG7fE8uXdbnofhw1uhA9zL",
+    "mantle": "0x364f210f430ec2448fc68a49203040f6124096f0",
+    "xLayer": "0x364f210f430ec2448fc68a49203040f6124096f0",
+    "arbitrum": "0x364f210f430ec2448fc68a49203040f6124096f0",
+    "optimism": "0x364f210f430ec2448fc68a49203040f6124096f0"
+   }
+  },
+  {
+   "slug": "robinhood-xstock",
+   "name": "Robinhood xStock",
+   "symbol": "HOODx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558e1606fb61b38d65df0_HOODx.png",
+   "addresses": {
+    "ethereum": "0xe1385fdd5ffb10081cd52c56584f25efa9084015",
+    "solana": "XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg",
+    "ton": "EQAHz1jK27NO5IdHrht8146-EFz9p4kSZZx2H1xXuNQOYp_r",
+    "ink": "0xe1385fdd5ffb10081cd52c56584f25efa9084015",
+    "bsc": "0xe1385fdd5ffb10081cd52c56584f25efa9084015",
+    "tron": "TUQsUkzfwKegioj2utgYxQ9scPFZ5Aj68M",
+    "mantle": "0xe1385fdd5ffb10081cd52c56584f25efa9084015",
+    "xLayer": "0xe1385fdd5ffb10081cd52c56584f25efa9084015",
+    "arbitrum": "0xe1385fdd5ffb10081cd52c56584f25efa9084015",
+    "optimism": "0xe1385fdd5ffb10081cd52c56584f25efa9084015"
+   }
+  },
+  {
+   "slug": "circle-xstock",
+   "name": "Circle xStock",
+   "symbol": "CRCLx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558aa9c505804887ec2a9_CRCLx.png",
+   "addresses": {
+    "ethereum": "0xfebded1b0986a8ee107f5ab1a1c5a813491deceb",
+    "solana": "XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1",
+    "ton": "EQB-RPtAAQeFSGW3gIj0zREh4N92MGXfqFzxAc6TRvu-zvYT",
+    "ink": "0xfebded1b0986a8ee107f5ab1a1c5a813491deceb",
+    "bsc": "0xfebded1b0986a8ee107f5ab1a1c5a813491deceb",
+    "tron": "TRXfha1owZvFk5ru7cmd5SXDX1uKtcCRJN",
+    "mantle": "0xfebded1b0986a8ee107f5ab1a1c5a813491deceb",
+    "xLayer": "0xfebded1b0986a8ee107f5ab1a1c5a813491deceb",
+    "arbitrum": "0xfebded1b0986a8ee107f5ab1a1c5a813491deceb",
+    "optimism": "0xfebded1b0986a8ee107f5ab1a1c5a813491deceb"
+   }
+  },
+  {
+   "slug": "microsoft-xstock",
+   "name": "Microsoft xStock",
+   "symbol": "MSFTx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558d108ccb83892f04dd4_MSFTx.png",
+   "addresses": {
+    "ethereum": "0x5621737f42dae558b81269fcb9e9e70c19aa6b35",
+    "solana": "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX",
+    "ton": "EQDI9JwkYTEHM2TSFPSWFbwznBq07_I4Apy9TBhxsDlZaBvg",
+    "ink": "0x5621737f42dae558b81269fcb9e9e70c19aa6b35",
+    "bsc": "0x5621737f42dae558b81269fcb9e9e70c19aa6b35",
+    "tron": "TDVHfwqTFimf8bAYSkzvQe3vwArRDMdcFh",
+    "mantle": "0x5621737f42dae558b81269fcb9e9e70c19aa6b35",
+    "xLayer": "0x5621737f42dae558b81269fcb9e9e70c19aa6b35",
+    "arbitrum": "0x5621737f42dae558b81269fcb9e9e70c19aa6b35",
+    "optimism": "0x5621737f42dae558b81269fcb9e9e70c19aa6b35"
+   }
+  },
+  {
+   "slug": "alphabet-xstock",
+   "name": "Alphabet xStock",
+   "symbol": "GOOGLx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558966499374b02ce123e_GOOGLx.png",
+   "addresses": {
+    "ethereum": "0xe92f673ca36c5e2efd2de7628f815f84807e803f",
+    "solana": "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+    "ton": "EQALwJzXnxFjckNsurCi9O2kVg_0b1KdtjOSfvOedlY37iZc",
+    "ink": "0xe92f673ca36c5e2efd2de7628f815f84807e803f",
+    "bsc": "0xe92f673ca36c5e2efd2de7628f815f84807e803f",
+    "tron": "TX34MBKqsHzvon1JX4mokJ8CLeh5QmBqNd",
+    "mantle": "0xe92f673ca36c5e2efd2de7628f815f84807e803f",
+    "xLayer": "0xe92f673ca36c5e2efd2de7628f815f84807e803f",
+    "arbitrum": "0xe92f673ca36c5e2efd2de7628f815f84807e803f",
+    "optimism": "0xe92f673ca36c5e2efd2de7628f815f84807e803f"
+   }
+  },
+  {
+   "slug": "meta-xstock",
+   "name": "Meta xStock",
+   "symbol": "METAx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558ceb4764fb9c5716579_METAx.png",
+   "addresses": {
+    "ethereum": "0x96702be57cd9777f835117a809c7124fe4ec989a",
+    "solana": "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu",
+    "ton": "EQD3cgQg432BiCSRli-hMswoVuvNnO42FuMdc-AXqd83SfcV",
+    "ink": "0x96702be57cd9777f835117a809c7124fe4ec989a",
+    "bsc": "0x96702be57cd9777f835117a809c7124fe4ec989a",
+    "tron": "TGJaEbWPNmM6NErggxJwWQ5ChRH7KxXF3a",
+    "mantle": "0x96702be57cd9777f835117a809c7124fe4ec989a",
+    "xLayer": "0x96702be57cd9777f835117a809c7124fe4ec989a",
+    "arbitrum": "0x96702be57cd9777f835117a809c7124fe4ec989a",
+    "optimism": "0x96702be57cd9777f835117a809c7124fe4ec989a"
+   }
+  },
+  {
+   "slug": "amazon-xstock",
+   "name": "Amazon xStock",
+   "symbol": "AMZNx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558976c6d48ef43e5873d_AMZNx.png",
+   "addresses": {
+    "ethereum": "0x3557ba345b01efa20a1bddc61f573bfd87195081",
+    "solana": "Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg",
+    "ton": "EQCtD2-7qxHhQoNhxri2JSzH-dlmWqKYCDtlEZqRi3-56gd9",
+    "ink": "0x3557ba345b01efa20a1bddc61f573bfd87195081",
+    "bsc": "0x3557ba345b01efa20a1bddc61f573bfd87195081",
+    "tron": "TKbZf7Ni93pAB6ZHQLR2BxbnukRsB3WNvh",
+    "mantle": "0x3557ba345b01efa20a1bddc61f573bfd87195081",
+    "xLayer": "0x3557ba345b01efa20a1bddc61f573bfd87195081",
+    "arbitrum": "0x3557ba345b01efa20a1bddc61f573bfd87195081",
+    "optimism": "0x3557ba345b01efa20a1bddc61f573bfd87195081"
+   }
+  },
+  {
+   "slug": "spacex-xstock",
+   "name": "SpaceX xStock",
+   "symbol": "SPCXx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6a299151671e5a8f636b0b33_SPCXx.png",
+   "addresses": {
+    "ethereum": "0x68fa48b1c2fe52b3d776e1953e0e782b5044ce28",
+    "solana": "Xs3oZwbHvqis4NYcf4YKWmEia2eC84wSiVrcYcTqpH8",
+    "ton": "EQAAsfl1a-BA8dSSUX2VpLCveFYzDOLrJX9ll89baSbmvl2V",
+    "ink": "0x68fa48b1c2fe52b3d776e1953e0e782b5044ce28",
+    "bsc": "0x68fa48b1c2fe52b3d776e1953e0e782b5044ce28",
+    "tron": null,
+    "mantle": "0x68fa48b1c2fe52b3d776e1953e0e782b5044ce28",
+    "xLayer": "0x68fa48b1c2fe52b3d776e1953e0e782b5044ce28",
+    "arbitrum": "0x68fa48b1c2fe52b3d776e1953e0e782b5044ce28",
+    "optimism": "0x68fa48b1c2fe52b3d776e1953e0e782b5044ce28"
+   }
+  },
+  {
+   "slug": "palantir-xstock",
+   "name": "Palantir xStock",
+   "symbol": "PLTRx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558d84bd4bff600d8ea92_PLTRx.png",
+   "addresses": {
+    "ethereum": "0x6d482cec5f9dd1f05ccee9fd3ff79b246170f8e2",
+    "solana": "XsoBhf2ufR8fTyNSjqfU71DYGaE6Z3SUGAidpzriAA4",
+    "ton": "EQCGOLDdW8rldaSAlCE9yJabqk2uRJz2PaH3CTRyP6VLVjXL",
+    "ink": "0x6d482cec5f9dd1f05ccee9fd3ff79b246170f8e2",
+    "bsc": "0x6d482cec5f9dd1f05ccee9fd3ff79b246170f8e2",
+    "tron": "TKDP8XW5HehcSVouE7wnJRW6MPEE7q6WRR",
+    "mantle": "0x6d482cec5f9dd1f05ccee9fd3ff79b246170f8e2",
+    "xLayer": "0x6d482cec5f9dd1f05ccee9fd3ff79b246170f8e2",
+    "arbitrum": "0x6d482cec5f9dd1f05ccee9fd3ff79b246170f8e2",
+    "optimism": "0x6d482cec5f9dd1f05ccee9fd3ff79b246170f8e2"
+   }
+  },
+  {
+   "slug": "gamestop-xstock",
+   "name": "Gamestop xStock",
+   "symbol": "GMEx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558b961dc537a4028764f_GMEx.png",
+   "addresses": {
+    "ethereum": "0xe5f6d3b2405abdfe6f660e63202b25d23763160d",
+    "solana": "Xsf9mBktVB9BSU5kf4nHxPq5hCBJ2j2ui3ecFGxPRGc",
+    "ton": "EQA2ezTnOiUce55zBQ_Yhum4lOCVahIMZRi-yyrR0MNON9vZ",
+    "ink": "0xe5f6d3b2405abdfe6f660e63202b25d23763160d",
+    "bsc": "0xe5f6d3b2405abdfe6f660e63202b25d23763160d",
+    "tron": "TDfWA29BscN2wdhQ6PVWEajxEn8EU9HQ2z",
+    "mantle": "0xe5f6d3b2405abdfe6f660e63202b25d23763160d",
+    "xLayer": "0xe5f6d3b2405abdfe6f660e63202b25d23763160d",
+    "arbitrum": "0xe5f6d3b2405abdfe6f660e63202b25d23763160d",
+    "optimism": "0xe5f6d3b2405abdfe6f660e63202b25d23763160d"
+   }
+  },
+  {
+   "slug": "strategy-pp-variable-xstock",
+   "name": "Strategy PP Variable xStock",
+   "symbol": "STRCx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558eee41d024e1230390a_STRKx.png",
+   "addresses": {
+    "ethereum": "0x1aad217b8f78dba5e6693460e8470f8b1a3977f3",
+    "solana": "Xs78JED6PFZxWc2wCEPspZW9kL3Se5J7L5TChKgsidH",
+    "ton": "EQCY_xOUxnGsF91w0w3azMdk1SMdBKNr7kJedDWTZlQ13duK",
+    "ink": "0x1aad217b8f78dba5e6693460e8470f8b1a3977f3",
+    "bsc": "0x1aad217b8f78dba5e6693460e8470f8b1a3977f3",
+    "tron": "TUsRFkJG8LZ5fqh2TSmHUSw7kRWUbzfqAF",
+    "mantle": "0x1aad217b8f78dba5e6693460e8470f8b1a3977f3",
+    "xLayer": "0x1aad217b8f78dba5e6693460e8470f8b1a3977f3",
+    "arbitrum": "0x1aad217b8f78dba5e6693460e8470f8b1a3977f3",
+    "optimism": "0x1aad217b8f78dba5e6693460e8470f8b1a3977f3"
+   }
+  },
+  {
+   "slug": "mcdonalds-xstock",
+   "name": "McDonald's xStock",
+   "symbol": "MCDx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558cbdf8f9a227ece17fe_MCDx.png",
+   "addresses": {
+    "ethereum": "0x80a77a372c1e12accda84299492f404902e2da67",
+    "solana": "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2",
+    "ton": "EQBUtLkOu9vzKu3PW58c50WX7w89BtzwYYZlZGmvOr_Aq66U",
+    "ink": "0x80a77a372c1e12accda84299492f404902e2da67",
+    "bsc": "0x80a77a372c1e12accda84299492f404902e2da67",
+    "tron": "TCVJcRqEEpkbs2iSJtMumoTqPxrKPwCLaW",
+    "mantle": "0x80a77a372c1e12accda84299492f404902e2da67",
+    "xLayer": "0x80a77a372c1e12accda84299492f404902e2da67",
+    "arbitrum": "0x80a77a372c1e12accda84299492f404902e2da67",
+    "optimism": "0x80a77a372c1e12accda84299492f404902e2da67"
+   }
+  },
+  {
+   "slug": "berkshire-hathaway-xstock",
+   "name": "Berkshire Hathaway xStock",
+   "symbol": "BRK.Bx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab5589e96baf06091e2a58d_BRK.Bx.png",
+   "addresses": {
+    "ethereum": "0x12992613fdd35abe95dec5a4964331b1ee23b50d",
+    "solana": "Xs6B6zawENwAbWVi7w92rjazLuAr5Az59qgWKcNb45x",
+    "ton": "EQDz62JH-T5q4wW6DpzuL-ROKScpOCcC1iIv8dXAnYVNIV7O",
+    "ink": "0x12992613fdd35abe95dec5a4964331b1ee23b50d",
+    "bsc": "0x12992613fdd35abe95dec5a4964331b1ee23b50d",
+    "tron": "TAQBJEsaniYimmtDnappeVjk48w6butEGR",
+    "mantle": "0x12992613fdd35abe95dec5a4964331b1ee23b50d",
+    "xLayer": "0x12992613fdd35abe95dec5a4964331b1ee23b50d",
+    "arbitrum": "0x12992613fdd35abe95dec5a4964331b1ee23b50d",
+    "optimism": "0x12992613fdd35abe95dec5a4964331b1ee23b50d"
+   }
+  },
+  {
+   "slug": "coca-cola-xstock",
+   "name": "Coca-Cola xStock",
+   "symbol": "KOx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558ac93cedf3d16c0f666_KOx.png",
+   "addresses": {
+    "ethereum": "0xdcc1a2699441079da889b1f49e12b69cc791129b",
+    "solana": "XsaBXg8dU5cPM6ehmVctMkVqoiRG2ZjMo1cyBJ3AykQ",
+    "ton": "EQAD-iVmVKW8frDDYPd80N-7dy8m2LfU8nK_85TeHkXWEw-C",
+    "ink": "0xdcc1a2699441079da889b1f49e12b69cc791129b",
+    "bsc": "0xdcc1a2699441079da889b1f49e12b69cc791129b",
+    "tron": "TCDQkeGtGoqfjKvewXuz52CYx9tMXALSYg",
+    "mantle": "0xdcc1a2699441079da889b1f49e12b69cc791129b",
+    "xLayer": "0xdcc1a2699441079da889b1f49e12b69cc791129b",
+    "arbitrum": "0xdcc1a2699441079da889b1f49e12b69cc791129b",
+    "optimism": "0xdcc1a2699441079da889b1f49e12b69cc791129b"
+   }
+  },
+  {
+   "slug": "intel-xstock",
+   "name": "Intel xStock",
+   "symbol": "INTCx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558c282d9daa1e7e20abb_INTCx.png",
+   "addresses": {
+    "ethereum": "0xf8a80d1cb9cfd70d03d655d9df42339846f3b3c8",
+    "solana": "XshPgPdXFRWB8tP1j82rebb2Q9rPgGX37RuqzohmArM",
+    "ton": "EQBBnSFyNZkNmq7I4E9yWhZDZQurcQhGkFeGBV_UXibFlv4-",
+    "ink": "0xf8a80d1cb9cfd70d03d655d9df42339846f3b3c8",
+    "bsc": "0xf8a80d1cb9cfd70d03d655d9df42339846f3b3c8",
+    "tron": "TMkWtCUBF9zatuda6onxoPeAUvkGiwaCHP",
+    "mantle": "0xf8a80d1cb9cfd70d03d655d9df42339846f3b3c8",
+    "xLayer": "0xf8a80d1cb9cfd70d03d655d9df42339846f3b3c8",
+    "arbitrum": "0xf8a80d1cb9cfd70d03d655d9df42339846f3b3c8",
+    "optimism": "0xf8a80d1cb9cfd70d03d655d9df42339846f3b3c8"
+   }
+  },
+  {
+   "slug": "vida-global-xstock",
+   "name": "Vida Global xStock",
+   "symbol": "VIDAx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6a0b212fb240211b0faa73d6_VIDAx.png",
+   "addresses": {
+    "ethereum": "0x44e49dde02c954cd9b67923af7b1070412e8f34e",
+    "solana": "XsfCC9VL4DamVGNgdJpfLXB3sBVa158Gbx8sh7NzmTk",
+    "ton": "EQCC5gekxblLuT3e93IQh5B3xxjE3mSausRejiB4WFTK3yUC",
+    "ink": "0x44e49dde02c954cd9b67923af7b1070412e8f34e",
+    "bsc": "0x44e49dde02c954cd9b67923af7b1070412e8f34e",
+    "tron": null,
+    "mantle": "0x44e49dde02c954cd9b67923af7b1070412e8f34e",
+    "xLayer": "0x44e49dde02c954cd9b67923af7b1070412e8f34e",
+    "arbitrum": "0x44e49dde02c954cd9b67923af7b1070412e8f34e",
+    "optimism": "0x44e49dde02c954cd9b67923af7b1070412e8f34e"
+   }
+  },
+  {
+   "slug": "dfdv-xstock",
+   "name": "DFDV xStock",
+   "symbol": "DFDVx",
+   "iconUrl": "https://cdn.prod.website-files.com/655f3efc4be468487052e35a/6ab558b39b77ea5bf8595160_DFDVx.png",
+   "addresses": {
+    "ethereum": "0x521860bb5df5468358875266b89bfe90d990c6e7",
+    "solana": "Xs2yquAgsHByNzx68WJC55WHjHBvG9JsMB7CWjTLyPy",
+    "ton": "EQBH-6sIfpffahsgYWO56lANIj2kxzJeju5qvvCC9AqYVdyN",
+    "ink": "0x521860bb5df5468358875266b89bfe90d990c6e7",
+    "bsc": "0x521860bb5df5468358875266b89bfe90d990c6e7",
+    "tron": "TL7TvJpEKW4XXxudf9FL7hmpPjLTwfkWtQ",
+    "mantle": "0x521860bb5df5468358875266b89bfe90d990c6e7",
+    "xLayer": "0x521860bb5df5468358875266b89bfe90d990c6e7",
+    "arbitrum": "0x521860bb5df5468358875266b89bfe90d990c6e7",
+    "optimism": "0x521860bb5df5468358875266b89bfe90d990c6e7"
+   }
+  }
+ ]
+}

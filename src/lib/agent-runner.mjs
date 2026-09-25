@@ -49,6 +49,13 @@
  * when the owner asks from the popup, and then tells this runner which
  * positions left (`markWithdrawn`). There is no code path from a decision to a sweep.
  *
+ * THE OWNER'S OWN LAUNCHES ARE NEVER BOUGHT. A coin the owner launched from this extension —
+ * CashCat's pump.fun coins and the stock cats, both in CashCat's journal, handed in as
+ * `ownLaunches` — leaves the universe the model is shown, and a buy of one is refused by name
+ * (own_launch), in the plan and again at the buy. Buying one's own launch is how a launch is
+ * made to look wanted; the agent does not do it, from any wallet. If the list cannot be read,
+ * every buy is refused under the same clause until it can.
+ *
  * THE KEY. This file never sees the owner's API key (the worker hands the brain a reader)
  * and never holds a signing key (it reaches a signature only through the engine's fences).
  * Everything else — the clock, storage, the market, the brain, Jupiter, the fences — is
@@ -117,6 +124,7 @@ export function createAgentRunner({
   brain,                      // agent-brain.mjs createBrain()
   jupiter,                    // the one keyless Jupiter client the worker shares with the xStock venue
   fences = () => null,        // () => engine.agentFences(): { rpc(), wallet(), ready(), simulateGuard, signSendConfirm } | null
+  ownLaunches = async () => ({ launches: [], wallets: [] }), // () => CashCat's exclusions(): the owner's own launches, never bought
   hasApiKey = async () => false,
   log = () => {},
   notify = () => {},
@@ -367,8 +375,19 @@ export function createAgentRunner({
   const clauseOf = (error) => (error instanceof SwapCheckError ? error.clause : error instanceof JupiterError ? `jupiter_${error.code}` : error instanceof AgentError ? error.clause : error?.clause ?? error?.code ?? "error");
   const entryFor = (mint) => universeEntries(spec).find((e) => e.mint === mint) ?? (S.positions[mint] ? { mint, symbol: S.positions[mint].symbol, decimals: S.positions[mint].decimals, program: S.positions[mint].program, source: "held" } : null);
 
+  /** The mints the owner launched, or null when the list could not be read (then no buy goes). */
+  async function ownMints() {
+    try { const x = await ownLaunches(); return new Set((Array.isArray(x?.launches) ? x.launches : []).map((l) => l?.mint).filter((m) => typeof m === "string")); }
+    catch { return null; }
+  }
+  const ownRefusal = (own, symbol) => (own === null
+    ? "the owner's own launches could not be read, so no buy goes until they can: the agent never buys a coin the owner launched"
+    : `${symbol} is a coin you launched from this extension (CashCat or a stock cat): the agent never buys the owner's own launches`);
+
   /** A buy of `usdAmount` of the settlement token into `mint`. */
   async function buy({ mint, usdAmount, reason, now }) {
+    const own = await ownMints();
+    if (own === null || own.has(mint)) throw new AgentError("own_launch", ownRefusal(own, entryFor(mint)?.symbol ?? short(mint)));
     const entry = entryFor(mint);
     const s = settlement();
     const amountRaw = unitsToRaw(usdAmount.toFixed(2), s.decimals, `the ${s.symbol} amount`);
@@ -488,7 +507,7 @@ export function createAgentRunner({
     return { since: new Date(b.at).toISOString(), agentReturnPct: r(agentPct, 2), holdReturnPct: r(holdPct, 2), edgePct: r(agentPct - holdPct, 2), holdEquityUsd: r(holdEquityUsd, 2) };
   }
 
-  function contextFor({ now, snap, view, prices }) {
+  function contextFor({ now, snap, view, prices, own = new Set() }) {
     const s = settlement();
     const day = S.day;
     const positions = view.rows.map((row) => {
@@ -513,7 +532,7 @@ export function createAgentRunner({
       positions,
       pnl: { realizedUsd: r(stats().realizedUsd, 2), unrealizedUsd: r(unrealized, 2), wins: stats().wins, losses: stats().losses },
       versusBuyAndHold: versusHold(view.equityUsd, prices),
-      market: universeEntries(spec).map((u) => {
+      market: universeEntries(spec).filter((u) => !own?.has(u.mint)).map((u) => {
         const t = snap.tokens?.[u.mint] ?? {};
         return { mint: u.mint, symbol: u.symbol, priceUsd: t.priceUsd ?? null, change1hPct: t.change1hPct ?? null, change24hPct: t.change24hPct ?? null,
           volume24hUsd: t.volume24hUsd ?? null, liquidityUsd: t.liquidityUsd ?? null, indicators: t.indicators ?? null, missing: t.missing ?? ["priceUsd"] };
@@ -537,11 +556,13 @@ export function createAgentRunner({
       return;
     }
     const s = settlement();
+    /* The owner's own launches leave the universe the model is shown. */
+    const own = await ownMints();
     /* The turn is written down before the call: a worker that dies waiting on the model
        does not ask it again, and buy again, the moment it wakes. */
     await persist();
     let result;
-    try { result = await brain.decide({ spec, settlementSymbol: s.symbol, context: contextFor({ now, snap, view, prices }), universeMints: spec.universe }); }
+    try { result = await brain.decide({ spec, settlementSymbol: s.symbol, context: contextFor({ now, snap, view, prices, own }), universeMints: spec.universe }); }
     catch (error) {
       const u = error?.detail?.usage;
       S.usage.calls++; S.usage.failures++;
@@ -565,7 +586,13 @@ export function createAgentRunner({
       journal("refusal", { mint: x.mint, symbol: x.mint ? symbolOf(x.mint) : null, action: x.action, clause: x.clause, message: x.message, from: "format" });
     }
     const halted = () => S.status !== "running" || haltsAsked > 0;
-    const plan = planOrders({ spec, proposals: d.actions, positions: S.positions, prices, settlementUsd: view.settlementUsd, day: S.day, paused: halted() });
+    const proposals = d.actions.filter((a) => {
+      if (a.action !== "buy" || (own !== null && !own.has(a.mint))) return true;
+      entry.outcomes.push({ mint: a.mint, symbol: symbolOf(a.mint), action: "buy", outcome: "refused", clause: "own_launch" });
+      journal("refusal", { mint: a.mint, symbol: symbolOf(a.mint), action: "buy", clause: "own_launch", message: ownRefusal(own, symbolOf(a.mint)), from: "limits" });
+      return false;
+    });
+    const plan = planOrders({ spec, proposals, positions: S.positions, prices, settlementUsd: view.settlementUsd, day: S.day, paused: halted() });
     for (const x of plan.refusals) {
       entry.outcomes.push({ mint: x.mint, symbol: x.mint ? symbolOf(x.mint) : null, action: x.action, outcome: "refused", clause: x.clause });
       journal("refusal", { mint: x.mint, symbol: x.mint ? symbolOf(x.mint) : null, action: x.action, clause: x.clause, message: x.message, from: "limits" });

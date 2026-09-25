@@ -161,6 +161,8 @@ label.venue .pill{margin-left:auto}
 .card.cat.popcat{border-color:#ff4fd8}
 .card.cat.cashcat{border-color:#f5c542}
 .card.cat.crying{border-color:#5ab8ff}
+.card.cat.stockcats{border-color:#8b5cf6}
+.card.stockcats .item.on{outline:1px solid #8b5cf6}
 .item .tag.clean{border-color:var(--good);color:var(--good)}
 .item .tag.flagged{border-color:var(--bad);color:var(--bad)}
 .item details{grid-column:1 / -1;margin-top:3px}

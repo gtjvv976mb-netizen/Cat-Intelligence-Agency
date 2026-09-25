@@ -24,7 +24,7 @@
  * No System transfer, no token transfer, no approval, no other program, no other signer.
  */
 import { readMessage, decodeComputeBudget } from "./solana.mjs";
-import { COMPUTE_BUDGET_PROGRAM, PUMPFUN_PROGRAM, LAUNCHLAB_PROGRAM, ATA_PROGRAM, SYSTEM_PROGRAM, TOKEN_2022_PROGRAM, IX } from "./verified.mjs";
+import { COMPUTE_BUDGET_PROGRAM, PUMPFUN_PROGRAM, LAUNCHLAB_PROGRAM, ATA_PROGRAM, SYSTEM_PROGRAM, TOKEN_2022_PROGRAM, IX, STONKFUN_PLATFORM_STANDARD } from "./verified.mjs";
 import { createV2Accounts, decodeCreateV2, collectCreatorFeeIx, decodeBuyIx } from "../cashcat/pumpfun.mjs";
 import { initializeAccounts, decodeInitialize, STONKFUN_SHAPE } from "../cashcat/stonkfun.mjs";
 import { ata } from "./solana.mjs";
@@ -86,6 +86,10 @@ export function checkLaunchMessage(message, { wallet, mint, venue, coin, plan = 
   } else if (venue === "stonkfun") {
     if (ix.programId !== LAUNCHLAB_PROGRAM) refuse("program", `the launch instruction is for ${ix.programId}`);
     if (!plan) refuse("plan", "a StonkFun launch needs its verified plan");
+    /* The plan's own platform is held to StonkFun's standard one too: a plan handed in from
+       elsewhere (the extension's stock cats take theirs from the worker) cannot swap in the
+       reward (transfer-taxed) platform and have the accounts match it. */
+    if (plan.platformConfig !== STONKFUN_PLATFORM_STANDARD) refuse("platform", "the plan names a platform that is not StonkFun's standard one");
     const expected = initializeAccounts({ payer: wallet, mint, quoteMint: plan.quote.mint, quoteTokenProgram: plan.quote.tokenProgram, globalConfig: plan.globalConfig, platformConfig: plan.platformConfig, curveRule: plan.curveRule });
     /* Payer and creator are the same wallet, so the compiled message merges their flags. */
     expected[1] = { ...expected[1], isSigner: true, isWritable: true };

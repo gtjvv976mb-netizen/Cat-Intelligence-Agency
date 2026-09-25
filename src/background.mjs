@@ -59,6 +59,12 @@
  *     Pinata's upload API — and its create transaction signed by the new mint's key (made, used once
  *     and dropped in session-wallet.mjs's createMintKeys) and the autopilot wallet, through the
  *     engine's fences. Auto mode ticks on the same alarm, armed by a typed sentence.
+ *   · STOCK CATS (CoinMarketCat's tab; src/lib/stockcats.mjs and `stockCats` in CashCat's tab): a cat
+ *     coin of the owner's own for one xStock, launched on StonkFun by hand from the autopilot wallet.
+ *     This file gives the tab StonkFun's public API through its own client (stonkfunHttp, allowed
+ *     www.stonkfun.xyz and the owner's RPC, nothing else) and the planner that proves StonkFun's
+ *     numbers on chain, over the owner's own RPC only: the public endpoint answers 403 to the
+ *     extension, so with no RPC set the plan is refused (no_rpc) before a request is made.
  * Their network clients are the bots' (bots/lib/http.mjs): an allow-list of hosts per cat, a pace
  * per host and a back-off, over this worker's own fetch.
  */
@@ -67,9 +73,9 @@ import { createRpc, createLogsFeed } from "./lib/rpc.mjs";
 import { PUMPFUN_PROGRAM_ID } from "../vendor/executor/snipe-venue-pumpfun.mjs";
 import { TOKEN_2022_PROGRAM, TOKEN_PROGRAM, describeMint, parseMintExtensions, assertTradeableExtensions } from "../vendor/executor/token2022.mjs";
 import {
-  CONFIG_DEFAULTS, normalizeConfig, websocketUrlFor, ConfigError, quoteEntryFor, STOCK_FOCUS_CHOICES, AUTOPILOT_UNLOCK_MINUTES,
+  CONFIG_DEFAULTS, normalizeConfig, websocketUrlFor, ConfigError, quoteEntryFor, STOCK_FOCUS_CHOICES, AUTOPILOT_UNLOCK_MINUTES, STONKFUN_XSTOCKS,
 } from "./lib/config.mjs";
-import { UI, BRIDGE, SIGN_ERRORS, BridgeError, nextId, AUTOPILOT, AGENT, POPCAT, CRYING, CASHCAT } from "./lib/protocol.mjs";
+import { UI, BRIDGE, SIGN_ERRORS, BridgeError, nextId, AUTOPILOT, AGENT, POPCAT, CRYING, CASHCAT, STOCKCATS } from "./lib/protocol.mjs";
 import { fromBase64, toBase64, sameMessage, signatureOf, transactionFeeLamports, unitsToRaw, rawToUnits } from "./lib/tx.mjs";
 import {
   createKeystore, createSessionSigner, buildFundTransaction, buildSweepTransaction, buildTokenSweepTransaction,
@@ -83,8 +89,9 @@ import { createAgentRunner } from "./lib/agent-runner.mjs";
 import { SETTLEMENT_TOKENS, SOLANA_CATS, SOLANA_CATS_VERIFIED, AGENT_BOUNDS, settlementByMint, settlementFor } from "./lib/agent-strategy.mjs";
 import { createHttp, HTTP_DEFAULTS } from "../bots/lib/http.mjs";
 import { createRpc as createCatRpc, PUBLIC_RPC } from "../bots/lib/rpc.mjs";
-import { HOSTS } from "../bots/lib/verified.mjs";
+import { HOSTS, URLS } from "../bots/lib/verified.mjs";
 import { pinMetadata } from "../bots/cashcat/metadata.mjs";
+import { planStonkfunLaunch } from "../bots/cashcat/stonkfun.mjs";
 import { createPopcatTab, POPCAT_TAB_HOSTS } from "./lib/popcat-tab.mjs";
 import { parseMintInput, createCryingCat } from "./lib/crying-cat.mjs";
 import { createDraftDesk, DRAFT_HOSTS } from "./lib/cashcat-draft.mjs";
@@ -634,6 +641,9 @@ async function ensureAgent() {
     const runner = createAgentRunner({
       storage: chromeArea(chrome.storage.local), market, brain, jupiter,
       fences: () => (engine && typeof engine.agentFences === "function" ? engine.agentFences() : null),
+      /* The owner's own launches (CashCat's coins and the stock cats, from the shared journal):
+         the agent never buys one, and they leave its universe. */
+      ownLaunches: () => cashcatTab.exclusions(),
       hasApiKey, log, notify,
     });
     await runner.load();
@@ -773,6 +783,7 @@ const cryingHttp = catHttp([]);
 const cryingCat = createCryingCat();
 const draftHttp = catHttp(DRAFT_HOSTS);
 const pinataHttp = catHttp([HOSTS.pinataUpload, HOSTS.pinataGateway]);
+const stonkfunHttp = catHttp([HOSTS.stonkfun]);   // stockcats.mjs STOCKCAT_HOSTS; the owner's RPC is added when the planner makes its client
 const catRpcs = new Map();      // http client → { url, rpc, isPublic }
 function catRpcFor(http) {
   const url = config?.rpcUrl || PUBLIC_RPC;
@@ -806,13 +817,29 @@ async function cashcatClearPinataJwt() {
   log("cashcat: the Pinata key was removed from this browser");
   return { ok: true, pinataSaved: false };
 }
+/* A pin names its venue, which decides the URI written on chain (pump.fun's ipfs.io form, or the
+   Pinata gateway form StonkFun's indexer resolved); anything else is refused before the JWT is read. */
+const PIN_VENUES = Object.freeze(["pumpfun", "stonkfun"]);
 const pinata = {
   hasJwt: hasPinataJwt,
-  async pin({ logoPng, coin, buildDoc }) {
+  async pin({ logoPng, coin, buildDoc, venue = "pumpfun" }) {
+    if (!PIN_VENUES.includes(venue)) throw new Error(`a pin is for pump.fun or StonkFun, not "${venue}"`);
     const jwt = await readPinataJwt();
     if (!jwt) throw new Error("no Pinata JWT is saved");
-    return pinMetadata({ http: pinataHttp, jwt, logoPng, coin, venue: "pumpfun", buildDoc });
+    return pinMetadata({ http: pinataHttp, jwt, logoPng, coin, venue, buildDoc });
   },
+};
+
+/* StonkFun, for the stock cats: its pairs, a pair's plan proved on the owner's RPC, a launch's
+   record. The planner may pair only with the 24 xStocks of STONKFUN_XSTOCKS. */
+const stonkfun = {
+  pairs: () => stonkfunHttp.json(URLS.stonkfunPairs, { maxBytes: 4 * 1024 * 1024 }),
+  async plan({ pairMint }) {
+    const r = catRpcFor(stonkfunHttp);
+    if (!r.rpc || r.isPublic) throw Object.assign(new Error("set your own RPC in Options: the public mainnet RPC answers 403 to the extension"), { clause: "no_rpc" });
+    return planStonkfunLaunch({ http: stonkfunHttp, rpc: r.rpc, quoteChoice: pairMint, quoteList: STONKFUN_XSTOCKS });
+  },
+  token: (mint) => stonkfunHttp.json(URLS.stonkfunToken(mint)),
 };
 
 /* CashCat's model: the brain's callTool, so the Anthropic key never leaves the brain. */
@@ -827,6 +854,7 @@ const draftDesk = createDraftDesk({ http: draftHttp, model: cashcatModel });
 const cashcatTab = createCashcatTab({
   storage: chromeArea(chrome.storage.local), desk: draftDesk, renderLogo: (spec) => logoRenderer.render(spec), pinata,
   fences: () => (engine && typeof engine.agentFences === "function" ? engine.agentFences() : null),
+  stonkfun,
   mintKeys, hasApiKey, log, notify,
 });
 const popcatTab = createPopcatTab({ http: popcatHttp, rpc: () => catRpcFor(popcatHttp), storage: chromeArea(chrome.storage.local), exclusions: () => cashcatTab.exclusions() });
@@ -884,6 +912,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case CASHCAT.MARK_CHECKED: return await cashcatTab.markChecked({ mint: msg.mint, landed: msg.landed === true });
         case CASHCAT.ARM_AUTO: { await ensureEngine(); return await cashcatTab.armAuto({ sentence: msg.sentence }); }
         case CASHCAT.DISARM_AUTO: return await cashcatTab.disarmAuto();
+        /* Stock cats, in CoinMarketCat's tab: every byte is built in CashCat's tab, here. */
+        case STOCKCATS.LIST: { await ensureEngine(); return { ok: true, stockcats: await cashcatTab.stockCats.list(), rpcConfigured: Boolean(config?.rpcUrl), pinataSaved: await hasPinataJwt(), apiKeySaved: await hasApiKey() }; }
+        case STOCKCATS.REFRESH: { await ensureEngine(); return { ok: true, stockcats: await cashcatTab.stockCats.refresh() }; }
+        case STOCKCATS.SUGGEST: { const r = await cashcatTab.stockCats.suggest({ pairMint: msg.pairMint }); return { ...r, ok: true, passes: r.ok === true }; }
+        case STOCKCATS.DRAFT: { const r = await cashcatTab.stockCats.draft({ pairMint: msg.pairMint, idea: msg.idea && typeof msg.idea === "object" ? msg.idea : {} }); return { ...r, ok: true, passes: r.ok === true }; }
+        case STOCKCATS.PREPARE: { await ensureEngine(); return { ok: true, plan: await cashcatTab.stockCats.prepare({ pairMint: msg.pairMint }) }; }
+        case STOCKCATS.LAUNCH: { await ensureEngine(); return { ok: true, launch: await cashcatTab.stockCats.launch({ pairMint: msg.pairMint, preparedId: msg.preparedId, confirmTicker: msg.confirmTicker }) }; }
+        case STOCKCATS.ADOPTION: return { ok: true, ...(await cashcatTab.stockCats.checkAdoption({ mint: msg.mint })) };
+        case STOCKCATS.SETTINGS: return { ok: true, settings: await cashcatTab.stockCats.saveSettings({ maxPerDay: msg.maxPerDay }) };
         default: return { ok: false, error: `unknown message ${msg.type}` };
       }
     } catch (error) {

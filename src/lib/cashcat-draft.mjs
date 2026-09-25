@@ -28,6 +28,8 @@ import { deterministicRefusals, validateReview, inventCoin, REVIEW_TOOL, RULES_T
 import { readTrends } from "../../bots/cashcat/trends.mjs";
 import { loadVerifiedIndex } from "../../bots/cashcat/tickers.mjs";
 import { KITTENS, BACKGROUNDS, pickArt, TICKER_RE } from "../../bots/cashcat/logo-layout.mjs";
+import { stockCatRefusals, pairTerms, STOCK_PAIRS } from "./stockcats.mjs";
+import { STOCK_CAT_NOTES } from "./stock-cat-notes.mjs";
 
 /** The hosts drafting calls: the two trend sources and Jupiter's verified list. */
 export const DRAFT_HOSTS = Object.freeze([HOSTS.googleTrends, HOSTS.coingecko, HOSTS.jupiter]);
@@ -106,6 +108,29 @@ export async function modelReview(draft, model) {
   return validateReview(r);
 }
 
+/** What the reviewer is told a stock cat must not do, on top of RULES_TEXT. */
+export const STOCK_CAT_RULES_TEXT = [
+  "This coin is a STOCK CAT: a cat coin paired on a launchpad with one tokenised stock, named in paired_with. The stock is only its trading pair.",
+  "It must NOT reference the company or fund behind that stock, or any other listed stock's: not their names, tickers, people, mascots, products or brands (must_not_reference lists them);",
+  "- claim or suggest it is the stock, holds it, is backed by it, pays dividends, or is endorsed by the company, the stock's issuer or the launchpad;",
+  "- say anything about how it is launched (a dev buy, a fair or stealth launch, burned or locked liquidity, renounced authorities).",
+].join("\n");
+
+/**
+ * The model's review of a stock cat, held to REVIEW_TOOL's format. The model is shown the coin's
+ * words, the xStock symbol it is paired with and every term it must not reference — never the
+ * research row's cat facts, which are for the owner's eyes only.
+ */
+export async function stockCatReview(draft, pair, model, { notes = STOCK_CAT_NOTES } = {}) {
+  const mustNot = [...new Set(STOCK_PAIRS.flatMap((p) => pairTerms(p, notes)))];
+  const r = await model.callTool({
+    tool: REVIEW_TOOL,
+    system: USER_PERSONA.review + "\n\n" + RULES_TEXT + "\n\n" + STOCK_CAT_RULES_TEXT,
+    user: `Proposed coin:\n${JSON.stringify({ name: draft.name, ticker: draft.symbol, tagline: draft.tagline, paired_with: pair.symbol, must_not_reference: mustNot }, null, 1)}\n\nReview it with ${REVIEW_TOOL.name}.`,
+  });
+  return validateReview(r);
+}
+
 /**
  * The drafting desk. `http` is the bots' client allowed the DRAFT_HOSTS; `model()` returns the
  * adapter { hasKey, callTool } for this call (the brain's callTool with CashCat's model choice).
@@ -158,5 +183,27 @@ export function createDraftDesk({ http, model, clock = () => Date.now() } = {}) 
     return { ok: again.length === 0 && invention.reviewed === true, draft, refusals: again, reviewed: invention.reviewed === true, attempts: invention.attempts, trends: summary };
   }
 
-  return Object.freeze({ review, fromTrend, verifiedIndex });
+  /**
+   * Judge a stock cat: its rules (stockcats.mjs stockCatRefusals, with Jupiter's verified list)
+   * always, and the model's review (stockCatReview) when a key is saved, as for a typed draft.
+   * Returns { ok, draft, refusals[] (strings), clauses[], reviewed, reviewedBy }.
+   */
+  async function reviewStock(draft, pair, { notes = STOCK_CAT_NOTES, earlier = [], skipModel = false } = {}) {
+    const found = stockCatRefusals(draft, pair, { notes, earlier, verifiedIndex: await verifiedIndex() });
+    const refusals = found.map((f) => f.message), clauses = found.map((f) => f.clause);
+    let reviewed = false;
+    if (!refusals.length && !skipModel) {
+      const m = await model();
+      if (m?.hasKey) {
+        let r;
+        try { r = await stockCatReview(draft, pair, m, { notes }); }
+        catch (e) { return { ok: false, draft, refusals: [`model review: the model could not be asked (${e?.clause ?? "error"}): ${e?.message ?? e}`], clauses: ["model_review"], reviewed: false }; }
+        if (!r.approve) { refusals.push(`model review: ${r.why ?? "refused"}${r.rules?.length ? ` (${r.rules.join(", ")})` : ""}`); clauses.push("model_review"); }
+        else reviewed = true;
+      }
+    }
+    return { ok: refusals.length === 0, draft, refusals, clauses, reviewed, reviewedBy: reviewed ? "the rules and the model" : "the rules" };
+  }
+
+  return Object.freeze({ review, fromTrend, verifiedIndex, reviewStock });
 }

@@ -47,12 +47,31 @@
  * run checks it is still armed, for the same wallet and caps, before it pins and again before
  * anything is signed.
  *
- * StonkFun, and pump.fun coins quoted in a stock, stay the agency's CashCat's for now: this tab
- * launches SOL-quoted pump.fun coins only. Everything is injected; this file touches no chrome.*
- * API and holds no key.
+ * STOCK CATS (CoinMarketCat's tab) launch through this file too, because it is the one file besides
+ * the key file that reaches a mint's signature: `stockCats` below. A stock cat is a cat coin of the
+ * owner's own paired on StonkFun with one xStock (src/lib/stockcats.mjs has its rules). It is the
+ * same pipeline with the venue swapped (VENUE_RUN): Raydium LaunchLab's initialize_with_token_2022
+ * (bots/cashcat/stonkfun.mjs initializeIx), from a plan StonkFun's API priced and the chain proved
+ * (planStonkfunLaunch, injected as `stonkfun.plan`, read once for the check and again at the
+ * launch), held to the bot's pre-sign check with venue "stonkfun" and to a simulation that must log
+ * InitializeWithToken2022 and spend at most the bot's StonkFun budget. What differs, on purpose:
+ *   · MANUAL ONLY, one at a time, from the autopilot wallet: never in auto mode (manual_only), never
+ *     a dev buy (a dev buy there would be paid in the stock; devBuy refuses any venue but pump.fun);
+ *   · ARMED BY A CHECK, NOT A SENTENCE: "Check the launch" keeps a record in this worker's memory
+ *     only — the pair, the draft's fingerprint, the wallet and the plan's accounts — and the launch
+ *     needs that record, under ten minutes old, for the same pair, draft and wallet, and the ticker
+ *     typed; the record is used once, so nothing stays armed;
+ *   · ONE CAT PER STOCK, EVER, and the day's cap counts every launch from this extension; a stock
+ *     cat's launch record is never trimmed from the journal, so "ever" holds;
+ *   · a launch whose new mint still carries a mint or freeze authority when it is read back blocks
+ *     every further stock cat (unclean_mint) until the owner marks it checked.
+ *
+ * pump.fun coins quoted in a stock stay the agency's CashCat's: this tab's own coins are SOL-quoted
+ * pump.fun coins. Everything is injected; this file touches no chrome.* API and holds no key.
  */
 import { buildUnsignedTransaction, toBase64, RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS } from "./tx.mjs";
 import { createV2Ix, devBuyIxs } from "../../bots/cashcat/pumpfun.mjs";
+import { initializeIx, poolState } from "../../bots/cashcat/stonkfun.mjs";
 import { checkLaunchMessage, checkDevBuyMessage, checkSimulation } from "../../bots/lib/txcheck.mjs";
 import { MAX_LAUNCH_SPEND_LAMPORTS, COMPUTE_LIMITS, FENCES } from "../../bots/cashcat/config.mjs";
 import { buildUserDocument, userDisclosure, uriFor } from "../../bots/cashcat/metadata.mjs";
@@ -60,8 +79,13 @@ import { PUMPFUN_PROGRAM, PUMPFUN_GLOBAL, PAGES } from "../../bots/lib/verified.
 import { pda } from "../../bots/lib/solana.mjs";
 import { describeMint } from "../../vendor/executor/token2022.mjs";
 import { typedDraft, draftKey } from "./cashcat-draft.mjs";
+import {
+  STOCK_PAIRS, STOCKCAT_LIMITS, STOCKCAT_TEXT, pairByMint, noteRow, stockDraft, stockDraftKey, suggestNames, pairDisclosure, quoteRefusals, otherQuotes,
+} from "./stockcats.mjs";
+import { STOCK_CAT_NOTES } from "./stock-cat-notes.mjs";
 
-export const CASHCAT_TAB_KEYS = Object.freeze({ settings: "cia:cashcat:settings", journal: "cia:cashcat:journal", draft: "cia:cashcat:draft" });
+export const CASHCAT_TAB_KEYS = Object.freeze({ settings: "cia:cashcat:settings", journal: "cia:cashcat:journal", draft: "cia:cashcat:draft",
+  stockDraft: "cia:stockcats:draft", stockSettings: "cia:stockcats:settings" });
 
 /** The most one launch transaction may cost the wallet: the bot's own budget. */
 export const LAUNCH_BUDGET_LAMPORTS = MAX_LAUNCH_SPEND_LAMPORTS.pumpfun;
@@ -85,13 +109,42 @@ export const CASHCAT_TAB_DEFAULTS = Object.freeze({
 });
 
 export const CASHCAT_SIGNER_NOTE = "CashCat launches are signed by the autopilot wallet only. A launch needs two signatures (yours and the new mint's); whether Phantom keeps the mint's signature on the transaction it is asked to sign could not be verified, so Phantom is not offered here.";
-export const CASHCAT_VENUE_NOTE = "SOL-quoted pump.fun coins only. StonkFun launches, and pump.fun coins quoted in a stock, are the agency's CashCat's for now.";
+export const CASHCAT_VENUE_NOTE = "SOL-quoted pump.fun coins here. Stock cats, one per xStock on StonkFun, are in CoinMarketCat's tab. pump.fun coins quoted in a stock stay the agency's CashCat's.";
 export const CASHCAT_NOT_ADVICE = "Your coin is yours: it does not claim to be from the Cat Intelligence Agency. Most coins like it go nowhere; a launch costs its fee whether or not anyone buys. Not financial advice.";
 
 export class CashcatError extends Error {
   constructor(clause, message, detail = {}) { super(message); this.name = "CashcatError"; this.clause = clause; this.detail = detail; }
 }
 const refuse = (clause, message, detail) => { throw new CashcatError(clause, message, detail); };
+
+/** A placeholder of a real CIDv1's length: a launch is built and simulated with it before anything is pinned. */
+const PLACEHOLDER_CID = `bafkrei${"a".repeat(52)}`;
+
+/**
+ * EACH VENUE'S RUN: the one instruction a launch carries, its compute limit, the most it may cost
+ * the wallet (the bot's own per-venue budget, MAX_LAUNCH_SPEND_LAMPORTS) and the log its simulation
+ * must show. pump.fun is CashCat's; StonkFun is a stock cat's, built from a verified plan.
+ */
+export const VENUE_RUN = Object.freeze({
+  pumpfun: Object.freeze({ ix: ({ mint, wallet, draft, uri }) => createV2Ix({ mint, user: wallet, name: draft.name, symbol: draft.symbol, uri }),
+    compute: COMPUTE_LIMITS.pumpfun, budget: MAX_LAUNCH_SPEND_LAMPORTS.pumpfun, mustLog: "Instruction: CreateV2" }),
+  stonkfun: Object.freeze({ ix: ({ mint, wallet, draft, uri, plan }) => initializeIx({ payer: wallet, mint, quoteMint: plan.quote.mint, quoteTokenProgram: plan.quote.tokenProgram,
+    globalConfig: plan.globalConfig, platformConfig: plan.platformConfig, curveRule: plan.curveRule, name: draft.name, symbol: draft.symbol, uri, raiseRaw: plan.raiseRaw, cpmmCreatorFeeOn: plan.cpmmCreatorFeeOn }),
+    compute: COMPUTE_LIMITS.stonkfun, budget: MAX_LAUNCH_SPEND_LAMPORTS.stonkfun, mustLog: "Instruction: InitializeWithToken2022" }),
+});
+
+/** The run for a venue, or a refusal: an unknown venue (venue), or a stock cat asked for outside a
+ *  manual launch (manual_only) — auto mode is pump.fun's only. */
+export function venueRun(venue, mode = "manual") {
+  if (typeof venue !== "string" || !Object.hasOwn(VENUE_RUN, venue)) refuse("venue", `this tab launches on pump.fun or, for a stock cat, StonkFun; not "${venue}"`);
+  if (venue !== "pumpfun" && mode !== "manual") refuse("manual_only", "a stock cat is launched by hand, one at a time: never in auto mode");
+  return VENUE_RUN[venue];
+}
+
+/** A dev buy is pump.fun's only: on StonkFun it would be paid in the stock, and a stock cat makes none. */
+export function assertDevBuyVenue(venue) {
+  if (venue !== "pumpfun") refuse("no_dev_buy_on_stonkfun", "a stock cat makes no dev buy: on StonkFun it would be paid in the stock");
+}
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
@@ -170,7 +223,9 @@ export function launchesOn(journal, day) {
 const JOURNAL_KEEP_MS = 2 * 24 * 3_600_000;
 export function trimJournal(journal, now) {
   return journal.filter((e, i) => i < JOURNAL_MAX || e.kind === "sending" || e.kind === "unknown"
-    || (COUNTS_AGAINST_DAY.includes(e.kind) && now - Number(e.at) < JOURNAL_KEEP_MS));
+    || (COUNTS_AGAINST_DAY.includes(e.kind) && now - Number(e.at) < JOURNAL_KEEP_MS)
+    /* A stock cat's launch is kept for good: one cat per stock, ever, and no name used twice. */
+    || (e.venue === "stonkfun" && COUNTS_AGAINST_DAY.includes(e.kind)));
 }
 
 /**
@@ -180,10 +235,13 @@ export function trimJournal(journal, now) {
  *   renderLogo  ({ ticker, kitten, background }) → { png }
  *   pinata      { hasJwt(), pin({ logoPng, coin, buildDoc }) } — the worker's, which alone reads the JWT
  *   fences      () → engine.agentFences(): { rpc(), wallet(), ready(), signSendConfirm } or null
+ *   stonkfun    { pairs(), plan({ pairMint }), token(mint) } — StonkFun's public API through the worker's
+ *               client, the plan proved on chain (planStonkfunLaunch); stock cats only
+ *   stockNotes  the research rows (stock-cat-notes.mjs), injected so a test can supply one
  *   mintKeys    the key file's createMintKeys, from the worker: { newMint, signAsMint, forget }
  *   hasApiKey   () → whether an Anthropic key is saved (never the key)
  */
-export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mintKeys, hasApiKey = async () => false, clock = () => Date.now(), log = () => {}, notify = () => {} } = {}) {
+export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, stonkfun = null, stockNotes = STOCK_CAT_NOTES, mintKeys, hasApiKey = async () => false, clock = () => Date.now(), log = () => {}, notify = () => {} } = {}) {
   for (const [name, v] of Object.entries({ storage, desk, renderLogo, pinata, fences, mintKeys })) if (!v) throw new Error(`createCashcatTab needs ${name}`);
   let busy = null;
 
@@ -271,26 +329,29 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
 
   /* ── the transaction ─────────────────────────────────────────────────────────────────── */
 
-  async function buildCheckSimulate({ rpc, wallet, mint, draft, uri }) {
+  /** One plan per launch, the same for both builds: StonkFun's is the verified plan; pump.fun needs none. */
+  async function buildCheckSimulate({ rpc, wallet, mint, draft, uri, venue = "pumpfun", plan = null }) {
+    const run = venueRun(venue);
     const { blockhash, lastValidBlockHeight } = await rpc.getLatestBlockhash();
     if (typeof blockhash !== "string" || !blockhash) refuse("rpc", "the RPC gave no recent blockhash");
-    const tx = buildUnsignedTransaction({ payer: wallet, blockhash, instructions: [createV2Ix({ mint, user: wallet, name: draft.name, symbol: draft.symbol, uri })],
-      computeUnitLimit: COMPUTE_LIMITS.pumpfun, priorityFeeLamports: PRIORITY_FEE_LAMPORTS });
+    const tx = buildUnsignedTransaction({ payer: wallet, blockhash, instructions: [run.ix({ mint, wallet, draft, uri, plan })],
+      computeUnitLimit: run.compute, priorityFeeLamports: PRIORITY_FEE_LAMPORTS });
     /* The check reads the compiled v0 message: what the signatures will cover. */
-    try { checkLaunchMessage(tx.message, { wallet, mint, venue: "pumpfun", coin: { name: draft.name, symbol: draft.symbol, uri } }); }
+    try { checkLaunchMessage(tx.message, { wallet, mint, venue, plan, coin: { name: draft.name, symbol: draft.symbol, uri } }); }
     catch (e) { refuse("transaction_refused", `refused before signing (${e.clause ?? "check"}): ${e.message}`); }
     const txBase64 = toBase64(tx.serialize());
     const before = Number(await rpc.getBalance(wallet));
     const sim = await rpc.simulateTransaction(txBase64, { addresses: [wallet] });
     let result;
-    try { result = checkSimulation(sim, { walletBefore: before, walletAfter: sim?.accounts?.[0]?.lamports, maxSpendLamports: LAUNCH_BUDGET_LAMPORTS, mustLog: "Instruction: CreateV2" }); }
+    try { result = checkSimulation(sim, { walletBefore: before, walletAfter: sim?.accounts?.[0]?.lamports, maxSpendLamports: run.budget, mustLog: run.mustLog }); }
     catch (e) { refuse("simulation_refused", `refused before signing (${e.clause ?? "simulation"}): ${e.message}`); }
-    return { txBase64, lastValidBlockHeight, spentLamports: result.spentLamports, units: result.units };
+    return { txBase64, lastValidBlockHeight, spentLamports: result.spentLamports, units: result.units, version: tx.version, signers: tx.message.header.numRequiredSignatures };
   }
 
   const bufAcc = (a) => (a ? { owner: a.owner, lamports: a.lamports, data: Buffer.from(a.data[0], a.data[1] || "base64") } : null);
 
-  async function devBuy({ f, rpc, wallet, mint, spendSol }) {
+  async function devBuy({ f, rpc, wallet, mint, spendSol, venue = "pumpfun" }) {
+    assertDevBuyVenue(venue);
     const spend = BigInt(Math.round(spendSol * 1e9));
     const curve = pda([{ utf8: "bonding-curve" }, { key: mint }], PUMPFUN_PROGRAM);
     const read = await rpc.getMultipleAccounts([curve, PUMPFUN_GLOBAL], { commitment: "confirmed" });
@@ -307,7 +368,8 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
   }
 
   /** What every launch needs before anything is drafted, rendered, pinned or built. */
-  async function preflight({ mode, settings, journal }) {
+  async function preflight({ mode, settings, journal, venue = "pumpfun" }) {
+    const budget = venueRun(venue, mode).budget;
     const f = fences();
     if (!f) refuse("no_autopilot", "create the autopilot wallet first: CashCat launches are signed by it");
     const wallet = f.wallet();
@@ -321,11 +383,13 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
     const today = launchesOn(journal, utcDay(clock()));
     if (mode === "auto" && today >= settings.auto.maxPerDay) refuse("day_cap", `the day's cap is reached: ${today} of ${settings.auto.maxPerDay} launches today (UTC)`);
     const devBuySol = mode === "auto" ? 0 : settings.devBuySol;
-    const need = BigInt(Math.round((mode === "auto" ? settings.auto.minBalanceSol : 0) * 1e9)) + BigInt(LAUNCH_BUDGET_LAMPORTS)
-      + (devBuySol > 0 ? BigInt(Math.round(devBuySol * 1e9)) + BigInt(DEV_BUY_OVERHEAD_LAMPORTS) : 0n) + BigInt(RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS);
+    /* CashCat's dev-buy setting is pump.fun's: a stock cat on StonkFun makes none, whatever it says. */
+    const devBuyHere = venue === "pumpfun" ? devBuySol : 0;
+    const need = BigInt(Math.round((mode === "auto" ? settings.auto.minBalanceSol : 0) * 1e9)) + BigInt(budget)
+      + (devBuyHere > 0 ? BigInt(Math.round(devBuyHere * 1e9)) + BigInt(DEV_BUY_OVERHEAD_LAMPORTS) : 0n) + BigInt(RENT_EXEMPT_EMPTY_ACCOUNT_LAMPORTS);
     const balance = BigInt(await rpc.getBalance(wallet));
-    if (balance < need) refuse("balance", `the autopilot wallet holds ${sol(balance).toFixed(6)} SOL; this launch needs at least ${sol(need).toFixed(6)} SOL${mode === "auto" ? ` (the ${settings.auto.minBalanceSol} SOL minimum, ` : " ("}the ${sol(LAUNCH_BUDGET_LAMPORTS)} SOL launch budget${devBuySol ? `, the ${devBuySol} SOL dev buy and its fees` : ""} and the rent floor)`);
-    return { f, wallet, rpc, devBuySol, today, balance };
+    if (balance < need) refuse("balance", `the autopilot wallet holds ${sol(balance).toFixed(6)} SOL; this launch needs at least ${sol(need).toFixed(6)} SOL${mode === "auto" ? ` (the ${settings.auto.minBalanceSol} SOL minimum, ` : " ("}the ${sol(budget)} SOL launch budget${devBuyHere ? `, the ${devBuyHere} SOL dev buy and its fees` : ""} and the rent floor)`);
+    return { f, wallet, rpc, devBuySol: devBuyHere, today, balance, budget };
   }
 
   /**
@@ -344,7 +408,7 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
       if (!r.ok) refuse("draft_refused", r.refusals.join("; "));
       const mint = mintKeys.newMint();
       try {
-        const sim = await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: uriFor("pumpfun", `bafkrei${"a".repeat(52)}`) });
+        const sim = await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: uriFor("pumpfun", PLACEHOLDER_CID) });
         return {
           ok: true, wallet: p.wallet, balanceSol: sol(p.balance), simulatedSpendSol: sol(sim.spentLamports), units: sim.units, budgetSol: sol(LAUNCH_BUDGET_LAMPORTS),
           devBuySol: p.devBuySol, disclosure: userDisclosure({ topic: draft.topic, madeWithCashCat: settings.madeWithCashCat }), reviewedBy: r.reviewed ? "the rules and the model" : "the rules",
@@ -355,33 +419,59 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
   }
 
   /** The launch itself: the same checks, the pin, the check and simulation again, the signatures, the chain. */
-  async function launchPipeline({ draft, mode }) {
+  /**
+   * The launch itself: the same checks, the pin, the check and simulation again, the signatures,
+   * the chain. `venue` is pump.fun (CashCat's coins, manual or auto) or StonkFun (a stock cat,
+   * manual only, from a record "Check the launch" left: `pair` and `prepared`).
+   */
+  async function launchPipeline({ draft, mode, venue = "pumpfun", pair = null, prepared = null }) {
+    venueRun(venue, mode);
     const settings = await loadSettings();
     const journal = await loadJournal();
-    const p = await preflight({ mode, settings, journal });
+    const p = await preflight({ mode, settings, journal, venue });
     if (mode === "auto") await stillArmed(p.wallet);
-    const r = await judged(draft, { requireModel: mode === "auto" });
-    if (!r.ok) refuse("draft_refused", r.refusals.join("; "));
+    let plan = null;
+    if (venue === "stonkfun") {
+      await judgedStock(draft, pair, journal);
+      stockCaps({ journal, pair, stockSettings: await loadStockSettings() });
+      /* The plan is read and proved again: what was checked ten minutes ago is not trusted now.
+         A different config, curve rule, platform or token program is a different launch; a
+         different raise is StonkFun's price moving, and is written down beside the one checked. */
+      plan = await planFor(pair);
+      const was = prepared?.plan;
+      if (!was || was.globalConfig !== plan.globalConfig || was.curveRule !== plan.curveRule || was.platformConfig !== plan.platformConfig || was.quoteTokenProgram !== plan.quote.tokenProgram || was.quoteMint !== plan.quote.mint)
+        refuse("plan_changed", "StonkFun's config, curve rule, platform or the stock's token program changed since the launch was checked: check it again");
+      quoteChecks(plan, pair);
+    } else {
+      const r = await judged(draft, { requireModel: mode === "auto" });
+      if (!r.ok) refuse("draft_refused", r.refusals.join("; "));
+    }
     const { png } = await renderLogo({ ticker: draft.symbol, kitten: draft.kitten, background: draft.background });
-    const buildDoc = ({ imageUri }) => buildUserDocument({ name: draft.name, symbol: draft.symbol, tagline: draft.tagline, topic: draft.topic, imageUri, madeWithCashCat: settings.madeWithCashCat });
+    const buildDoc = venue === "stonkfun"
+      ? ({ imageUri }) => buildUserDocument({ name: draft.name, symbol: draft.symbol, tagline: draft.tagline, imageUri, venue: "stonkfun", disclosure: pairDisclosure(pair) })
+      : ({ imageUri }) => buildUserDocument({ name: draft.name, symbol: draft.symbol, tagline: draft.tagline, topic: draft.topic, imageUri, madeWithCashCat: settings.madeWithCashCat });
+    const where = venue === "stonkfun" ? `StonkFun, paired with ${pair.symbol}` : "pump.fun";
     const mint = mintKeys.newMint();
     let stage = "checking";
     try {
       /* Everything decidable before an upload is decided first, with a placeholder URI of the
          real length: a launch a guard would refuse never pins files. */
-      await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: uriFor("pumpfun", `bafkrei${"a".repeat(52)}`) });
+      await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: uriFor(venue, PLACEHOLDER_CID), venue, plan });
       if (mode === "auto") await stillArmed(p.wallet);
       stage = "pinning";
-      const pinned = await pinata.pin({ logoPng: png, coin: { name: draft.name, symbol: draft.symbol }, buildDoc });
+      const pinned = await pinata.pin({ logoPng: png, coin: { name: draft.name, symbol: draft.symbol }, buildDoc, venue });
       stage = "checking";
-      const built = await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: pinned.uri });
+      const built = await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: pinned.uri, venue, plan });
       if (mode === "auto") await stillArmed(p.wallet);
-      await journalAdd({ kind: "sending", mode, mint, creator: p.wallet, name: draft.name, symbol: draft.symbol, topic: draft.topic, source: draft.source, uri: pinned.uri,
+      const stock = venue === "stonkfun"
+        ? { pair: { official: pair.symbol, stonkfun: pair.stonkfun, mint: pair.mint }, pool: poolState(mint, pair.mint), raiseRaw: String(plan.raiseRaw), checkedRaiseRaw: prepared?.raiseRaw ?? null }
+        : { topic: draft.topic };
+      await journalAdd({ kind: "sending", mode, venue, mint, creator: p.wallet, name: draft.name, symbol: draft.symbol, ...stock, source: draft.source, uri: pinned.uri,
         simulatedSpendSol: sol(built.spentLamports) });
       stage = "signing";
       const byMint = mintKeys.signAsMint({ txBase64: built.txBase64, mint, payer: p.wallet });
       stage = "sending";
-      const summary = `LAUNCH ${draft.name} ($${draft.symbol}) on pump.fun — mint ${short(mint)}`;
+      const summary = `LAUNCH ${draft.name} ($${draft.symbol}) on ${where} — mint ${short(mint)}`;
       const { signature, tx } = await p.f.signSendConfirm({ txBase64: byMint.signedBase64, purpose: "launch", mint, summary, lastValidBlockHeight: built.lastValidBlockHeight, timeoutMs: 60_000, wallet: p.wallet });
       stage = "reading back";
       const meta = tx?.meta;
@@ -391,15 +481,18 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
       const acc = (await p.rpc.getMultipleAccounts([mint], { commitment: "confirmed" })).accounts?.[0] ?? null;
       const d = acc ? describeMint(acc, mint) : null;
       const clean = Boolean(d && d.mintAuthority === null && d.freezeAuthority === null);
-      await journalUpdate(mint, { kind: "launched", signature, costSol: sol(costLamports), mintClean: clean, links: [PAGES.pumpCoin(mint), PAGES.solscanTx(signature)] });
-      log(`cashcat: launched ${draft.name} ($${draft.symbol}), mint ${mint}, ${signature}`);
+      const coinPage = venue === "stonkfun" ? PAGES.stonkfunToken(mint) : PAGES.pumpCoin(mint);
+      await journalUpdate(mint, { kind: "launched", signature, costSol: sol(costLamports), mintClean: clean, links: [coinPage, PAGES.solscanTx(signature)] });
+      log(`cashcat: launched ${draft.name} ($${draft.symbol}) on ${where}, mint ${mint}, ${signature}`);
+      if (!clean && venue === "stonkfun") notify({ kind: "attention", title: "Stock cats: a launch did not read back clean", body: `The mint ${mint} still carries a mint or freeze authority. No stock cat launches until you check it and mark it in the journal.` });
       let devBuySignature = null;
       if (p.devBuySol > 0 && mode === "manual") {
         stage = "dev buy";
-        try { devBuySignature = await devBuy({ f: p.f, rpc: p.rpc, wallet: p.wallet, mint, spendSol: p.devBuySol }); await journalUpdate(mint, { kind: "launched", devBuy: { sol: p.devBuySol, signature: devBuySignature } }); }
+        try { devBuySignature = await devBuy({ f: p.f, rpc: p.rpc, wallet: p.wallet, mint, spendSol: p.devBuySol, venue }); await journalUpdate(mint, { kind: "launched", devBuy: { sol: p.devBuySol, signature: devBuySignature } }); }
         catch (e) { await journalUpdate(mint, { kind: "launched", devBuy: { sol: p.devBuySol, error: String(e?.message ?? e).slice(0, 200) } }); }
       }
-      return { ok: true, mint, signature, costSol: sol(costLamports), mintClean: clean, devBuySignature, links: [{ label: "The coin on pump.fun", href: PAGES.pumpCoin(mint) }, { label: "The launch on Solscan", href: PAGES.solscanTx(signature) }] };
+      return { ok: true, mint, signature, costSol: sol(costLamports), mintClean: clean, devBuySignature, venue,
+        links: [{ label: venue === "stonkfun" ? "The coin on StonkFun" : "The coin on pump.fun", href: coinPage }, { label: "The launch on Solscan", href: PAGES.solscanTx(signature) }] };
     } catch (e) {
       const signature = e?.detail?.signature ?? null;
       if (stage === "sending" || stage === "reading back") {
@@ -427,15 +520,268 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
     });
   }
 
-  /** The user checked an unresolved launch on an explorer: it stops blocking the next one. */
+  /**
+   * The user checked an unresolved launch on an explorer: it stops blocking the next one. The same
+   * message clears a stock cat that landed but read back with a mint or freeze authority still set
+   * (unclean_mint): the owner has looked, and the launch stays in the journal as it read.
+   */
   async function markChecked({ mint, landed }) {
     const j = await loadJournal();
     const i = j.findIndex((e) => e.mint === mint && (e.kind === "sending" || e.kind === "unknown"));
-    if (i < 0) refuse("not_found", "no unresolved launch with that mint");
+    if (i < 0) {
+      const u = j.findIndex((e) => e.mint === mint && e.venue === "stonkfun" && e.kind === "launched" && e.mintClean === false && !e.cleanCheckedByUser);
+      if (u < 0) refuse("not_found", "no unresolved launch with that mint");
+      j[u] = { ...j[u], cleanCheckedByUser: clock() };
+      await saveJournal(j);
+      return { ok: true };
+    }
     j[i] = { ...j[i], kind: landed === true ? "launched" : "failed", checkedByUser: clock() };
     await saveJournal(j);
     return { ok: true };
   }
+
+  /* ── stock cats: CoinMarketCat's tab ─────────────────────────────────────────────────── */
+
+  let lastPairs = null;        // { at, ready: [mints], others } — StonkFun's /pairs, when the owner last refreshed
+  let preparedRec = null;      // the one prepared stock cat, in this worker's memory only
+  let preparedCount = 0;
+
+  const loadStockSettings = async () => {
+    const raw = await storage.get(CASHCAT_TAB_KEYS.stockSettings);
+    const n = Number(raw?.maxPerDay);
+    const [lo, hi] = STOCKCAT_LIMITS.fence;
+    return { maxPerDay: Number.isInteger(n) && n >= lo && n <= hi ? n : STOCKCAT_LIMITS.maxPerDay };
+  };
+  const loadStockDraft = async () => { const d = await storage.get(CASHCAT_TAB_KEYS.stockDraft); return isObject(d) && isObject(d.draft) ? d : null; };
+  /** Stock cats launched or being launched: one per stock, ever, and their names are taken. */
+  const stockCatsIn = (journal) => journal.filter((e) => e.venue === "stonkfun" && COUNTS_AGAINST_DAY.includes(e.kind));
+  const earlierOf = (journal) => stockCatsIn(journal).map((e) => ({ name: e.name, symbol: e.symbol }));
+  function pairOf(pairMint) {
+    const pair = pairByMint(typeof pairMint === "string" ? pairMint.trim() : "");
+    if (!pair) refuse("pair_unknown", "that stock is not one a stock cat may be paired with");
+    return pair;
+  }
+  function needStonkfun(what) {
+    if (!stonkfun || typeof stonkfun[what] !== "function") refuse("venue", "StonkFun is not wired into this tab");
+  }
+
+  /** The stock cat's words, judged: its rules every time, and the model's review when a key is
+   *  saved and the model has not already approved exactly these words. */
+  async function judgedStock(draft, pair, journal) {
+    const stored = await loadStockDraft();
+    const approved = stored?.review?.key === stockDraftKey(draft) && stored.review.ok === true && stored.review.reviewed === true;
+    const r = await desk.reviewStock(draft, pair, { notes: stockNotes, earlier: earlierOf(journal), skipModel: approved });
+    if (!r.ok) refuse(r.clauses?.[0] ?? "draft_refused", r.refusals.join("; "));
+    return { ...r, reviewed: r.reviewed || approved };
+  }
+
+  /** One stock cat per stock, ever; no stock cat while one read back unclean; the day's cap. */
+  function stockCaps({ journal, pair, stockSettings }) {
+    const had = stockCatsIn(journal).find((e) => e.pair?.mint === pair.mint);
+    if (had) refuse("stock_has_cat", `${pair.symbol} already has its stock cat: ${had.name} ($${had.symbol}), mint ${had.mint}. One cat per stock, ever.`);
+    const unclean = journal.find((e) => e.venue === "stonkfun" && e.kind === "launched" && e.mintClean === false && !e.cleanCheckedByUser);
+    if (unclean) refuse("unclean_mint", `the stock cat ${unclean.name ?? ""} (mint ${unclean.mint}) read back with a mint or freeze authority still set: check it on Solscan and mark it in the journal before another`);
+    const today = launchesOn(journal, utcDay(clock()));
+    if (today >= stockSettings.maxPerDay) refuse("stock_day_cap", `the day's cap is reached: ${today} of ${stockSettings.maxPerDay} launches today (UTC), counting every launch from this extension`);
+  }
+
+  /** StonkFun's plan for the pair, proved on chain by the planner; its refusal named. */
+  async function planFor(pair) {
+    needStonkfun("plan");
+    try { return await stonkfun.plan({ pairMint: pair.mint }); }
+    catch (e) {
+      if (e?.clause === "no_rpc") refuse("no_rpc", "set your own RPC in Options: the public mainnet RPC answers 403 to the extension, and the plan is proved on the chain through it");
+      const inner = typeof e?.clause === "string" ? e.clause : "error";
+      refuse("plan_refused", `plan_refused:${inner} — ${String(e?.message ?? e).slice(0, 240)}`, { inner });
+    }
+  }
+
+  /** The stock's own mint, read with the plan, held to what every xStock read (quoteRefusals). */
+  function quoteChecks(plan, pair) {
+    if (plan?.quote?.mint !== pair.mint || !plan.quoteMintAccount) refuse("plan_refused", "plan_refused:quote — the plan is not for this stock", { inner: "quote" });
+    let d;
+    try { d = describeMint(plan.quoteMintAccount, pair.mint); }
+    catch (e) { refuse("plan_refused", `plan_refused:quote_mint — ${e?.message ?? e}`, { inner: "quote_mint" }); }
+    const q = quoteRefusals(d, pair);
+    if (q.length) refuse(q[0].clause, q.map((x) => x.message).join("; "));
+    return d;
+  }
+
+  async function stockList() {
+    const journal = await loadJournal();
+    const settings = await loadStockSettings();
+    const stored = await loadStockDraft();
+    const cats = stockCatsIn(journal);
+    const fresh = preparedRec && clock() - preparedRec.at <= STOCKCAT_LIMITS.prepareTtlMs;
+    return {
+      pairs: STOCK_PAIRS.map((p) => {
+        const row = noteRow(p.mint, stockNotes);
+        const cat = cats.find((e) => e.pair?.mint === p.mint) ?? null;
+        const ready = lastPairs ? lastPairs.ready.includes(p.mint) : null;
+        return {
+          symbol: p.symbol, name: p.name, mint: p.mint, stonkfun: p.stonkfun, researched: Boolean(row), searchedAt: row?.searchedAt ?? null,
+          /* For the owner's eyes only: never written into a coin, never shown to the model. */
+          catFacts: row ? row.catFacts.map((f) => ({ label: STOCKCAT_TEXT.catFact, text: f.text, source: f.source, readAt: f.readAt })) : [],
+          cat: cat ? { name: cat.name, symbol: cat.symbol, mint: cat.mint, kind: cat.kind, adopted: cat.adoption?.adopted ?? null } : null,
+          ready, launchable: Boolean(row) && !cat && ready !== false,
+        };
+      }),
+      others: lastPairs?.others ?? null, readAt: lastPairs?.at ?? null,
+      draft: stored?.draft ?? null,
+      review: stored?.review ? { ok: stored.review.ok, refusals: stored.review.refusals, clauses: stored.review.clauses ?? [], reviewedBy: stored.review.reviewedBy } : null,
+      disclosure: stored?.draft && pairByMint(stored.draft.pairMint) ? pairDisclosure(pairByMint(stored.draft.pairMint)) : null,
+      prepared: fresh ? { id: preparedRec.id, pairMint: preparedRec.pairMint, at: preparedRec.at, expiresAt: preparedRec.at + STOCKCAT_LIMITS.prepareTtlMs } : null,
+      settings, fence: STOCKCAT_LIMITS.fence, launchesToday: launchesOn(journal, utcDay(clock())),
+      journal: journal.filter((e) => e.venue === "stonkfun").slice(0, 30), text: STOCKCAT_TEXT, busy,
+    };
+  }
+
+  /** StonkFun's pairs, read when the owner asks: which of the 24 are ready, and the rest as counts. */
+  async function stockRefresh() {
+    needStonkfun("pairs");
+    const answer = await stonkfun.pairs();
+    const rows = answer?.data?.pairs;
+    if (!Array.isArray(rows)) refuse("pairs", "StonkFun's /pairs answer has no pairs list");
+    lastPairs = { at: clock(), ready: STOCK_PAIRS.filter((p) => rows.some((r) => r?.mint === p.mint && r.launchable === true && r.launchLabReady === true)).map((p) => p.mint), others: otherQuotes(answer) };
+    return stockList();
+  }
+
+  /** Names for a pair, from the eight kittens and the backgrounds, each passing every rule. No model. */
+  async function stockSuggest({ pairMint } = {}) {
+    const pair = pairOf(pairMint);
+    if (!noteRow(pair.mint, stockNotes)) return { ok: false, suggestions: [], clauses: ["pair_terms_missing"], refusals: [`pair_terms_missing: ${pair.symbol} has no research row yet, so nothing may be named for it`] };
+    const journal = await loadJournal();
+    const suggestions = suggestNames(pair, { notes: stockNotes, earlier: earlierOf(journal), verifiedIndex: await desk.verifiedIndex() });
+    return { ok: suggestions.length > 0, suggestions, clauses: [], refusals: suggestions.length ? [] : ["no suggestion passes every rule for this pair: type a name of your own"], disclosure: pairDisclosure(pair) };
+  }
+
+  /** A stock cat typed, or a suggestion picked: judged, and kept as the one stock-cat draft. */
+  async function stockDraftIn({ pairMint, idea } = {}) {
+    return exclusive("reviewing a stock cat", async () => {
+      const pair = pairOf(pairMint);
+      const draft = stockDraft(isObject(idea) ? idea : {}, pair);
+      const r = await desk.reviewStock(draft, pair, { notes: stockNotes, earlier: earlierOf(await loadJournal()) });
+      await storage.set(CASHCAT_TAB_KEYS.stockDraft, { draft, review: { ok: r.ok, refusals: r.refusals, clauses: r.clauses, reviewed: r.reviewed, reviewedBy: r.reviewedBy, key: stockDraftKey(draft), at: clock() } });
+      return { ok: r.ok, draft, refusals: r.refusals, clauses: r.clauses, reviewedBy: r.reviewedBy, disclosure: pairDisclosure(pair) };
+    });
+  }
+
+  /**
+   * "Check the launch" for a stock cat: every check, the plan proved on chain, the stock's mint,
+   * a build with a throwaway mint key, the pre-sign check and the simulation. Nothing is pinned,
+   * signed or sent. It leaves one record in this worker's memory — the pair, the draft's
+   * fingerprint, the wallet and the plan's accounts — which the launch needs within ten minutes.
+   */
+  async function stockPrepare({ pairMint } = {}) {
+    return exclusive("checking a stock cat", async () => {
+      const pair = pairOf(pairMint);
+      const stored = await loadStockDraft();
+      if (!stored || stored.draft.pairMint !== pair.mint) refuse("no_draft", `name a stock cat for ${pair.symbol} first`);
+      const draft = stored.draft;
+      venueRun("stonkfun", "manual");
+      const settings = await loadSettings();
+      const journal = await loadJournal();
+      preparedRec = null;
+      const p = await preflight({ mode: "manual", settings, journal, venue: "stonkfun" });
+      const r = await judgedStock(draft, pair, journal);
+      stockCaps({ journal, pair, stockSettings: await loadStockSettings() });
+      const plan = await planFor(pair);
+      const quote = quoteChecks(plan, pair);
+      const mint = mintKeys.newMint();
+      try {
+        const sim = await buildCheckSimulate({ rpc: p.rpc, wallet: p.wallet, mint, draft, uri: uriFor("stonkfun", PLACEHOLDER_CID), venue: "stonkfun", plan });
+        preparedRec = { id: `stockcat-${clock().toString(36)}-${++preparedCount}`, pairMint: pair.mint, draftKey: stockDraftKey(draft), wallet: p.wallet, at: clock(), raiseRaw: String(plan.raiseRaw),
+          plan: { globalConfig: plan.globalConfig, curveRule: plan.curveRule, platformConfig: plan.platformConfig, quoteMint: plan.quote.mint, quoteTokenProgram: plan.quote.tokenProgram } };
+        const decimals = Number.isInteger(quote.decimals) ? quote.decimals : null;
+        return {
+          ok: true, preparedId: preparedRec.id, expiresAt: preparedRec.at + STOCKCAT_LIMITS.prepareTtlMs, wallet: p.wallet, balanceSol: sol(p.balance),
+          pair: { symbol: pair.symbol, name: pair.name, mint: pair.mint, stonkfun: pair.stonkfun }, draft,
+          accounts: [
+            { label: "StonkFun's platform (its on-chain name, read by the planner: \"StonkFun\")", address: plan.platformConfig },
+            { label: `LaunchLab's config for ${pair.symbol}`, address: plan.globalConfig },
+            { label: "StonkFun's curve rule for that config", address: plan.curveRule },
+            { label: `The pool: PDA("pool", the new mint, ${pair.symbol}), made by the launch`, address: null },
+          ],
+          message: { version: sim.version, signers: sim.signers },
+          simulatedSpendSol: sol(sim.spentLamports), units: sim.units, budgetSol: sol(p.budget),
+          raise: { raw: String(plan.raiseRaw), units: decimals === null ? null : Number(plan.raiseRaw) / 10 ** decimals, symbol: pair.symbol },
+          marketCap: { startUsd: plan.marketCap?.startUsd ?? null, graduationUsd: plan.marketCap?.graduationUsd ?? null, label: STOCKCAT_TEXT.marketCap, pricedAt: plan.pricedAt },
+          scaledUiMultiplier: quote.scaledUiMultiplier,
+          notes: [STOCKCAT_TEXT.issuer, STOCKCAT_TEXT.noDevBuy, STOCKCAT_TEXT.creatorShare],
+          disclosure: pairDisclosure(pair), reviewedBy: r.reviewed ? "the rules and the model" : "the rules", launchesToday: p.today,
+        };
+      } finally { mintKeys.forget(mint); }
+    });
+  }
+
+  /**
+   * The launch of a prepared stock cat. Armed only by the record "Check the launch" left: the same
+   * id, under ten minutes old, for the same pair, the same draft and the same wallet, with the
+   * ticker typed. The record is used once, whatever happens next.
+   */
+  async function stockLaunch({ pairMint, preparedId, confirmTicker } = {}) {
+    return exclusive("launching a stock cat", async () => {
+      const rec = preparedRec;
+      if (!rec || typeof preparedId !== "string" || rec.id !== preparedId) refuse("prepare_first", "check the launch first: a stock cat is launched only from a check made in the last ten minutes");
+      preparedRec = null;
+      let stored = null;
+      try {
+        if (clock() - rec.at > STOCKCAT_LIMITS.prepareTtlMs) refuse("prepare_stale", "the check is more than ten minutes old: check the launch again");
+        if (rec.pairMint !== pairMint) refuse("pair_changed", "the pair is not the one that was checked: check the launch again");
+        const pair = pairOf(pairMint);
+        stored = await loadStockDraft();
+        if (!stored || stockDraftKey(stored.draft) !== rec.draftKey) refuse("draft_changed", "the stock cat changed since it was checked: check the launch again");
+        const wallet = fences()?.wallet() ?? null;
+        if (wallet !== rec.wallet) refuse("wallet_changed", "the autopilot wallet changed since the launch was checked: check it again");
+        if (typeof confirmTicker !== "string" || confirmTicker.trim().replace(/^\$/, "").toUpperCase() !== stored.draft.symbol) refuse("confirm", `type the ticker (${stored.draft.symbol}) to confirm the launch`);
+        return await launchPipeline({ draft: stored.draft, mode: "manual", venue: "stonkfun", pair, prepared: rec });
+      } catch (e) {
+        if (e instanceof CashcatError && !["busy", "read_back"].includes(e.clause))
+          await journalAdd({ kind: "refused", mode: "manual", venue: "stonkfun", clause: e.clause, message: String(e.message).slice(0, 300), symbol: stored?.draft?.symbol ?? null, pairMint: rec.pairMint });
+        throw e;
+      }
+    });
+  }
+
+  /**
+   * Has StonkFun adopted a stock cat? Asked by the owner, never on a timer. It counts only when
+   * StonkFun's record of it agrees with the chain and with what was launched: the mint, the pool
+   * (PDA of the mint and the stock), the creator (the autopilot wallet that paid), LaunchLab,
+   * the standard mode, and the stock as the quote. "Not found" is "not adopted yet", no failure.
+   */
+  async function stockCheckAdoption({ mint } = {}) {
+    needStonkfun("token");
+    const j = await loadJournal();
+    const e = j.find((x) => x.mint === mint && x.venue === "stonkfun" && x.kind === "launched");
+    if (!e || !e.pair?.mint) refuse("not_found", "no launched stock cat with that mint");
+    let body;
+    try { body = await stonkfun.token(mint); }
+    catch (err) {
+      if (err?.clause !== "not_found") throw err;
+      await journalUpdate(mint, { adoption: { at: clock(), adopted: false, why: "not_found" } });
+      return { ok: true, adopted: false, notFound: true, why: "StonkFun does not list it yet: not adopted yet" };
+    }
+    const L = body?.data?.launch, T = body?.data?.token;
+    const checks = [["launch.mint", L?.mint, mint], ["launch.pool", L?.pool, poolState(mint, e.pair.mint)], ["launch.creator", L?.creator, e.creator],
+      ["launch.launchpad", L?.launchpad, "launchlab"], ["launch.mode", L?.mode, "standard"], ["token.quote.mint", T?.quote?.mint, e.pair.mint]];
+    const mismatches = checks.filter(([, got, want]) => got !== want).map(([what, got, want]) => ({ what, got: String(got ?? "none").slice(0, 60), want }));
+    const adopted = mismatches.length === 0;
+    await journalUpdate(mint, { adoption: { at: clock(), adopted, mismatches } });
+    return { ok: true, adopted, mismatches };
+  }
+
+  async function stockSaveSettings(input = {}) {
+    const n = Number(isObject(input) ? input.maxPerDay : NaN);
+    const [lo, hi] = STOCKCAT_LIMITS.fence;
+    if (!(Number.isInteger(n) && n >= lo && n <= hi)) refuse("max_per_day", `stock cats count against at most ${lo} to ${hi} launches a UTC day`);
+    await storage.set(CASHCAT_TAB_KEYS.stockSettings, { maxPerDay: n });
+    return { maxPerDay: n };
+  }
+
+  const stockCats = Object.freeze({
+    list: stockList, refresh: stockRefresh, suggest: stockSuggest, draft: stockDraftIn, prepare: stockPrepare, launch: stockLaunch,
+    checkAdoption: stockCheckAdoption, saveSettings: stockSaveSettings,
+  });
 
   /* ── auto mode ───────────────────────────────────────────────────────────────────────── */
 
@@ -567,5 +913,5 @@ export function createCashcatTab({ storage, desk, renderLogo, pinata, fences, mi
     };
   }
 
-  return Object.freeze({ status, saveSettings, draftTyped, draftFromTrend, clearDraft, prepare, launch, markChecked, armAuto, disarmAuto, autoTick, exclusions, loadDraft });
+  return Object.freeze({ status, saveSettings, draftTyped, draftFromTrend, clearDraft, prepare, launch, markChecked, armAuto, disarmAuto, autoTick, exclusions, loadDraft, stockCats });
 }

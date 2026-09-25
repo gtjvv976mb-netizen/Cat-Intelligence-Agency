@@ -17,7 +17,8 @@
  *   · curveRule.standard must equal PDA(["platform_curve_rule", platform, configId]) and exist
  *     on chain as a PlatformCurveRule for that platform and that config;
  *   · the quote must be an xStock on the official product list (src/lib/config.mjs
- *     XSTOCK_BUILTIN), listed by /pairs as launchable and LaunchLab-ready, and its mint's
+ *     XSTOCK_BUILTIN for the bot; STONKFUN_XSTOCKS, passed as `quoteList`, for the extension's
+ *     stock cats), listed by /pairs as launchable and LaunchLab-ready, and its mint's
  *     owner is read on chain (Token-2022 for every xStock) and used as the quote token program;
  *   · supply, totalSellA and baseDecimals must be the values every sampled StonkFun launch
  *     used (1e15, 793.1e12, 6), and the raise must be a positive integer.
@@ -157,20 +158,29 @@ export function initializeIx(args) {
 
 /* ── choosing and verifying the quote and the numbers ─────────────────────────────────── */
 
-/** The xStock CashCat pairs with: named by symbol or mint, and on the official list. */
-export function resolveQuote(choice = "SPYx") {
+/**
+ * The xStock a launch pairs with: named by symbol or mint, and on the official list. `list` is
+ * the bot's XSTOCK_BUILTIN by default (its behaviour is unchanged); the extension's stock cats
+ * pass STONKFUN_XSTOCKS, the fifteen plus the nine more StonkFun lists as ready (config.mjs).
+ */
+export function resolveQuote(choice = "SPYx", list = XSTOCK_BUILTIN) {
   const c = String(choice).trim();
-  const hit = XSTOCK_BUILTIN.find((x) => x.mint === c || x.symbol.toLowerCase() === c.toLowerCase());
-  if (!hit) refuse("quote_not_xstock", `CASHCAT_STONKFUN_QUOTE "${c}" is not an xStock on the official product list (src/lib/config.mjs)`);
+  const hit = list.find((x) => x.mint === c || x.symbol.toLowerCase() === c.toLowerCase());
+  if (!hit) refuse("quote_not_xstock", list === XSTOCK_BUILTIN
+    ? `CASHCAT_STONKFUN_QUOTE "${c}" is not an xStock on the official product list (src/lib/config.mjs)`
+    : `"${c}" is not one of the xStocks a stock cat may pair with (src/lib/config.mjs STONKFUN_XSTOCKS)`);
   return hit;
 }
 
 /**
  * Read StonkFun's pairs and pricing, then prove every number against the chain. Returns the
  * plan the instruction is built from, or throws StonkfunError naming the first check that failed.
+ * The plan carries the stock's mint account as it was read (`quoteMintAccount`), so a caller can
+ * hold the stock itself to more checks (the extension's stock cats: quoteRefusals in
+ * src/lib/stockcats.mjs) on the very bytes the plan was proved against, with no second read.
  */
-export async function planStonkfunLaunch({ http, rpc, quoteChoice = "SPYx" }) {
-  const quote = resolveQuote(quoteChoice);
+export async function planStonkfunLaunch({ http, rpc, quoteChoice = "SPYx", quoteList = XSTOCK_BUILTIN }) {
+  const quote = resolveQuote(quoteChoice, quoteList);
   const stats = (await http.json(URLS.stonkfunStats))?.data?.config;
   if (!stats || stats.launchLabEnabled !== true) refuse("launchlab_off", "StonkFun's stats say LaunchLab launches are not enabled right now");
   const pairs = (await http.json(URLS.stonkfunPairs))?.data?.pairs;
@@ -212,5 +222,6 @@ export async function planStonkfunLaunch({ http, rpc, quoteChoice = "SPYx" }) {
     platform: { feeRate: platform.feeRate, creatorFeeRate: platform.creatorFeeRate },
     marketCap: { startUsd: Number(pricing.marketCap?.startUsd) || null, graduationUsd: Number(pricing.marketCap?.graduationUsd) || null },
     pricedAt: String(pricing.prices?.observedAt ?? ""),
+    quoteMintAccount: Object.freeze({ owner: quoteMintAcc.owner, lamports: quoteMintAcc.lamports ?? null, data: Buffer.from(quoteMintAcc.data) }),
   });
 }

@@ -69,6 +69,48 @@
   </details>
 </section>
 
+<!-- ── STOCK CATS: one cat coin of your own per xStock, launched on StonkFun by hand. Text only. ── -->
+<section class="card cat stockcats" id="stockCatsCard" data-tabs="agent">
+  <div class="row">
+    <div><div class="k">Stock cats</div><div class="v">A cat coin of your own for each tokenised stock StonkFun lists</div></div>
+    <button id="btnScRefresh" class="btn ghost" title="Reads StonkFun's list of pairs: which stocks are ready, and what else it lists">Read StonkFun</button>
+  </div>
+  <p class="hint" id="scWhat"></p>
+  <div class="row small"><span class="k">Today (UTC)</span> <span id="scToday" class="v small mono">—</span> <select id="scMaxPerDay" title="At most this many launches a UTC day, counting every launch from this extension"></select></div>
+  <div class="k" style="margin-top:10px">The pairs</div>
+  <div id="scPairs" class="list small"><div class="empty">loading</div></div>
+  <p class="hint" id="scOthers"></p>
+  <div id="scPairBox" class="hidden">
+    <div class="k" id="scPairTitle">—</div>
+    <ul id="scFacts" class="notes"></ul>
+    <div class="agbtns"><button id="btnScSuggest" class="btn ghost" title="Names from the kittens and the backgrounds that pass every rule. No model.">Suggest names</button></div>
+    <div id="scSuggestions" class="links"></div>
+    <div class="formgrid">
+      <label>Name <input id="scName" type="text" maxlength="32" spellcheck="false" placeholder="3 to 32 characters, with a cat word"></label>
+      <label>Ticker <input id="scSymbol" type="text" maxlength="11" spellcheck="false" placeholder="2 to 10 of A–Z, 0–9"></label>
+      <label class="wide">One line <input id="scTagline" type="text" maxlength="160" spellcheck="false" placeholder="about the cat: nothing about the stock or the launch"></label>
+      <label>Kitten <select id="scKitten"></select></label>
+      <label>Background <select id="scBackground"></select></label>
+    </div>
+    <div class="agbtns">
+      <button id="btnScCheck" class="btn">Check the name</button>
+      <button id="btnScPrepare" class="btn ghost" title="Every check, StonkFun's plan proved on your RPC, and a simulation. Nothing is pinned, signed or sent." disabled>Check the launch</button>
+    </div>
+    <ul id="scRefusals" class="warnings"></ul>
+    <p class="hint" id="scReviewLine"></p>
+    <p class="hint" id="scDisclosure"></p>
+    <div id="scPlan" class="plan hidden"></div>
+    <div id="scLaunchBox" class="armbox hidden">
+      <div class="k">Launch on StonkFun — this cannot be undone</div>
+      <p class="hint" id="scLaunchHint"></p>
+      <div class="ackrow"><input id="scConfirm" type="text" spellcheck="false" placeholder="type the ticker to confirm"><button id="btnScLaunch" class="btn danger-inline">Launch</button></div>
+    </div>
+  </div>
+  <div class="k" style="margin-top:10px">Stock cats' journal</div>
+  <div id="scJournal" class="list small"><div class="empty">no stock cat yet</div></div>
+  <p class="hint posture" id="scNotes"></p>
+</section>
+
 <section class="card setup hidden" id="setupCard" data-tabs="agent snipurr">
   <div class="row">
     <div><div class="k">First run</div><div class="v">Set your limits, stocks and signer before anything else.</div></div>

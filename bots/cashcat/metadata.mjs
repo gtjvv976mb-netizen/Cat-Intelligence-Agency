@@ -57,14 +57,35 @@ export function userDisclosure({ topic, madeWithCashCat = false }) {
   return `Not financial advice. Not affiliated with ${t}.${madeWithCashCat === true ? " Made with CashCat." : ""}`;
 }
 
-/** The metadata document of a user's coin: pump.fun's shape, no website, no socials. */
-export function buildUserDocument({ name, symbol, tagline, topic, imageUri, madeWithCashCat = false }) {
+/** The venues a coin launched from the extension may name as where it was created. */
+export const USER_VENUES = Object.freeze({ pumpfun: "https://pump.fun", stonkfun: "https://www.stonkfun.xyz" });
+
+/**
+ * The metadata document of a user's coin: pump.fun's shape, no website, no socials.
+ *
+ * `venue` names where it was created: pump.fun (CashCat's tab, the default, unchanged) or
+ * StonkFun (a stock cat, from CoinMarketCat's tab); anything else is refused. A stock cat does
+ * not riff on a topic: it passes its own fixed `disclosure` (src/lib/stockcats.mjs pairDisclosure,
+ * which names the xStock symbol it is paired with and never the company), used word for word,
+ * with no "Made with CashCat." after it — a stock cat's description carries nothing the owner typed
+ * but the tagline.
+ */
+export function buildUserDocument({ name, symbol, tagline, topic, imageUri, madeWithCashCat = false, venue = "pumpfun", disclosure = null }) {
+  const createdOn = USER_VENUES[venue];
+  if (!Object.hasOwn(USER_VENUES, venue)) throw new MetadataError("venue", `a coin from the extension is created on pump.fun or StonkFun, not "${venue}"`);
+  let tail;
+  if (disclosure === null) tail = userDisclosure({ topic, madeWithCashCat });
+  else {
+    if (typeof disclosure !== "string" || !disclosure.trim()) throw new MetadataError("no_disclosure", "a fixed disclosure must be text");
+    if (madeWithCashCat === true) throw new MetadataError("made_with", "a coin with a fixed disclosure carries no \"Made with CashCat.\"");
+    tail = disclosure;
+  }
   return {
     name, symbol,
-    description: `${tagline} — ${userDisclosure({ topic, madeWithCashCat })}`,
+    description: `${tagline} — ${tail}`,
     image: imageUri,
     showName: true,
-    createdOn: "https://pump.fun",
+    createdOn,
   };
 }
 

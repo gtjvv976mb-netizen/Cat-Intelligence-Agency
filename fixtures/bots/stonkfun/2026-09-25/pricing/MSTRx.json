@@ -1,0 +1,83 @@
+{
+ "url": "https://www.stonkfun.xyz/api/public/v1/launchlab/pricing?quoteMint=XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+ "readAt": "2026-09-25T13:06:16.261Z",
+ "savedAt": "2026-09-25T13:08:10.445Z",
+ "note": "StonkFun's LaunchLab pricing for MSTRx (StonkFun's MSTRX), read live 2026-09-25.",
+ "body": {
+  "data": {
+   "quote": {
+    "mint": "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+    "symbol": "MSTRX",
+    "decimals": 8,
+    "tokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+   },
+   "raise": {
+    "raw": "6264422527",
+    "units": 62.64422527,
+    "minimumRaw": "1",
+    "basis": "Sized so this launch is worth the same as the default 85 SOL raise."
+   },
+   "marketCap": {
+    "startUsd": 3375.811841016204,
+    "graduationUsd": 49603.5947406231,
+    "startQuote": 20.605617484285982,
+    "graduationQuote": 302.77537588206866,
+    "graduationMultiple": 14.69382687089905
+   },
+   "prices": {
+    "solUsd": 120.74098530712858,
+    "quoteUsd": 163.82968593834312,
+    "observedAt": "2026-09-25T13:06:16.260Z"
+   },
+   "curve": {
+    "programId": "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj",
+    "configId": "t9CXBViTixE8jEHzLwZXZYRdzojg9rAArYGoK4Vut4u",
+    "curveType": "ConstantCurve",
+    "migrateType": "cpmm",
+    "baseDecimals": 6,
+    "supply": "1000000000000000",
+    "totalSellA": "793100000000000",
+    "totalSupplyTokens": 1000000000,
+    "vesting": {
+     "totalLockedAmount": "0",
+     "cliffPeriod": "0",
+     "unlockPeriod": "0"
+    },
+    "cpmmCreatorFeeOn": 0,
+    "migrateFeeRaw": "0",
+    "derived": {
+     "virtualA": "1073025605607866",
+     "virtualB": "2211035518"
+    }
+   },
+   "platform": {
+    "standard": "4E876qZTE9FJMrBzgVtBrSrzz2TLivB5Y5QXPjB4gZL7",
+    "reward": "6BwHHDg3u1854jC8PDLXvR4spTcLNaoBxLJNGC4nTESt"
+   },
+   "curveRule": {
+    "standard": "B1a1w1Sgq7PdZfvFdiNVo2R8TzkLM9EQhDwy4YwU3Dth",
+    "reward": "DMwoLyVi1Vm5Wqsa9GbvguuaZasQrg1CaVf8h1KPywwo",
+    "derivation": "[\"platform_curve_rule\", platform_config, global_config] on the LaunchLab program",
+    "note": "Append the address for your chosen platform as the LAST account of the initialize instruction, read-only. Required once the platform enforces its launch shape; harmless before."
+   },
+   "modes": {
+    "standard": {
+     "transferFee": null,
+     "note": "Omit the transfer-fee extension entirely; the mint provably carries none."
+    },
+    "reward": {
+     "transferFeeBps": [
+      100,
+      300
+     ],
+     "baseTokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+     "withdrawWithheldAuthority": "5KXDF6QnqhBj72hDtJNkkpFaQVUfbFXNybMsp3DiK6tD",
+     "note": "Raydium assigns the platform transferFeeExtensionAuth as the withdraw authority at creation; holder rewards are collected and distributed from it."
+    }
+   }
+  },
+  "meta": {
+   "generatedAt": "2026-09-25T13:06:16.261Z"
+  }
+ }
+}

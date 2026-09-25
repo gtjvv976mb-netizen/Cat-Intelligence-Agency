@@ -50,7 +50,9 @@ export const FENCES = Object.freeze({
  *  pump.fun paired with SPYx 0.00711 SOL, StonkFun/SPYx 0.00868 SOL. The cap leaves room for
  *  rent and fee changes and still stops anything unexpected. */
 export const MAX_LAUNCH_SPEND_LAMPORTS = Object.freeze({ pumpfun: 15_000_000, "pumpfun-xstock": 15_000_000, stonkfun: 15_000_000 });
-/** Compute limits: measured use (99,184 / 137,593 / 101,883 units) with room to spare. */
+/** Compute limits: measured use (94,684 / 131,593 / 98,816 units: the recorded simulations in
+ *  fixtures/bots/pumpfun/simulate-create-v2.json, custom-pair.json and
+ *  fixtures/bots/stonkfun/simulate-initialize.json) with room to spare. */
 export const COMPUTE_LIMITS = Object.freeze({ pumpfun: 250_000, "pumpfun-xstock": 300_000, stonkfun: 250_000 });
 
 export class ConfigError extends Error {

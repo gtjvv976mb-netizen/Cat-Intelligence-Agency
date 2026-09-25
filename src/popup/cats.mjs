@@ -4,8 +4,9 @@
  * Every word a stranger wrote — a coin's name, its ticker, what a check read — is put on the page
  * with textContent, never as HTML: this file builds its elements with createElement and never
  * assigns innerHTML. No coin's picture is ever shown. The only links are the ones the worker
- * built from an address its validator accepted — pump.fun's coin page and Solscan — and each is
- * checked again here against those two sites before it is drawn. The one picture this file shows
+ * built from an address its validator accepted — pump.fun's coin page, StonkFun's token page (a
+ * stock cat's, launched from CoinMarketCat's tab) and Solscan — and each is checked again here
+ * against those sites before it is drawn. The one picture this file shows
  * is the logo CashCat drew in this browser for the user's own draft.
  *
  * The page builds no transaction and holds no key: every button is one message to the worker
@@ -32,9 +33,10 @@ const empty = (node, text) => { clear(node); node.append(el("div", { cls: "empty
 const clock = (ms) => (Number.isFinite(ms) ? new Date(ms).toTimeString().slice(0, 5) : "—");
 const short = (a) => (typeof a === "string" && a.length > 12 ? `${a.slice(0, 4)}…${a.slice(-4)}` : String(a ?? "—"));
 
-/** The only pages a link may open: a coin on pump.fun, an account or transaction on Solscan. */
-const SAFE_LINK = /^https:\/\/(pump\.fun\/coin|solscan\.io\/(account|tx))\/[1-9A-HJ-NP-Za-km-z]{32,90}$/;
-function linkList(links) {
+/** The only pages a link may open: a coin on pump.fun, a stock cat on StonkFun, an account or
+ *  transaction on Solscan. Shared with the stock cats' card (./stockcats.mjs). */
+export const SAFE_LINK = /^https:\/\/(pump\.fun\/coin|solscan\.io\/(account|tx)|www\.stonkfun\.xyz\/token)\/[1-9A-HJ-NP-Za-km-z]{32,90}$/;
+export function linkList(links) {
   const box = el("div", { cls: "links" });
   for (const l of links ?? []) {
     if (!l || typeof l.href !== "string" || !SAFE_LINK.test(l.href)) continue;
@@ -191,10 +193,12 @@ export function createCatTabs({ send, toast, onChange = () => {} }) {
           : e.kind === "unknown" ? `OUTCOME UNKNOWN: ${e.name ?? ""} ($${e.symbol ?? ""})` : e.kind === "failed" ? `FAILED ${e.name ?? ""} ($${e.symbol ?? ""})`
             : e.kind === "refused" ? `REFUSED (${e.clause})` : e.kind.toUpperCase();
         item.append(el("div", { cls: "t", text: what }), el("div", { cls: "r", text: `${e.mode ?? ""} · ${new Date(e.at).toISOString().slice(5, 16).replace("T", " ")}` }));
-        const bits = [e.topic ? `on ${e.topic}` : "", e.mint ? `mint ${e.mint}` : "", e.signature ? `tx ${short(e.signature)}` : "", Number.isFinite(e.costSol) ? `cost ${e.costSol} SOL` : "",
+        const bits = [e.topic ? `on ${e.topic}` : "", e.pair?.official ? `a stock cat paired with ${e.pair.official} on StonkFun` : "", e.mint ? `mint ${e.mint}` : "", e.signature ? `tx ${short(e.signature)}` : "", Number.isFinite(e.costSol) ? `cost ${e.costSol} SOL` : "",
           e.devBuy?.signature ? `dev buy ${e.devBuy.sol} SOL` : e.devBuy?.error ? `dev buy not made: ${e.devBuy.error}` : "", e.message ?? "", e.error ?? ""].filter(Boolean);
         if (bits.length) item.append(el("div", { cls: "m", text: bits.join(" · ") }));
-        if (e.kind === "launched" && e.mint && e.signature) item.append(linkList([{ label: "On pump.fun", href: `https://pump.fun/coin/${e.mint}` }, { label: "The launch on Solscan", href: `https://solscan.io/tx/${e.signature}` }]));
+        /* A stock cat's page is StonkFun's; CashCat's coins are pump.fun's. */
+        const coinLink = e.venue === "stonkfun" ? { label: "On StonkFun", href: `https://www.stonkfun.xyz/token/${e.mint}` } : { label: "On pump.fun", href: `https://pump.fun/coin/${e.mint}` };
+        if (e.kind === "launched" && e.mint && e.signature) item.append(linkList([coinLink, { label: "The launch on Solscan", href: `https://solscan.io/tx/${e.signature}` }]));
         if ((e.kind === "sending" || e.kind === "unknown") && e.mint) {
           item.append(linkList([{ label: "Check the mint on Solscan", href: `https://solscan.io/account/${e.mint}` }]));
           const landed = el("button", { cls: "forget", text: "it landed" }), notLanded = el("button", { cls: "forget", text: "it did not land" });

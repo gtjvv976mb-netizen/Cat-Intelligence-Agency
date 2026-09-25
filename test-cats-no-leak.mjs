@@ -47,13 +47,16 @@ const HOST = path.join("src", "background.mjs");
 section("1. THE CATS' MESSAGES");
 const P = await import("./src/lib/protocol.mjs");
 {
-  const all = [...Object.values(P.POPCAT), ...Object.values(P.CRYING), ...Object.values(P.CASHCAT)];
+  const all = [...Object.values(P.POPCAT), ...Object.values(P.CRYING), ...Object.values(P.CASHCAT), ...Object.values(P.STOCKCATS)];
   ok("POPCAT is status, scan, set-background and clear", JSON.stringify(Object.values(P.POPCAT).sort()) === JSON.stringify(["cia:popcat:clear", "cia:popcat:scan", "cia:popcat:set-background", "cia:popcat:status"]));
   ok("CRYING is one message: check", JSON.stringify(Object.values(P.CRYING)) === JSON.stringify(["cia:crying:check"]));
   ok("CASHCAT is status, settings, the JWT's save and clear, drafts, the preview, prepare, launch, mark-checked and auto mode's arm and disarm",
     JSON.stringify(Object.values(P.CASHCAT).sort()) === JSON.stringify(["cia:cashcat:arm-auto", "cia:cashcat:clear-draft", "cia:cashcat:clear-pinata-jwt", "cia:cashcat:disarm-auto", "cia:cashcat:draft",
       "cia:cashcat:draft-from-trend", "cia:cashcat:launch", "cia:cashcat:mark-checked", "cia:cashcat:prepare", "cia:cashcat:preview", "cia:cashcat:save-settings", "cia:cashcat:set-pinata-jwt", "cia:cashcat:status"]));
   ok("exactly one carries a secret: the Pinata JWT, from Options", JSON.stringify(P.CATS_CARRIES_SECRET) === JSON.stringify([P.CASHCAT.SET_PINATA_JWT]));
+  ok("STOCKCATS is list, refresh, suggest, draft, prepare, launch, adoption and settings, all under cia:stockcats:, none carrying a secret",
+    JSON.stringify(Object.values(P.STOCKCATS).sort()) === JSON.stringify(["cia:stockcats:adoption", "cia:stockcats:draft", "cia:stockcats:launch", "cia:stockcats:list", "cia:stockcats:prepare", "cia:stockcats:refresh", "cia:stockcats:settings", "cia:stockcats:suggest"])
+      && !P.CATS_CARRIES_SECRET.some((t) => t.startsWith("cia:stockcats:")));
   ok("none hands a secret back", Array.isArray(P.CATS_RETURNS_SECRET) && P.CATS_RETURNS_SECRET.length === 0);
   ok("every one is under cia:, apart from the lanes', the autopilot's and the agent's tables", all.every((t) => t.startsWith("cia:")) && [...Object.values(P.UI), ...Object.values(P.AUTOPILOT), ...Object.values(P.AGENT)].every((t) => !t.startsWith("cia:")));
   ok("no web page can send one: the page relay carries none", [...P.HAWK_FROM_PAGE, ...P.HAWK_TO_PAGE].every((t) => !t.startsWith("cia:")));
@@ -77,7 +80,11 @@ const files = walk(path.join(here, "src")).filter((f) => /\.(mjs|js|html|css)$/.
   ok("the worker touches the stored JWT only in its reader, its save and its clear", uses.length === 4 && uses.every((i) => within(i, ["readPinataJwt", "cashcatSetPinataJwt", "cashcatClearPinataJwt"])), `${uses.length} uses`);
   const reads = [...bg.matchAll(/msg\.jwt\b/g)];
   ok("the JWT is read from a message in the save handler, and nowhere else", reads.length >= 1 && reads.every((m) => within(m.index, ["cashcatSetPinataJwt"])), `${reads.length} reads`);
-  ok("the reader is used by hasPinataJwt and by the pin, which hands it to pinMetadata alone", (bg.match(/(?<!function )readPinataJwt\(\)/g) ?? []).length === 2 && /const jwt = await readPinataJwt\(\);[\s\S]{0,120}return pinMetadata\(\{ http: pinataHttp, jwt, logoPng, coin, venue: "pumpfun", buildDoc \}\);/.test(bg));
+  ok("the reader is used by hasPinataJwt and by the pin, which hands it to pinMetadata alone", (bg.match(/(?<!function )readPinataJwt\(\)/g) ?? []).length === 2 && /const jwt = await readPinataJwt\(\);[\s\S]{0,120}return pinMetadata\(\{ http: pinataHttp, jwt, logoPng, coin, venue, buildDoc \}\);/.test(bg));
+  ok("…for pump.fun or StonkFun only, refused before the JWT is read", /const PIN_VENUES = Object\.freeze\(\["pumpfun", "stonkfun"\]\);/.test(bg) && /if \(!PIN_VENUES\.includes\(venue\)\) throw [^\n]*\n\s*const jwt = await readPinataJwt\(\);/.test(bg));
+  ok("StonkFun is called through its own client, allowed StonkFun's host alone (the owner's RPC is added by the planner's RPC client), and it never carries the JWT",
+    /const stonkfunHttp = catHttp\(\[HOSTS\.stonkfun\]\);/.test(bg) && (bg.match(/stonkfunHttp/g) ?? []).length === 5 && !/stonkfunHttp[^\n]*jwt/i.test(bg)
+    && /if \(!r\.rpc \|\| r\.isPublic\) throw [^\n]*clause: "no_rpc"/.test(bg));
   ok("…over a client allowed Pinata's upload API and its gateway only", /const pinataHttp = catHttp\(\[HOSTS\.pinataUpload, HOSTS\.pinataGateway\]\);/.test(bg));
   const meta = strip(src(path.join("bots", "cashcat", "metadata.mjs")));
   ok("pinMetadata puts the JWT in one header, of the one request to Pinata's upload API; the read-back carries none", (meta.match(/jwt/g) ?? []).length >= 3 && /http\.request\(URLS\.pinataUpload, \{ method: "POST", headers: \{ authorization: `Bearer \$\{jwt\}` \}/.test(meta) && /http\.json\(URLS\.pinataGateway\(documentCid\), \{ timeoutMs: 60_000 \}\)/.test(meta));

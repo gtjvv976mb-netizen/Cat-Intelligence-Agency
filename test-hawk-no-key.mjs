@@ -295,22 +295,30 @@ console.log("\nTHE MINT'S KEY AND THE AGENCY'S OTHER CATS\n───────
   const tab = strip(fs.readFileSync(path.join(here, "src", "lib", "cashcat-tab.mjs"), "utf8"));
   const pipe = tab.slice(tab.indexOf("async function launchPipeline"), tab.indexOf("async function launch("));
   const at = (re) => pipe.search(re);
+  /* One pipeline for both venues: pump.fun (CashCat's coins) and StonkFun (a stock cat), one plan
+     per launch for both builds, one signAsMint. */
   ok("CashCat's tab reaches a signature through the mint's key once and the engine's fences (autopilot-bound) for the launch, after the check and the simulation of the same bytes",
-    (tab.match(/mintKeys\.signAsMint\(/g) ?? []).length === 1 && at(/const built = await buildCheckSimulate\(\{ rpc: p\.rpc, wallet: p\.wallet, mint, draft, uri: pinned\.uri \}\)/) >= 0
+    (tab.match(/mintKeys\.signAsMint\(/g) ?? []).length === 1 && at(/const built = await buildCheckSimulate\(\{ rpc: p\.rpc, wallet: p\.wallet, mint, draft, uri: pinned\.uri, venue, plan \}\)/) >= 0
       && at(/const built = await buildCheckSimulate/) < at(/mintKeys\.signAsMint\(\{ txBase64: built\.txBase64/) && at(/mintKeys\.signAsMint/) < at(/p\.f\.signSendConfirm\(\{ txBase64: byMint\.signedBase64/));
   const bcs = tab.slice(tab.indexOf("async function buildCheckSimulate"), tab.indexOf("const bufAcc"));
-  ok("…where the check reads the compiled message before the simulation, and the simulation is held to the launch budget", bcs.indexOf("checkLaunchMessage(tx.message") > 0 && bcs.indexOf("checkLaunchMessage(tx.message") < bcs.indexOf("rpc.simulateTransaction(") && /checkSimulation\(sim, \{ walletBefore: before, walletAfter: sim\?\.accounts\?\.\[0\]\?\.lamports, maxSpendLamports: LAUNCH_BUDGET_LAMPORTS, mustLog: "Instruction: CreateV2" \}\)/.test(bcs));
+  ok("…where the check reads the compiled message before the simulation, and the simulation is held to the venue's launch budget and log", bcs.indexOf("checkLaunchMessage(tx.message") > 0 && bcs.indexOf("checkLaunchMessage(tx.message") < bcs.indexOf("rpc.simulateTransaction(") && /const run = venueRun\(venue\);/.test(bcs) && /checkSimulation\(sim, \{ walletBefore: before, walletAfter: sim\?\.accounts\?\.\[0\]\?\.lamports, maxSpendLamports: run\.budget, mustLog: run\.mustLog \}\)/.test(bcs));
+  const { VENUE_RUN } = await import("./src/lib/cashcat-tab.mjs");
+  const { MAX_LAUNCH_SPEND_LAMPORTS, COMPUTE_LIMITS } = await import("./bots/cashcat/config.mjs");
+  ok("…VENUE_RUN: pump.fun and StonkFun only, each at the bot's own budget and compute limit, each with the log its simulation must show",
+    JSON.stringify(Object.keys(VENUE_RUN).sort()) === '["pumpfun","stonkfun"]' && ["pumpfun", "stonkfun"].every((v) => VENUE_RUN[v].budget === MAX_LAUNCH_SPEND_LAMPORTS[v] && VENUE_RUN[v].compute === COMPUTE_LIMITS[v])
+      && VENUE_RUN.pumpfun.mustLog === "Instruction: CreateV2" && VENUE_RUN.stonkfun.mustLog === "Instruction: InitializeWithToken2022");
+  ok("…and a stock cat's launch is armed only by the check's own record, used once, before any of it runs", /const rec = preparedRec;\s*if \(!rec [^\n]*refuse\("prepare_first"/.test(tab) && /preparedRec = null;\s*let stored = null;/.test(tab));
   const dev = tab.slice(tab.indexOf("async function devBuy"), tab.indexOf("/** What every launch needs"));
   ok("…and the dev buy only through the same fences, after the bot's dev-buy check and a simulation", dev.indexOf("checkDevBuyMessage(") > 0 && dev.indexOf("checkDevBuyMessage(") < dev.indexOf("f.signSendConfirm(") && dev.indexOf("checkSimulation(") < dev.indexOf("f.signSendConfirm("));
   ok("…a manual launch's only: auto mode's dev buy is 0", /const devBuySol = mode === "auto" \? 0 : settings\.devBuySol;/.test(tab) && /if \(p\.devBuySol > 0 && mode === "manual"\)/.test(tab));
   ok("…and it never asks Phantom: the tab holds no bridge", !/bridge|phantom\.|signTransaction/i.test(tab.replace(/Phantom is not offered|CASHCAT_SIGNER_NOTE[^\n]*/g, "")));
-  for (const rel of ["popcat-tab.mjs", "crying-cat.mjs", "cashcat-draft.mjs", "cashcat-logo.mjs", "cashcat-tab.mjs"].map((f) => path.join("src", "lib", f))) {
+  for (const rel of ["popcat-tab.mjs", "crying-cat.mjs", "cashcat-draft.mjs", "cashcat-logo.mjs", "cashcat-tab.mjs", "stockcats.mjs"].map((f) => path.join("src", "lib", f))) {
     const code = strip(fs.readFileSync(path.join(here, rel), "utf8"));
     /* Crying Cat's words name the one link form it reads an address out of; it never fetches it. */
     const hostless = code.replace(/\(https:\/\/pump\.fun\/coin\/<address>\)/g, "");
     ok(`${rel}: names no host itself (its hosts come from the bots' verified list), touches no chrome.* API or page storage, logs nothing`, !/https?:\/\//.test(hostless) && !/chrome\.|localStorage|sessionStorage|indexedDB|console\./.test(code));
   }
-  for (const rel of ["popcat-tab.mjs", "crying-cat.mjs", "cashcat-draft.mjs", "cashcat-logo.mjs"].map((f) => path.join("src", "lib", f))) {
+  for (const rel of ["popcat-tab.mjs", "crying-cat.mjs", "cashcat-draft.mjs", "cashcat-logo.mjs", "stockcats.mjs", "stock-cat-notes.mjs"].map((f) => path.join("src", "lib", f))) {
     const code = strip(fs.readFileSync(path.join(here, rel), "utf8"));
     ok(`${rel}: signs nothing and reaches no signer`, !/\.sign\(|signTransaction|signSendConfirm|signAsMint|partialSign|mintKeys/.test(code));
   }
@@ -329,7 +337,12 @@ console.log("\nTHE MINT'S KEY AND THE AGENCY'S OTHER CATS\n───────
   }
   const outside = [...seen].map((f) => path.relative(here, f)).filter((rel) => !rel.startsWith("src" + path.sep)).sort();
   const botsInBundle = outside.filter((rel) => rel.startsWith("bots" + path.sep));
-  ok("the bundles import the bots' pure modules (the checks, the content rules, the builders, the pre-sign check)", ["bots/popcat/checks.mjs", "bots/lib/content-rules.mjs", "bots/cashcat/pumpfun.mjs", "bots/lib/txcheck.mjs", "bots/cashcat/logo-layout.mjs"].every((r) => botsInBundle.includes(r.split("/").join(path.sep))), botsInBundle.join(", "));
+  {
+    /* The research notes are data: text a person reviews, sources included, and nothing that runs. */
+    const notes = fs.readFileSync(path.join(here, "src", "lib", "stock-cat-notes.mjs"), "utf8");
+    ok("src/lib/stock-cat-notes.mjs imports nothing and calls nothing: its sources are text, never fetched", !/^\s*import\s/m.test(notes) && !/\bfetch\s*\(|XMLHttpRequest|chrome\.|console\./.test(strip(notes)));
+  }
+  ok("the bundles import the bots' pure modules (the checks, the content rules, the builders, the planner, the pre-sign check)", ["bots/popcat/checks.mjs", "bots/lib/content-rules.mjs", "bots/cashcat/pumpfun.mjs", "bots/cashcat/stonkfun.mjs", "bots/lib/txcheck.mjs", "bots/cashcat/logo-layout.mjs"].every((r) => botsInBundle.includes(r.split("/").join(path.sep))), botsInBundle.join(", "));
   ok("…and never the bot's wallet, its launch loop, its Node renderer, its logger or its data files", !botsInBundle.some((rel) => /cashcat[\\/](wallet|launch|run|logo)\.mjs$|lib[\\/](data|log)\.mjs$|floor-data\.mjs$/.test(rel)), botsInBundle.join(", "));
   for (const rel of outside) {
     const text = fs.readFileSync(path.join(here, rel), "utf8");

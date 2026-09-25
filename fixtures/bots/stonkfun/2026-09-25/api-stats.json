@@ -1,0 +1,41 @@
+{
+ "url": "https://www.stonkfun.xyz/api/public/v1/stats",
+ "readAt": "2026-09-25T13:02:36.218Z",
+ "savedAt": "2026-09-25T13:07:35.350Z",
+ "note": "StonkFun's stats, read live 2026-09-25; readAt is the answer's own meta.generatedAt.",
+ "body": {
+  "data": {
+   "network": "mainnet-beta",
+   "tokens": {
+    "poolsAvailable": true,
+    "total": 133265,
+    "graduated": 3873,
+    "aboutToGraduate": 7,
+    "rewardLaunches": 99411,
+    "totalMarketCapUsd": 1005663065.7335321,
+    "totalVolume24hUsd": 56951846.65955952
+   },
+   "revenue": {
+    "totalRevenueUsd": 25233787.680025876,
+    "totalBuybackUsd": 15051694.864995558
+   },
+   "burns": {
+    "totalValueUsdAtBurn": 17152575.847513314,
+    "burnCount": 80285
+   },
+   "config": {
+    "graduationMarketCapUsd": 40000,
+    "aboutToGraduateMarketCapUsd": 32000,
+    "rewardLaunchesEnabled": true,
+    "pumpLaunchesEnabled": false,
+    "apiLaunchesEnabled": true,
+    "devBuysEnabled": true,
+    "paidLaunchesEnabled": false,
+    "launchLabEnabled": true
+   }
+  },
+  "meta": {
+   "generatedAt": "2026-09-25T13:02:36.218Z"
+  }
+ }
+}

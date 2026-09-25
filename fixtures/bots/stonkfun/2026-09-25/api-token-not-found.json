@@ -1,0 +1,12 @@
+{
+ "url": "https://www.stonkfun.xyz/api/public/v1/tokens/6N6o6fiqbBUEi2PDAWBnKCizn7ohEJjYER2cvgypSx5Z",
+ "readAt": "2026-09-25T13:50:26.941Z",
+ "status": 404,
+ "body": {
+  "error": {
+   "code": "not_found",
+   "message": "No platform pool exists for this mint."
+  }
+ },
+ "note": "A freshly generated address that no token has: what StonkFun answers for a mint it does not know."
+}

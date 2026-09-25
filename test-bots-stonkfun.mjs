@@ -13,7 +13,11 @@
  *     answer refused by name: another platform, another program, a config for another quote, a
  *     curve rule that is not the PDA, a raise that is not a positive integer, vesting, a
  *     different supply, LaunchLab switched off, a pair that is not ready, a quote that is not an
- *     xStock;
+ *     xStock, a /pairs answer with no list, a pricing answer missing a part, a config that is not
+ *     a LaunchLab account, a stock mint missing on chain, a field too long, data that does not
+ *     decode;
+ *   · the quote list: the bot's fifteen xStocks by default, the stock cats' twenty-four when
+ *     passed, and the plan's copy of the stock's mint account;
  *   · CashCat's own initialize, as simulated on mainnet, rebuilt to the same bytes.
  */
 import { createHash } from "node:crypto";
@@ -107,6 +111,48 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
   ok("a pair that is not LaunchLab-ready → refused", await throwsClause(() => planStonkfunLaunch({ ...world({ pairs: notReady }) }), "pair_not_ready"));
   ok("a quote that is not on the official xStock list → refused", await throwsClause(() => planStonkfunLaunch({ ...world(), quoteChoice: "BONK" }), "quote_not_xstock"));
   ok("the quote may be named by symbol, any case, or by mint", resolveQuote("spyx").mint === SPYX && resolveQuote(SPYX).symbol === "SPYx");
+}
+
+section("THE PLANNER'S OTHER REFUSALS, EACH BY NAME");
+{
+  const t = (mut) => { const p = clone(api.pricing); mut(p.data); return p; };
+  const noPairs = clone(api.pairs); delete noPairs.data.pairs;
+  ok("a /pairs answer with no pairs list → pairs", await throwsClause(() => planStonkfunLaunch({ ...world({ pairs: noPairs }) }), "pairs"));
+  ok("a pricing answer missing a part (no curve rule) → pricing", await throwsClause(() => planStonkfunLaunch({ ...world({ pricing: t((d) => { delete d.curveRule; }) }) }), "pricing"));
+  const all = Object.fromEntries(accounts.map((a) => [a.address, a]));
+  const cfgAddr = api.pricing.data.curve.configId;
+  ok("a config that is not a LaunchLab account on chain → chain", await throwsClause(() => planStonkfunLaunch({ ...world({ accountsOverride: { ...all, [cfgAddr]: { ...all[cfgAddr], owner: "11111111111111111111111111111111" } } }) }), "chain"));
+  const noMint = { ...all }; delete noMint[SPYX];
+  ok("a stock whose mint account is missing on chain → quote_mint", await throwsClause(() => planStonkfunLaunch({ ...world({ accountsOverride: noMint }) }), "quote_mint"));
+  ok("a name, ticker or URI too long for the instruction → too_long", (() => { try { encodeInitialize({ name: "x".repeat(33), symbol: "CAT", uri: "u", raiseRaw: 1n }); return false; } catch (e) { return e.clause === "too_long"; } })()
+    && (() => { try { encodeInitialize({ name: "Cat", symbol: "C".repeat(11), uri: "u", raiseRaw: 1n }); return false; } catch (e) { return e.clause === "too_long"; } })()
+    && (() => { try { encodeInitialize({ name: "Cat", symbol: "CAT", uri: "u".repeat(201), raiseRaw: 1n }); return false; } catch (e) { return e.clause === "too_long"; } })());
+  const other = Buffer.from(encodeInitialize({ name: "Cat", symbol: "CAT", uri: "u", raiseRaw: 1n })); other[0] ^= 0xff;
+  const linear = Buffer.from(encodeInitialize({ name: "Cat", symbol: "CAT", uri: "u", raiseRaw: 1n })); linear[8 + 1 + 7 + 7 + 5] = 1;   // curve variant: not the constant curve
+  ok("data that is not initialize_with_token_2022, or a curve that is not the constant one → decode", (() => { try { decodeInitialize(other); return false; } catch (e) { return e.clause === "decode"; } })()
+    && (() => { try { decodeInitialize(linear); return false; } catch (e) { return e.clause === "decode"; } })());
+}
+
+section("THE QUOTE LIST: THE BOT'S FIFTEEN BY DEFAULT, THE STOCK CATS' TWENTY-FOUR WHEN ASKED");
+{
+  /* The bot pairs only with XSTOCK_BUILTIN, as before; the extension's stock cats pass
+     STONKFUN_XSTOCKS. The nine it adds are refused by the bot's default list. */
+  const { XSTOCK_BUILTIN, STONKFUN_XSTOCKS } = await import("./src/lib/config.mjs");
+  const nine = STONKFUN_XSTOCKS.filter((x) => !XSTOCK_BUILTIN.some((b) => b.mint === x.mint));
+  ok("the fifteen built-ins stay fifteen; the stock cats' list is those fifteen and nine more", XSTOCK_BUILTIN.length === 15 && STONKFUN_XSTOCKS.length === 24 && nine.length === 9
+    && XSTOCK_BUILTIN.every((b, i) => STONKFUN_XSTOCKS[i].mint === b.mint && STONKFUN_XSTOCKS[i].symbol === b.symbol));
+  ok("by default (the bot) each of the nine is refused at quote_not_xstock", nine.every((x) => { try { resolveQuote(x.mint); return false; } catch (e) { return e.clause === "quote_not_xstock"; } }));
+  ok("…and passed the stock cats' list, each resolves, by mint or by symbol", nine.every((x) => resolveQuote(x.mint, STONKFUN_XSTOCKS).mint === x.mint && resolveQuote(x.symbol.toLowerCase(), STONKFUN_XSTOCKS).mint === x.mint));
+  /* Against the 2026-09-25 recordings: StonkFun's answers and, in one base64 read, the platform,
+     every pair's config and curve rule, and every pair's mint. */
+  const day = (rel) => fixture(`stonkfun/2026-09-25/${rel}`);
+  const acc25 = Object.fromEntries(day("accounts-xstocks.json").accounts.map((a) => [a.address, a]));
+  let planned = 0;
+  for (const x of STONKFUN_XSTOCKS) {
+    const p = await planStonkfunLaunch({ ...world({ stats: day("api-stats.json").body, pairs: day("api-pairs-ready.json").body, pricing: day(`pricing/${x.symbol}.json`).body, accountsOverride: acc25 }), quoteChoice: x.mint, quoteList: STONKFUN_XSTOCKS });
+    if (p.quote.mint === x.mint && p.quoteMintAccount.owner === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" && p.quoteMintAccount.data.equals(Buffer.from(acc25[x.mint].dataBase64, "base64"))) planned++;
+  }
+  ok("all 24 plan against the recorded answers and accounts, each carrying its stock's mint account exactly as read", planned === 24, `${planned} of 24`);
 }
 
 section("CASHCAT'S OWN INITIALIZE, AS SIMULATED ON MAINNET");

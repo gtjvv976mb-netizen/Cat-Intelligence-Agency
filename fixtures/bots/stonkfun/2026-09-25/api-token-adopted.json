@@ -1,0 +1,61 @@
+{
+ "url": "https://www.stonkfun.xyz/api/public/v1/tokens/F97bMicCsBgjkV24GdEUBVghmo9JjCcQTBnUvaqYGxWo",
+ "readAt": "2026-09-25T13:50:24.762Z",
+ "status": 200,
+ "body": {
+  "data": {
+   "token": {
+    "mint": "F97bMicCsBgjkV24GdEUBVghmo9JjCcQTBnUvaqYGxWo",
+    "pool": "rEWGkqqZyzCjCw1xW9bYXd99TQY9tETH1Q81WwdmJSq",
+    "name": "test",
+    "symbol": "test",
+    "quote": {
+     "mint": "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re",
+     "symbol": "GLDX",
+     "name": "GOLD",
+     "logoUrl": "/api/asset/quote-logo/Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re?v=e924ada2",
+     "category": "xstock",
+     "categoryLabel": "xStock"
+    },
+    "launchpad": "launchlab",
+    "mode": "standard",
+    "quoteOnlyFees": true,
+    "imageUrl": "https://pump.mypinata.cloud/ipfs/bafkreiez3s3okgc2ljxpd33r3phbu4xvw4sbpiazhnkdmtqop5lwsvka5e",
+    "links": {},
+    "market": {
+     "priceUsd": 9.499232562432902e-7,
+     "marketCapUsd": 949.9232562432901,
+     "fdvUsd": 949.9232562432901,
+     "volume24hUsd": 23.948982739896927,
+     "liquidityUsd": 0.000003927186808678257,
+     "peakMarketCapUsd": 954.5883091581303
+    },
+    "status": "new",
+    "graduationProgress": 1.3598707486369284e-9,
+    "createdAt": "2026-09-25T13:07:38.032Z"
+   },
+   "launch": {
+    "mint": "F97bMicCsBgjkV24GdEUBVghmo9JjCcQTBnUvaqYGxWo",
+    "pool": "rEWGkqqZyzCjCw1xW9bYXd99TQY9tETH1Q81WwdmJSq",
+    "name": "test",
+    "symbol": "test",
+    "creator": "4sMTx2vSgiKtKPCa1wXnhvhqenHLxz3pvx4bWDMjm26M",
+    "quote": {
+     "mint": "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re",
+     "symbol": "GLDX"
+    },
+    "launchpad": "launchlab",
+    "mode": "standard",
+    "logoUrl": "https://pump.mypinata.cloud/ipfs/bafkreiez3s3okgc2ljxpd33r3phbu4xvw4sbpiazhnkdmtqop5lwsvka5e",
+    "startMarketCapUsd": 952.7255172201362,
+    "targetMarketCapUsd": 952.7255172201362,
+    "createdAt": "2026-09-25T13:04:48.910Z"
+   },
+   "network": "mainnet-beta"
+  },
+  "meta": {
+   "generatedAt": "2026-09-25T13:50:25.447Z"
+  }
+ },
+ "note": "A standard-mode launch paired with GLDX, picked from https://www.stonkfun.xyz/api/public/v1/launches (the newest 100, read 2026-09-25T13:11:45.394Z), then read by mint."
+}

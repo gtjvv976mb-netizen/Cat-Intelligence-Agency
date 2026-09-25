@@ -19,11 +19,14 @@
  * last decisions with their rationale and what became of each action. Its buttons are the
  * owner's controls — start (live only with the typed sentence), pause, decide now,
  * liquidate all, withdraw, stop — each one AGENT message. The page never sees the API key.
+ * The first tab also carries the stock cats' card (./stockcats.mjs): a cat coin of the owner's own
+ * for each xStock StonkFun lists, launched on StonkFun by hand from the autopilot wallet.
  * The second tab is Snipurr, the pump.fun sniper lane, exactly as it was. The other three —
  * Popcat, CashCat and Crying Cat — are drawn by ./cats.mjs, as text only.
  */
 import { UI, AUTOPILOT, AGENT } from "../lib/protocol.mjs";
 import { createCatTabs } from "./cats.mjs";
+import { createStockCatsCard } from "./stockcats.mjs";
 
 const $ = (id) => document.getElementById(id);
 const send = (type, payload = {}) => chrome.runtime.sendMessage({ type, ...payload });
@@ -404,6 +407,7 @@ function setTab(next) {
   ap.classList.toggle("for-cashcat", next === "cashcat");
   if (next === "cashcat") $("cashcatAutoCard").before(ap); else $("walletCard").after(ap);
   cats.show(next);
+  stockCats.show(next === "agent");
   renderPill();
 }
 function renderPill() {
@@ -499,6 +503,8 @@ async function agentCall(type, payload, button) {
   } finally { if (button) button.disabled = false; await refreshAgent(); }
 }
 const cats = createCatTabs({ send, toast, onChange: () => renderPill() });
+/* Stock cats live in CoinMarketCat's tab: a card of their own, drawn by ./stockcats.mjs. */
+const stockCats = createStockCatsCard({ send, toast });
 for (const b of document.querySelectorAll("#tabs button")) b.addEventListener("click", () => setTab(b.dataset.tab));
 setTab("agent");
 $("lnkAgentOptions").addEventListener("click", (e) => { e.preventDefault(); chrome.runtime.openOptionsPage(); });

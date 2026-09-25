@@ -32,10 +32,11 @@ house rules, the pump.fun description, and the site copy.
 | `floor/tear-sheet.png`, `floor/case-file.png`, `floor/enter-portal.png` | 1024×1024, transparent | Floor sprites: a 4-frame falling-tear strip (left to right), the case-file icon for posted cases, and the glowing ENTER portal marker for the building |
 | `floor/screen-<cat>.png`, `floor/case-board.png` | 4:3 / 16:9 | Each cat's monitor screen and the cork case board, for the stations on the site. `screen-coinmarketcat.png` is the agent console (an equity line, a decision log with ticks, risk meters); `screen-snipurr.png` is the old sniper screen |
 | `source/` | | The coin logo at 2160 px (and the two earlier versions: the Director, and Crying Cat with a thumbs up), the seven-kitten roster scene (left to right: Popcat, Crying Cat, Grumpy Cat, the Director, CashCat, Snipurr, CoinMarketCat) and the earlier meme roster, the Director portrait, an alternate pose of CoinMarketCat (`pixel-coinmarketcat-alt-1024.png`), the seamless pixel floor tile, and the building concept image, as generated |
-| `../icons/coinmarketcat-32/128/512.png` | | The extension's icons: CoinMarketCat's face, in its hoodie |
+| `../icons/cia-32/128/512.png` | | The Cat Intelligence Agency extension's icons: the coin's Crying Cat, cropped from `logo/cia-token-1000.png` into rounded squares |
+| `../icons/coinmarketcat-32/128/512.png` | | CoinMarketCat's face, in its hoodie: the site's CoinMarketCat icons (the extension's own icons before it carried all five cats) |
 
-The cats: `director` (the mascot; the coin's face is Crying Cat), `coinmarketcat` (the agentic trader, software; the
-extension's icons are its face), `snipurr` (the sniper lane inside CoinMarketCat, software), `crying-cat` (ruggers),
+The cats: `director` (the mascot; the coin's face is Crying Cat), `coinmarketcat` (the agentic trader, software; its
+sprite is its tab's picture in the extension), `snipurr` (the sniper lane beside CoinMarketCat, software), `crying-cat` (ruggers),
 `grumpy-cat` (fake hype), `cashcat` (the auto-launcher bot, being built), `popcat` (the cat-coin callout bot, being built).
 
 ## Palette

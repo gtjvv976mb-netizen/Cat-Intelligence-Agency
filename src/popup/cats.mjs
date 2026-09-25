@@ -128,6 +128,7 @@ export function createCatTabs({ send, toast, onChange = () => {} }) {
     );
   }
   async function cry() {
+    if ($("btnCry").disabled) return;              // one check at a time: Enter held down asks once
     const input = $("cryInput").value;
     $("cryError").classList.add("hidden");
     $("btnCry").disabled = true;

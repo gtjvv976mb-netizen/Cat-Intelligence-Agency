@@ -21,9 +21,16 @@
  * bytes, or a pump.fun coin page link of exactly the form https://pump.fun/coin/<address>, and
  * nothing else; whatever the user pasted is never fetched, only the address read out of it.
  *
+ * THE NAME AND TICKER the mint carries on chain are a stranger's text: a direction override or an
+ * invisible character is dropped and each is clipped (40 and 16 characters) before the report
+ * carries it; the popup draws it as text only.
+ *
+ * THE PACE: createCryingCat is the one door the worker uses, one check at a time and at most one
+ * every CRYING_LIMITS.minGapMs, so a held-down Enter key cannot fire a burst at the user's RPC.
+ *
  * A red flag is what the chain said at that moment, never an accusation; nothing here is
  * advice. Grumpy Cat (fake hype) is not built: it needs social data this extension does not
- * have. Everything is injected; this file touches no chrome.* API and signs nothing.
+ * have. Everything is injected; this file touches no chrome.* API and holds no key.
  */
 import { describeMint, auditMintAccount, TOKEN_PROGRAM, TOKEN_2022_PROGRAM } from "../../vendor/executor/token2022.mjs";
 import { decodeBondingCurve } from "../../vendor/executor/snipe-venue-pumpfun.mjs";
@@ -41,7 +48,16 @@ export class CryingCatError extends Error {
   constructor(clause, message) { super(message); this.name = "CryingCatError"; this.clause = clause; }
 }
 
+export const CRYING_LIMITS = Object.freeze({ minGapMs: 3_000 });
+
 const BASE58_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+/* The characters the floor's validator refuses (site/assets/callouts.js), dropped from a name. */
+const INVISIBLE = /[\u0000-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B-\u200F\u2028-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0]/g;
+const onChainText = (v, max) => {
+  if (typeof v !== "string") return null;
+  const t = v.replace(INVISIBLE, "").replace(/\s+/g, " ").trim();
+  return t ? (t.length > max ? `${t.slice(0, max - 1)}…` : t) : null;
+};
 const PUMP_PAGE = /^https:\/\/pump\.fun\/coin\/([1-9A-HJ-NP-Za-km-z]{32,44})\/?$/;
 
 /**
@@ -188,10 +204,26 @@ export async function cryingCatReport({ rpc, mint, now = Date.now() }) {
     ...(pumpfun?.creator ? [{ label: "Creator on Solscan", href: PAGES.solscanAccount(pumpfun.creator) }] : []),
   ];
   return {
-    mint, name: d.metadataName, symbol: d.metadataSymbol, program: mintAcc.owner === TOKEN_2022_PROGRAM ? "Token-2022" : "SPL Token", decimals: d.decimals,
+    mint, name: onChainText(d.metadataName, 40), symbol: onChainText(d.metadataSymbol, 16), program: mintAcc.owner === TOKEN_2022_PROGRAM ? "Token-2022" : "SPL Token", decimals: d.decimals,
     supplyRaw: supply.toString(), verdict: flags.length ? `RED FLAGS (${flags.length})` : "NO RED FLAGS FOUND", flags: flags.map((f) => f.id),
     checks, notes, pumpfun: pumpfun ? { complete: pumpfun.complete, progressPct: pumpfun.progressPct, creator: pumpfun.creator } : null,
     holders: holders ? { counted: holders.counted, holders: holders.holders, top10Pct: holders.top10Pct, source: holders.source, programHeld: holders.programHeld } : null,
     links, readAt: new Date(now).toISOString(), notAdvice: CRYING_NOT_ADVICE,
   };
+}
+
+/**
+ * The worker's one door to the report: one check at a time, and at most one every
+ * CRYING_LIMITS.minGapMs. A check refused here reads nothing.
+ */
+export function createCryingCat({ clock = () => Date.now(), limits = CRYING_LIMITS } = {}) {
+  let running = false, lastAt = -Infinity;
+  async function check({ rpc, mint }) {
+    if (running) throw new CryingCatError("busy", "a check is already running: wait for its report");
+    const t = clock();
+    if (t - lastAt < limits.minGapMs) throw new CryingCatError("too_soon", `one check every ${Math.round(limits.minGapMs / 1000)} seconds: try again in a moment`);
+    running = true; lastAt = t;
+    try { return await cryingCatReport({ rpc, mint, now: t }); } finally { running = false; }
+  }
+  return Object.freeze({ check });
 }

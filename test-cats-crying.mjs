@@ -19,7 +19,7 @@ import bs58 from "bs58";
 import { harness, fixture, scriptedRpc, ROOT } from "./bots/test/doubles.mjs";
 import { pda } from "./bots/lib/solana.mjs";
 import { PUMPFUN_PROGRAM, PUMPFUN_GLOBAL, TOKEN_PROGRAM, SYSTEM_PROGRAM } from "./bots/lib/verified.mjs";
-import { parseMintInput, cryingCatReport, CRYING_NOT_ADVICE } from "./src/lib/crying-cat.mjs";
+import { parseMintInput, cryingCatReport, createCryingCat, CRYING_LIMITS, CRYING_NOT_ADVICE } from "./src/lib/crying-cat.mjs";
 
 const { ok, section, done } = harness("test-cats-crying");
 const snaps = fixture("popcat/snapshots.json").snapshots;
@@ -114,6 +114,38 @@ section("A TOKEN TOO BIG TO LIST");
   const r = await cryingCatReport({ rpc, mint: s.apiRow.mint });
   ok("with no pump.fun curve it asks for the 20 largest accounts first, reads their owners, and leaves the pools out", r.holders.counted === false && /20 largest/.test(r.holders.source) && rpc.calls.map((c) => c.method).join() === "getMultipleAccounts,getTokenLargestAccounts,getMultipleAccounts");
   ok("…and says the holders were not counted rather than failing the count", /holders not counted/.test(check(r, "top10_share").value));
+}
+
+section("A NAME ON CHAIN IS A STRANGER'S TEXT");
+{
+  const s = snaps[0];
+  const data = Buffer.from(s.mintAccount.dataBase64, "base64");
+  const at = (text) => data.indexOf(Buffer.from(text, "utf8"));
+  ok("the recorded mint carries its name and ticker in its Token-2022 metadata", at("Asset Cat") > 0 && at("ASSCAT") > 0);
+  /* Same byte lengths, so the metadata's own length prefixes still hold: a right-to-left override
+     in the name, and a zero-width space in the ticker. */
+  const hostile = Buffer.from(data);
+  Buffer.from("A‮t Cat", "utf8").copy(hostile, at("Asset Cat"));
+  Buffer.from("​CAT", "utf8").copy(hostile, at("ASSCAT"));
+  const r = await cryingCatReport({ rpc: chainFor({ mintAcc: acc(s.mintAccount.owner, hostile.toString("base64")), curveAcc: acc(s.curveAccount.owner, s.curveAccount.dataBase64), holders: s.holders.list }), mint: s.apiRow.mint });
+  ok("a direction override or an invisible character in the name or ticker is dropped before the report carries it", r.name === "At Cat" && r.symbol === "CAT", JSON.stringify([r.name, r.symbol]));
+}
+
+section("ONE CHECK AT A TIME, NOT TWO WITHIN THREE SECONDS");
+{
+  const s = snaps[0];
+  const T = { now: Date.parse("2026-09-25T12:00:00Z") };
+  const desk = createCryingCat({ clock: () => T.now });
+  const rpc = () => chainFor({ mintAcc: acc(s.mintAccount.owner, s.mintAccount.dataBase64), curveAcc: acc(s.curveAccount.owner, s.curveAccount.dataBase64), holders: s.holders.list });
+  const clause = async (p) => { try { await p; return "ok"; } catch (e) { return e.clause; } };
+  const [first, second] = await Promise.all([clause(desk.check({ rpc: rpc(), mint: s.apiRow.mint })), clause(desk.check({ rpc: rpc(), mint: s.apiRow.mint }))]);
+  ok("a second check while one is running is refused (busy), and the first is answered", first === "ok" && second === "busy", `${first}, ${second}`);
+  T.now += 1_000;
+  ok("another a second later is refused (too_soon): at most one every three seconds", (await clause(desk.check({ rpc: rpc(), mint: s.apiRow.mint }))) === "too_soon");
+  T.now += CRYING_LIMITS.minGapMs;
+  ok("…and answered once the gap has passed", (await clause(desk.check({ rpc: rpc(), mint: s.apiRow.mint }))) === "ok");
+  const bg = fs.readFileSync(path.join(ROOT, "src", "background.mjs"), "utf8");
+  ok("the worker answers CRYING.CHECK through that one limiter", /const cryingCat = createCryingCat\(\);/.test(bg) && /cryingCat\.check\(\{ rpc: r\.rpc, mint: parsed\.mint \}\)/.test(bg) && !/cryingCatReport\(/.test(bg));
 }
 
 section("THE CODE: READS ONLY, AND GRUMPY CAT IS NOT BUILT");

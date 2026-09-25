@@ -86,7 +86,7 @@ import { createRpc as createCatRpc, PUBLIC_RPC } from "../bots/lib/rpc.mjs";
 import { HOSTS } from "../bots/lib/verified.mjs";
 import { pinMetadata } from "../bots/cashcat/metadata.mjs";
 import { createPopcatTab, POPCAT_TAB_HOSTS } from "./lib/popcat-tab.mjs";
-import { parseMintInput, cryingCatReport } from "./lib/crying-cat.mjs";
+import { parseMintInput, createCryingCat } from "./lib/crying-cat.mjs";
 import { createDraftDesk, DRAFT_HOSTS } from "./lib/cashcat-draft.mjs";
 import { workerLogoRenderer } from "./lib/cashcat-logo.mjs";
 import { createCashcatTab, CASHCAT_TAB_KEYS } from "./lib/cashcat-tab.mjs";
@@ -756,6 +756,7 @@ const workerFetch = (url, init) => fetch(url, init);
 const catHttp = (hosts) => createHttp({ fetchImpl: workerFetch, allowedHosts: hosts, defaults: { ...HTTP_DEFAULTS, retries: 1 } });
 const popcatHttp = catHttp(POPCAT_TAB_HOSTS);
 const cryingHttp = catHttp([]);
+const cryingCat = createCryingCat();
 const draftHttp = catHttp(DRAFT_HOSTS);
 const pinataHttp = catHttp([HOSTS.pinataUpload, HOSTS.pinataGateway]);
 const catRpcs = new Map();      // http client → { url, rpc, isPublic }
@@ -849,7 +850,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           if (!parsed.ok) return { ok: false, error: parsed.why, code: "bad_input" };
           await ensureEngine();
           const r = catRpcFor(cryingHttp);
-          try { return { ok: true, report: await cryingCatReport({ rpc: r.rpc, mint: parsed.mint }) }; }
+          try { return { ok: true, report: await cryingCat.check({ rpc: r.rpc, mint: parsed.mint }) }; }
           catch (error) {
             if (r.isPublic && (error?.detail?.code === 403 || /forbidden/i.test(String(error?.message)))) return { ok: false, error: "The public mainnet RPC refuses requests from browser extensions (it answered 403 \"Access forbidden\"). Set your own RPC in Options.", code: "public_rpc_refused" };
             throw error;

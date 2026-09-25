@@ -231,7 +231,7 @@ Popcat's pick.
 5. The twelve checks, whose thresholds live in one place, `THRESHOLDS` in
    `bots/popcat/checks.mjs`: mint and freeze authority revoked; Token-2022 extensions the
    executor's own audit accepts; the creator holding at most 5% and the ten largest holders (the
-   bonding curve excluded) at most 30%, across at least 25 holders; at most 2 other wallets buying
+   bonding curve and program-held pools excluded) at most 30%, across at least 25 holders; at most 2 other wallets buying
    in the creation slot (a same-slot transaction it could not read counts as one); the creator
    with at most 10 earlier pump.fun launches (when pump.fun does not say, the check reads "not
    available" and is no red flag); at least one social link in its metadata; between 15 minutes

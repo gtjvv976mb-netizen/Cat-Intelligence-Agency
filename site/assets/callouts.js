@@ -46,7 +46,7 @@ export const CHECKS = {
   freeze_authority: { label: "Freeze authority", flag: "Its freeze authority is not revoked, so holders' tokens can be frozen." },
   mint_extensions:  { label: "Token extensions", flag: "Its token settings fail the audit CoinMarketCat runs before a trade (a transfer fee, a transfer hook, a freeze…)." },
   creator_share:    { label: "Creator holds", flag: "Its creator holds more than 5% of the supply." },
-  top10_share:      { label: "Top 10 holders (bonding curve excluded)", flag: "Its ten largest holders hold more than 30% of the supply, or it has fewer than 25 holders." },
+  top10_share:      { label: "Top 10 holders (bonding curve and pools excluded)", flag: "Its ten largest holders hold more than 30% of the supply, or it has fewer than 25 holders." },
   same_slot_buyers: { label: "Other wallets buying in the launch slot", flag: "More than 2 other wallets bought in the slot it was launched in.", info: true },
   creator_launches: { label: "Creator's earlier pump.fun launches", flag: "Its creator launched more than 10 coins on pump.fun before this one.", info: true },
   socials:          { label: "Socials in its metadata", flag: "No social link was found in its metadata, or its metadata could not be read." },

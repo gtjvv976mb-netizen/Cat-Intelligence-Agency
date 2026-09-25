@@ -43,7 +43,7 @@ export function summaryMarkdown(r) {
       `<tr><th>Coin</th><td>${coin(k)}</td></tr>`,
       `<tr><th>Its page on pump.fun</th><td>${pumpLink(k.mint)}</td></tr>`,
       `<tr><th>Checked</th><td>${utc(Date.parse(k.checked))}, no red flags in any check</td></tr>`,
-      `<tr><th>Holders besides the curve</th><td>${count(k.stats.holders)}</td></tr>`,
+      `<tr><th>Holders besides the curve and pools</th><td>${count(k.stats.holders)}</td></tr>`,
       `<tr><th>Transactions on its curve</th><td>${k.stats.txs === null ? "not counted" : count(k.stats.txs)}</td></tr>`,
       `<tr><th>Bonding curve sold</th><td>${pct(k.stats.curvePct)}</td></tr>`,
       `<tr><th>Top 10 holders hold</th><td>${pct(k.stats.top10Pct)}</td></tr>`,

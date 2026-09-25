@@ -14,7 +14,8 @@
  *                      extensions (no transfer fee, hook, delegate, pause…)
  *   creator_share      the creator holds at most MAX_CREATOR_SHARE_PCT of the supply (the creator
  *                      pump.fun lists and the one its bonding curve names on chain, together)
- *   top10_share        the ten largest holders, the bonding curve excluded, hold at most
+ *   top10_share        the ten largest holders, the bonding curve and program-held accounts
+ *                      (pools, vaults: owners off the ed25519 curve) excluded, hold at most
  *                      MAX_TOP10_SHARE_PCT, across at least MIN_HOLDERS holders (every token
  *                      account of the mint, read with getProgramAccounts)
  *   same_slot_buyers   at most MAX_SAME_SLOT_BUYERS other wallets bought in the slot the coin was
@@ -41,6 +42,10 @@ import { PUMPFUN_GLOBAL, TOKEN_2022_PROGRAM, TOKEN_PROGRAM, WSOL_MINT } from "..
 import { decodeGlobalForLaunch } from "../cashcat/pumpfun.mjs";
 import { copycatOf, ESTABLISHED_CAT_COINS } from "./established.mjs";
 import bs58 from "bs58";
+import { PublicKey } from "@solana/web3.js";
+
+/** True for an address off the ed25519 curve: a program-derived address, never a wallet. */
+const programAddress = (address) => { try { return !PublicKey.isOnCurve(new PublicKey(address).toBytes()); } catch { return false; } };
 
 export const THRESHOLDS = Object.freeze({
   MIN_AGE_MINUTES: 15,
@@ -142,14 +147,18 @@ export function evaluate({ coin, onchain, creatorLaunches, metadata, now, cashca
   add("mint_extensions", extOk, extValue);
 
   const supply = onchain.mintAcc.data.readBigUInt64LE(36);
-  const curveOwned = (h) => h.owner === coin.curve;
+  /* The bonding curve, and any account a program holds rather than a person: an owner off the
+     ed25519 curve is a program address (the PumpSwap pool a coin graduates to, a vault, a lock),
+     which no one signs for. Counting a graduated coin's pool as "a holder" read as the top 10
+     holding 100%. */
+  const curveOwned = (h) => h.owner === coin.curve || programAddress(h.owner);
   const others = onchain.holders.filter((h) => !curveOwned(h) && h.amount > 0n).sort((a, b) => (b.amount > a.amount ? 1 : b.amount < a.amount ? -1 : 0));
   const creatorHeld = onchain.holders.filter((h) => creators.has(h.owner)).reduce((s, h) => s + h.amount, 0n);
   const creatorPct = pct(creatorHeld, supply);
   add("creator_share", creatorPct <= T.MAX_CREATOR_SHARE_PCT, `${fmtPct(creatorPct)} of the supply`);
   const top10 = others.slice(0, 10).reduce((s, h) => s + h.amount, 0n);
   const top10Pct = pct(top10, supply);
-  add("top10_share", top10Pct <= T.MAX_TOP10_SHARE_PCT && others.length >= T.MIN_HOLDERS, `${fmtPct(top10Pct)} of the supply; ${others.length} holders besides the curve`);
+  add("top10_share", top10Pct <= T.MAX_TOP10_SHARE_PCT && others.length >= T.MIN_HOLDERS, `${fmtPct(top10Pct)} of the supply; ${others.length} holders besides the curve and pools`);
 
   const unread = onchain.sameSlotUnread ?? 0;
   const n = onchain.sameSlotBuyers.length + unread;

@@ -28,7 +28,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { harness, fixture, scriptedFetch, scriptedRpc, response, captureSink } from "./bots/test/doubles.mjs";
 import { evaluate, THRESHOLDS, holdersOf, creationAndSameSlot } from "./bots/popcat/checks.mjs";
 import { BONDING_CURVE_LAYOUT } from "./vendor/executor/snipe-venue-pumpfun.mjs";
@@ -70,7 +70,8 @@ ok("every check is shown, twelve of them, and none is advice", evaluate(inputsOf
 {
   const st = evaluate(inputsOf(snaps[0])).stats;
   ok("the checks also give what the pick ranks by: holders besides the curve, the top 10's share, the curve sold, and the curve's transactions (not counted in a recording that did not count them)",
-    st.holders === 40 && st.top10Pct > 0 && st.top10Pct <= 30 && st.curvePct === 100 && st.txs === null && evaluate({ ...inputsOf(snaps[0]), onchain: { ...inputsOf(snaps[0]).onchain, curveTxs: 812 } }).stats.txs === 812, JSON.stringify(st));
+    /* 39: of the 40 recorded holders besides the curve, ChXGE62n… is its PumpSwap pool (a program address, 12% of supply). */
+    st.holders === 39 && st.top10Pct > 0 && st.top10Pct <= 30 && st.curvePct === 100 && st.txs === null && evaluate({ ...inputsOf(snaps[0]), onchain: { ...inputsOf(snaps[0]).onchain, curveTxs: 812 } }).stats.txs === 812, JSON.stringify(st));
 }
 
 section("EVERY RED FLAG IN PLAIN WORDS, WITH THE CHECKS' OWN NUMBERS");
@@ -95,13 +96,20 @@ const withHolders = (extra, keep = base.onchain.holders) => ({ ...base, onchain:
   ok(`creator share: ${THRESHOLDS.MAX_CREATOR_SHARE_PCT}% passes, a hair more fails`,
     check(evaluate(withHolders([{ owner: creator, amount: pct(5) }])), "creator_share").result === "pass" && check(evaluate(withHolders([{ owner: creator, amount: pct(5.01) }])), "creator_share").result === "fail");
   const curveOwned = base.onchain.holders.filter((h) => h.owner === base.coin.curve);
-  const many = (n, each) => Array.from({ length: n }, (_, i) => ({ owner: new PublicKey(Buffer.alloc(32, i + 1)).toBase58(), amount: each }));
+  /* Wallets, so on the ed25519 curve: a keypair's public key (a filled byte array is off the curve half the time). */
+  const many = (n, each) => Array.from({ length: n }, (_, i) => ({ owner: Keypair.fromSeed(Buffer.alloc(32, i + 1)).publicKey.toBase58(), amount: each }));
   const t30 = withHolders([...many(10, pct(3)), ...many(20, 1n)], curveOwned);
   const t31 = withHolders([...many(10, pct(3.1)), ...many(20, 1n)], curveOwned);
   ok(`top-10 share, bonding curve excluded: ${THRESHOLDS.MAX_TOP10_SHARE_PCT}% passes, more fails`, check(evaluate(t30), "top10_share").result === "pass" && check(evaluate(t31), "top10_share").result === "fail", check(evaluate(t30), "top10_share").value);
   const h24 = withHolders(many(24, 1000n), curveOwned), h25 = withHolders(many(25, 1000n), curveOwned);
   ok(`at least ${THRESHOLDS.MIN_HOLDERS} holders besides the curve`, check(evaluate(h24), "top10_share").result === "fail" && check(evaluate(h25), "top10_share").result === "pass");
   ok("the bonding curve's own account never counts toward the top 10", check(evaluate(withHolders([], curveOwned)), "top10_share").value.startsWith("0.00%"));
+  /* A graduated coin's pool (a program address) holding most of the supply is no holder: the dry
+     run of 2026-09-25 read one such coin as "top 10 hold 100%". */
+  const [pool] = PublicKey.findProgramAddressSync([Buffer.from("pool"), new PublicKey(base.coin.mint).toBuffer()], new PublicKey("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA"));
+  const pooled = withHolders([{ owner: pool.toBase58(), amount: pct(80) }, ...many(10, pct(1)), ...many(20, 1n)], curveOwned);
+  ok("a program-held account (a graduated coin's pool) never counts: an 80% pool leaves the top 10 at 10%",
+    check(evaluate(pooled), "top10_share").result === "pass" && check(evaluate(pooled), "top10_share").value.startsWith("10.00%"), check(evaluate(pooled), "top10_share").value);
 }
 {
   const buyers = (n) => ({ ...base, onchain: { ...base.onchain, sameSlotBuyers: Array.from({ length: n }, (_, i) => `b${i}`) } });
@@ -302,6 +310,8 @@ section("THE LISTING, AND NO CAT COIN MISSED ACROSS A SKIPPED RUN (synthetic coi
 /* Synthetic coins, named as built here: the recorded passing coin's accounts (or the failing one's)
    under new addresses, listed by a scripted pump.fun that, like the real one, lists only so deep. */
 const addrOf = (seed) => new PublicKey(createHash("sha256").update(`popcat-test:${seed}`).digest()).toBase58();
+/** A wallet address (on the ed25519 curve, as a holder's owner is): a keypair seeded from the same hash. */
+const walletOf = (seed) => Keypair.fromSeed(createHash("sha256").update(`popcat-test:${seed}`).digest()).publicKey.toBase58();
 function synthWorld({ depth = 1050, env = { POPCAT_LIVE: "1" }, launches = [] } = {}) {
   let clock = 0, n = 0;
   const rows = [], chain = new Map(), byCurve = new Map(), failOnce = new Set();
@@ -334,7 +344,7 @@ function synthWorld({ depth = 1050, env = { POPCAT_LIVE: "1" }, launches = [] } 
       const mint = opts.filters[0].memcmp.bytes, c = chain.get(mint);
       if (!c) return [];
       const list = c.base.holders.list.map((h) => ({ ...h, owner: h.owner === c.base.apiRow.bonding_curve ? c.curve : h.owner }));
-      for (let k = 0; k < c.extraHolders; k++) list.push({ account: addrOf(`acct-${mint}-${k}`), owner: addrOf(`holder-${mint}-${k}`), amount: "1" });
+      for (let k = 0; k < c.extraHolders; k++) list.push({ account: addrOf(`acct-${mint}-${k}`), owner: walletOf(`holder-${mint}-${k}`), amount: "1" });
       return list.map(encodeHolder);
     },
     getSignaturesForAddress: ([address]) => {

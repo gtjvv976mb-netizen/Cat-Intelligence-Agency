@@ -152,9 +152,9 @@ Count: 258 / 280
 
 **5/9** (written before the bots were switched on: post it as written only while their desks list nothing, never as live)
 ```text
-Agent 004: CASHCAT. The auto-launcher, being built.
+Agent 004: CASHCAT, the auto-launcher.
 
-CashCat will launch cat-themed coins by itself, from what is trending, on pump.fun and StonkFun. Nothing launched yet.
+Built to launch cat-themed coins by itself, from what is trending, on pump.fun and StonkFun. Not switched on yet: nothing launched.
 
 House rule: Popcat never calls out a coin CashCat launched.
 
@@ -164,13 +164,13 @@ Count: 272 / 280
 
 **6/9** (written before the bots were switched on: post it as written only while their desks list nothing, never as live)
 ```text
-Agent 005: POPCAT. Cat-coin callouts, being built.
+Agent 005: POPCAT, cat-coin callouts.
 
-Popcat will call out new cat coins on pump.fun as they launch, each with its safety checks, at its desk on our work floor. Cat coins only. Nothing called out yet.
+Built to call out new cat coins on pump.fun that pass every one of its safety checks, at its desk on our work floor. Cat coins only. Not switched on yet: nothing called out.
 
 Real cat or copycat? 6/9
 ```
-Count: 255 / 280
+Count: 253 / 280
 
 **7/9**
 ```text
@@ -434,7 +434,7 @@ https://catintelligenceagency.com/coinmarketcat/#snipurr (3/3)
 >
 > **6. No buying before the call.** The agency never buys a coin before calling it out, so a callout is never a way to sell to the people who read it.
 >
-> Crying Cat and Grumpy Cat are characters. Their cases are posts the agency writes from public data, not the output of a bot or a tool. CashCat and Popcat are bots the agency is building; CoinMarketCat and Snipurr are software.
+> Crying Cat and Grumpy Cat are characters. Their cases are posts the agency writes from public data, not the output of a bot or a tool. CashCat and Popcat are the agency's bots, built and not yet switched on; CoinMarketCat and Snipurr are software.
 
 Rules 5 and 6 are the owner's, and they hold before either bot ships: they are why CashCat's launches and Popcat's callouts can sit on the same floor.
 
@@ -538,7 +538,7 @@ Count: 152 / 160
 
 **Option A**
 - Headline: **We read the chain.**
-- Subline: Cat Intelligence Agency is a crew of cats built for crypto. On X, they investigate rugs and fake hype in public, and every case links its on-chain evidence. Two of them are software you can run yourself, and two more are bots the agency is building.
+- Subline: Cat Intelligence Agency is a crew of cats built for crypto. On X, they investigate rugs and fake hype in public, and every case links its on-chain evidence. Two of them are software you can run yourself, and two more are the agency's own bots, built and not yet switched on.
 
 **Option B**
 - Headline: **Every agent is a cat. Every case has receipts.**
@@ -548,9 +548,9 @@ Count: 152 / 160
 
 ### Agent cards
 
-**Section heading:** *Six agents. Two of them are software.*
+**Section heading:** *Six agents. Four of them are software.*
 
-**Section intro:** Crying Cat and Grumpy Cat are characters: their cases are posts on the agency's X account, written from public data. CoinMarketCat, the agentic trader, is a real Chrome extension, and Snipurr, its sniper lane, ships inside it. CashCat and Popcat are bots the agency is building: nothing has been launched or called out yet.
+**Section intro:** Crying Cat and Grumpy Cat are characters: their cases are posts on the agency's X account, written from public data. The other four are software. CoinMarketCat, the agentic trader, is a real Chrome extension, and Snipurr, its sniper lane, ships inside it. CashCat and Popcat are the agency's two bots: CashCat launches cat coins of its own, and Popcat calls out new ones with their safety checks. Each lists everything it has posted at its desk on the work floor, and posts nothing until the agency switches it on. The Director is the agency's mascot, not one of the six.
 
 ---
 

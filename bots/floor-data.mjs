@@ -6,17 +6,21 @@
  *       Clone the floor-data branch into <dir> (depth 1), or start it as an empty orphan
  *       branch when it does not exist yet.
  *   node bots/floor-data.mjs push <dir> --message "<msg>" --files a.json,b.json
- *       Commit exactly those files if they changed, and push. A push that loses a race (another
+ *       Commit exactly those files if they changed, and push; when none of them changed (a dry
+ *       run writes none), commit nothing at all, so a dry run never starts or touches the
+ *       branch. A push that loses a race (another
  *       bot pushed first) fetches, rebases and tries again, up to five times: each bot writes only
  *       its own files, so a rebase never conflicts. Prints changed=true|false — true only when a
  *       file the site shows (launches.json, callouts.json) changed, so Popcat's memory alone
  *       never triggers a deploy — and writes it to $GITHUB_OUTPUT when that is set.
  *   node bots/floor-data.mjs overlay <site-assets-dir>
  *       For the deploy: read launches.json and callouts.json from floor-data through the GitHub
- *       API and write them over <site-assets-dir>'s copies, after validating them with the
- *       site's own validators. A branch or file that does not exist yet leaves main's (empty)
- *       copy; any other failure fails the deploy, so a network hiccup can never publish an empty
- *       floor over real data.
+ *       API and write over <site-assets-dir>'s copies the entries that pass the site's own
+ *       validators; an entry that does not (or a callout on a CashCat coin) is left out and
+ *       named in the log, so one bad entry never stops main's deploy. A branch or file that does
+ *       not exist yet leaves main's (empty) copy. A 429 or 5xx is retried; an API that keeps
+ *       failing, or a file that is not JSON of the right shape at all, fails the deploy, so the
+ *       live floor stays as it was and is never replaced by an empty one.
  *
  * Authentication in Actions is the job's GITHUB_TOKEN (GH_TOKEN), sent as an HTTP header for
  * each git command (never written into .git/config or a URL) and as a bearer token to the API.
@@ -27,6 +31,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { validateLaunches } from "../site/assets/launches.js";
 import { validateCallouts } from "../site/assets/callouts.js";
+import { launchToFile, calloutToFile } from "./lib/data.mjs";
 
 export const BRANCH = "floor-data";
 export const DATA_FILES = Object.freeze(["launches.json", "callouts.json"]);
@@ -71,7 +76,9 @@ export function push(dir, { files, message, token, remote = null, attempts = 5 }
   if (fs.existsSync(path.join(dir, "README.md"))) list.push("README.md");
   git(["add", "--", ...list], { cwd: dir });
   const staged = git(["diff", "--cached", "--name-only"], { cwd: dir }).stdout.split("\n").filter(Boolean);
-  if (!staged.length) return { changed: false, committed: false };
+  /* Only a change to a file the bot was told to push is worth a commit: the README of a branch
+     started this run is not, so a dry run never creates floor-data. */
+  if (!staged.some((f) => files.includes(f))) return { changed: false, committed: false };
   const changed = staged.some((f) => DATA_FILES.includes(f));
   git([...BOT_IDENTITY, "commit", "--quiet", "-m", message], { cwd: dir });
   for (let i = 1; i <= attempts; i++) {
@@ -85,25 +92,42 @@ export function push(dir, { files, message, token, remote = null, attempts = 5 }
   throw new Error(`could not push to ${BRANCH} after ${attempts} attempts`);
 }
 
-/** Read one file from floor-data through the GitHub contents API; null when it does not exist. */
-export async function fetchDataFile({ fetchImpl = globalThis.fetch, repo, token, file }) {
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Read one file from floor-data through the GitHub contents API; null when it does not exist.
+ *  A network failure, a 429 or a 5xx is tried again (three tries in all); anything else throws. */
+export async function fetchDataFile({ fetchImpl = globalThis.fetch, repo, token, file, attempts = 3, sleep = wait }) {
   const url = `https://api.github.com/repos/${repo}/contents/${file}?ref=${BRANCH}`;
-  const r = await fetchImpl(url, { headers: { accept: "application/vnd.github.raw+json", "x-github-api-version": "2022-11-28", ...(token ? { authorization: `Bearer ${token}` } : {}) } });
-  if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`the GitHub API answered ${r.status} for ${file} on ${BRANCH}`);
-  return JSON.parse(await r.text());
+  for (let i = 1; ; i++) {
+    let r = null, why = "";
+    try { r = await fetchImpl(url, { headers: { accept: "application/vnd.github.raw+json", "x-github-api-version": "2022-11-28", ...(token ? { authorization: `Bearer ${token}` } : {}) } }); }
+    catch (e) { why = `the GitHub API could not be reached for ${file} on ${BRANCH} (${e.message})`; }
+    if (r?.status === 404) return null;
+    if (r?.ok) {
+      const data = JSON.parse(await r.text());
+      if (data === null) throw new Error(`${file} on ${BRANCH} is null, not a data file`);
+      return data;
+    }
+    if (r) why = `the GitHub API answered ${r.status} for ${file} on ${BRANCH}`;
+    if ((r && r.status !== 429 && r.status < 500) || i >= attempts) throw new Error(why);
+    await sleep(2_000 * i);
+  }
 }
 
-export async function overlay(siteAssets, { fetchImpl, repo, token, log = console.log }) {
+export async function overlay(siteAssets, { fetchImpl, repo, token, log = console.log, sleep = wait }) {
   const results = {};
   for (const file of DATA_FILES) {
-    const data = await fetchDataFile({ fetchImpl, repo, token, file });
+    const data = await fetchDataFile({ fetchImpl, repo, token, file, sleep });
     if (data === null) { log(`${file}: not on ${BRANCH} yet; keeping main's copy`); results[file] = "kept"; continue; }
-    const v = file === "launches.json" ? validateLaunches(data) : validateCallouts(data, { exclude: results.launches ?? [] });
-    if (v.problems.length) throw new Error(`${file} on ${BRANCH} does not validate: ${v.problems.join(" | ")}`);
-    if (file === "launches.json") results.launches = v.launches;
-    fs.writeFileSync(path.join(siteAssets, file), JSON.stringify(data, null, 2) + "\n");
-    log(`${file}: ${(v.launches ?? v.callouts).length} entries overlaid from ${BRANCH}`);
+    const key = file === "launches.json" ? "launches" : "callouts";
+    if (typeof data !== "object" || Array.isArray(data) || !Array.isArray(data[key])) throw new Error(`${file} on ${BRANCH} is not a { "${key}": [...] } file`);
+    const v = key === "launches" ? validateLaunches(data) : validateCallouts(data, { exclude: results.launches ?? [] });
+    /* The site would skip these same entries; they are left out here and named, so one bad
+       entry never stops the deploy of main and the site's tests run on what is published. */
+    for (const p of v.problems) log(`WARNING ${file}: left out — ${p}`);
+    if (key === "launches") results.launches = v.launches;
+    fs.writeFileSync(path.join(siteAssets, file), JSON.stringify({ [key]: v[key].map(key === "launches" ? launchToFile : calloutToFile) }, null, 2) + "\n");
+    log(`${file}: ${v[key].length} entries overlaid from ${BRANCH}${v.problems.length ? `; ${v.problems.length} left out` : ""}`);
     results[file] = "overlaid";
   }
   return results;

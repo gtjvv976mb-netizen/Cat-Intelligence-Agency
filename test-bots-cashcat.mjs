@@ -15,9 +15,16 @@
  *   · a green live run pins and reads back the metadata, sends ONE transaction whose message
  *     passed the check and whose signatures (wallet and mint) verify, reads it back, and
  *     records a launch the site validates — with the disclosure in its metadata;
+ *   · a coin whose record the site would refuse is refused before anything is uploaded or sent;
+ *   · the creator-fee claim, which signs too, waits for the switch, the wallet, its address and
+ *     the RPC, and never runs in a test environment;
+ *   · the wallet's launches on chain are counted to the end of the window or not at all: an
+ *     unrecorded launch behind dust sent to the wallet, or from yesterday's last run, stops the
+ *     next launch, and a window it cannot read in full refuses;
  *   · no secret (API key, wallet secret, RPC URL key, Pinata token) reaches a log line;
  *   · the ticker check against Jupiter's verified list and the established cat coins;
- *   · the invention loop: a proposal held to its format, the rules and the review.
+ *   · the invention loop: a proposal held to its format, the rules and the review, and a review
+ *     held to its own format (an approval naming any rule, or no list of rules, is no approval).
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -28,7 +35,7 @@ import { harness, fixture, scriptedFetch, scriptedRpc, response, captureSink } f
 import { createHttp } from "./bots/lib/http.mjs";
 import { createModel, ModelError } from "./bots/lib/model.mjs";
 import { createLogger } from "./bots/lib/log.mjs";
-import { HOSTS, URLS } from "./bots/lib/verified.mjs";
+import { HOSTS, URLS, IX, PUMPFUN_PROGRAM, SYSTEM_PROGRAM } from "./bots/lib/verified.mjs";
 import { readConfig, liveRefusals, CASHCAT_DEFAULTS, ConfigError } from "./bots/cashcat/config.mjs";
 import { runCashCat, pickVenue } from "./bots/cashcat/launch.mjs";
 import { walletFromEnv } from "./bots/cashcat/wallet.mjs";
@@ -38,6 +45,7 @@ import { disclosure, buildDocument, pinMetadata, dryRunMetadata } from "./bots/c
 import { parseGoogleTrends, parseCoingeckoTrending } from "./bots/cashcat/trends.mjs";
 import { checkTrend } from "./bots/lib/content-rules.mjs";
 import { checkLaunchMessage } from "./bots/lib/txcheck.mjs";
+import { creatorVault } from "./bots/cashcat/pumpfun.mjs";
 import { validateLaunches } from "./site/assets/launches.js";
 
 const { ok, section, throwsClause, done } = harness("test-bots-cashcat");
@@ -52,7 +60,7 @@ const PROPOSAL = { skip: false, trend: usableTrend, name: "Match Day Cat", symbo
 const FAKE_CID = "bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy";
 const snap = fixture("popcat/snapshots.json").snapshots[0];
 
-function world({ env, launches = [], balance = 1_000_000_000, proposal = PROPOSAL, review = { verdict: "approve", rules: [], reason: "fine" }, onchainToday = [], models = MODELS } = {}) {
+function world({ env, launches = [], balance = 1_000_000_000, proposal = PROPOSAL, review = { verdict: "approve", rules: [], reason: "fine" }, onchainToday = [], onchainTxs = {}, vault = 0, models = MODELS } = {}) {
   const uploads = [];
   const docs = new Map();
   const { fetchImpl, calls } = scriptedFetch([
@@ -78,19 +86,26 @@ function world({ env, launches = [], balance = 1_000_000_000, proposal = PROPOSA
   const http = createHttp({ fetchImpl, allowedHosts: Object.values(HOSTS), sleep: async () => {} });
   const sent = [];
   const mintAccount = { owner: snap.mintAccount.owner, lamports: 1, data: [snap.mintAccount.dataBase64, "base64"] };
+  const isClaim = (tx) => tx.instructions.some((ix) => ix.data.subarray(0, 8).toString("hex") === IX.pumpCollectCreatorFee);
   const rpc = scriptedRpc({
-    getSignaturesForAddress: () => onchainToday,
+    /* Newest first, paged by `before` and `limit`, as the RPC pages them. */
+    getSignaturesForAddress: ([, o = {}]) => { const i = o.before ? onchainToday.findIndex((s) => s.signature === o.before) + 1 : 0; return onchainToday.slice(i, i + (o.limit ?? 1000)); },
     getTransaction: ([sig]) => {
+      if (Object.hasOwn(onchainTxs, sig)) return onchainTxs[sig];
       const s = sent.find((x) => x.signature === sig);
       if (!s) return null;
       return { slot: 1, meta: { err: null, fee: 15_000, preBalances: [balance], postBalances: [balance - 5_549_700], loadedAddresses: { writable: [], readonly: [] } }, transaction: { signatures: [sig], message: { accountKeys: s.tx.compileMessage().accountKeys.map((k) => k.toBase58()), instructions: [] } } };
     },
     getBalance: () => ({ value: balance }),
     getLatestBlockhash: () => ({ value: { blockhash: "GHtXQBsoZHVnNFa9YevAzFr17DJjgHXk3ycTKD5xD3Zi", lastValidBlockHeight: 100 } }),
-    simulateTransaction: () => ({ value: { err: null, logs: ["Program log: Instruction: CreateV2", "Program log: Instruction: InitializeWithToken2022"], unitsConsumed: 95_000, accounts: [{ lamports: balance - 5_549_700 }] } }),
-    sendTransaction: ([b64]) => { const tx = Transaction.from(Buffer.from(b64, "base64")); const signature = bs58.encode(tx.signatures[0].signature); sent.push({ tx, signature }); return signature; },
+    /* A fee claim pays the vault's lamports above rent to the wallet; anything else is a launch. */
+    simulateTransaction: ([b64]) => (isClaim(Transaction.from(Buffer.from(b64, "base64")))
+      ? { value: { err: null, logs: [], unitsConsumed: 20_000, accounts: [{ lamports: balance + vault - 890_880 - 5_000 }] } }
+      : { value: { err: null, logs: ["Program log: Instruction: CreateV2", "Program log: Instruction: InitializeWithToken2022"], unitsConsumed: 95_000, accounts: [{ lamports: balance - 5_549_700 }] } }),
+    sendTransaction: ([b64]) => { const tx = Transaction.from(Buffer.from(b64, "base64")); const signature = bs58.encode(tx.signatures[0].signature); sent.push({ tx, signature, claim: isClaim(tx) }); return signature; },
     getSignatureStatuses: () => ({ value: [{ confirmationStatus: "confirmed", err: null }] }),
-    getAccountInfo: ([a]) => ({ value: sent.some((s) => s.tx.instructions.some((ix) => ix.keys[0]?.pubkey.toBase58() === a)) ? mintAccount : null }),
+    getAccountInfo: ([a]) => ({ value: vault && a === creatorVault(WALLET) ? { owner: PUMPFUN_PROGRAM, lamports: vault, data: ["", "base64"] }
+      : sent.some((s) => s.tx.instructions.some((ix) => ix.keys[0]?.pubkey.toBase58() === a)) ? mintAccount : null }),
     getMultipleAccounts: ([list]) => ({ value: list.map(() => null) }),
     getSlot: () => 1,
     getMinimumBalanceForRentExemption: () => 890_880,
@@ -151,7 +166,7 @@ section("THE CAPS, THE FENCES AND THE LIVE GUARDS");
   ok("each guard refuses by name", named({}, { CASHCAT_LIVE: "" }, /CASHCAT_LIVE/) && named({}, { NODE_ENV: "test" }, /test environment/) && named({ wallet: null }, { CASHCAT_WALLET_SECRET: "" }, /WALLET_SECRET/)
     && named({}, { CASHCAT_WALLET_ADDRESS: "" }, /WALLET_ADDRESS is not set/) && named({}, { CASHCAT_WALLET_ADDRESS: "FFWtrEQ4B4PKQoVuHYzZq8FabGkVatYzDpEVHsK5rrhF" }, /not the address/)
     && named({}, { SOLANA_RPC_URL: "" }, /SOLANA_RPC_URL/) && named({}, { ANTHROPIC_API_KEY: "" }, /ANTHROPIC_API_KEY/) && named({}, { PINATA_JWT: "" }, /PINATA_JWT/)
-    && named({ launchesToday: 2 }, {}, /cap is reached/) && named({ unrecordedToday: 1 }, {}, /not in launches\.json/) && named({ balanceLamports: 60_000_000 }, {}, /under the minimum/)
+    && named({ launchesToday: 2 }, {}, /cap is reached/) && named({ unrecorded: 1 }, {}, /not in launches\.json/) && named({ balanceLamports: 60_000_000 }, {}, /under the minimum/)
     && named({ balanceLamports: null }, {}, /balance is unknown/) && named({ simulated: false }, {}, /simulated/) && named({ reviewed: false }, {}, /model review/));
   ok("venues take turns by the launches on file", pickVenue(["pumpfun", "stonkfun"], []) === "pumpfun" && pickVenue(["pumpfun", "stonkfun"], [{}]) === "stonkfun");
 }
@@ -230,6 +245,71 @@ section("A GREEN LIVE RUN");
   ok("the next run the same day takes the other venue (StonkFun, unscripted here, so its plan is refused and nothing is sent)", again.venue === "stonkfun" && again.outcome === "venue_refused" && w.sent.length === 1);
 }
 
+section("A LAUNCH THE SITE COULD NOT SHOW IS NEVER SENT");
+{
+  /* "Case file:" reads as a link scheme to the site's validator, which would refuse the record
+     of a launch already on chain. The coin must be refused before anything is uploaded or signed. */
+  const w = world({ env: LIVE_ENV, proposal: { ...PROPOSAL, tagline: "Case file: a cat who watches every match from the top of the telly." } });
+  let r;
+  try { r = await w.run(); } catch (e) { r = { threw: e.message }; }
+  ok("a line the site would refuse: no coin, nothing uploaded, nothing signed or sent, and the run ends cleanly", !r.threw && r.outcome === "no_coin" && w.sent.length === 0 && w.uploads.length === 0, JSON.stringify(r).slice(0, 240));
+  ok("the refusal names the site's rule, so the model is told why", r.attempts?.[0]?.refusals?.some((x) => /the site would refuse it/.test(x) && /link scheme/.test(x)), JSON.stringify(r.attempts?.[0]));
+}
+
+section("THE FEE CLAIM WAITS FOR EVERY GUARD");
+{
+  const VAULT = 50_000_000; // 0.05 SOL in the creator vault, built for the test
+  const other = world({ env: { ...LIVE_ENV, CASHCAT_WALLET_ADDRESS: "FFWtrEQ4B4PKQoVuHYzZq8FabGkVatYzDpEVHsK5rrhF" }, vault: VAULT });
+  await other.run();
+  ok("CASHCAT_WALLET_ADDRESS naming another wallet: nothing is signed or sent, not even a fee claim", other.sent.length === 0, `${other.sent.length} sent`);
+  const test = world({ env: { ...LIVE_ENV, NODE_ENV: "test" }, vault: VAULT });
+  await test.run();
+  ok("a test environment: no fee claim either", test.sent.length === 0, `${test.sent.length} sent`);
+  const green = world({ env: LIVE_ENV, vault: VAULT });
+  const r = await green.run();
+  ok("every guard green: the claim goes first, checked and simulated, then the launch", r.outcome === "launched" && green.sent.length === 2 && green.sent[0].claim && !green.sent[1].claim);
+}
+
+section("THE WALLET'S LAUNCHES ON CHAIN: COUNTED TO THE END, OR NO LAUNCH");
+{
+  const t0 = Date.parse("2026-09-24T21:00:00Z") / 1000;
+  const OTHER = "FFWtrEQ4B4PKQoVuHYzZq8FabGkVatYzDpEVHsK5rrhF";
+  const launchTx = (blockTime) => ({ slot: 5, blockTime, meta: { err: null, loadedAddresses: { writable: [], readonly: [] } },
+    transaction: { message: { accountKeys: [WALLET, PUMPFUN_PROGRAM], instructions: [{ programIdIndex: 1, accounts: [], data: bs58.encode(Buffer.from(IX.pumpCreateV2 + "00".repeat(8), "hex")) }] } } });
+  const spamTx = (blockTime) => ({ slot: 4, blockTime, meta: { err: null, loadedAddresses: { writable: [], readonly: [] } },
+    transaction: { message: { accountKeys: [OTHER, WALLET, SYSTEM_PROGRAM], instructions: [{ programIdIndex: 2, accounts: [0, 1], data: bs58.encode(Buffer.from("0200000001000000", "hex")) }] } } });
+  const spam = (n, from) => Array.from({ length: n }, (_, i) => ({ signature: `spam${from + i}`, blockTime: t0 - i, err: null }));
+  const txsFor = (sigs, extra = {}) => ({ ...Object.fromEntries(sigs.filter((s) => s.signature.startsWith("spam")).map((s) => [s.signature, spamTx(s.blockTime)])), ...extra });
+
+  const buried = [...spam(40, 0), { signature: "unrecorded1", blockTime: t0 - 100, err: null }];
+  const w1 = world({ env: LIVE_ENV, onchainToday: buried, onchainTxs: txsFor(buried, { unrecorded1: launchTx(t0 - 100) }) });
+  const r1 = await w1.run();
+  ok("an unrecorded launch behind forty dust transfers to the wallet is still found: refused, nothing sent", r1.outcome === "refused" && r1.refusals.some((x) => /not in launches\.json/.test(x)) && w1.sent.length === 0, JSON.stringify(r1).slice(0, 200));
+
+  const yesterday = Date.parse("2026-09-23T18:25:00Z") / 1000;
+  const late = [{ signature: "lastnight", blockTime: yesterday, err: null }];
+  const w2 = world({ env: LIVE_ENV, onchainToday: late, onchainTxs: { lastnight: launchTx(yesterday) } });
+  const r2 = await w2.run();
+  ok("a launch from yesterday's last run that never reached launches.json still stops the next day's first run", r2.outcome === "refused" && r2.refusals.some((x) => /not in launches\.json/.test(x)) && w2.sent.length === 0, JSON.stringify(r2).slice(0, 200));
+
+  const unreadable = [{ signature: "gone", blockTime: t0, err: null }];
+  const w3 = world({ env: LIVE_ENV, onchainToday: unreadable, onchainTxs: { gone: null } });
+  const r3 = await w3.run();
+  ok("a transaction of the day the RPC cannot return: live refuses rather than guess", r3.outcome === "refused" && w3.sent.length === 0, JSON.stringify(r3).slice(0, 200));
+
+  const flood = spam(400, 0);
+  const w4 = world({ env: LIVE_ENV, onchainToday: flood, onchainTxs: txsFor(flood) });
+  const r4 = await w4.run();
+  ok("more of the day's transactions than it will read: live refuses (spam can stop CashCat, never make it launch twice)", r4.outcome === "refused" && w4.sent.length === 0, JSON.stringify(r4).slice(0, 200));
+
+  const recorded = [{ signature: fixture("pumpfun/create-v2-samples.json").samples[0].signature, blockTime: t0, err: null }, { signature: "failed", blockTime: t0, err: { InstructionError: [0, "Custom"] } }];
+  const w5 = world({ env: { ...LIVE_ENV, CASHCAT_VENUES: "pumpfun" }, launches: [{ time: "2026-09-24T21:00:00Z", venue: "stonkfun", name: "Old Cat", symbol: "OLDC", tagline: "An earlier launch, already on file.", trend: { title: "x", source: "google-trends" },
+    mint: fixture("pumpfun/create-v2-samples.json").samples[0].accounts[0].pubkey, creator: WALLET, tx: recorded[0].signature, quote: { symbol: "SPYx", mint: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W" }, devBuy: { sol: 0 }, costSol: 0.005, kitten: "black" }],
+    onchainToday: recorded, onchainTxs: {} });
+  const r5 = await w5.run();
+  ok("a launch already on file and a failed transaction are not read at all, and the run goes on", r5.outcome === "launched" && !w5.rpc.calls.some((c) => c.method === "getTransaction" && ["failed", recorded[0].signature].includes(c.params[0])), JSON.stringify(r5).slice(0, 200));
+}
+
 section("TICKERS: NEVER A VERIFIED TOKEN'S, NEVER AN ESTABLISHED CAT COIN'S");
 {
   const idx = verifiedIndex(fixture("jupiter/verified-sample.json").tokens);
@@ -250,6 +330,8 @@ section("THE INVENTION LOOP");
   ok("a trend that was not listed is refused", !validateProposal({ ...PROPOSAL, trend: "something else" }, trends).ok);
   ok("an unknown kitten is refused", !validateProposal({ ...PROPOSAL, kitten: "lion" }, trends).ok);
   ok("an approval that names a broken rule is not an approval", !validateReview({ verdict: "approve", rules: ["brand_or_trademark"], reason: "" }).approve && validateReview({ verdict: "approve", rules: [], reason: "ok" }).approve);
+  ok("nor one that names a rule the format does not have, or whose rules are not a list", !validateReview({ verdict: "approve", rules: ["looks_fine_to_me"], reason: "ok" }).approve
+    && !validateReview({ verdict: "approve", rules: "none", reason: "ok" }).approve && !validateReview({ verdict: "approve", reason: "ok" }).approve && !validateReview({ verdict: "approve", rules: [], reason: 7 }).approve);
   const idx = verifiedIndex(fixture("jupiter/verified-sample.json").tokens);
   let n = 0;
   const model = { hasKey: true, callTool: async ({ tool, user }) => { n++; if (tool.name === "review_coin") return { verdict: "approve", rules: [], reason: "ok" }; return n === 1 ? { ...PROPOSAL, name: "Trump Cat" } : { ...PROPOSAL, trend: "autumn leaves" }; } };

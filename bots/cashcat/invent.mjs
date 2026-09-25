@@ -8,7 +8,9 @@
  * 2. The proposal is held to the tool's format exactly (a field the format lacks refuses it).
  * 3. The deterministic rules (content-rules.mjs checkProposal): people, brands, endorsement,
  *    tragedy, minors, sex, hate, financial promises, the ticker format, and "is it a cat".
- * 4. The ticker and the name against Jupiter's verified tokens and the established cat coins.
+ * 4. The ticker and the name against Jupiter's verified tokens and the established cat coins,
+ *    and the name, ticker, tagline and trend against the site's own validator
+ *    (site/assets/launches.js): a coin whose record the floor would refuse is never launched.
  * 5. A SECOND, separate model call reviews the proposal as a strict content reviewer, through
  *    the tool `review_coin`, and must answer approve.
  * Any refusal is named. CashCat then asks once more with the refusal in hand and that trend
@@ -18,10 +20,13 @@
  * first usable trend so the rest of the pipeline can be exercised, and says that a live
  * launch would refuse it (the model review is required, rule 5).
  */
+import bs58 from "bs58";
 import { checkProposal } from "../lib/content-rules.mjs";
 import { tickerFree } from "./tickers.mjs";
 import { KITTENS, BACKGROUNDS } from "./logo.mjs";
 import { ModelError } from "../lib/model.mjs";
+import { WSOL_MINT } from "../lib/verified.mjs";
+import { validateLaunches } from "../../site/assets/launches.js";
 
 export const MAX_ATTEMPTS = 2;
 
@@ -96,15 +101,25 @@ export function validateReview(input) {
   const extra = Object.keys(input).filter((k) => !["verdict", "rules", "reason"].includes(k));
   if (extra.length) return { approve: false, why: "the review carries fields the format does not have" };
   if (input.verdict !== "approve" && input.verdict !== "refuse") return { approve: false, why: "the review has no verdict" };
-  const rules = Array.isArray(input.rules) ? input.rules.filter((r) => REVIEW_RULES.includes(r)) : [];
-  const reason = typeof input.reason === "string" ? input.reason.slice(0, 300) : "";
-  /* An "approve" that names a broken rule is not an approval. */
-  if (input.verdict === "approve" && rules.length === 0) return { approve: true, rules, reason };
+  if (!Array.isArray(input.rules) || typeof input.reason !== "string") return { approve: false, why: "the review's rules are not a list or its reason is not text" };
+  const rules = input.rules.filter((r) => REVIEW_RULES.includes(r));
+  const reason = input.reason.slice(0, 300);
+  /* An "approve" that names any rule at all, listed or not, is not an approval. */
+  if (input.verdict === "approve" && input.rules.length === 0) return { approve: true, rules, reason };
   return { approve: false, rules, why: reason || "refused" };
 }
 
 const trendLines = (trends) => trends.map((t, i) => `${i + 1}. ${JSON.stringify(t.title)} (${t.source}${t.traffic ? `, ~${t.traffic} searches` : ""})`
   + (t.news.length ? `\n   headlines: ${t.news.slice(0, 3).map((n) => JSON.stringify(n)).join("; ")}` : "")).join("\n");
+
+/* A launch record with placeholder addresses, to ask the site's validator about a coin's words
+   before there is a launch: a record the floor would refuse must stop the coin, not follow it. */
+const SAMPLE_RECORD = Object.freeze({ time: "2026-01-01T00:00:00Z", venue: "pumpfun", mint: WSOL_MINT, creator: WSOL_MINT, tx: bs58.encode(Buffer.alloc(64, 1)),
+  quote: { symbol: "SOL", mint: WSOL_MINT }, devBuy: { sol: 0 }, costSol: 0, kitten: KITTENS[0] });
+export function siteRefusals(coin) {
+  const v = validateLaunches({ launches: [{ ...SAMPLE_RECORD, name: coin.name, symbol: coin.symbol, tagline: coin.tagline, trend: { title: coin.trend.title, source: coin.trend.source } }] });
+  return v.problems.map((p) => `the site would refuse it: ${p.replace(/^.*? skipped: /, "")}`);
+}
 
 /** Deterministic every step but the model: the refusals a proposal can meet. */
 export function deterministicRefusals(coin, verifiedIndex) {
@@ -113,6 +128,7 @@ export function deterministicRefusals(coin, verifiedIndex) {
   for (const v of c.violations) out.push(`${v.rule}: "${v.term}" in the ${v.field}`);
   const t = tickerFree(verifiedIndex, coin);
   out.push(...t.reasons);
+  out.push(...siteRefusals(coin));
   return out;
 }
 

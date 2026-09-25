@@ -82,6 +82,13 @@ section("THE LOGGER NEVER PRINTS A SECRET");
   ok("a keypair-shaped byte array is replaced even when it is not a known secret", /\[redacted key bytes\]/.test(all));
   ok("a signature (88 base58 characters) is not mistaken for a secret", makeRedactor([])("sig 3X3mQJn8Bhe3zBKFjYwvUarL45uzEbjHjXy5Ebh2GJxNUfD4a1TBWdqSJfg8iHLVJbu1rR3Nded1qyhMFV8a3K8d").includes("3X3mQJn8Bhe3"));
   ok("the names it redacts include every bot secret", ["ANTHROPIC_API_KEY", "CASHCAT_WALLET_SECRET", "SOLANA_RPC_URL", "PINATA_JWT"].every((n) => SECRET_ENV_NAMES.includes(n)));
+  /* A model's proposed name, a trend or a coin's name with a line break in it must not start an
+     Actions workflow command (::add-mask::, ::stop-commands::, ::error::) in the run's log. */
+  const printed = [];
+  const plog = createLogger({ prefix: "[cashcat] ", sink: (_l, line) => printed.push(...line.split("\n")) });
+  plog.info("proposal Fine Cat\n::stop-commands::x\n::add-mask::1 refused");
+  plog.section("A SECTION");
+  ok("a line break in a logged value never starts a workflow command: every printed line carries the bot's prefix", printed.every((l) => l.startsWith("[cashcat] ")), JSON.stringify(printed));
 }
 
 section("ONLY THE HOSTS THE BOTS WERE GIVEN");

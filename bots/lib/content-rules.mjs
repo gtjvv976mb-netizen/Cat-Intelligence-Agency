@@ -20,49 +20,86 @@
  *                    group of people is how hateful coins are usually named
  *   politics         parties, offices, elections: a bot's coin on one reads as taking a side
  *   financial_promise  guaranteed returns, profit, risk-free
+ *   link             a web address (a scheme, www., t.me/, or a name with a web ending such as
+ *                    .com or .fun): the site prints names as text, never a stranger's link
  *   ticker_format    2–10 characters, A–Z and 0–9 only
  *   not_cat          a CashCat coin must be a cat: its name must carry a cat word
  *
- * Matching is on normalized words (Unicode NFKC, accents stripped, lower case, common
- * look-alike digits read as letters) and on compounds: "TrumpCat" is "trump" + "cat" and is
- * refused; "trumpet" is not. A list can never be complete; that is why the model reviews
- * too, and why the lists err toward refusing.
+ * Matching is on normalized words (Unicode NFKC, invisible characters removed, accents
+ * stripped, Cyrillic and Greek look-alikes and Latin small capitals read as the Latin letters
+ * they imitate, lower case, common look-alike digits read as letters), on compounds —
+ * "TrumpCat" is "trump" + "cat" and is refused; "trumpet" is not — on letters spelt out one by
+ * one ("M.U.S.K.") and on a listed word split in two ("Cat Girl"). A list can never be
+ * complete; that is why the model reviews too, and why the lists err toward refusing.
  */
 import { createHash } from "node:crypto";
 import { CAT_WORDS } from "./catdetect.mjs";
 
 const LEET = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i" };
+/** Characters that draw nothing: format characters (zero-width space and joiners, the soft
+ *  hyphen, direction marks, the byte-order mark) and the Hangul fillers. Removed, not turned
+ *  into spaces, so "Tr\u200Bump" is read as "trump". */
+const INVISIBLE = /[\p{Cf}\u115F\u1160\u3164\uFFA0]/gu;
+/** Letters of other scripts that look like Latin ones, and Latin small capitals. */
+const LOOKALIKE = Object.freeze(Object.fromEntries([
+  ["АВЕКМНОРСТУХЅІЈ", "ABEKMHOPCTYXSIJ"], ["авекмнорстухѕіјһԁӏԛԝп", "abekmhopctyxsijhdlqwn"],
+  ["ΑΒΕΖΗΙΚΜΝΟΡΤΥΧ", "ABEZHIKMNOPTYX"], ["αβεικνορτυχγω", "abeiknoptuxyw"],
+  ["ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ", "abcdefghijklmnoprstuvwyz"],
+].flatMap(([from, to]) => [...from].map((c, i) => [c, to[i]]))));
+const LOOKALIKE_RE = new RegExp(`[${Object.keys(LOOKALIKE).join("")}]`, "gu");
 
-/** NFKC, accents stripped, lower case, look-alikes read as letters, separators → spaces. */
+/** NFKC, invisibles removed, accents stripped, look-alikes read as letters, lower case,
+ *  separators → spaces. */
 export function normalize(text) {
   return String(text ?? "")
     .normalize("NFKC")
+    .replace(INVISIBLE, "")
     .normalize("NFD").replace(/\p{M}+/gu, "")
+    .replace(LOOKALIKE_RE, (c) => LOOKALIKE[c])
     .toLowerCase()
     .replace(/[013457@$!]/g, (c) => LEET[c])
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
 
-/** Words, with camelCase split first ("DoomCat" → doom cat) so compounds are seen. */
+/** Words, with camelCase split first ("DoomCat" → doom cat) so compounds are seen, plus the
+ *  word that letters spelt out one at a time make ("M.U.S.K." → musk). */
 export function wordsOf(text) {
   const split = String(text ?? "").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
-  return normalize(split).split(" ").filter(Boolean);
+  const words = normalize(split).split(" ").filter(Boolean);
+  const spelt = [];
+  for (let i = 0; i < words.length;) {
+    let j = i;
+    while (j < words.length && words[j].length === 1) j++;
+    if (j - i >= 2) spelt.push(words.slice(i, j).join(""));
+    i = j > i ? j : i + 1;
+  }
+  return [...words, ...spelt];
 }
 
 /** Affixes a meme name glues onto a word: "trumpcat", "babymusk", "elonwifhat". */
 const AFFIXES = new Set([...CAT_WORDS, "", "s", "wif", "wifhat", "hat", "inu", "coin", "token", "sol", "the", "baby", "mini", "mega", "super", "king", "queen", "lord", "ai", "x", "fi", "dao", "og", "real", "official", "mr", "mrs", "lil", "big", "fat", "dog", "doge", "pepe"]);
 
-function wordHits(words, term) {
+/** The endings a nickname puts on a person's name: "trumpy", "muskie", "elonney". */
+const NICKNAME = ["y", "ie", "ey"];
+
+function wordHits(words, term, { person = false } = {}) {
   if (term.includes(" ")) {
     const joined = ` ${words.join(" ")} `;
     const compact = words.join("");
     return joined.includes(` ${term} `) || compact.includes(term.replace(/ /g, ""));
   }
-  return words.some((w) => w === term
+  return words.some((w, i) => w === term
     || (w.startsWith(term) && AFFIXES.has(w.slice(term.length)))
-    || (w.endsWith(term) && AFFIXES.has(w.slice(0, w.length - term.length))));
+    || (w.endsWith(term) && AFFIXES.has(w.slice(0, w.length - term.length)))
+    || (person && NICKNAME.some((n) => w === term + n))
+    /* A listed word split in two ("cat girl"), both halves words of three letters or more, so
+       "cat's hot" is not "shot" and "it is is" is not a group's name. */
+    || (w.length >= 3 && words[i + 1]?.length >= 3 && w + words[i + 1] === term));
 }
+
+/** A web address in raw text: a scheme, www., t.me/, or a word followed by a web ending. */
+const LINKISH = /[a-z][a-z0-9+.-]*:\/\/|\bwww\.|\bt\.me\/|\b[a-z0-9][a-z0-9-]*\.(?:com|net|org|io|xyz|fun|app|me|gg|so|co|ai|tv|ly|to|link|site|online|finance|money|meme|lol|cc|us|info|club|pro|dev|sol|bet|vip|top|live|world|cash|exchange)\b/i;
 
 /* ── the lists ──────────────────────────────────────────────────────────────────────────── */
 
@@ -93,7 +130,9 @@ export const FIRST_NAMES = Object.freeze(new Set(("james john robert michael wil
   "sofia valentina camila lucia mariana gabriela daniela carmen rosa ana pilar marta elena " +
   "cliff clint dwayne travis cody shane dustin chad brett troy derek todd craig marcus darius tyrone jamal andre lamar malik " +
   "mohammed muhammad ahmed ali omar hassan yusuf fatima aisha priya raj rahul arjun wei li ming hiroshi kenji yuki " +
-  "vladimir dmitri ivan sergei olga natasha hans klaus fritz pierre jean francois emmanuel giuseppe luca marco giovanni").split(" ")));
+  "vladimir dmitri ivan sergei olga natasha hans klaus fritz pierre jean francois emmanuel giuseppe luca marco giovanni " +
+  /* The short forms people are known by ("Charlie Kirk"), leaving out the ones that are common words (will, max, rob). */
+  "charlie chris mike matt tony jake josh jimmy tommy danny ricky joey nate zach luigi").split(" ")));
 
 export const BRANDS = Object.freeze([
   "apple", "iphone", "google", "alphabet", "youtube", "amazon", "microsoft", "windows", "meta", "facebook", "instagram", "whatsapp", "tiktok", "bytedance", "twitter", "snapchat", "reddit", "discord", "telegram",
@@ -117,19 +156,22 @@ export const BRANDS = Object.freeze([
 ]);
 
 export const ENDORSEMENT = Object.freeze(["official", "officially", "endorsed", "endorse", "endorses", "endorsement", "partner", "partners", "partnered", "partnership",
-  "sponsor", "sponsored", "licensed", "authorized", "authorised", "certified", "verified", "affiliated", "approved", "foundation", "labs", "inc", "llc", "ltd", "corp", "the real"]);
+  "sponsor", "sponsored", "licensed", "authorized", "authorised", "certified", "verified", "affiliated", "approved", "foundation", "labs", "inc", "llc", "ltd", "corp", "the real",
+  "oficial", "authentic", "genuine", "legit", "legitimate"]);
 
 export const TRAGEDY = Object.freeze(["crash", "crashes", "crashed", "plane crash", "mayday", "plunge", "plunges", "die", "dies", "died", "dead", "death", "deaths", "deadly", "dying", "kill", "killed", "kills", "killing", "killer",
   "murder", "murdered", "shooting", "shooter", "shot", "gunman", "gun", "guns", "stab", "stabbing", "stabbed", "bomb", "bombing", "explosion", "attack", "attacked", "terror", "terrorist", "terrorism",
   "war", "wars", "invasion", "missile", "airstrike", "massacre", "genocide", "hostage", "kidnap", "kidnapped", "hurricane", "earthquake", "tsunami", "flood", "floods", "flooding", "wildfire", "wildfires", "tornado", "cyclone", "typhoon",
   "disaster", "tragedy", "tragic", "victim", "victims", "funeral", "obituary", "rip", "memorial", "mourn", "mourning", "suicide", "overdose", "fentanyl", "drowned", "collapse", "collapsed", "derail", "derailed",
-  "pandemic", "epidemic", "outbreak", "virus", "cancer", "famine", "riot", "riots", "arrested", "trial", "sentenced", "prison", "abuse", "assault", "injured", "casualties", "evacuate", "evacuation", "emergency"]);
+  "pandemic", "epidemic", "outbreak", "virus", "cancer", "famine", "riot", "riots", "arrested", "trial", "sentenced", "prison", "abuse", "assault", "injured", "casualties", "evacuate", "evacuation", "emergency",
+  "9/11", "twin towers", "assassin", "assassins", "assassinate", "assassinated", "assassination"]);
 
 export const MINORS = Object.freeze(["child", "children", "kid", "kids", "minor", "minors", "teen", "teens", "teenager", "underage", "toddler", "infant", "schoolgirl", "schoolboy", "preteen", "school", "student", "students", "daycare", "loli", "shota"]);
 
-export const SEXUAL = Object.freeze(["sex", "sexy", "sexual", "porn", "porno", "nude", "nudes", "naked", "nsfw", "xxx", "onlyfans", "horny", "boob", "boobs", "tits", "titties", "dick", "cock", "pussy", "penis", "vagina", "anal", "cum", "milf", "hentai", "fetish", "stripper", "escort", "orgasm", "erotic", "thot", "nipple", "nipples", "bdsm", "catgirl", "yiff"]);
+export const SEXUAL = Object.freeze(["sex", "sexy", "sexual", "porn", "porno", "nude", "nudes", "naked", "nsfw", "xxx", "onlyfans", "horny", "boob", "boobs", "tits", "titties", "dick", "cock", "pussy", "penis", "vagina", "anal", "cum", "milf", "hentai", "fetish", "stripper", "escort", "orgasm", "erotic", "thot", "nipple", "nipples", "bdsm", "catgirl", "yiff", "thicc", "lewd"]);
 
-export const HATE_PLAIN = Object.freeze(["nazi", "nazis", "hitler", "heil", "kkk", "swastika", "white power", "1488", "isis", "jihad", "holocaust", "fascist", "supremacist", "racist", "racism", "slave", "slavery", "lynch", "lynching"]);
+export const HATE_PLAIN = Object.freeze(["nazi", "nazis", "hitler", "heil", "kkk", "swastika", "white power", "1488", "isis", "jihad", "holocaust", "fascist", "supremacist", "racist", "racism", "slave", "slavery", "lynch", "lynching",
+  "neonazi", "neo nazi", "hamas", "hezbollah", "taliban", "al qaeda", "alqaeda", "jihadi", "jihadis", "jihadist", "jihadists", "proud boys"]);
 
 /** Salted sha256 of slurs, first 20 hex. The words are never written in this repository. */
 export const HATE_HASHES = Object.freeze(new Set(["e2eb6e68e91314de85c7", "f1647cbfc8500de7b21b", "69cb8461ee3acca1f695", "f525aa147446d5684560", "07e686f90ef394a0e854", "d610612e0543591b8d89",
@@ -139,9 +181,10 @@ export const HATE_HASHES = Object.freeze(new Set(["e2eb6e68e91314de85c7", "f1647
   "89d972cf3806bc2893ae", "15c135580a04c2fe4a41", "d492597ef4174f22546e", "6956b04bfaf9bed877d7", "b91d0e5976abf43c7e44", "38b98b17e7f8963c2879", "916f99688ddb3b523839"]));
 export const hashTerm = (word) => createHash("sha256").update("cia-bots:" + word).digest("hex").slice(0, 20);
 
-/** Politics: parties, offices, elections. A bot's coin on a political topic reads as taking a side. */
+/** Politics: parties, offices, elections, and the countries at war. A bot's coin on one reads as taking a side. */
 export const POLITICS = Object.freeze(["politics", "political", "election", "elections", "vote", "voting", "ballot", "president", "presidential", "congress", "senate", "senator",
-  "governor", "democrat", "democrats", "republican", "republicans", "gop", "maga", "parliament", "prime minister", "campaign", "impeachment", "tariff", "tariffs"]);
+  "governor", "democrat", "democrats", "republican", "republicans", "gop", "maga", "parliament", "prime minister", "campaign", "impeachment", "tariff", "tariffs",
+  "gaza", "west bank", "palestine", "israel", "ukraine", "russia", "iran"]);
 
 /** Religions, ethnicities, nationalities and sexual identities: a meme coin named for a group of
  *  people is how most hateful coins are named, so neither bot puts its name to one. */
@@ -190,7 +233,7 @@ export function checkFields(fields, { skip = [] } = {}) {
     const words = wordsOf(value);
     for (const [rule, list] of LIST_RULES) {
       if (skip.includes(rule)) continue;
-      for (const [term, norm] of list) if (wordHits(words, norm)) { violations.push({ rule, term, field }); break; }
+      for (const [term, norm] of list) if (wordHits(words, norm, { person: rule === "real_person" })) { violations.push({ rule, term, field }); break; }
     }
     if (!skip.includes("real_person")) {
       const hit = personNameHit(words);
@@ -200,18 +243,24 @@ export function checkFields(fields, { skip = [] } = {}) {
       const hashed = words.find((w) => HATE_HASHES.has(hashTerm(w)) || [...AFFIXES].some((a) => a && w.endsWith(a) && HATE_HASHES.has(hashTerm(w.slice(0, w.length - a.length)))));
       if (hashed) violations.push({ rule: "hate", term: "[a slur]", field });
     }
+    if (!skip.includes("link")) {
+      const m = String(value).normalize("NFKC").replace(INVISIBLE, "").match(LINKISH);
+      if (m) violations.push({ rule: "link", term: m[0], field });
+    }
   }
   return { ok: violations.length === 0, violations };
 }
 
 export const TICKER = /^[A-Z0-9]{2,10}$/;
+/** A letter of any script but Latin: CashCat's coins are named and described in the Latin alphabet only. */
+const NOT_LATIN = /(?=\p{L})\P{Script=Latin}/u;
 
 /** CashCat's proposal, before the model review and the ticker check against Jupiter. */
 export function checkProposal({ name, symbol, tagline, trend }) {
   const { violations } = checkFields({ name, symbol, tagline, trend });
   if (typeof symbol !== "string" || !TICKER.test(symbol)) violations.push({ rule: "ticker_format", term: String(symbol), field: "symbol" });
-  if (typeof name !== "string" || name.trim().length < 3 || name.length > 32 || /[^\p{L}\p{N} '\-.!&]/u.test(name)) violations.push({ rule: "name_format", term: String(name).slice(0, 40), field: "name" });
-  if (typeof tagline !== "string" || tagline.trim().length < 10 || tagline.length > 160) violations.push({ rule: "tagline_format", term: String(tagline).slice(0, 40), field: "tagline" });
+  if (typeof name !== "string" || name.trim().length < 3 || name.length > 32 || /[^\p{L}\p{N} '\-.!&]/u.test(name) || NOT_LATIN.test(name.normalize("NFKC"))) violations.push({ rule: "name_format", term: String(name).slice(0, 40), field: "name" });
+  if (typeof tagline !== "string" || tagline.trim().length < 10 || tagline.length > 160 || /[\p{Cc}\p{Cf}]/u.test(tagline) || NOT_LATIN.test(tagline.normalize("NFKC"))) violations.push({ rule: "tagline_format", term: String(tagline).slice(0, 40), field: "tagline" });
   if (!wordsOf(name).some((w) => CAT_WORDS.includes(w) || CAT_WORDS.some((c) => c.length >= 3 && (w.startsWith(c) || w.endsWith(c)) && w.length <= c.length + 12))) violations.push({ rule: "not_cat", term: String(name), field: "name" });
   return { ok: violations.length === 0, violations };
 }
@@ -223,7 +272,7 @@ export function checkProposal({ name, symbol, tagline, trend }) {
  */
 export function checkTrend({ title, news = [] }) {
   const a = checkFields({ trend: title });
-  const b = checkFields(Object.fromEntries(news.slice(0, 6).map((t, i) => [`news ${i + 1}`, t])), { skip: ["endorsement", "financial_promise", "real_person", "brand", "politics"] });
+  const b = checkFields(Object.fromEntries(news.slice(0, 6).map((t, i) => [`news ${i + 1}`, t])), { skip: ["endorsement", "financial_promise", "real_person", "brand", "politics", "link"] });
   /* People, brands and politics in a headline do not doom a trend ("Mayor opens a cat café" is fine);
      tragedy, minors, sex and hate in one do. The trend title itself gets every rule. */
   return { ok: a.ok && b.ok, violations: [...a.violations, ...b.violations] };

@@ -63,7 +63,11 @@ export function createLogger({ secrets = [], sink = null, prefix = "" } = {}) {
   const lines = [];
   const out = sink ?? ((level, line) => (level === "error" || level === "warn" ? console.error(line) : console.log(line)));
   const emit = (level, parts) => {
-    const line = redact(prefix + parts.map((p) => (typeof p === "string" ? p : safeStringify(p))).join(" "));
+    const text = redact(parts.map((p) => (typeof p === "string" ? p : safeStringify(p))).join(" "));
+    /* Every printed line carries the prefix and none starts with "::": a line break inside a
+       logged value (a model's answer, a trend, a coin's name) must not start an Actions
+       workflow command such as ::add-mask:: or ::stop-commands::. */
+    const line = text.split(/\r\n|\r|\n/).map((l) => (prefix + l).replace(/^::/, " ::")).join("\n");
     lines.push(line);
     out(level, line);
   };

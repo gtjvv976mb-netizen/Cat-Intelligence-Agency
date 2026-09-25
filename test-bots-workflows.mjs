@@ -5,6 +5,7 @@
  *     never on a pull request; each in its own concurrency group so two runs never overlap.
  *   · Each secret reaches only the step that needs it: the wallet secret and the Pinata token
  *     only CashCat's step; the model key and the RPC only the two bot steps; nothing echoes one.
+ *     CashCat's job runs in the "cashcat" environment, where its secrets can be limited to main.
  *   · The data goes to the floor-data branch (never a commit on main), and a bot that published
  *     something deploys the site by calling pages.yml.
  *   · pages.yml is callable, checks out main, overlays floor-data's files, runs the site's tests
@@ -31,6 +32,8 @@ ok("neither runs on a pull request, and each runs on main only", ![popcat, cashc
 ok("each in its own concurrency group, never cancelling a run in progress", /group: popcat\n  cancel-in-progress: false/.test(popcat) && /group: cashcat\n  cancel-in-progress: false/.test(cashcat));
 
 section("THE SECRETS REACH ONLY THEIR STEPS");
+ok("CashCat's job runs in the \"cashcat\" environment, so its secrets can be kept to main (Settings → Environments), out of reach of any other branch or pull request",
+  /  run:\n    if: github\.ref == 'refs\/heads\/main'\n    environment: cashcat\n/.test(cashcat));
 ok("CashCat's wallet secret: once, in CashCat's own step", count(cashcat, /CASHCAT_WALLET_SECRET: \$\{\{ secrets\.CASHCAT_WALLET_SECRET \}\}/g) === 1 && step(cashcat, "CashCat").includes("secrets.CASHCAT_WALLET_SECRET") && !/CASHCAT_WALLET_SECRET/.test(popcat + pages + ci));
 ok("the Pinata token: only CashCat's step", step(cashcat, "CashCat").includes("secrets.PINATA_JWT") && count(cashcat + popcat + pages + ci, /secrets\.PINATA_JWT/g) === 1);
 ok("the model key and the RPC: only the two bot steps", count(cashcat + popcat + pages + ci, /secrets\.ANTHROPIC_API_KEY/g) === 2 && count(cashcat + popcat + pages + ci, /secrets\.SOLANA_RPC_URL/g) === 2

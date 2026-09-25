@@ -9,9 +9,13 @@
  * creator share, top-10 share and holder count, same-slot buyers, the creator's earlier coins,
  * age, curve progress, the mint and freeze authorities, a Token-2022 transfer fee (the recorded
  * catwifhat mint), socials, and the copycat flag against the established cat coins (whose
- * recorded mints are re-read). Then a whole Popcat run on a scripted pump.fun and chain: a dry
- * run writes nothing; a live run publishes exactly the passing coin, as the site validates it;
- * and a coin made by CashCat's wallet, or listed in its launches, is never called out.
+ * recorded mints are re-read). The CashCat exclusion and the creator's share read the creator
+ * the bonding curve records as well as pump.fun's listing; same-slot transactions it could not
+ * read count as buyers; a creation on an exact page of 1,000 signatures is still found. Then a
+ * whole Popcat run on a scripted pump.fun and chain: a dry run writes nothing; a live run
+ * publishes exactly the passing coin, as the site validates it; a coin made by CashCat's wallet,
+ * or listed in its launches, is never called out; a name carrying a web address is never
+ * printed; and a coin whose accounts do not decode is skipped without stopping the run.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -19,6 +23,7 @@ import path from "node:path";
 import { PublicKey } from "@solana/web3.js";
 import { harness, fixture, scriptedFetch, scriptedRpc, response, captureSink } from "./bots/test/doubles.mjs";
 import { evaluate, THRESHOLDS, holdersOf, creationAndSameSlot } from "./bots/popcat/checks.mjs";
+import { BONDING_CURVE_LAYOUT } from "./vendor/executor/snipe-venue-pumpfun.mjs";
 import { copycatOf, ESTABLISHED_CAT_COINS, verifyEstablished } from "./bots/popcat/established.mjs";
 import { coinRow, cidOf, readMetadata } from "./bots/popcat/sources.mjs";
 import { runPopcat } from "./bots/popcat/callout.mjs";
@@ -113,6 +118,17 @@ section("COPYCATS, AGAINST THE ESTABLISHED CAT COINS");
   ok("a copy fails its callout, naming the coin it copies", check(evaluate({ ...base, coin: { ...base.coin, name: "Popcat" } }), "copycat").result === "fail" && /Popcat/.test(check(evaluate({ ...base, coin: { ...base.coin, name: "Popcat" } }), "copycat").value));
 }
 
+section("NEVER A CASHCAT COIN, BY WHAT THE CHAIN SAYS AS WELL AS PUMP.FUN'S LISTING");
+{
+  const CASHCAT = "FFWtrEQ4B4PKQoVuHYzZq8FabGkVatYzDpEVHsK5rrhF";
+  const curveData = Buffer.from(base.onchain.curveAcc.data);
+  new PublicKey(CASHCAT).toBuffer().copy(curveData, BONDING_CURVE_LAYOUT.creator);
+  const byChain = { ...base, onchain: { ...base.onchain, curveAcc: { ...base.onchain.curveAcc, data: curveData } } };
+  ok("a coin whose bonding curve names CashCat's wallet as its creator fails not_cashcat, whatever the listing says",
+    check(evaluate({ ...byChain, cashcat: { mints: new Set(), wallets: new Set([CASHCAT]) } }), "not_cashcat").result === "fail");
+  ok("and the creator's share counts what the curve's creator holds too", check(evaluate({ ...byChain, onchain: { ...byChain.onchain, holders: [...base.onchain.holders, { owner: CASHCAT, amount: pct(6) }] } }), "creator_share").result === "fail");
+}
+
 section("THE CHAIN READS");
 {
   const s = snaps[1];
@@ -126,6 +142,19 @@ section("THE CHAIN READS");
   const rpc2 = scriptedRpc({ getSignaturesForAddress: () => sigs, getTransaction: ([sig]) => ({ transaction: { message: { accountKeys: [payers[sig]] } } }) });
   const c = await creationAndSameSlot({ rpc: rpc2, curve: s.apiRow.bonding_curve, creator });
   ok("the creation is the oldest signature; same-slot buyers are the other fee payers in its slot, the creator and failed ones left out", c.createSig === "s1" && c.createSlot === 10 && c.sameSlotBuyers.length === 1 && c.sameSlotBuyers[0].startsWith("Buyer"));
+  {
+    /* Exactly 1,000 signatures: the second page is empty, and the creation is the last of the first. */
+    const thousand = Array.from({ length: 1000 }, (_, i) => ({ signature: `t${i}`, slot: 2000 - i, blockTime: 5000 - i }));
+    const rpc3 = scriptedRpc({ getSignaturesForAddress: ([, o]) => (o.before ? [] : thousand), getTransaction: () => null });
+    const c3 = await creationAndSameSlot({ rpc: rpc3, curve: s.apiRow.bonding_curve, creator });
+    ok("a curve with exactly 1,000 signatures still finds its creation", c3.createSig === "t999" && c3.createSlot === 1001, JSON.stringify(c3).slice(0, 120));
+    /* Twelve other transactions in the creation slot, only the first eight read, all by the creator. */
+    const crowded = [...Array.from({ length: 12 }, (_, i) => ({ signature: `x${i}`, slot: 10 })), { signature: "c0", slot: 10, blockTime: 1000 }];
+    const rpc4 = scriptedRpc({ getSignaturesForAddress: () => crowded, getTransaction: () => ({ transaction: { message: { accountKeys: [creator] } } }) });
+    const c4 = await creationAndSameSlot({ rpc: rpc4, curve: s.apiRow.bonding_curve, creator });
+    const v4 = evaluate({ ...base, onchain: { ...base.onchain, ...c4 } });
+    ok("same-slot transactions it did not read, or could not, count as buyers it cannot rule out: the check fails", check(v4, "same_slot_buyers").result === "fail", check(v4, "same_slot_buyers").value);
+  }
   ok("pump.fun metadata is read by CID only", cidOf("https://ipfs.io/ipfs/QmdZQP9jUWvH3j2yLDVhpYuG5ovWCNbeDMmW85vusUyWFr") === "QmdZQP9jUWvH3j2yLDVhpYuG5ovWCNbeDMmW85vusUyWFr" && cidOf("https://evil.example/ipfs/Qm" + "a".repeat(44)) === null);
   const { fetchImpl, calls } = scriptedFetch([["https://pump.mypinata.cloud/ipfs/", () => response(403, "no")], ["https://gateway.pinata.cloud/ipfs/", () => ({ name: "x", twitter: "https://x.com/a" })]]);
   const http = createHttp({ fetchImpl, allowedHosts: Object.values(HOSTS), sleep: async () => {} });
@@ -135,10 +164,10 @@ section("THE CHAIN READS");
 }
 
 section("A WHOLE POPCAT RUN, ON A SCRIPTED PUMP.FUN AND CHAIN");
-function popWorld({ env = {}, launches = [], model = null } = {}) {
+function popWorld({ env = {}, launches = [], model = null, rename = null, breakCurve = false } = {}) {
   const passing = snaps[0], failing = snaps[1];
   const notCat = { ...failing.apiRow, mint: "So11111111111111111111111111111111111111112", name: "Dog Money", symbol: "DOGM", description: "a dog", bonding_curve: failing.apiRow.bonding_curve };
-  const rows = [passing.apiRow, failing.apiRow, notCat];
+  const rows = [rename ? { ...passing.apiRow, name: rename } : passing.apiRow, failing.apiRow, notCat];
   const byMint = Object.fromEntries(snaps.map((s) => [s.apiRow.mint, s]));
   const { fetchImpl } = scriptedFetch([
     [/frontend-api-v3\.pump\.fun\/coins\?offset=0&limit=50&sort=created_timestamp/, () => rows],
@@ -154,7 +183,7 @@ function popWorld({ env = {}, launches = [], model = null } = {}) {
       const s = byMint[k] ?? Object.values(byMint).find((x) => x.apiRow.bonding_curve === k);
       if (k === "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf") return acc({ owner: globalAcc.owner, dataBase64: fixture("pumpfun/global.json").dataBase64 });
       if (s && byMint[k]) return acc(s.mintAccount);
-      if (s) return acc(s.curveAccount);
+      if (s) return acc(breakCurve && s === passing ? { ...s.curveAccount, owner: "11111111111111111111111111111111" } : s.curveAccount);
       const e = fixture("popcat/established-mints.json").accounts.find((a) => a.address === k);
       return e ? acc(e) : null;
     }) }),
@@ -196,6 +225,13 @@ function popWorld({ env = {}, launches = [], model = null } = {}) {
   ok("a coin in CashCat's launches is never called out", (await byList.run()).callouts.length === 0);
   const declined = popWorld({ model: { hasKey: true, callTool: async () => ({ cat_themed: false, fit_to_print: true, reason: "not about a cat" }) } });
   ok("with a model key, a coin the model says is not a cat is skipped", (await declined.run()).callouts.length === 0);
+  const linked = popWorld({ env: { POPCAT_LIVE: "1" }, rename: "Asset Cat at assetcat.xyz" });
+  const rl = await linked.run();
+  ok("a coin whose name carries a web address is never printed, nor even checked on chain", rl.callouts.length === 0 && !linked.rpc.calls.some((c) => c.method === "getProgramAccounts" && c.params[1].filters[0].memcmp.bytes === snaps[0].apiRow.mint));
+  const broken = popWorld({ env: { POPCAT_LIVE: "1" }, breakCurve: true });
+  let rb;
+  try { rb = await broken.run(); } catch (e) { rb = { threw: e.message }; }
+  ok("a coin whose bonding curve does not decode is skipped, and the run goes on to the end", !rb.threw && rb.callouts.length === 0 && rb.mode === "live", JSON.stringify(rb).slice(0, 160));
 }
 
 done();

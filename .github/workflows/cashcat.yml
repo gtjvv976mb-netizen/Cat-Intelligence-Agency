@@ -9,6 +9,10 @@
 # CASHCAT_WALLET_ADDRESS, and the optional caps in bots/cashcat/config.mjs. A launch it made is
 # appended to launches.json on the floor-data branch and the site is deployed.
 #
+# The job runs in the "cashcat" environment. Keep CASHCAT_WALLET_SECRET and PINATA_JWT there
+# (Settings → Environments → cashcat, deployment branches: main only), not in the repository's
+# secrets: then a workflow run on any other branch or pull request cannot read them.
+#
 # Never two CashCat runs at once (the "cashcat" group): the day's cap depends on it.
 name: CashCat
 
@@ -26,6 +30,7 @@ concurrency:
 jobs:
   run:
     if: github.ref == 'refs/heads/main'
+    environment: cashcat
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

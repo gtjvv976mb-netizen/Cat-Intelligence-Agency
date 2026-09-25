@@ -4,8 +4,12 @@
  * The deterministic content rules (bots/lib/content-rules.mjs) clause by clause: real people
  * (by name and by the "Firstname Lastname" shape), brands and teams, endorsement and "official"
  * claims, tragedy, minors, sex, hate (in plain text, and slurs by salted hash only), identity,
- * financial promises, the ticker and name formats, "it must be a cat"; compounds caught
- * ("TrumpCat") without their false friends ("trumpet"); look-alike digits read as letters. The
+ * financial promises, web addresses, the ticker and name formats, "it must be a cat"; compounds
+ * caught ("TrumpCat") without their false friends ("trumpet"); look-alike digits read as
+ * letters; and the evasions a word list meets: Cyrillic and Greek look-alikes and small
+ * capitals, an invisible character inside a word, letters spelt out one by one ("M.U.S.K."), a
+ * listed word split in two ("Cat Girl") and nickname endings ("Trumpy"), each without refusing
+ * its false friends ("wary", "teeny", "cat's hot", "it is is"). The
  * trend gate on the recorded Google Trends and CoinGecko answers. Then cat detection
  * (bots/lib/catdetect.mjs): every cat word, glued names and tickers, and the false friends —
  * catch, cattle, education, category, location, vacation, catalyst, caterpillar, catfish,
@@ -61,6 +65,32 @@ ok("financial promise", refused({ tagline: "A cat with guaranteed 100x returns."
   HATE_HASHES.delete(hashTerm(probe));
   ok("a word whose salted hash is on the list is refused as hate, glued or not (probed with an invented word)", before && !after.ok && rules(after).includes("hate") && after.violations[0].term === "[a slur]");
 }
+
+section("EVASIONS: LOOK-ALIKE LETTERS, HIDDEN CHARACTERS, SPACED LETTERS, SPLIT WORDS");
+ok("Cyrillic look-alikes are read as the Latin letters they imitate: \"Тrump Cat\", \"Trumр Cat\"", refused({ name: "Тrump Cat" }, "real_person") && refused({ name: "Trumр Cat" }, "real_person"));
+ok("Latin small capitals too: \"ᴛʀᴜᴍᴘ Cat\"", !checkFields({ n: "ᴛʀᴜᴍᴘ Cat" }).ok);
+ok("an invisible character inside a word does not split it: a zero-width space, a soft hyphen", refused({ tagline: "A cat who loves Tr\u200Bump rallies all day long." }, "real_person") && refused({ tagline: "A cat who loves Tr\u00ADump rallies all day long." }, "real_person"));
+ok("letters spelt out one by one: \"M.U.S.K. Cat\", \"T R U M P Cat\"", refused({ name: "M.U.S.K. Cat" }, "real_person") && refused({ name: "T R U M P Cat" }, "real_person"));
+ok("a listed word split in two: \"Cat Girl\"", refused({ name: "Cat Girl" }, "sexual"));
+ok("a nickname ending: \"Trumpy Cat\", \"Musky Cat\"", refused({ name: "Trumpy Cat" }, "real_person") && refused({ name: "Musky Cat" }, "real_person"));
+ok("the false friends still pass: \"Trumpet Cat\", \"Taylor Cat\", a possessive before \"hot\", \"wary\", \"teeny\", \"it is is\"", checkProposal({ ...good, name: "Trumpet Cat" }).ok && checkProposal({ ...good, name: "Taylor Cat" }).ok
+  && ["The cat's hot take on pickleball, served from the bench.", "A cat who is wary of Mondays and naps through them.", "A teeny cat with enormous opinions on pickleball.", "What it is is a cat on a fence at pickleball."]
+    .every((tagline) => checkProposal({ ...good, tagline }).ok));
+ok("CashCat's own name and tagline are Latin letters only: \"Кот Cat\" is refused", refused({ name: "Кот Cat" }, "name_format") && refused({ tagline: "A cat who says мяу at pickleball." }, "tagline_format"));
+
+section("MORE PEOPLE, EXTREMISTS, TRAGEDIES, CONFLICTS AND CLAIMS");
+ok("\"Charlie Kirk Cat\": a common short first name before a surname", refused({ name: "Charlie Kirk Cat" }, "real_person"));
+ok("extremist groups: \"Hamas Cat\", \"Taliban Kitty\", \"Jihadi Cat\"", refused({ name: "Hamas Cat" }, "hate") && refused({ name: "Taliban Kitty" }, "hate") && refused({ name: "Jihadi Cat" }, "hate"));
+ok("\"9/11\" and \"assassin\"", refused({ tagline: "A cat remembering 9/11 and the towers." }, "tragedy") && refused({ name: "Assassin Cat" }, "tragedy"));
+ok("a country at war reads as taking a side: \"Gaza Cat\", \"Ukraine Cat\"", refused({ name: "Gaza Cat" }, "politics") && refused({ name: "Ukraine Cat" }, "politics"));
+ok("more ways to claim to be the real thing: \"Oficial Cat\", \"authentic\", \"genuine\", \"legit\"", refused({ name: "Oficial Cat" }, "endorsement")
+  && ["The authentic cat of the season, here at last.", "The one genuine cat of the fall.", "The only legit cat on the board."].every((t) => refused({ tagline: t }, "endorsement")));
+
+section("NO LINKS IN WHAT THE SITE PRINTS");
+ok("a web address in a stranger's name or ticker is not printed", ["t.me/catpump cat", "catcoin.xyz", "www.catcoin.io Cat", "https://catcoin.io", "cat at pump.fun"].every((name) => !displaySafe({ name, symbol: "CAT" }).ok)
+  && !displaySafe({ name: "Green Cat", symbol: "CAT.COM" }).ok);
+ok("nor in CashCat's own tagline", refused({ tagline: "A cat that lives at catcoin.xyz all day long." }, "link"));
+ok("a plain cat name with a full stop still prints", displaySafe({ name: "Mr. Whiskers cat", symbol: "WHISK" }).ok);
 
 section("FORMATS, AND IT MUST BE A CAT");
 ok("ticker: 2 to 10 of A-Z and 0-9", TICKER.test("PKLCAT") && !TICKER.test("pk") && !TICKER.test("TOOLONGTICKER") && !TICKER.test("$CAT") && refused({ symbol: "cat$" }, "ticker_format"));

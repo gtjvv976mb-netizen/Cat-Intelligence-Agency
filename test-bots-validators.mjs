@@ -4,7 +4,8 @@
  * site/assets/launches.js and callouts.js are the validators the floor and the bots share: a
  * bot never writes an entry they refuse, and the floor skips (and names in the console) any
  * entry that does not pass. This file walks every refusal: HTML, control and direction
- * characters, a link scheme in text, a bad address or signature, an unknown field anywhere, an
+ * characters (the soft hyphen and word joiners among them), a link scheme in text, a bad address
+ * or signature (base58 that does not decode to 32 or 64 bytes included), an unknown field anywhere, an
  * impossible time, a wrong venue, ticker or kitten, a dev buy over 0.05 SOL or without its
  * transaction, a dev buy on StonkFun, a pump.fun launch not quoted in SOL; for callouts, a check
  * that did not pass, a missing, repeated or unknown check, and any callout on a CashCat coin.
@@ -56,6 +57,9 @@ ok("a direction override in the name", refused(launch({ name: "Cat‮yrt" }), /c
 ok("a bad mint address", refused(launch({ mint: "not-an-address" }), /mint/));
 ok("an address with a 0 in it", refused(launch({ creator: "0" + WALLET.slice(1) }), /creator/));
 ok("a bad transaction signature", refused(launch({ tx: "abc" }), /signature/));
+ok("base58 of the right length that is not 32 bytes is no address (44 ones are 44 zero bytes)", refused(launch({ mint: "1".repeat(44) }), /mint/) && refused(launch({ creator: "z".repeat(44) }), /creator/));
+ok("base58 that is not 64 bytes is no signature", refused(launch({ tx: "1".repeat(88) }), /signature/) && refused(launch({ tx: SIG.slice(0, 70) }), /signature/));
+ok("an invisible soft hyphen or word joiner in a name", refused(launch({ name: "Tr\u00ADump Cat" }), /control or direction/) && refused(launch({ tagline: "A cat\u2060 walks in the park all day." }), /control or direction/));
 ok("an unknown field (a url)", refused(launch({ url: "https://evil.example" }), /unknown field "url"/));
 ok("an unknown field inside trend", refused(launch({ trend: { title: "x", source: "google-trends", href: "javascript:alert(1)" } }), /unknown field "href"/));
 ok("an unknown field inside quote", refused(launch({ quote: { symbol: "SOL", mint: "So11111111111111111111111111111111111111112", url: "x" } }), /unknown field/));
@@ -99,6 +103,8 @@ ok("an unknown check id is refused", refusedC(callout({ checks: [...callout().ch
 ok("HTML in a stranger's coin name is refused", refusedC(callout({ name: "<b>cat</b>" }), /HTML/));
 ok("a javascript: link in a check value is refused", refusedC(callout({ checks: callout().checks.map((c, i) => (i === 0 ? { ...c, value: "javascript:alert(1)" } : c)) }), /link scheme/));
 ok("a bad address is refused", refusedC(callout({ creator: "x" }), /creator/));
+ok("base58 of the right length that is not 32 bytes is refused", refusedC(callout({ creator: "1".repeat(44) }), /creator/) && refusedC(callout({ mint: "z".repeat(44) }), /mint/));
+ok("an invisible soft hyphen in a stranger's coin name is refused", refusedC(callout({ name: "Tr\u00ADump cat" }), /control or direction/));
 ok("an image or link field is refused as unknown", refusedC(callout({ image: "https://ipfs.io/ipfs/x" }), /unknown field "image"/) && refusedC(callout({ twitter: "https://x.com/a" }), /unknown field "twitter"/));
 ok("a venue other than pump.fun is refused", refusedC(callout({ venue: "stonkfun" }), /venue/));
 {

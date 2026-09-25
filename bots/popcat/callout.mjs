@@ -38,7 +38,7 @@ export const CALLOUT_REVIEW_TOOL = Object.freeze({
 const isoSecond = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
 /** Characters the site's validator refuses (controls, zero-width joiners, direction marks) are
  *  dropped from a stranger's text before it is shown; an emoji may lose its joiner, nothing more. */
-const INVISIBLE = /[\u0000-\u001F\u007F\u200B-\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+const INVISIBLE = /[\u0000-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B-\u200F\u2028-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0]/g;
 const clip = (s, n) => { const t = String(s).replace(INVISIBLE, "").replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 
 export async function runPopcat({ env, http, rpc, model, dataDir, now = () => Date.now(), log }) {
@@ -103,7 +103,9 @@ export async function runPopcat({ env, http, rpc, model, dataDir, now = () => Da
     catch (e) { log.info(`${label}: could not be read on chain (${e.message}); skipped`); state.checked[coin.mint] = { at: t, verdict: "unreadable" }; continue; }
     const creatorLaunches = await creatorLaunchCount({ http, creator: coin.creator });
     const metadata = await readMetadata({ http, uri: coin.metadataUri });
-    const v = evaluate({ coin, onchain, creatorLaunches, metadata, now: t, cashcat });
+    let v;
+    try { v = evaluate({ coin, onchain, creatorLaunches, metadata, now: t, cashcat }); }
+    catch (e) { log.info(`${label}: its accounts do not decode as a pump.fun coin (${e.message}); skipped`); state.checked[coin.mint] = { at: t, verdict: "undecodable" }; continue; }
     log.info(`${label}: ${v.pass ? "PASSES" : `fails ${v.failed.join(", ")}`}`);
     for (const c of v.checks) log.info(`    ${c.result.padEnd(4)} ${c.id}: ${c.value}`);
     state.checked[coin.mint] = { at: t, verdict: v.pass ? "passed" : `failed ${v.failed[0]}` };

@@ -44,7 +44,25 @@ const ADDRESS = new RegExp(`^${BASE58}{32,44}$`);
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const MARKUP = /<[A-Za-z!/?]|&#|&[a-z]+;/;
 const SCHEME = /\b(javascript|data|vbscript|file)\s*:/i;
-const HIDDEN = /[\u0000-\u001F\u007F\u200B-\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/;
+/* Controls, and every character that draws nothing: zero-width spaces and joiners, the soft
+   hyphen, word joiners, direction marks and overrides, the byte-order mark, the Hangul fillers. */
+const HIDDEN = /[\u0000-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B-\u200F\u2028-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0]/;
+
+/* How many bytes a base58 string decodes to: an address is 32, a signature 64. The regexes
+   above only say the alphabet and a plausible length; "1" × 44 is 44 zero bytes, no address. */
+const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function base58Bytes(s) {
+  let zeros = 0;
+  while (zeros < s.length && s[zeros] === "1") zeros++;
+  const bytes = [];
+  for (let i = zeros; i < s.length; i++) {
+    let carry = ALPHABET.indexOf(s[i]);
+    if (carry < 0) return -1;
+    for (let j = 0; j < bytes.length; j++) { carry += bytes[j] * 58; bytes[j] = carry & 0xff; carry >>= 8; }
+    while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8; }
+  }
+  return zeros + bytes.length;
+}
 
 class Bad extends Error {}
 const bad = (why) => { throw new Bad(why); };
@@ -61,8 +79,8 @@ function text(value, field, max) {
   if (SCHEME.test(s)) bad(`"${field}" contains a link scheme`);
   return s;
 }
-const addressOf = (v, field) => { if (typeof v !== "string" || !ADDRESS.test(v)) bad(`"${field}" is not a Solana address`); return v; };
-const signatureOf = (v, field) => { if (typeof v !== "string" || !SIGNATURE.test(v)) bad(`"${field}" is not a transaction signature`); return v; };
+const addressOf = (v, field) => { if (typeof v !== "string" || !ADDRESS.test(v) || base58Bytes(v) !== 32) bad(`"${field}" is not a Solana address`); return v; };
+const signatureOf = (v, field) => { if (typeof v !== "string" || !SIGNATURE.test(v) || base58Bytes(v) !== 64) bad(`"${field}" is not a transaction signature`); return v; };
 function timeOf(v) {
   if (typeof v !== "string" || !TIME.test(v)) bad(`"time" must be YYYY-MM-DDThh:mm:ssZ`);
   const t = Date.parse(v);

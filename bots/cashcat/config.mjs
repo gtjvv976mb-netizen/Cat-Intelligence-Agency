@@ -99,7 +99,7 @@ export function readConfig(env = process.env) {
  * Every reason a LIVE launch must not happen now. Empty means every guard is green. The dry
  * run prints the same list, so the owner sees what is still missing before turning it on.
  */
-export function liveRefusals(config, { wallet = null, balanceLamports = null, launchesToday = 0, unrecordedToday = 0, venue = null, simulated = false, reviewed = false } = {}) {
+export function liveRefusals(config, { wallet = null, balanceLamports = null, launchesToday = 0, unrecorded = 0, venue = null, simulated = false, reviewed = false } = {}) {
   const r = [];
   if (!config.live) r.push("CASHCAT_LIVE is not 1");
   if (config.testEnvironment) r.push("this is a test environment (NODE_ENV=test)");
@@ -110,7 +110,7 @@ export function liveRefusals(config, { wallet = null, balanceLamports = null, la
   if (!config.hasApiKey) r.push("ANTHROPIC_API_KEY is not set (the model proposes and reviews every coin)");
   if (!config.hasPinata) r.push("PINATA_JWT is not set (the metadata must be pinned)");
   if (launchesToday >= config.maxLaunchesPerDay) r.push(`the day's cap is reached (${launchesToday} of ${config.maxLaunchesPerDay})`);
-  if (unrecordedToday > 0) r.push(`${unrecordedToday} launch(es) on chain today are not in launches.json — record them before launching again`);
+  if (unrecorded > 0) r.push(`${unrecorded} launch(es) on chain since yesterday are not in launches.json — record them before launching again`);
   if (balanceLamports === null) r.push("the wallet's balance is unknown");
   else if (balanceLamports < Math.round((config.minBalanceSol + config.devBuySol) * 1e9) + (venue ? MAX_LAUNCH_SPEND_LAMPORTS[venue] : 0))
     r.push(`the wallet holds ${(balanceLamports / 1e9).toFixed(4)} SOL, under the minimum ${config.minBalanceSol} SOL plus this launch's budget`);

@@ -414,7 +414,11 @@ ok("Popcat's card says the character is not the $POPCAT memecoin, and $CIA is no
   ok("Snipurr's card: the sniper lane inside CoinMarketCat, software, linking to that lane, its desk and the console",
     /data-beat="The sniper lane · software"/.test(html.agency) && textOf(cards.snipurr?.body || "").includes("the sniper lane inside CoinMarketCat")
       && ["coinmarketcat/#snipurr", "./floor/#snipurr", "console/"].every((h) => (cards.snipurr?.body || "").includes(`href="${h}"`)));
-  ok("the headline counts six agents, two of them software", has("agency", "Six agents. Two of them are software."));
+  ok("the headline counts six agents, four of them software: two characters, the extension and its lane, the two bots; the Director is the mascot, not one of the six",
+    has("agency", "Six agents. Four of them are software.") && !has("agency", "Two of them are software.")
+      && has("agency", "Crying Cat and Grumpy Cat are characters") && has("agency", "The other four are software.") && has("agency", "The Director is the agency's mascot, not one of the six."));
+  ok("the hero says the two bots are built and not yet switched on, not that they are being built",
+    has("agency", "two more are the agency's own bots, built and not yet switched on.") && !/bots the agency is building|bots on the way/i.test(text.agency));
   const rules = "Popcat never calls out a coin CashCat launched.", buyRule = "The agency never buys a coin before calling it out";
   ok("the house rules carry the owner's two new rules, on the site and in the kit's copy",
     has("agency", rules) && has("agency", buyRule) && [rules, buyRule].every((r) => fs.readFileSync(path.join(here, "brand", "COPY.md"), "utf8").includes(r)));

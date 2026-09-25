@@ -11,10 +11,13 @@
  * Live (CASHCAT_LIVE=1 and every guard in config.mjs liveRefusals green): the metadata is pinned
  * and read back, the transaction is rebuilt with the real URI, checked and simulated again,
  * signed by wallet.mjs over exactly the checked message, sent, confirmed, and read back from the
- * chain; then, and only then, the launch is appended to launches.json. The optional dev buy (a
- * second transaction, same wallet) and the creator-fee claim follow the same check → simulate →
- * sign path. CashCat never buys or sells from any other wallet and never trades its coins after
- * launch: the only money that comes back is the pump.fun creator fee its wallet claims.
+ * chain; then, and only then, the launch is appended to launches.json. The record it will append
+ * is checked by the site's own validator BEFORE anything is uploaded or signed, so a launch that
+ * lands can always be recorded. The optional dev buy (a second transaction, same wallet) and the
+ * creator-fee claim follow the same check → simulate → sign path, and the claim is made only when
+ * the guards that are not about this launch (the switch, the wallet, its address, the RPC, not a
+ * test) are green. CashCat never buys or sells from any other wallet and never trades its coins
+ * after launch: the only money that comes back is the pump.fun creator fee its wallet claims.
  */
 import { Transaction, PublicKey } from "@solana/web3.js";
 import { readConfig, liveRefusals, MAX_LAUNCH_SPEND_LAMPORTS, COMPUTE_LIMITS } from "./config.mjs";
@@ -27,6 +30,7 @@ import { planStonkfunLaunch, initializeIx, resolveQuote, poolState } from "./sto
 import { checkLaunchMessage, checkSimulation, checkDevBuyMessage, checkCollectFeeMessage, TxRefused } from "../lib/txcheck.mjs";
 import { computeUnitLimit, computeUnitPrice, pda } from "../lib/solana.mjs";
 import { loadLaunches, appendLaunch } from "../lib/data.mjs";
+import { validateLaunches } from "../../site/assets/launches.js";
 import { throwawayAddress } from "./wallet.mjs";
 import { PUMPFUN_PROGRAM, PUMPFUN_GLOBAL, LAUNCHLAB_PROGRAM, IX, WSOL_MINT, TOKEN_2022_PROGRAM, TOKEN_PROGRAM } from "../lib/verified.mjs";
 import { describeMint } from "../../vendor/executor/token2022.mjs";
@@ -39,30 +43,66 @@ const isoSecond = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
 /** Venues take turns, by how many launches are on file. */
 export function pickVenue(venues, launches) { return venues[launches.length % venues.length]; }
 
+/** How far the on-chain count reads: pages of 1,000 signatures, and transactions fetched. */
+export const ONCHAIN_LIMITS = Object.freeze({ pages: 5, reads: 60 });
+
 /**
- * Launches the wallet made on chain today (a create_v2 or a LaunchLab initialize it signed),
- * so a launch that was sent but never recorded still counts against the day.
+ * The launches the wallet made on chain since the start of yesterday (UTC) that launches.json
+ * does not record (`known`: the signatures it does): a create_v2 or a LaunchLab initialize the
+ * wallet paid for. Returns [{ signature, today }]. Every successful transaction on the wallet's
+ * address in that window is read, except the recorded ones, so a launch that was sent but never
+ * recorded — even by yesterday's last run — counts against the day and stops the next launch.
+ * It fails closed: a window it cannot read to the end (more signatures or transactions than
+ * ONCHAIN_LIMITS, a transaction the RPC cannot return) throws, and a live run refuses on it.
+ * Dust sent to the wallet can make CashCat stop; it can never make it launch twice.
  */
-export async function onchainLaunchesToday({ rpc, wallet, now }) {
-  const dayStart = Math.floor(Date.parse(`${utcDay(now())}T00:00:00Z`) / 1000);
-  const sigs = (await rpc.getSignaturesForAddress(wallet, { limit: 100 })).filter((s) => !s.err && (s.blockTime ?? 0) >= dayStart);
+export async function onchainLaunches({ rpc, wallet, now, known = new Set() }) {
+  const today = Math.floor(Date.parse(`${utcDay(now())}T00:00:00Z`) / 1000);
+  const since = today - 86_400;
+  const sigs = [];
+  for (let page = 0, before = null; ; page++) {
+    if (page >= ONCHAIN_LIMITS.pages) throw new Error(`more than ${ONCHAIN_LIMITS.pages * 1000} transactions on the wallet since yesterday`);
+    const got = await rpc.getSignaturesForAddress(wallet, { limit: 1000, ...(before ? { before } : {}) });
+    if (!Array.isArray(got)) throw new Error("the RPC did not list the wallet's transactions");
+    const inWindow = got.filter((s) => typeof s.blockTime !== "number" || s.blockTime >= since);
+    sigs.push(...inWindow);
+    if (got.length < 1000 || inWindow.length < got.length) break;
+    before = got[got.length - 1].signature;
+  }
+  const toRead = sigs.filter((s) => !s.err && !known.has(s.signature));
+  if (toRead.length > ONCHAIN_LIMITS.reads) throw new Error(`${toRead.length} unrecorded transactions on the wallet since yesterday, more than the ${ONCHAIN_LIMITS.reads} it reads`);
   const found = [];
-  for (const s of sigs.slice(0, 30)) {
+  for (const s of toRead) {
     const tx = await rpc.getTransaction(s.signature);
     const m = tx?.transaction?.message;
-    if (!m || tx.meta?.err) continue;
+    if (!m) throw new Error(`the transaction ${s.signature} could not be read`);
+    if (tx.meta?.err) continue;
     const keys = [...m.accountKeys, ...(tx.meta?.loadedAddresses?.writable ?? []), ...(tx.meta?.loadedAddresses?.readonly ?? [])];
     if (keys[0] !== wallet) continue;
     const isLaunch = m.instructions.some((ix) => {
       const program = keys[ix.programIdIndex];
-      const disc = Buffer.from(bs58decode(ix.data)).subarray(0, 8).toString("hex");
+      const disc = Buffer.from(bs58.decode(ix.data)).subarray(0, 8).toString("hex");
       return (program === PUMPFUN_PROGRAM && disc === IX.pumpCreateV2) || (program === LAUNCHLAB_PROGRAM && disc === IX.launchlabInitializeWithToken2022);
     });
-    if (isLaunch) found.push(s.signature);
+    const at = tx.blockTime ?? s.blockTime;
+    if (isLaunch) found.push({ signature: s.signature, today: typeof at !== "number" || at >= today });
   }
   return found;
 }
-const bs58decode = (s) => bs58.decode(s);
+
+/** The launches.json entry for a launch: built once with placeholders to be checked before
+ *  anything is uploaded or signed, and once with what the chain said, to be recorded. */
+function launchEntry({ now, venue, coin, mint, creator, tx, plan, devBuy, costSol }) {
+  return {
+    time: isoSecond(now()), venue, name: coin.name, symbol: coin.symbol, tagline: coin.tagline,
+    trend: { title: coin.trend.title, source: coin.trend.source }, mint, creator, tx,
+    quote: { symbol: plan.quote.symbol, mint: plan.quote.mint },
+    ...(venue === "stonkfun" ? { pool: poolState(mint, plan.quote.mint) } : {}),
+    devBuy, costSol, kitten: coin.kitten,
+  };
+}
+/** A syntactically real signature for the check before signing (64 bytes, base58). */
+const PLACEHOLDER_SIGNATURE = bs58.encode(Buffer.alloc(64, 1));
 
 function buildLaunchTx({ venue, payer, mint, coin, uri, plan, blockhash, priority }) {
   const tx = new Transaction({ feePayer: new PublicKey(payer), recentBlockhash: blockhash });
@@ -184,18 +224,20 @@ export async function runCashCat({ env, http, rpc, model, wallet, dataDir, now =
   const launches = loadLaunches(dataDir);
   const today = utcDay(now());
   const recordedToday = launches.filter((l) => l.time.startsWith(today)).length;
-  let onchainToday = [];
+  let unrecorded = [];
   const payer = wallet?.publicKey ?? config.walletAddress ?? "";
   if (payer && rpc) {
-    try { onchainToday = await onchainLaunchesToday({ rpc, wallet: payer, now }); }
-    catch (e) { log.warn(`could not count today's launches on chain: ${e.message}`); if (mode === "live") return { mode, outcome: "refused", refusals: ["today's launches could not be counted on chain"] }; }
+    const known = new Set(launches.flatMap((l) => [l.tx, l.devBuy.tx].filter(Boolean)));
+    try { unrecorded = await onchainLaunches({ rpc, wallet: payer, now, known }); }
+    catch (e) { log.warn(`could not count the wallet's launches on chain: ${e.message}`); if (mode === "live") return { mode, outcome: "refused", refusals: ["the wallet's launches since yesterday could not be counted on chain"] }; }
   }
-  const recordedTx = new Set(launches.map((l) => l.tx));
-  const unrecorded = onchainToday.filter((s) => !recordedTx.has(s));
-  const launchesToday = Math.max(recordedToday, onchainToday.length);
-  log.info(`launches today (UTC ${today}): ${launchesToday} of ${config.maxLaunchesPerDay}${unrecorded.length ? `; ${unrecorded.length} on chain but not recorded: ${unrecorded.join(", ")}` : ""}`);
+  const launchesToday = recordedToday + unrecorded.filter((u) => u.today).length;
+  log.info(`launches today (UTC ${today}): ${launchesToday} of ${config.maxLaunchesPerDay}${unrecorded.length ? `; ${unrecorded.length} on chain since yesterday but not recorded: ${unrecorded.map((u) => u.signature).join(", ")}` : ""}`);
 
-  if (mode === "live" && wallet && rpc && config.hasOwnRpc) {
+  /* The fee claim signs too, so it waits for the guards that are not about a launch: live, not a
+     test, the wallet, CASHCAT_WALLET_ADDRESS naming that same wallet, and the owner's own RPC. */
+  const mayClaim = mode === "live" && !config.testEnvironment && wallet && config.walletAddress === wallet.publicKey && config.hasOwnRpc && rpc;
+  if (mayClaim) {
     try { await collectFees({ rpc, wallet, config, now, sleep, log }); }
     catch (e) { log.warn(`creator fees: not claimed — ${e.message}`); }
   }
@@ -225,6 +267,13 @@ export async function runCashCat({ env, http, rpc, model, wallet, dataDir, now =
 
   const mint = wallet ? wallet.newMint() : throwawayAddress();
   const txPayer = payer || throwawayAddress();
+  /* The record this launch would leave, checked now by the site's own validator: a launch that
+     lands must be recordable, so one whose record the floor would refuse is never sent. */
+  const devBuyPlanned = config.devBuySol > 0 && venue === "pumpfun";
+  const provisional = launchEntry({ now, venue, coin, mint, creator: txPayer, tx: PLACEHOLDER_SIGNATURE, plan,
+    devBuy: devBuyPlanned ? { sol: config.devBuySol, tx: PLACEHOLDER_SIGNATURE } : { sol: 0 }, costSol: MAX_LAUNCH_SPEND_LAMPORTS[venue] / LAMPORTS });
+  const recordProblems = validateLaunches({ launches: [provisional] }).problems;
+  if (recordProblems.length) { wallet?.forgetMint(mint); log.warn(`refused before signing: the site would refuse this launch's record: ${recordProblems.join(" | ")}`); return { mode, outcome: "refused", refusals: recordProblems }; }
   /* The first build uses a placeholder URI of the real length: everything that can be decided
      before an upload is decided first, so a live run never pins files for a launch a guard
      would refuse. A dry run stops after this build. */
@@ -239,7 +288,7 @@ export async function runCashCat({ env, http, rpc, model, wallet, dataDir, now =
 
   let balance = null;
   if (rpc && payer) { try { balance = await rpc.getBalance(payer); } catch { balance = null; } }
-  const refusals = liveRefusals(config, { wallet, balanceLamports: balance, launchesToday, unrecordedToday: unrecorded.length, venue, simulated: sim.simulated, reviewed: invention.reviewed === true });
+  const refusals = liveRefusals(config, { wallet, balanceLamports: balance, launchesToday, unrecorded: unrecorded.length, venue, simulated: sim.simulated, reviewed: invention.reviewed === true });
   if (mode === "dry") {
     wallet?.forgetMint(mint);
     log.info(`dry run complete. A live launch would still need: ${refusals.filter((r) => r !== "CASHCAT_LIVE is not 1").join("; ") || "nothing — every guard is green"}`);
@@ -261,19 +310,12 @@ export async function runCashCat({ env, http, rpc, model, wallet, dataDir, now =
   log.info(`launched: ${coin.name} ($${coin.symbol}) mint ${mint}, cost ${(back.costLamports / LAMPORTS).toFixed(6)} SOL`);
 
   let devBuyTx = null;
-  if (config.devBuySol > 0 && venue === "pumpfun") {
+  if (devBuyPlanned) {
     try { devBuyTx = await devBuy({ rpc, wallet, mint, config, now, sleep, log }); }
     catch (e) { log.warn(`dev buy not made: ${e.message}`); }
   }
-  const entry = {
-    time: isoSecond(now()), venue, name: coin.name, symbol: coin.symbol, tagline: coin.tagline,
-    trend: { title: coin.trend.title, source: coin.trend.source }, mint, creator: payer, tx: signature,
-    quote: { symbol: plan.quote.symbol, mint: plan.quote.mint },
-    ...(venue === "stonkfun" ? { pool: poolState(mint, plan.quote.mint) } : {}),
-    devBuy: devBuyTx ? { sol: config.devBuySol, tx: devBuyTx } : { sol: 0 },
-    costSol: Number((back.costLamports / LAMPORTS).toFixed(9)),
-    kitten: coin.kitten,
-  };
+  const entry = launchEntry({ now, venue, coin, mint, creator: payer, tx: signature, plan,
+    devBuy: devBuyTx ? { sol: config.devBuySol, tx: devBuyTx } : { sol: 0 }, costSol: Number((back.costLamports / LAMPORTS).toFixed(9)) });
   appendLaunch(dataDir, entry);
   log.info("recorded in launches.json");
   return { mode, outcome: "launched", entry };

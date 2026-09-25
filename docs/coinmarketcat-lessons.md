@@ -67,6 +67,49 @@ A research pass on 2026-09-25. Unaudited sources are marked.
 **No model online has shown, with audited results, that it is reliably profitable.**
 The honest comparison for CoinMarketCat is buy-and-hold, not another bot's headline.
 
+## 4. How cat coins themselves have performed
+
+CoinMarketCat trades cat coins only, so these are the markets it trades in. The figures are
+daily closes from each coin's most liquid GeckoTerminal pool, up to the close on 2026-09-24.
+The one-year window starts on 2025-09-27, because GeckoTerminal's free API serves about a
+year of history. KITTY's data starts on 2025-10-02, when its pool was created.
+
+CoinGecko's daily series was not used for prices. From January to March 2026 it sat up to
++132% above the on-chain pool prices for MEW and POPCAT; POPCAT's USDC pool matched its SOL
+pool on those days. CoinGecko supplied only the all-time highs.
+
+"vs SOL" means the return measured in SOL.
+
+| Coin | 90 days | 1 year | 1 year vs SOL | Volatility (1 year) | Worst drop in the year | Below all-time high | Liquidity (2026-09-25) |
+|---|---|---|---|---|---|---|---|
+| MEW | +34.9% | −81.0% | −66.8% | 91% | −89.0% | −96.1% | $10.6M |
+| POPCAT | +25.7% | −74.0% | −54.7% | 107% | −84.3% | −97.2% | $5.0M |
+| KITTY | +1,598% | +40.8% (from 2025-10-02) | +182.6% | 357% | −98.2% | −60.9% (its pool's own high) | $221k |
+| GRUMPY | +15.4% | −87.6% | −78.3% | 157% | −95.5% | −99.7% | $29k |
+| KWIF | +34.9% | +82.3% | +218.1% | 299% | −80.2% | −94.5% | $42k |
+| KHAI | +45.2% | −90.9% | −84.1% | 176% | −96.4% | −99.9% | $23k |
+| *SOL* | +63.0% | −42.7% | – | 69% | −73.5% | −59.7% | – |
+| *BONK* | −10.0% | −80.2% | −65.5% | 102% | −89.8% | −93.6% | $5.6M |
+| *WIF* | +52.5% | −68.2% | −44.5% | 109% | −83.3% | −95.1% | $7.0M |
+
+**What the figures show:**
+
+- **Holding MEW and POPCAT half each lost 77.5% over the year.** SOL lost 42.7% over the
+  same year. Over the last 90 days the pair made +30.3% while SOL made +63.0%.
+- **Every cat coin fell 80–98% at some point in the year.** SOL's worst fall was 73.5%.
+  Five of the six are 94–99.9% below their all-time highs.
+- **Only KITTY and KWIF beat SOL over the year, each on one burst.** KWIF rose 726% on one
+  day, 2026-02-06, on $72k of pool volume. KITTY rose 173% on 2026-07-02.
+- **The small cat coins swing 2–5 times as much as SOL.** KHAI traded $184 in a day, so its
+  daily moves come from very little trading.
+- **Big falls hit together.** MEW, POPCAT, BONK and WIF all had their worst day on
+  2025-10-10, falling 25–34%. Holding several cat coins does not spread the risk much.
+
+**What this means for CoinMarketCat:** simply holding cat coins lost most of its value over
+the past year, and a buy-and-hold comparison against cat coins is a low bar in a falling
+market. Report the result in SOL terms as well as in dollars, and keep the stop loss and the
+daily drawdown breaker on.
+
 ## What changed in CoinMarketCat
 
 | Lesson | Change | Where |

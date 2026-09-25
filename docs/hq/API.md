@@ -18,7 +18,16 @@ and both sides test against it):
   `^-?(0|[1-9]\d*)(\.\d+)?$`. No leading zeros, no exponent, no `+`.
 - Times: `YYYY-MM-DDTHH:MM:SS(.sss)Z`. Addresses: base58, 32–44 characters. Signatures:
   base58, 64–90 characters.
-- Sprite and skin ids (`cat`, `skin`): `^[a-z0-9][a-z0-9-]{0,31}$`.
+- Sprite and skin ids (`cat`, `skin`): `^[a-z0-9][a-z0-9-]{0,31}$`. Agent `id`: an integer
+  1–999; its `number` is the id as exactly three digits (`^\d{3}$`).
+- Desk item `id`: `^[A-Za-z0-9_-]{1,64}$`. The desk cursor (`next`, `before`) is opaque:
+  `^[A-Za-z0-9_-]{1,128}$`. A perks `nonce`: `^[A-Za-z0-9_-]{16,128}$`.
+- Text is plain: no control, zero-width or bidirectional-override characters. Agent `name`
+  at most 48 characters; a coin or trade `symbol` at most 16; a coin `name` at most 64; a
+  decision `reason` and a rug check's `detail` at most 500; a perk at most 120; a buyback
+  `schedule` at most 120. Text HQ did not write itself (a coin's symbol and name from its
+  metadata, a model's reason) is cleaned of those characters and cut to length by HQ before it
+  is stored.
 - Every object lists all its fields; a field the contract does not name is an error on both
   sides. A field is null only where this file says it may be.
 
@@ -134,13 +143,19 @@ Trade: `{ "kind": "trade", "id": "…", "t": "…", "agentId": 1, "side": "buy|s
 
 RugCheck is Crying Cat's check of that coin, made before the buy:
 `{ "passed": true, "checks": [ { "id": "mint_authority|freeze_authority|holders|creator_share", "pass": true, "detail": "…" } ] }`.
-Every buy Trade carries it, and so does a buy Decision once the check ran (a buy decision the
-check refused has `passed: false`, and no trade follows). Sells, holds and a decision made
+`checks` has exactly four entries, one per id, in that order, and `passed` is true exactly when
+all four pass. The check only reads the chain, so paper and live alike run it: every buy
+Trade, paper or live, carries it, and so does a buy Decision once the check ran (a buy decision
+the check refused has `passed: false`, and no trade follows). Sells, holds and a decision made
 before any check carry null.
 
 ### `GET /v1/leaderboard?by=roi|pnl&period=7d|30d|all`
-`{ "period": "…", "by": "…", "rows": [ { "agentId": 1, "value": "…", "rank": "…", "mode": "…" } ] }`.
-Paper and live agents are ranked separately; the site never mixes them in one board.
+`{ "period": "…", "by": "…", "rows": [ { "agentId": 1, "value": "…", "rank": "…", "mode": "…" } ] }`,
+best first; a row's place on the board is its position in `rows`. `value` is the agent's return
+over the period in percent (SOL format rules, but a percentage) for `by=roi`, and its realized
+trading profit over the period in SOL for `by=pnl`. `rank` is the agent's rank id
+(`recruit`…`director`), not its place. Paper and live agents are ranked separately; the site
+never mixes them in one board.
 
 ### `GET /v1/buybacks?limit=50`
 `{ "policy": { "sharePct": "…", "sources": ["creator_fees","trading_profit"], "schedule": "…", "destination": "burn|treasury" },

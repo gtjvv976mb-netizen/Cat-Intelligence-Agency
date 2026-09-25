@@ -8,7 +8,7 @@
  *
  * The rules, each a named clause:
  *   real_person      a name on the famous-people list, or "Firstname Lastname" with a common
- *                    first name; a trend's title meets the long given-name list (given-names.txt)
+ *                    first name; a trend's title meets the long given-name list (given-names.mjs)
  *   brand            a brand, trademark, franchise or well-known character
  *   endorsement      anything that claims or implies being official, endorsed, a partner…
  *   tragedy          disasters, deaths, violence, war, crime, accidents, disease
@@ -32,9 +32,9 @@
  * one ("M.U.S.K.") and on a listed word split in two ("Cat Girl"). A list can never be
  * complete; that is why the model reviews too, and why the lists err toward refusing.
  */
-import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { CAT_WORDS } from "./catdetect.mjs";
+import { GIVEN_NAMES_TEXT } from "./given-names.mjs";
 
 const LEET = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i" };
 /** Characters that draw nothing: format characters (zero-width space and joiners, the soft
@@ -136,10 +136,10 @@ export const FIRST_NAMES = Object.freeze(new Set(("james john robert michael wil
   "charlie chris mike matt tony jake josh jimmy tommy danny ricky joey nate zach luigi").split(" ")));
 
 /** The long list, for trend titles only: every US top-1,000 baby name from 1930 to 2008 (see
- *  given-names.txt for the source), plus the list above. A trend such as "kirk herbstreit" is a
+ *  given-names.mjs for the source), plus the list above. A trend such as "kirk herbstreit" is a
  *  person, and "kirk" is on no short list. It is too broad for CashCat's own words ("may", "will"
  *  and "hope" are names too), so the proposal rules keep FIRST_NAMES. */
-export const GIVEN_NAMES = Object.freeze(new Set([...FIRST_NAMES, ...fs.readFileSync(new URL("./given-names.txt", import.meta.url), "utf8")
+export const GIVEN_NAMES = Object.freeze(new Set([...FIRST_NAMES, ...GIVEN_NAMES_TEXT
   .split("\n").filter((l) => /^[a-z]{3,}$/.test(l))].filter((n) => !CAT_WORDS.includes(n))));
 
 export const BRANDS = Object.freeze([

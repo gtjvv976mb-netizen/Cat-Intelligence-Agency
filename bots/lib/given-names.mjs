@@ -1,8 +1,15 @@
-# Given names for CashCat's trend check (bots/lib/content-rules.mjs, checkTrend): every name that
-# was one of the 1,000 most given US baby names, for boys or girls, in any year from 1930 to 2008,
-# at least three letters, lower case. Source: the Social Security Administration's national
-# baby-name counts (US government data, public domain), as compiled in
-# https://github.com/hadley/data-baby-names (baby-names.csv), read on 2026-09-25.
+/**
+ * Given names for CashCat's trend check (bots/lib/content-rules.mjs, checkTrend): every name that
+ * was one of the 1,000 most given US baby names, for boys or girls, in any year from 1930 to 2008,
+ * at least three letters, lower case. Source: the Social Security Administration's national
+ * baby-name counts (US government data, public domain), as compiled in
+ * https://github.com/hadley/data-baby-names (baby-names.csv), read on 2026-09-25.
+ *
+ * A module, not a text file, so the extension bundle and Node import the same list: no fs.
+ * One name per line in GIVEN_NAMES_TEXT, exactly as the list was read (5218 names).
+ */
+export const GIVEN_NAMES_COUNT = 5218;
+export const GIVEN_NAMES_TEXT = `
 aaden
 aaliyah
 aarav
@@ -5221,3 +5228,4 @@ zola
 zona
 zora
 zula
+`;

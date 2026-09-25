@@ -17,7 +17,7 @@
    All of it is GET, except the one POST the contract has: /v1/perks/verify, which carries the
    wallet, the challenge message and the message signature, and nothing else. */
 import {
-  HqInvalid, STREAM_EVENTS, validateStreamEvent, validateSummary, validateAgents, validateAgentDetail, validateDesk,
+  HqInvalid, STREAM_EVENTS, CURSOR, validateStreamEvent, validateSummary, validateAgents, validateAgentDetail, validateDesk,
   validateLeaderboard, validateBuybacks, validateTreasury, validateChallenge, validatePerks,
 } from "./hq-validate.js";
 import { ADDRESS, SIGNATURE } from "./hq-format.js";
@@ -26,7 +26,6 @@ export const HQ_ORIGINS = Object.freeze(["https://api.catintelligenceagency.com"
 const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1):([1-9]\d{1,4})$/;
 const TIMEOUT_MS = 12_000;
 const MAX_BYTES = 2_000_000;
-const CURSOR = /^[A-Za-z0-9_:.=-]{1,128}$/;
 
 /* The HQ origin config.js names, if it is one the site may call; "" otherwise. */
 export function hqOrigin(raw) {

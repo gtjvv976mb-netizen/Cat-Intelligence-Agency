@@ -63,6 +63,12 @@ const V = {
     if (v === null && nullable) return;
     if (typeof v !== "string" || v.length < min || v.length > max || v.trim().length === 0 || HIDDEN.test(v)) bad(`${path}.${k}`, `must be plain text of ${min} to ${max} characters`);
   },
+  /* A decision's reason may run to a few lines (a model's words); still no control, bidi or
+     zero-width character but the line break. */
+  reason(o, k, path) {
+    const v = o[k];
+    if (typeof v !== "string" || v.length < 1 || v.length > 1000 || v.trim().length === 0 || HIDDEN.test(v.replace(/\n/g, " "))) bad(`${path}.${k}`, "must be plain text of 1 to 1000 characters");
+  },
   pattern(o, k, path, re, what, { nullable = false } = {}) {
     if (o[k] === null && nullable) return;
     if (typeof o[k] !== "string" || !re.test(o[k])) bad(`${path}.${k}`, `must be ${what}`);
@@ -80,9 +86,11 @@ export const BUYBACK_SOURCES = Object.freeze(["creator_fees", "trading_profit"])
    creator share). The contract does not yet carry the result on a trade; the site accepts it,
    optionally, in this shape (see rugCheck below) and says so where it is missing. */
 export const RUG_CHECKS = Object.freeze(["mint_authority", "freeze_authority", "holders", "creator_share"]);
-const ITEM_ID = /^[A-Za-z0-9][A-Za-z0-9_:.-]{0,63}$/;
-const CURSOR = /^[A-Za-z0-9_:.=-]{1,128}$/;
-const SKIN_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
+const ITEM_ID = /^[A-Za-z0-9][A-Za-z0-9_:.-]{0,127}$/;
+export const CURSOR = /^[A-Za-z0-9_:.=+/-]{1,256}$/;
+/* A sprite or skin id. The contract does not list them: the site draws the seven brand cats and
+   the kit's skins, and falls back to the strategy's cat and the rank's skin for any other. */
+const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const NUMBER = /^\d{3,4}$/;
 
 /* A list: each entry checked on its own; the bad ones are dropped and counted. */
@@ -118,7 +126,7 @@ function summary(o, path = "summary") {
 }
 function treasuryHead(o, path, fields) {
   exact(o, path, fields);
-  V.address(o, "address", path);
+  V.address(o, "address", path, { nullable: true });   // null until the treasury is set
   V.dec(o, "sol", path, { nonNegative: true }); V.dec(o, "cia", path, { nonNegative: true });
 }
 
@@ -128,15 +136,16 @@ function agentFields(o, path) {
   V.int(o, "id", path, { min: 1 });
   V.pattern(o, "number", path, NUMBER, "a three- or four-digit agent number");
   V.text(o, "name", path, { max: 48 });
-  V.oneOf(o, "cat", path, CAT_IDS);
-  V.pattern(o, "skin", path, SKIN_ID, "a skin id");
+  V.pattern(o, "cat", path, SLUG, "a sprite id");
+  V.pattern(o, "skin", path, SLUG, "a skin id");
   V.oneOf(o, "rank", path, RANK_IDS);
   V.oneOf(o, "strategy", path, STRATEGY_IDS);
   V.oneOf(o, "mode", path, MODES);
   V.oneOf(o, "status", path, ["active", "paused", "retired"]);
   if (o.coin !== null) {
     exact(o.coin, `${path}.coin`, ["mint", "symbol", "name"]);
-    V.address(o.coin, "mint", `${path}.coin`); V.text(o.coin, "symbol", `${path}.coin`, { max: 16 }); V.text(o.coin, "name", `${path}.coin`, { max: 48 });
+    /* A coin registered by its mint alone may have no symbol or name yet. */
+    V.address(o.coin, "mint", `${path}.coin`); V.text(o.coin, "symbol", `${path}.coin`, { max: 16, nullable: true }); V.text(o.coin, "name", `${path}.coin`, { max: 48, nullable: true });
   }
   V.address(o, "wallet", path);
   V.time(o, "hiredAt", path);
@@ -171,7 +180,7 @@ function decision(o, path = "decision") {
   V.oneOf(o, "action", path, ["buy", "sell", "hold"]);
   V.address(o, "mint", path, { nullable: true });
   V.text(o, "symbol", path, { max: 16, nullable: true });
-  V.text(o, "reason", path, { max: 500 });
+  V.reason(o, "reason", path);
   V.oneOf(o, "mode", path, MODES);
   if (own(o, "rugCheck") && o.rugCheck !== null) rugCheck(o.rugCheck, `${path}.rugCheck`);
   return o;
@@ -206,7 +215,8 @@ function deskItem(o, path) {
   return bad(`${path}.kind`, 'must be "trade" or "decision"');
 }
 function promotion(o, path, { withAgent = false } = {}) {
-  exact(o, path, ["t", "from", "to"], withAgent ? ["agentId"] : []);
+  exact(o, path, ["t", "from", "to"], withAgent ? ["agentId", "mode"] : []);
+  if (own(o, "mode")) V.oneOf(o, "mode", path, MODES);
   V.time(o, "t", path); V.oneOf(o, "from", path, RANK_IDS); V.oneOf(o, "to", path, RANK_IDS);
   if (RANK_IDS.indexOf(o.to) <= RANK_IDS.indexOf(o.from)) bad(path, "is not a promotion (a loss never demotes)");
   if (own(o, "agentId")) V.int(o, "agentId", path, { min: 1 });
@@ -221,7 +231,7 @@ function fee(o, path, { withAgent = false } = {}) {
 function buyback(o, path) {
   exact(o, path, ["t", "solSpent", "ciaBought", "price", "tx", "burnTx"]);
   V.time(o, "t", path);
-  V.dec(o, "solSpent", path, { nonNegative: true }); V.dec(o, "ciaBought", path, { nonNegative: true }); V.dec(o, "price", path, { nonNegative: true });
+  V.dec(o, "solSpent", path, { nonNegative: true }); V.dec(o, "ciaBought", path, { nonNegative: true }); V.dec(o, "price", path, { nonNegative: true, nullable: true });
   V.signature(o, "tx", path); V.signature(o, "burnTx", path, { nullable: true });
   return o;
 }
@@ -249,8 +259,9 @@ export function validateAgentDetail(raw, wantId = null) {
   const positions = take(list(raw.positions, `${path}.positions`, (p, pp) => {
     exact(p, pp, ["mint", "symbol", "costSol", "valueSol", "entryPrice", "price", "pnlSol", "pnlPct", "openedAt"]);
     V.address(p, "mint", pp); V.text(p, "symbol", pp, { max: 16 });
-    for (const k of ["costSol", "valueSol", "entryPrice", "price"]) V.dec(p, k, pp, { nonNegative: true });
-    V.dec(p, "pnlSol", pp); V.dec(p, "pnlPct", pp); V.time(p, "openedAt", pp);
+    for (const k of ["costSol", "valueSol", "entryPrice"]) V.dec(p, k, pp, { nonNegative: true });
+    /* With no quote for the token just now, the price and its percent are null, never guessed. */
+    V.dec(p, "price", pp, { nonNegative: true, nullable: true }); V.dec(p, "pnlSol", pp); V.dec(p, "pnlPct", pp, { nullable: true }); V.time(p, "openedAt", pp);
     return p;
   }, { max: 100 }));
   const mine = (x, p) => { if (x.agentId !== raw.id) bad(`${p}.agentId`, "is another agent's"); if (x.mode !== raw.mode) bad(`${p}.mode`, "is not this agent's mode"); return x; };
@@ -262,7 +273,8 @@ export function validateAgentDetail(raw, wantId = null) {
   const fees = take(list(raw.fees, `${path}.fees`, (x, p) => fee(x, p))).sort(newestFirst);
   const transfers = take(list(raw.transfers, `${path}.transfers`, (x, p) => {
     exact(x, p, ["t", "kind", "sol", "tx"]); V.time(x, "t", p); V.oneOf(x, "kind", p, ["deposit", "withdrawal"]);
-    V.dec(x, "sol", p, { nonNegative: true }); V.signature(x, "tx", p); return x;
+    /* A paper agent's bankroll is paper too: its transfers carry no transaction; a live one's must. */
+    V.dec(x, "sol", p, { nonNegative: true }); V.signature(x, "tx", p, { nullable: raw.mode === "paper" }); return x;
   })).sort(newestFirst);
   const promotions = take(list(raw.promotions, `${path}.promotions`, (x, p) => promotion(x, p))).sort(newestFirst);
   return { value: { ...raw, positions, decisions, trades, equity, fees, transfers, promotions }, problems };
@@ -307,10 +319,11 @@ export function validateTreasury(raw) {
   return { value: { address: raw.address, sol: raw.sol, cia: raw.cia, flows: items.sort(newestFirst) }, problems };
 }
 /* GET /v1/perks/challenge: the contract names it, not its shape; the site reads
-   { wallet, message, expiresAt } and signs the message only if it is text that names the
-   wallet that is signing it. */
+   { wallet, message, expiresAt } (and a nonce, if HQ sends one) and signs the message only if
+   it is text that names the wallet that is signing it. */
 export function validateChallenge(raw, wallet) {
-  exact(raw, "challenge", ["wallet", "message", "expiresAt"]);
+  exact(raw, "challenge", ["wallet", "message", "expiresAt"], ["nonce"]);
+  if (own(raw, "nonce")) V.pattern(raw, "nonce", "challenge", /^[A-Za-z0-9_:.=+/-]{1,128}$/, "a nonce");
   V.address(raw, "wallet", "challenge");
   if (raw.wallet !== wallet) throw new HqInvalid("challenge.wallet is not the connected wallet");
   if (typeof raw.message !== "string" || raw.message.length < 16 || raw.message.length > 600 || /[\u0000-\u0009\u000b-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/.test(raw.message))

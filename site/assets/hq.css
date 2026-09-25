@@ -272,7 +272,7 @@ a.pod:hover .pod-name{color:var(--mint)}
 .trigger.t-stop_loss,.trigger.t-daily_limit{color:var(--down)}
 .trigger.t-take_profit{color:var(--up)}
 .trigger.t-strategy{color:var(--text-faint)}
-.desk-reason{grid-column:2 / -1;margin:2px 0 0;font-size:14px;color:var(--text-soft)}
+.desk-reason{grid-column:2 / -1;margin:2px 0 0;font-size:14px;color:var(--text-soft);white-space:pre-line;overflow-wrap:anywhere}
 .rug{grid-column:2 / -1;display:flex;flex-wrap:wrap;gap:4px 10px;margin:4px 0 0;font-size:12.5px;color:var(--text-faint)}
 .rug b{font:400 7px/1.6 var(--pixel);text-transform:uppercase;color:var(--up)}
 .rug b.no{color:var(--text-faint)}

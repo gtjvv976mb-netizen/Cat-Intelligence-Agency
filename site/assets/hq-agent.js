@@ -6,7 +6,7 @@
    stream adds this agent's new trades and decisions, and reloads its figures after each. */
 import { hqClient } from "./hq-client.js";
 import {
-  CATS, STRATEGIES, RANKS, fmtSol, fmtPct, fmtTokens, fmtPrice, fmtUtc, fmtDate, decSub, decSign, rankProgress, winRate, ticker,
+  CATS, STRATEGIES, RANKS, catOf, coinLabel, fmtSol, fmtPct, fmtTokens, fmtPrice, fmtUtc, fmtDate, decSub, decSign, rankProgress, winRate,
 } from "./hq-format.js";
 import {
   $, el, setState, modeTag, sol, pct, when, keepTime, txLink, tokenLink, walletLink, coinLinks, portrait, rankArt, rankChip,
@@ -57,7 +57,7 @@ async function load({ quiet = false } = {}) {
 /* ── who it is ─────────────────────────────────────────────────────────── */
 function drawId(a) {
   document.title = `Agent ${a.number}, ${a.name} — Agency HQ — Cat Intelligence Agency`;
-  $("#dossier").style.setProperty("--accent", CATS[a.cat].accent);
+  $("#dossier").style.setProperty("--accent", CATS[catOf(a)].accent);
   const pad = $("#pad");
   const art = rankArt(a.rank, 0.25);
   art.title = RANKS.find((r) => r.id === a.rank).name;
@@ -92,7 +92,7 @@ function drawId(a) {
   row("Mode", modeTag(a.mode), a.mode === "paper" ? "Simulated from live quotes; nothing signed, no money." : "Real SOL, every trade on chain.");
   const full = el("span", "full", a.wallet);
   row("Wallet", walletLink(a.wallet, "Solscan ↗"), full);
-  if (a.coin) row("Its coin", el("b", "", `${ticker(a.coin.symbol)} · ${a.coin.name}`), coinLinks(a.coin));
+  if (a.coin) row("Its coin", el("b", "", a.coin.name ? `${coinLabel(a.coin)} · ${a.coin.name}` : coinLabel(a.coin)), coinLinks(a.coin));
   else row("Its coin", "None of its own.");
   row("Hired", when(a.hiredAt), el("span", "", fmtUtc(a.hiredAt)));
 }
@@ -176,7 +176,8 @@ function drawPositions(a) {
   $("#positions-note").textContent = `${a.positions.length} open, of at most ${a.limits.maxOpenPositions}`;
   $("#positions").replaceChildren(table(
     [{ label: "Token" }, { label: "Cost", num: true }, { label: "Value", num: true }, { label: "Entry", num: true }, { label: "Now", num: true }, { label: "P&L", num: true }, { label: "Opened" }],
-    a.positions.map((p) => [tokenLink(p.mint, p.symbol), sol(p.costSol), sol(p.valueSol), `${fmtPrice(p.entryPrice)}`, `${fmtPrice(p.price)}`, [sol(p.pnlSol, { signed: true }), el("span", "sub-line", fmtPct(p.pnlPct))], when(p.openedAt)]),
+    a.positions.map((p) => [tokenLink(p.mint, p.symbol), sol(p.costSol), sol(p.valueSol), fmtPrice(p.entryPrice), p.price === null ? el("span", "tx none", "no quote") : fmtPrice(p.price),
+      [sol(p.pnlSol, { signed: true }), el("span", "sub-line", p.pnlPct === null ? "" : fmtPct(p.pnlPct))], when(p.openedAt)]),
     "No open positions: every SOL is free in its wallet."));
 }
 function sideCell(t) {
@@ -209,7 +210,7 @@ function drawLogs(a, refused) {
   dec.replaceChildren(...(a.decisions.length ? a.decisions.slice(0, 60).map((d) => deskRow(d, new Map(), { withAgent: false })) : [el("li", "board-empty", "No decisions yet.")]));
   $("#fees").replaceChildren(...(a.fees.length ? a.fees.map((f) => logItem(sol(f.sol), "Claimed from its coin", [when(f.t), txLink(f.tx, "live")])) : [el("li", "board-empty", a.coin ? "No creator fees claimed yet." : "It has no coin of its own, so no creator fees.")]));
   if (a.fees.length) $("#fees").append(logItem(el("b", "", "Total"), "", sol(a.stats.feesClaimedSol)));
-  $("#transfers").replaceChildren(...(a.transfers.length ? a.transfers.map((x) => logItem(sol(x.kind === "deposit" ? x.sol : `-${x.sol}`, { signed: true }), x.kind === "deposit" ? "Deposited by the agency" : "Withdrawn to the agency treasury", [when(x.t), txLink(x.tx, "live")])) : [el("li", "board-empty", "No deposits or withdrawals yet.")]));
+  $("#transfers").replaceChildren(...(a.transfers.length ? a.transfers.map((x) => logItem(sol(x.kind === "deposit" ? x.sol : `-${x.sol}`, { signed: true }), x.kind === "deposit" ? "Deposited by the agency" : "Withdrawn to the agency treasury", [when(x.t), txLink(x.tx, a.mode)])) : [el("li", "board-empty", "No deposits or withdrawals yet.")]));
   $("#promotions").replaceChildren(...(a.promotions.length ? a.promotions.map((p) => logItem(rankChip(p.to, a.mode), `${RANKS.find((r) => r.id === p.from).name} to ${RANKS.find((r) => r.id === p.to).name}`, when(p.t))) : [el("li", "board-empty", "No promotions yet. The first comes at 0.25 SOL of career realized profit.")]));
   const old = document.querySelector("#dossier-refused");
   if (old) old.remove();

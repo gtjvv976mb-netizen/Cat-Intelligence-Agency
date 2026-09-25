@@ -51,7 +51,7 @@ function drawSummary(r) {
   const s = r.value.value;
   $("#inv-updated").replaceChildren("Updated ", when(s.updatedAt));
   box.replaceChildren(
-    stat({ label: "Treasury, SOL", value: sol(s.treasury.sol), sub: walletLink(s.treasury.address), mode: "chain" }),
+    stat({ label: "Treasury, SOL", value: sol(s.treasury.sol), sub: s.treasury.address ? walletLink(s.treasury.address) : "Its address is not set yet.", mode: "chain" }),
     stat({ label: "Treasury, $CIA", value: el("span", "amt", fmtTokens(s.treasury.cia)), sub: "$CIA the treasury holds.", mode: "chain" }),
     stat({ label: "$CIA bought back", value: sol(s.buybacks.solSpent), sub: `${fmtTokens(s.buybacks.ciaBought)} $CIA in ${s.buybacks.count} ${s.buybacks.count === 1 ? "buyback" : "buybacks"}`, mode: "chain" }),
     stat({ label: "Creator fees claimed", value: sol(s.creatorFeesClaimedSol), sub: "The agents' coins' fees. Not trading profit.", mode: s.mode === "mixed" ? "chain" : s.mode }),
@@ -93,7 +93,7 @@ function drawBuybackLog(refused = 0) {
   if (!buybacks.length) { box.replaceChildren(el("p", "board-empty", "No buyback has been made yet. Each one will appear here with its transaction.")); return; }
   box.replaceChildren(table(
     [{ label: "When" }, { label: "SOL spent", num: true }, { label: "$CIA bought", num: true }, { label: "Price, SOL", num: true }, { label: "Swap" }, { label: "Burn" }],
-    buybacks.map((b) => [when(b.t), sol(b.solSpent, { unit: "" }), fmtTokens(b.ciaBought), fmtPrice(b.price), txLink(b.tx, "live"), b.burnTx ? txLink(b.burnTx, "live") : el("span", "tx none", "not burned")]),
+    buybacks.map((b) => [when(b.t), sol(b.solSpent, { unit: "" }), fmtTokens(b.ciaBought), b.price === null ? "—" : fmtPrice(b.price), txLink(b.tx, "live"), b.burnTx ? txLink(b.burnTx, "live") : el("span", "tx none", "not burned")]),
   ));
   const note = refusedNote(refused);
   if (note) box.append(note);
@@ -104,7 +104,7 @@ function drawTreasury(r) {
   if (r.status === "rejected") { $("#flows").replaceChildren(el("p", "fail", `The treasury could not be loaded: ${whyNot(r.reason)}`)); return; }
   const t = r.value.value;
   const line = $("#treasury-address");
-  line.replaceChildren(walletLink(t.address, t.address), ` · ${fmtSol(t.sol)} SOL · ${fmtTokens(t.cia)} $CIA`);
+  line.replaceChildren(t.address ? walletLink(t.address, t.address) : "Its address is not set yet", ` · ${fmtSol(t.sol)} SOL · ${fmtTokens(t.cia)} $CIA`);
   if (!t.flows.length) { $("#flows").replaceChildren(el("p", "board-empty", "No flows yet.")); return; }
   $("#flows").replaceChildren(table(
     [{ label: "When" }, { label: "Flow" }, { label: "SOL", num: true }, { label: "Transaction" }],

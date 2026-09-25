@@ -6,7 +6,7 @@
    reloads the agents and the boards. Paper and live are never added together: when HQ runs
    both, the summary is shown per mode, from each agent's own figures. */
 import { hqClient } from "./hq-client.js";
-import { CATS, fmtSol, fmtTokens, decAdd, decSign, modeTotals, pumpFun, solscanToken, ticker } from "./hq-format.js";
+import { CATS, catOf, coinLabel, fmtSol, fmtTokens, decAdd, decSign, modeTotals, pumpFun, solscanToken } from "./hq-format.js";
 import {
   $, $$, el, out, setState, modeTag, sol, pct, when, keepTime, agentHref, portrait, rankChip,
   strategyChip, statusChip, stat, refusedNote, whyNot, setPill, deskRow, walletLink,
@@ -72,7 +72,7 @@ function drawSummary() {
   $("#hq-mode").replaceChildren(modeTag(s.mode));
   $("#hq-updated").replaceChildren("Updated ", when(s.updatedAt));
   const buyback = stat({ label: "$CIA bought back", value: sol(s.buybacks.solSpent), sub: `${fmtTokens(s.buybacks.ciaBought)} $CIA in ${s.buybacks.count} ${s.buybacks.count === 1 ? "buyback" : "buybacks"}`, mode: "chain" });
-  const treasury = stat({ label: "Agency treasury", value: sol(s.treasury.sol), sub: [`${fmtTokens(s.treasury.cia)} $CIA · `, walletLink(s.treasury.address)], mode: "chain" });
+  const treasury = stat({ label: "Agency treasury", value: sol(s.treasury.sol), sub: [`${fmtTokens(s.treasury.cia)} $CIA · `, s.treasury.address ? walletLink(s.treasury.address) : "address not set yet"], mode: "chain" });
   $("#hq-agents").textContent = `${s.agents.active} of ${s.agents.total} agents at work`;
   if (s.mode !== "mixed") {
     const m = s.mode, t = T[m];
@@ -121,7 +121,7 @@ function drawTape() {
   tape.hidden = false;
   const item = (a) => {
     const i = el("span", "tape-item");
-    i.append(out(pumpFun(a.coin.mint), ticker(a.coin.symbol)), el("span", "", `Agent ${a.number}`), modeTag(a.mode), sol(decAdd(a.stats.realizedPnlSol, a.stats.unrealizedPnlSol), { signed: true }));
+    i.append(out(pumpFun(a.coin.mint), coinLabel(a.coin)), el("span", "", `Agent ${a.number}`), modeTag(a.mode), sol(decAdd(a.stats.realizedPnlSol, a.stats.unrealizedPnlSol), { signed: true }));
     return i;
   };
   const cfg = window.CIA_CONFIG || {};
@@ -141,7 +141,7 @@ const WEEK = 7 * 86400_000;
 function recruitCard(a) {
   const card = el("a", "recruit");
   card.href = agentHref(a.id);
-  card.style.setProperty("--accent", CATS[a.cat].accent);
+  card.style.setProperty("--accent", CATS[catOf(a)].accent);
   const pad = el("div", "recruit-pad");
   pad.append(portrait(a, 0.5), modeTag(a.mode));
   if (Date.now() - Date.parse(a.hiredAt) < WEEK) pad.append(el("span", "new", "New"));
@@ -155,7 +155,7 @@ function recruitCard(a) {
   add("Return", pct(a.stats.roiPct));
   add("Won / lost", el("span", "amt", `${a.stats.wins} / ${a.stats.losses}`));
   const foot = el("div", "recruit-foot");
-  foot.append(el("span", "", a.coin ? `Coin ${ticker(a.coin.symbol)}` : "No coin of its own"));
+  foot.append(el("span", "", a.coin ? `Coin ${coinLabel(a.coin)}` : "No coin of its own"));
   const hired = el("span", "", "Hired "); hired.append(when(a.hiredAt)); foot.append(hired);
   body.append(no, el("h3", "", a.name), chips, nums, foot);
   card.append(pad, body);

@@ -9,11 +9,12 @@
  * nothing. Nothing in site/ names it; the site reaches it only when a developer points
  * hqApi at it, e.g. by serving a config.js with hqApi: "http://127.0.0.1:8787".
  *
- *   node scripts/hq-mock.mjs [--port 8787] [--mode mixed|paper|live] [--empty] [--no-rug]
+ *   node scripts/hq-mock.mjs [--port 8787] [--mode mixed|paper|live] [--empty] [--rug]
  *
- * --empty answers with no agents at all; --no-rug leaves out the rug-check result the site
- * accepts on a buy (it is not in the contract yet). test-hq-site.mjs checks every answer this
- * mock gives against the site's own validators.
+ * --empty answers with no agents at all. --rug adds, on each buy, the rug-check result the site
+ * accepts and shows but the contract does not carry yet (a proposed field); without it, every
+ * answer is the contract's shape exactly. test-hq-site.mjs checks every answer this mock gives
+ * against the site's own validators.
  */
 import http from "node:http";
 import { randomBytes } from "node:crypto";
@@ -38,7 +39,7 @@ const REASONS = {
 };
 const dec = (n, p = 4) => roundDec(n.toFixed(12), p);
 
-export function mockWorld({ seed = 7, mode = "mixed", empty = false, rug = true, now = Date.now() } = {}) {
+export function mockWorld({ seed = 7, mode = "mixed", empty = false, rug = false, now = Date.now() } = {}) {
   const r = rng(seed);
   const pick = (xs) => xs[Math.floor(r() * xs.length)];
   const b58 = (n) => Array.from({ length: n }, () => B58[Math.floor(r() * 58)]).join("");
@@ -188,7 +189,7 @@ export function mockWorld({ seed = 7, mode = "mixed", empty = false, rug = true,
     leaderboard: (by, period) => ({ period, by, rows: board(by, period) }),
     buybacks: (limit = 50) => ({ policy: { sharePct: "50", sources: ["creator_fees", "trading_profit"], schedule: "Mock: once a week, Mondays at 14:00 UTC", destination: "burn" }, items: buybackItems.slice(0, limit) }),
     treasury: () => ({ address: treasuryAddress, sol: summary().treasury.sol, cia: summary().treasury.cia, flows }),
-    challenge: (wallet) => ({ wallet, message: `catintelligenceagency.com asks you to sign in to $CIA holder perks.\n\nWallet: ${wallet}\nNonce: ${randomBytes(8).toString("hex")}\nExpires: ${iso(-5 * 60_000)}\n\nMock HQ. Signing this costs nothing and moves nothing.`, expiresAt: iso(-5 * 60_000) }),
+    challenge: (wallet, nonce = randomBytes(8).toString("hex")) => ({ wallet, nonce, message: `catintelligenceagency.com asks you to sign in to $CIA holder perks.\n\nWallet: ${wallet}\nNonce: ${nonce}\nExpires: ${iso(-5 * 60_000)}\n\nMock HQ. Signing this costs nothing and moves nothing.`, expiresAt: iso(-5 * 60_000) }),
     verify: () => ({ holder: true, balance: "1250000", tier: "holder", perks: ["Mock: the Holder skin", "Mock: a vote on the next agent's name", "Mock: a vote on the next agent's strategy"], expiresAt: iso(-24 * H) }),
     nextEvent,
   };
@@ -255,5 +256,5 @@ function serve({ port, ...opts }) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : d; };
-  serve({ port: Number(arg("--port", "8787")), mode: arg("--mode", "mixed"), empty: process.argv.includes("--empty"), rug: !process.argv.includes("--no-rug"), seed: Number(arg("--seed", "7")) });
+  serve({ port: Number(arg("--port", "8787")), mode: arg("--mode", "mixed"), empty: process.argv.includes("--empty"), rug: process.argv.includes("--rug"), seed: Number(arg("--seed", "7")) });
 }

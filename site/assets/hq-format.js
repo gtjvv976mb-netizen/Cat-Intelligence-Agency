@@ -66,6 +66,11 @@ export const RANK_ART = Object.freeze({
   senior: Object.freeze({ size: [182, 228], look: "platinum and blue, four stars" }),
   director: Object.freeze({ size: [228, 239], look: "violet and gold, a crowned cat and five stars" }),
 });
+/* The brand cat an agent is drawn as: its own, or, for a sprite the site has no art for, its
+   strategy's cat. */
+export const catOf = (agent) => (agent && Object.prototype.hasOwnProperty.call(CATS, agent.cat) ? agent.cat : STRATEGIES[agent && agent.strategy] ? STRATEGIES[agent.strategy].sprite : "director");
+/* A coin's name on the page: its ticker, or, registered by its mint alone, the mint shortened. */
+export const coinLabel = (coin) => (coin.symbol ? `$${String(coin.symbol).replace(/^\$+/, "")}` : `${coin.mint.slice(0, 4)}…${coin.mint.slice(-4)}`);
 export const skinOf = (agent) => (agent && Object.prototype.hasOwnProperty.call(SKINS, agent.skin) ? agent.skin : agent && RANK_IDS.includes(agent.rank) ? agent.rank : "recruit");
 
 /* ── decimals, on the digits ──────────────────────────────────────────── */

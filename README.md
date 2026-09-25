@@ -57,8 +57,11 @@ To work on the pages without HQ, run the mock, which answers every endpoint with
 contract-shaped data and streams events (it is never deployed, and nothing in `site/` names it):
 
 ```sh
-node scripts/hq-mock.mjs --port 8787 [--mode mixed|paper|live] [--empty]
+node scripts/hq-mock.mjs --port 8787 [--mode mixed|paper|live] [--empty] [--rug]
 ```
+
+(`--rug` adds a rug-check result to each buy, a field the site shows but the contract does not
+carry yet.)
 
 then serve `site/` locally with a `config.js` whose `hqApi` is `"http://127.0.0.1:8787"`.
 `test-hq-site.mjs` checks the validators, the number formats and the client's rules, and every

@@ -68,12 +68,17 @@ code .nw{white-space:nowrap}
 /* Download sits in the bar wherever it fits beside the rest; the home page's hero and every
    footer link the Downloads page at every width. */
 @media (max-width:729px),(min-width:861px) and (max-width:939px){.navlinks a.dl{display:none}}
-/* The Floor: a page of its own, so it stays in the bar at every width. On a phone the name
-   stacks on two lines to make room for it. */
+/* The Floor: a page of its own, so it stays in the bar at every width. Below 660 px the name
+   stacks on two lines to make room for it (on one line it ran under the links from 461 to 640
+   px), and on a phone the bar is set smaller as well. */
 .navlinks a.floorlink{color:#f2edff}
 .navlinks a.floorlink:hover{color:var(--mint)}
 .navlinks a.floorlink[aria-current="page"]{color:var(--mint)}
-@media (max-width:460px){
+@media (max-width:659px){
+  .brand .name{line-height:.98}
+  .brand .name em::after{content:"\A";white-space:pre}
+}
+@media (max-width:560px){
   .bar .wrap{gap:6px}
   .brand{gap:7px}
   .brand .name{font-size:15px;line-height:.98}
@@ -84,7 +89,7 @@ code .nw{white-space:nowrap}
   .navlinks a.box{font-size:8px;padding:9px 6px;margin-left:2px}
   .shift{margin-left:5px;width:32px}
 }
-@media (max-width:374px){.brand .name{font-size:13.5px}.navlinks a,.navlinks a.box{font-size:7px;padding:9px 5px}}
+@media (max-width:380px){.brand .name{font-size:13.5px}.navlinks a,.navlinks a.box{font-size:7px;padding:9px 5px}}
 @media (max-width:350px){.bar .brand .name{display:none}}
 
 /* ── buttons ───────────────────────────────────────────────────────────── */

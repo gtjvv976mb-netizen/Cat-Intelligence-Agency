@@ -147,8 +147,8 @@ ok("agency → the floor, the cat, the console, the repository", ["./floor/", "c
 ok("the floor → back to the agency, $CIA, the cat, the console, the repository", ["../", "../#cia", "../coinmarketcat/", "../console/", REPO].every((h) => hrefs(html.floor).includes(h)));
 ok("the cat → the agency, the floor, the console, the repository", ["../", "../floor/", "../console/", REPO].every((h) => hrefs(html.cat).includes(h)));
 ok("the console → the agency, the floor, the cat, the repository", ["../", "../floor/", "../coinmarketcat/", REPO].every((h) => hrefs(html.console).includes(h)));
-ok("the downloads page → the agency, the floor, $CIA, the cat, its install section, the console, the repository and its releases",
-  ["../", "../floor/", "../#cia", "../coinmarketcat/", "../coinmarketcat/#install", "../console/", REPO, `${REPO}/releases`].every((h) => hrefs(html.downloads).includes(h)));
+ok("the downloads page → the agency, the floor, $CIA, the cat, the console, the repository, its README's build steps and its releases",
+  ["../", "../floor/", "../#cia", "../coinmarketcat/", "../console/", REPO, `${REPO}#install`, `${REPO}/releases`].every((h) => hrefs(html.downloads).includes(h)));
 /* "The Floor" sits in the bar itself (not only in a footer) on every page but the console's
    own compact bar, where it is a plain link beside the agency's. */
 const barOf = (page) => (page.match(/<header class="bar">[\s\S]*?<\/header>|<nav><div class="wrap">[\s\S]*?<\/nav>/) || [""])[0];
@@ -164,12 +164,29 @@ ok("\"Download\" is in the site bar of every page, the downloads page's own mark
     && /<a class="dl" href="\.\/" aria-current="page">Download<\/a>/.test(barOf(html.downloads)) && /<a class="floorlink" href="\.\.\/floor\/">/.test(barOf(html.downloads)));
 ok("the bar folds \"Download\" away only at the widths where it has no room beside the rest",
   homeCss.includes("@media (max-width:729px),(min-width:861px) and (max-width:939px){.navlinks a.dl{display:none}}")
-    && css.includes("@media (max-width:709px),(min-width:861px) and (max-width:1100px){.navlinks a.dl{display:none}}")
-    && html.console.includes("@media (max-width:729px){nav a.dl{display:none}}"));
+    && css.includes("@media (max-width:809px),(min-width:861px) and (max-width:1100px){.navlinks a.dl{display:none}}")
+    && html.console.includes("@media (max-width:829px){nav a.dl{display:none}}"));
+/* Measured in Chromium with the pages' own fonts, every 10 px from 320 to 1920: a bar's brand
+   used to shrink under its links, which were then drawn over its name (the cat's page at 1024,
+   1280 and 1440; the console from 736 to 772; the home, floor and downloads pages from 461 to
+   640). Now the brand keeps its width, and each width shows the links that fit beside it. */
+ok("the bars never draw their links over the brand: it does not shrink, and the links that do not fit fold away",
+  css.includes(".bar .brand{flex:none}") && /\.brand\{flex:none\}/.test(html.console)
+    && css.includes('@media (min-width:861px){.navlinks a.opt[href="#limits"],.navlinks a.opt[href="#faq"]{display:none}}')
+    && css.includes('@media (min-width:861px) and (max-width:1100px){.navlinks a.opt[href="#modes"]{display:none}}')
+    && /@media \(max-width:659px\)\{\s*\.brand \.name\{line-height:\.98\}\s*\.brand \.name em::after\{content:"\\A";white-space:pre\}\s*\}/.test(homeCss));
 ok("a Download button on the home page's hero and on the cat's page, and the cat's install section points to it",
   /<a class="btn ghost" href="\.\/downloads\/">Download <span class="arr" aria-hidden="true">↓<\/span><\/a>/.test(html.agency.match(/<div class="cta">[\s\S]*?<\/div>/)?.[0] ?? "")
     && /<a class="btn" href="\.\.\/downloads\/">Download it <span class="arr">↓<\/span><\/a>/.test(html.cat.match(/<div class="cta">[\s\S]*?<\/div>/)?.[0] ?? "")
-    && /<p class="dl-line">Or skip the build: <a href="\.\.\/downloads\/">download it ready to load<\/a>/.test(html.cat.match(/<section id="install"[\s\S]*?<\/section>/)?.[0] ?? ""));
+    && /<p class="dl-line">Download it from <a href="\.\.\/downloads\/">the Downloads page<\/a>/.test(html.cat.match(/<section id="install"[\s\S]*?<\/section>/)?.[0] ?? ""));
+/* The zip on the Downloads page is the main way in; building from the source is the README's
+   second path. No page tells a visitor to build it first, or calls it "the extension you built". */
+ok("every install path leads with the Downloads page; building from the source comes second, and no page says \"the extension you built\"",
+  !Object.values(text).some((t) => /the extension you built|you build it from (the )?source/i.test(t))
+    && /<h2 id="install-title">Download it\./.test(html.cat) && hrefs(html.console).includes("../downloads/")
+    && /Download <code>cat-intelligence-<wbr>agency-<wbr>extension\.zip<\/code> from <a href="\.\/downloads\/">the Downloads page<\/a>/.test(html.agency)
+    && text.cat.indexOf("Download the zip.") < text.cat.indexOf("Or build it from the source")
+    && /\*\*Download it\.\*\*[\s\S]*?\*\*Or build it from the source\*\*/.test(fs.readFileSync(path.join(here, "README.md"), "utf8").split("\n## Install\n")[1] ?? ""));
 const footOf = (page) => (page.match(/<nav class="foot-links"[\s\S]*?<\/nav>/) || [""])[0];
 ok("the agency's, the floor's and the downloads page's footers link the downloads page",
   footOf(html.agency).includes('<a href="./downloads/">Downloads</a>') && footOf(html.floor).includes('<a href="../downloads/">Downloads</a>') && footOf(html.downloads).includes('<a href="./">Downloads</a>'));
@@ -892,11 +909,13 @@ section("THE DOWNLOADS");
 
   ok("the downloads page loads its data, then fills the numbers in as text, and says \"built at deploy\" until then",
     /<script src="\.\.\/assets\/downloads-data\.js"><\/script>\s*<script>\s*\/\* The numbers on this page are the deploy's/.test(dl)
-      && (dl.match(/>built at deploy</g) || []).length === 7 && /el\.textContent = text/.test(dl) && !/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(dl)
+      && (dl.match(/>built at deploy</g) || []).length === 6 && /el\.textContent = text/.test(dl) && !/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(dl)
       && ["version", "name", "commit", "extension.size", "extension.sha256", "cats.size", "cats.sha256"].every((k) => dl.includes(`data-dl="${k}"`)));
   ok("the big button: \"Download the Cat Intelligence Agency extension\", the zip, beside its version, size and SHA-256",
     /<a class="btn mint big" id="ext-download" href="\.\/cat-intelligence-agency-extension\.zip" download>/.test(dl) && dlText.includes("Download the Cat Intelligence Agency extension")
       && ["Version", "Size", "SHA-256"].every((w) => new RegExp(`<dt>${w}</dt>`).test(dl.match(/<article class="dl-card"[\s\S]*?<\/article>/)?.[0] ?? "")));
+  ok("\"Listed as\" is the merged extension's name before the deploy fills it in, and the deploy's name after",
+    dl.includes(`<dt>Listed as</dt><dd data-dl="name">${manifest.name}</dd>`) && manifest.name === "Cat Intelligence Agency");
   const inside = [...(dl.match(/<ul class="inside">[\s\S]*?<\/ul>/)?.[0] ?? "").matchAll(/<img src="\.\.\/assets\/sprites\/([a-z-]+)\.png"[\s\S]*?<h3>([^<]+) <span>([^<]+)<\/span><\/h3>/g)].map((m) => [m[1], m[2], m[3]]);
   ok("what's inside: one line per cat, with its sprite: CoinMarketCat, Snipurr, Popcat, CashCat and Crying Cat",
     JSON.stringify(inside) === JSON.stringify([["coinmarketcat", "CoinMarketCat", "AI trading"], ["snipurr", "Snipurr", "The sniper"], ["popcat", "Popcat", "Cat-coin scanner"], ["cashcat", "CashCat", "Coin launcher"], ["crying-cat", "Crying Cat", "Rug check"]]),
@@ -916,6 +935,16 @@ section("THE DOWNLOADS");
   ok("safety: the keys stay in the browser, each sent only to its own service; check the SHA-256, with the command for each system",
     has("downloads", "Your keys stay in your browser.") && has("downloads", "your Anthropic key only to Anthropic") && has("downloads", "Check the SHA-256.")
       && ["certutil -hashfile cat-intelligence-agency-extension.zip SHA256", "shasum -a 256 cat-intelligence-agency-extension.zip", "sha256sum cat-intelligence-agency-extension.zip"].every((c) => dlText.includes(c)));
+  const insideText = textOf(dl.match(/<ul class="inside">[\s\S]*?<\/ul>/)?.[0] ?? "");
+  ok("what's inside says what each tab of the merged extension does and needs: the RPC the new tabs read, CashCat's one signer, auto mode off until armed",
+    has("downloads", "Popcat, CashCat and Crying Cat read the chain through your own RPC") && has("downloads", "the public Solana RPC answers 403 to browser extensions")
+      && /CashCat Coin launcher Launches a cat coin of your own on pump\.fun, typed or drafted from a trend, from the autopilot wallet only, with your RPC and your Pinata key\. Auto mode is off until you arm it\./.test(insideText)
+      && /Crying Cat Rug check Paste a mint address: it reads the chain, with your RPC/.test(insideText) && /Popcat Cat-coin scanner .*with your RPC.*It trades nothing\./.test(insideText), insideText.slice(0, 120));
+  ok("safety: CashCat signs with the autopilot wallet only, never Phantom, after a check and a simulation; auto mode is off until armed; bring your own RPC; the Pinata key goes only to Pinata",
+    has("downloads", "CashCat signs with the autopilot wallet only.") && has("downloads", "checked and simulated on your RPC before the autopilot wallet signs it, never Phantom")
+      && has("downloads", "Its auto mode is off until you arm it by typing the sentence it prints") && has("downloads", "at most two coins a UTC day, with no dev buy")
+      && has("downloads", "Bring your own RPC.") && has("downloads", "The public Solana RPC answers 403 \"Access forbidden\" to the extension.")
+      && has("downloads", "your Pinata key only to Pinata's upload API") && !/until the rename|renamed extension/i.test(dl));
   ok("the Chrome Web Store: \"not yet\", and no page claims or links a store listing",
     (dlText.match(/Not yet in the Chrome Web Store\./g) || []).length === 2 && !/chromewebstore\.google\.com|chrome\.google\.com\/webstore/.test(Object.values(html).join(" "))
       && !Object.values(text).some((t) => /(?<!not yet )(?<!not )in the Chrome Web Store(?! yet)/i.test(t.replace(/Not yet in the Chrome Web Store\./g, "")) || /available (in|on) the Chrome Web Store/i.test(t)));

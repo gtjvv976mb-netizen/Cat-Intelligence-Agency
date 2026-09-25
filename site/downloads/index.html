@@ -82,7 +82,7 @@
           <dt>Version</dt><dd data-dl="version">built at deploy</dd>
           <dt>Size</dt><dd data-dl="extension.size">built at deploy</dd>
           <dt>SHA-256</dt><dd><code class="sha" data-dl="extension.sha256">built at deploy</code></dd>
-          <dt>Listed as</dt><dd data-dl="name">built at deploy</dd>
+          <dt>Listed as</dt><dd data-dl="name">Cat Intelligence Agency</dd>
           <dt>Built from</dt><dd data-dl="commit">built at deploy</dd>
         </dl>
         <p class="dl-note"><b>Not yet in the Chrome Web Store.</b> You load it yourself, in Developer mode: six steps, <a href="#install">below</a>. It runs on a computer, in Chrome 116 or later or a browser built on it, such as Brave or Edge; not on a phone.</p>
@@ -91,24 +91,24 @@
   </div>
 </section>
 
-<!-- What's inside: the five cats of the renamed extension. Check each line against the extension
-     as merged before a deploy. -->
+<!-- What's inside: one line per tab of the extension's popup, what it does and what it needs.
+     The README's "The Cat Intelligence Agency extension" table says the same, at length. -->
 <section class="dl-sec" id="inside" aria-labelledby="inside-title">
   <div class="wrap">
     <p class="kicker">What's inside</p>
     <h2 id="inside-title">Five cats, <em>one extension.</em></h2>
-    <p class="sub">The extension carries five of the agency's seven cats.</p>
+    <p class="sub">The extension carries five of the agency's seven cats, a tab each. Popcat, CashCat and Crying Cat read the chain through <b>your own RPC</b>, set in Options: the public Solana RPC answers 403 to browser extensions.</p>
     <ul class="inside">
       <li style="--accent:#8b5cf6"><div class="pad"><img src="../assets/sprites/coinmarketcat.png" width="88" height="105" style="--w:175" alt=""></div>
-        <div class="what"><h3>CoinMarketCat <span>AI trading</span></h3><p>Write a strategy in plain English: a model proposes each trade, and code holds the limits it cannot change.</p></div></li>
+        <div class="what"><h3>CoinMarketCat <span>AI trading</span></h3><p>Write a strategy in plain English: a model proposes each trade, with your own Anthropic key, and code holds the limits it cannot change. It starts on paper.</p></div></li>
       <li style="--accent:#14f195"><div class="pad"><img src="../assets/sprites/snipurr.png" width="73" height="104" style="--w:146" alt=""></div>
-        <div class="what"><h3>Snipurr <span>The sniper</span></h3><p>New pump.fun launches, sniped by rule.</p></div></li>
+        <div class="what"><h3>Snipurr <span>The sniper</span></h3><p>New pump.fun launches, sniped by rule. It starts switched off, and never buys a coin your own wallet launched.</p></div></li>
       <li style="--accent:#ff4fd8"><div class="pad"><img src="../assets/sprites/popcat.png" width="99" height="106" style="--w:197" alt=""></div>
-        <div class="what"><h3>Popcat <span>Cat-coin scanner</span></h3><p>Checks new cat coins on pump.fun and names their red flags.</p></div></li>
+        <div class="what"><h3>Popcat <span>Cat-coin scanner</span></h3><p>Runs twelve on-chain checks on new cat coins on pump.fun, with your RPC, and names their red flags, as text. It trades nothing.</p></div></li>
       <li style="--accent:#f5c542"><div class="pad"><img src="../assets/sprites/cashcat.png" width="72" height="104" style="--w:143" alt=""></div>
-        <div class="what"><h3>CashCat <span>Coin launcher</span></h3><p>Launches cat-themed coins from what is trending.</p></div></li>
+        <div class="what"><h3>CashCat <span>Coin launcher</span></h3><p>Launches a cat coin of your own on pump.fun, typed or drafted from a trend, from the autopilot wallet only, with your RPC and your Pinata key. Auto mode is off until you arm it.</p></div></li>
       <li style="--accent:#5ab8ff"><div class="pad"><img src="../assets/sprites/crying-cat.png" width="72" height="103" style="--w:144" alt=""></div>
-        <div class="what"><h3>Crying Cat <span>Rug check</span></h3><p>Checks a coin for the signs of a rug.</p></div></li>
+        <div class="what"><h3>Crying Cat <span>Rug check</span></h3><p>Paste a mint address: it reads the chain, with your RPC, for the signs of a rug. It trades nothing.</p></div></li>
     </ul>
   </div>
 </section>
@@ -156,8 +156,10 @@
     <p class="kicker">Safety</p>
     <h2 id="safety-title">Before you <em>run it.</em></h2>
     <ul class="safe">
-      <li><h3>It starts on paper.</h3><p>CoinMarketCat trades a paper vault until you switch it to live, and Snipurr starts switched off. Nothing trades with real money until you fund a wallet and arm it yourself. Only fund what you can afford to lose.</p></li>
-      <li><h3>Your keys stay in your browser.</h3><p>Your API keys, your RPC address and the encrypted key of any wallet it makes are kept in the extension's own storage in this browser, and each key is sent only to the service it is for: your Anthropic key only to Anthropic. The agency runs no server for the extension to report to.</p></li>
+      <li><h3>It starts on paper.</h3><p>CoinMarketCat trades a paper vault until you switch it to live, and Snipurr starts switched off. Nothing spends real money until you fund a wallet and ask it to yourself: arm a lane, or launch a coin with CashCat. Only fund what you can afford to lose.</p></li>
+      <li><h3>CashCat signs with the autopilot wallet only.</h3><p>A launch is held to a 0.015 SOL budget, spent whether or not anyone buys the coin. It is checked and simulated on your RPC before the autopilot wallet signs it, never Phantom, and it goes only when you type the coin's ticker. A dev buy is 0 unless you set one, at most 0.05 SOL. Its auto mode is off until you arm it by typing the sentence it prints; armed, it launches at most two coins a UTC day, with no dev buy, and never buys or sells them.</p></li>
+      <li><h3>Bring your own RPC.</h3><p>Popcat, Crying Cat and CashCat need an RPC you set in Options, from a provider such as Helius, Triton or QuickNode, and so do Snipurr and CoinMarketCat's live trades. The public Solana RPC answers 403 "Access forbidden" to the extension.</p></li>
+      <li><h3>Your keys stay in your browser.</h3><p>Your API keys, your RPC address and the encrypted key of any wallet it makes are kept in the extension's own storage in this browser, and each key is sent only to the service it is for: your Anthropic key only to Anthropic, your Pinata key only to Pinata's upload API. The agency runs no server for the extension to report to.</p></li>
       <li><h3>Check the SHA-256.</h3><p>Compute the zip's SHA-256 and compare it with the one above. If they differ, do not load it.</p>
         <ul class="hashes">
           <li>Windows <code>certutil -hashfile cat-intelligence-agency-extension.zip SHA256</code></li>
@@ -167,7 +169,7 @@
     </ul>
     <div class="store" id="store">
       <span class="tag">Chrome Web Store</span>
-      <p><b>Not yet in the Chrome Web Store.</b> Until it is, you load it in Developer mode as above, and it does not update itself: new versions are here, and each tagged version, with its SHA-256 sums, is on the repository's <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency/releases" rel="noopener">releases page</a>. The source is <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">on GitHub</a>, and <a href="../coinmarketcat/#install">you can build it yourself</a>.</p>
+      <p><b>Not yet in the Chrome Web Store.</b> Until it is, you load it in Developer mode as above, and it does not update itself: new versions are here, and each tagged version, with its SHA-256 sums, is on the repository's <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency/releases" rel="noopener">releases page</a>. The source is <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency" rel="noopener">on GitHub</a>, and the README says <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency#install" rel="noopener">how to build it yourself</a>.</p>
     </div>
   </div>
 </section>

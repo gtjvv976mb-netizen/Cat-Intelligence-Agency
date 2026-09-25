@@ -1211,17 +1211,27 @@ It is not in the Chrome Web Store yet; the kit for submitting it is in
 
 ## Install
 
+**Download it.** The site's [Downloads page](https://catintelligenceagency.com/downloads/) serves
+`cat-intelligence-agency-extension.zip`, built from main at every deploy, with its version, size
+and SHA-256 (each tagged version is also on the
+[releases page](https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency/releases)). Check
+the SHA-256, unzip it somewhere it can stay, then `chrome://extensions` → **Developer mode** →
+**Load unpacked** → the unzipped folder (the one with `manifest.json` in it). The page has the
+same steps for Brave and Edge, and how to update it and remove it.
+
+**Or build it from the source**, with Node.js 22.13 to 24, and read what you build:
+
 ```bash
 git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
 cd Cat-Intelligence-Agency && npm ci && npm run build      # → dist/
 ```
 
-`chrome://extensions` → **Developer mode** → **Load unpacked** → `Cat-Intelligence-Agency/dist`.
-The download, `cat-intelligence-agency-extension.zip`, is the same folder: unzip it and load
-that. Either way the extension is **Cat Intelligence Agency**, with CoinMarketCat, Snipurr,
-Popcat, CashCat and Crying Cat inside.
+then load `Cat-Intelligence-Agency/dist` the same way; it is the folder the zip holds. Either way
+the extension is **Cat Intelligence Agency**, with CoinMarketCat, Snipurr, Popcat, CashCat and
+Crying Cat inside.
 
-**Popcat and Crying Cat** need only an RPC (below). **CashCat** needs the autopilot wallet
+**Popcat and Crying Cat** need only an RPC (below): the public mainnet RPC answers 403 to the
+extension. **CashCat** needs the autopilot wallet
 (created, funded and unlocked in the popup), an RPC, and your Pinata JWT in **Options →
 CashCat**; drafting from a trend and auto mode need your Anthropic key too.
 

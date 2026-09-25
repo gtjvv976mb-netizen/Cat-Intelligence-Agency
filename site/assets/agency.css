@@ -81,25 +81,36 @@ pre .c{color:var(--ink-faint)}
   border:1px solid var(--bar-line);background:transparent;color:var(--ink-soft);cursor:pointer;margin-left:6px}
 .shift:hover{color:var(--ink);border-color:var(--ink-faint)}
 @media (max-width:860px){.navlinks .opt{display:none}}
+/* The brand never shrinks under the links (it used to, and the links were drawn over its name):
+   at each width the bar shows only the links that fit beside it. Measured in Chromium with the
+   page's own fonts, every 12 px from 360 to 1920, with room to spare for other browsers. */
+.bar .brand{flex:none}
 /* Download joins the bar: with the section links showing, the links sit a little closer to
    make room, and where there is still none it folds away (the hero's Download button is there
    at every width). */
 @media (min-width:861px){.navlinks{gap:2px}.navlinks a{padding:7px 7px;letter-spacing:.05em}}
-@media (max-width:709px),(min-width:861px) and (max-width:1100px){.navlinks a.dl{display:none}}
-/* With every section link in the bar there is no room for the "Agent 001" tag (it slid under
-   them); the hero's eyebrow says it. It comes back when the section links fold away. */
-@media (min-width:861px){.brand .tag{display:none}}
+@media (max-width:809px),(min-width:861px) and (max-width:1100px){.navlinks a.dl{display:none}}
+/* Beside the brand there is room for four section links, and three from 861 to 1100 px: Limits
+   and the FAQ fold away first, then Paper & live. Each is a scroll away on the page. */
+@media (min-width:861px){.navlinks a.opt[href="#limits"],.navlinks a.opt[href="#faq"]{display:none}}
+@media (min-width:861px) and (max-width:1100px){.navlinks a.opt[href="#modes"]{display:none}}
+/* With the section links in the bar there is no room for the "Agent 001" tag; the hero's
+   eyebrow says it. It comes back when the section links fold away, where there is room. */
+@media (min-width:861px),(max-width:689px){.brand .tag{display:none}}
+@media (max-width:599px){
+  .navlinks .narrow-hide{display:none}
+  .navlinks .floorlink .long{display:none}
+}
 @media (max-width:440px){
   .brand .name{font-size:18px}
-  .brand .tag{display:none}
   .navlinks a{padding:7px 8px;letter-spacing:.05em}
 }
 @media (max-width:420px){
-  .navlinks .narrow-hide{display:none}
-  .navlinks .floorlink .long{display:none}
   .bar .brand .name{font-size:17px;line-height:.98}
   .bar .brand .name.stack em{display:block}
 }
+@media (max-width:400px){.bar .brand .name{font-size:16px}.navlinks a{padding:7px 5px;letter-spacing:.02em}.shift{margin-left:2px}}
+@media (max-width:350px){.bar .brand .name{display:none}}
 
 /* ── type ────────────────────────────────────────────────────────────────── */
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);font-weight:500;

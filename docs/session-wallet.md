@@ -139,9 +139,11 @@ What does **not** protect, said plainly:
   storage while the wallet is unlocked — malware on the machine, a debugger attached to
   the service worker, an extension with the wrong permissions — can read the secret and
   spend everything in the wallet. A keylogger has the passphrase.
-- **A malicious build.** You load this extension unpacked from a repository you cloned.
-  A modified build can do anything with the key. Build it yourself, from a commit you
-  read.
+- **A malicious build.** You load this extension unpacked: the zip from the site's
+  Downloads page, or a build from a repository you cloned. A modified build can do
+  anything with the key. Load only a zip whose SHA-256 is the one the Downloads page and
+  the version's release print (that says the file is the one the deploy built, not what
+  it does), or build it yourself, from a commit you read.
 - **The rest of the lane.** The session wallet changes who signs, not what is signed.
   The record the README prints still loses.
 

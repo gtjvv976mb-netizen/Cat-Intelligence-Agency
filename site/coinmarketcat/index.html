@@ -249,7 +249,7 @@
     <div class="grid">
       <div class="card">
         <h3>In your browser</h3>
-        <p>The agent, its limits, its journal and the autopilot wallet, in the extension you built. Your API key is kept there too, and sent only to Anthropic's API.</p>
+        <p>The agent, its limits, its journal and the autopilot wallet, in the extension you loaded. Your API key is kept there too, and sent only to Anthropic's API.</p>
       </div>
       <div class="card">
         <h3>Anthropic's API</h3>
@@ -328,21 +328,18 @@
 <div class="wrap">
   <section id="install" aria-labelledby="install-title">
     <div class="sec-head"><span class="label">Install</span></div>
-    <h2 id="install-title">Build it yourself. <em>It is not in a store.</em></h2>
-    <p class="sub">You build it from the source, read what you build if you like, and load it into Chrome 116 or later. The build needs Node.js 22.13 to 24.</p>
-    <p class="dl-line">Or skip the build: <a href="../downloads/">download it ready to load</a>, with a plain install guide.</p>
+    <h2 id="install-title">Download it. <em>It is not in a store.</em></h2>
+    <p class="sub">CoinMarketCat comes in the Cat Intelligence Agency extension, one zip for Chrome 116 or later, Brave or Edge, on a computer. You load it yourself, in Developer mode.</p>
+    <p class="dl-line">Download it from <a href="../downloads/">the Downloads page</a>, with its SHA-256 and a plain install guide.</p>
     <ol class="install">
-      <li><div><b>Clone the repository.</b>
-        <pre><code>git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
-cd Cat-Intelligence-Agency</code></pre></div></li>
-      <li><div><b>Install and build.</b> The extension is written to <code>dist/</code>.
-        <pre><code>npm ci
-npm run build</code></pre></div></li>
-      <li><div><b>Load it unpacked.</b> Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b> and choose the <code>dist</code> folder.</div></li>
+      <li><div><b>Download the zip.</b> <a href="../downloads/">The Downloads page</a> saves <code>cat-intelligence-agency-extension.zip</code>; check its SHA-256 against the one printed beside it.</div></li>
+      <li><div><b>Unzip it</b> somewhere it can stay: the browser loads the extension from that folder every time it starts.</div></li>
+      <li><div><b>Load it unpacked.</b> Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b> and choose the unzipped folder, the one with <code>manifest.json</code> in it.</div></li>
       <li><div><b>Set up the agent.</b> In Options → Agent: name it, write the strategy, tick the tokens, set the limits, paste your own Anthropic API key and pick a model (or keep the newest). Start it on paper from the popup.</div></li>
       <li><div><b>Watch it on paper.</b> Read its journal: every decision and its reason, every refusal, every paper fill. Go live only after that — fund the autopilot wallet from Phantom, unlock it, and type the sentence it prints.</div></li>
       <li><div><b>For Snipurr and for funding,</b> paste an RPC URL from a provider such as Helius, Triton or QuickNode (the public Solana RPC refuses browsers), open <a href="../console/">the console page</a> and connect Phantom there.</div></li>
     </ol>
+    <p class="dl-line">Or build it from the source, and read what you build: it needs Node.js 22.13 to 24. <code>git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency</code>, then <code>npm ci &amp;&amp; npm run build</code>, and load the <code>dist</code> folder the same way. The <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency#install" rel="noopener">README</a> has the steps.</p>
   </section>
 </div>
 

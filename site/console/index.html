@@ -4,7 +4,7 @@
 <title>CoinMarketCat console — where the extension meets your Phantom</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="The CoinMarketCat console: the page your Phantom wallet lives on while CoinMarketCat, the agentic trading cat, and Snipurr, its sniper lane, run. The extension you built attaches here, shows Snipurr's status, and asks Phantom for every approval from this tab. This page holds no signing code and never sees a key.">
+<meta name="description" content="The CoinMarketCat console: the page your Phantom wallet lives on while CoinMarketCat, the agentic trading cat, and Snipurr, its sniper lane, run. The Cat Intelligence Agency extension attaches here, shows Snipurr's status, and asks Phantom for every approval from this tab. This page holds no signing code and never sees a key.">
 <meta name="theme-color" content="#08050f">
 <link rel="canonical" href="https://catintelligenceagency.com/console/">
 <meta property="og:type" content="website">
@@ -64,10 +64,17 @@ nav a.agency:hover{color:var(--sol-green)}
 nav a.agency + a.back,nav a.floor + a.back{margin-left:0}
 nav a.floor{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--ink-soft);text-decoration:none;white-space:nowrap}
 nav a.floor:hover{color:var(--sol-green)}
-@media (max-width:560px){nav a.floor{display:none}}
-@media (max-width:729px){nav a.dl{display:none}}
+@media (max-width:599px){nav a.floor{display:none}}
+@media (max-width:829px){nav a.dl{display:none}}
+@media (min-width:830px){nav .wrap{gap:12px}}
 nav a.agency .short{display:none}
-@media (max-width:560px){nav .wrap{gap:10px} .brand{font-size:20px} nav a.agency .long{display:none} nav a.agency .short{display:inline} nav a.back{padding:6px 9px;letter-spacing:.08em}}
+@media (max-width:720px){nav a.agency .long{display:none} nav a.agency .short{display:inline}}
+@media (max-width:560px){nav .wrap{gap:10px} .brand{font-size:20px} nav a.back{padding:6px 9px;letter-spacing:.08em}}
+/* The brand never shrinks under the links beside it (it used to, and they were drawn over its
+   name): each width shows the links that fit, and at a phone's width the brand is set smaller. */
+.brand{flex:none}
+@media (max-width:420px){.brand{font-size:18px} nav a.back{padding:6px 7px}}
+@media (max-width:400px){nav a.agency{display:none}}
 nav a.back{margin-left:auto;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;
   color:rgba(239,234,255,.8);text-decoration:none;border:1px solid rgba(239,234,255,.3);padding:6px 12px;border-radius:5px}
 nav a.back:hover{background:var(--amber);color:#2a2018;border-color:var(--amber)}
@@ -181,17 +188,15 @@ p{color:var(--ink-soft)}
 
   <h2>Install</h2>
   <ol>
-    <li>Clone the repository and build the extension:
-      <pre>git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency
-cd Cat-Intelligence-Agency &amp;&amp; npm ci &amp;&amp; npm run build</pre></li>
-    <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose <code>Cat-Intelligence-Agency/dist</code>.</li>
+    <li>Download the extension from <a href="../downloads/">the Downloads page</a>: <code>cat-intelligence-<wbr>agency-<wbr>extension.zip</code>, with its SHA-256 beside it to check. Unzip it somewhere it can stay.</li>
+    <li>Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, press <b>Load unpacked</b>, choose the unzipped folder (the one with <code>manifest.json</code> in it). The Downloads page has the same steps for Brave and Edge; to build it from the source instead, follow <a href="https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency#install" rel="noopener">the README</a>.</li>
     <li>The setup page opens on install: paste an RPC URL — Helius, Triton or QuickNode; the public RPC refuses browsers — set Snipurr's limits and choose who signs. Saving puts Snipurr in <b>Observe</b>. The agent itself is set up in Options → Agent, and starts on paper.</li>
     <li>Come back to <b>this page</b>, press <b>Connect Phantom</b>, approve the connection.</li>
-    <li>Leave it on <b>Observe</b>. Watch the shadow book fill. Export it and grade it with <code>node vendor/executor/grade-entry-gates.mjs --file &lt;export&gt;</code>.</li>
+    <li>Leave it on <b>Observe</b>. Watch the shadow book fill. Export it and grade it, in a clone of the repository, with <code>node vendor/executor/grade-entry-gates.mjs --file &lt;export&gt;</code>.</li>
     <li>Only then: <b>Execute</b>, at the 0.005 SOL canary, with the sentence the lane prints for your wallet typed into the box.</li>
   </ol>
 
-  <p class="fine"><b>What this is.</b> CoinMarketCat is Agent 001 of <a href="../">Cat Intelligence Agency</a>, and Snipurr is its sniper lane. CoinMarketCat is not affiliated with CoinMarketCap. A user-operated tool that runs in your own browser against your own wallet. No server receives a key, signs, or can reach this lane; this page ships no signing code — the extension you built carries it. Not advice, not a signal service, and nothing here has an edge until you have graded its book over a real sample. <b>In Phantom mode every position it opens can be sold only by a click you make</b>; if you close this tab, the lane cannot ask. On Autopilot a locked wallet signs nothing, sells included.
+  <p class="fine"><b>What this is.</b> CoinMarketCat is Agent 001 of <a href="../">Cat Intelligence Agency</a>, and Snipurr is its sniper lane. CoinMarketCat is not affiliated with CoinMarketCap. A user-operated tool that runs in your own browser against your own wallet. No server receives a key, signs, or can reach this lane; this page ships no signing code — the extension carries it. Not advice, not a signal service, and nothing here has an edge until you have graded its book over a real sample. <b>In Phantom mode every position it opens can be sold only by a click you make</b>; if you close this tab, the lane cannot ask. On Autopilot a locked wallet signs nothing, sells included.
 </p>
   <p class="fine">Cat Intelligence Agency is a meme and software project. It is not affiliated with any government agency, CoinMarketCap, or the owners of any real cat.<br>$CIA is a memecoin with no intrinsic value. Nothing here is financial advice.</p>
 </div></main>

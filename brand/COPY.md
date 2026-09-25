@@ -244,7 +244,7 @@ We got it wrong. The original stays up, corrected. - The Director
 
 - **Codename:** COINMARKETCAT, "the agentic trader"
 - **Look:** an orange tabby pixel kitten in a purple hoodie (hoodie purple `#8b5cf6`), waving, holding a phone with a green chart. On the work floor it has the new desk in the front-left corner, and its screen is the agent console: an equity line, a decision log with ticks, risk meters. Its sprite is its tab's picture in the extension; the extension's own icons are the agency's Crying Cat.
-- **What it is:** real software. The trading cat in the Cat Intelligence Agency extension (version 0.1.0), a Chrome extension that you build from its public source and load unpacked; Snipurr, Popcat, CashCat and Crying Cat are the other four cats inside it. It is not in the Chrome Web Store. CoinMarketCat is not affiliated with CoinMarketCap.
+- **What it is:** real software. The trading cat in the Cat Intelligence Agency extension (version 0.1.0), a Chrome extension that you download from the site's Downloads page and load unpacked (or build from its public source); Snipurr, Popcat, CashCat and Crying Cat are the other four cats inside it. It is not in the Chrome Web Store. CoinMarketCat is not affiliated with CoinMarketCap.
 - **Beat:** Solana spot tokens, traded from a strategy you write in plain English, inside limits it cannot change. Up to ten tokens (a Solana majors preset — JitoSOL, JUP, JTO, PYTH, RAY, BONK, WIF, cbBTC — or your own), settled in USDC or USDT.
 - **How it works:** on your schedule (every 15, 30 or 60 minutes) it asks a model, with your own Anthropic API key, what to do; code then clamps or refuses each proposal against your limits (per token, exposure, stop loss, take profit, daily drawdown, trades a day, slippage), and the stop loss, take profit and drawdown breaker check every half minute on their own. Every decision is logged with its reason. Paper first; live from an autopilot wallet you fund. Pause, liquidate or withdraw at any time; only you can withdraw.
 - **What it is not:** not 24/7 (it runs while Chrome is open), not leveraged (spot only), not free to run (your API credits), not measured (no returns quoted). Sharing or selling strategies is not built.
@@ -660,21 +660,22 @@ Count: 152 / 160
 - **What nobody has measured yet:** the agent's results, on paper or live, and Snipurr's own. The desk lane Snipurr learned from lost money: 10 up, 48 down, −1.58 SOL over its first 58 round trips. None of this is evidence of an edge.
 - **Not built:** sharing or selling a strategy to other people.
 
-**How you get it.** It is not in the Chrome Web Store; you build it from source:
-1. `git clone https://github.com/gtjvv976mb-netizen/Cat-Intelligence-Agency`
-2. Run `npm ci && npm run build`.
-3. Open `chrome://extensions`, turn on Developer mode, choose Load unpacked, and pick `dist`.
+**How you get it.** It is not in the Chrome Web Store; you download it and load it yourself:
+1. Download `cat-intelligence-agency-extension.zip` from the Downloads page (`https://catintelligenceagency.com/downloads/`) and unzip it.
+2. Open `chrome://extensions` and turn on Developer mode.
+3. Choose Load unpacked, and pick the unzipped folder.
+
+Or build it from the source: the README has the steps.
 
 You need:
 - Chrome 116 or later
-- Node 22.13 or later to build it
 - Your own Anthropic API key, for the agent's model calls
 - Phantom, to fund it and for Snipurr
 - An RPC URL from a provider such as Helius, Triton or QuickNode, for live trades and Snipurr (the public Solana RPC refuses browsers)
 
 The agency holds nothing of yours: no account, no deposit, no server.
 
-**Buttons:** `Get the source on GitHub` · `Read the README` · `Open the console` (`https://catintelligenceagency.com/console/`)
+**Buttons:** `Download it` (`https://catintelligenceagency.com/downloads/`) · `Get the source on GitHub` · `Read the README` · `Open the console` (`https://catintelligenceagency.com/console/`)
 
 ### Footer disclaimers
 

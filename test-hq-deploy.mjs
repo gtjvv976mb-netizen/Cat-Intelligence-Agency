@@ -139,6 +139,8 @@ section("THE OWNER'S GUIDE");
   ok("signed commands name the server they are for (HQ_SERVER_ID, --server or the --url's host)", /HQ_SERVER_ID/.test(signed) && /--server/.test(signed) && /--url/.test(signed));
   const stop = step(9);
   ok("step 9 says what to do when something is stuck: list and resolve a marker from the chain, retry or abandon a buyback", ["cli.mjs intents", "intent resolve", "--landed", "cli.mjs buybacks", "buyback retry", "buyback abandon", "HQ_BUYBACK_LEG_TRIES"].every((x) => stop.includes(x)));
+  ok("…that --landed keeps the agent's buys and sweeps refused until the transaction is read, and that a coin with no quote gets no automatic stop (watch unpricedPositions)",
+    /buys nothing and sweeps nothing\s+until HQ has read the transaction/.test(stop) && /no quote[\s\S]*stop loss needs a fresh quote[\s\S]*unpricedPositions/.test(stop));
   const { commandFor, parseArgs } = await import("./services/hq/cli.mjs");
   ok("…and those lines are the CLI's own", commandFor(parseArgs(["intent", "resolve", "x", "--landed"])).op === "intent.resolve" && commandFor(parseArgs(["buyback", "retry", "x"])).op === "buyback.retry" && commandFor(parseArgs(["buyback", "abandon", "x"])).op === "buyback.abandon");
   const { readConfig } = await import("./services/hq/lib/config.mjs");

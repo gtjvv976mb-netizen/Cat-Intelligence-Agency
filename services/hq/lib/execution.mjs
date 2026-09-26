@@ -181,6 +181,13 @@ export function createExecutor({
       db.updateIntent(it.id, { state: "abandoned", detail: { settled: "never signed: nothing was sent" } });
       return { id: it.id, state: "abandoned" };
     }
+    /* already read into chain_txs (the indexer found it): settled by what the chain recorded */
+    const stored = db.getChainTx(it.wallet, it.signature);
+    if (stored) {
+      const state = stored.err || stored.tx?.meta?.err ? "failed" : "confirmed";
+      db.updateIntent(it.id, { state, detail: { settled: true } });
+      return { id: it.id, state };
+    }
     if (it.state !== "landed") {
       const expired = await expiredFor(it);
       const status = await statusOf(it.signature);
@@ -222,7 +229,7 @@ export function createExecutor({
     /* One that landed but is not read back yet holds everything that decides on the ledger (a
        buy, a sweep), never a protective transaction: a stop loss or money home sells or sends
        what the chain says the wallet holds, so it goes. */
-    const landed = db.openIntents(owner.wallet).find((x) => x.state === "landed");
+    const landed = db.openIntents(owner.wallet).find((x) => x.state === "landed") ?? db.unreadIntents(owner.wallet)[0];
     if (landed && !protective) throw new ExecutionError("in_flight", `a ${landed.kind} of ${owner.wallet} landed (${landed.signature}) but is not read back yet: nothing that decides on the ledger goes until it is`);
     const id = randomUUID();
     if (!db.createIntent({ id, agentId: owner.kind === "agent" ? owner.number : null, wallet: owner.wallet, kind, mint, trigger, decisionId, detail })) {
@@ -289,20 +296,27 @@ export function createExecutor({
       const s = await statusOf(it.signature);
       if (!landedStatus(s)) return { resolved: false, state: "landed", why: "the chain does not say it landed right now; it stays open" };
       db.updateIntent(it.id, { state: "confirmed", detail: { settled: true, unread: true, resolvedBy: "owner" } });
-      return { resolved: true, state: "confirmed", unread: true, why: "closed as landed on the chain's word; the indexer reads it back when the RPC returns it" };
+      /* the indexer reads it on every pass until the RPC returns it; until then the wallet's buys
+         and sweeps stay refused (its ledger lacks it), while its protections still go */
+      db.addPendingRead({ address: it.wallet, signature: it.signature, slot: s.slot ?? null });
+      return { resolved: true, state: "confirmed", unread: true, why: "closed as landed on the chain's word; buys and sweeps stay refused until the transaction is read back (the indexer keeps trying), stop losses and withdrawals go" };
     }
     return { resolved: false, state: r.state, why: r.state === "landed" ? "it landed but cannot be read back yet: resolve it with acceptLanded to close it on the chain's word" : r.why };
   }
 
   /* ── Jupiter: pay one token, get another, only on an allowed pair ── */
-  async function jupiterSwap({ owner, pay, get, amountRaw, slippageBps, maxImpactPct, allowedPairs, kind, mint = null, trigger = null, decisionId = null, protective = false, onSigned = null }) {
+  /* `upToHeld`: pay at most what the wallet holds (a sell sized from the ledger, which may not have
+     read a partial sell back yet), as the curve's sell does; otherwise exactly amountRaw or nothing. */
+  async function jupiterSwap({ owner, pay, get, amountRaw: asked, slippageBps, maxImpactPct, allowedPairs, kind, mint = null, trigger = null, decisionId = null, protective = false, onSigned = null, upToHeld = false }) {
     assertMaySend(owner, { protective });
-    return submit({ owner, kind, mint, trigger, decisionId, onSigned, protective, detail: { pay: pay.mint, get: get.mint, amountRaw: String(amountRaw) }, build: async () => {
+    return submit({ owner, kind, mint, trigger, decisionId, onSigned, protective, detail: { pay: pay.mint, get: get.mint, amountRaw: String(asked) }, build: async () => {
       const wallet = owner.wallet;
       const payAta = associatedTokenAddress(wallet, pay.mint, pay.program);
       const getAta = associatedTokenAddress(wallet, get.mint, get.program);
       const held = await rpc.getTokenAccountBalance(payAta);
-      if (held < BigInt(amountRaw)) throw new ExecutionError("balance_short", `the wallet holds ${held} raw ${pay.symbol}, under the ${amountRaw} this swap pays`);
+      if (upToHeld && held <= 0n) throw new ExecutionError("nothing_held", `the wallet holds no ${pay.symbol}`);
+      const amountRaw = upToHeld && held < BigInt(asked) ? held : BigInt(asked);
+      if (held < amountRaw) throw new ExecutionError("balance_short", `the wallet holds ${held} raw ${pay.symbol}, under the ${amountRaw} this swap pays`);
       const quoteArgs = { inputMint: pay.mint, outputMint: get.mint, amountRaw: String(amountRaw), slippageBps, slippageCapBps: slippageBps, maxPriceImpactPct: maxImpactPct };
       const raw = await jupiter.quote({ inputMint: pay.mint, outputMint: get.mint, amountRaw: String(amountRaw), slippageBps, priority: "live" });
       const q = checkQuote(raw, quoteArgs);
@@ -321,7 +335,7 @@ export function createExecutor({
       if (-BigInt(guard.quoteDeltaRaw) !== BigInt(amountRaw)) throw new SwapCheckError("exact_input", `the simulation pays ${-BigInt(guard.quoteDeltaRaw)}, not exactly the ${amountRaw} asked`);
       checkSafeAfter(guard.post?.[1] ?? null, { wallet, mint: get.mint, label: get.symbol });
       checkSafeAfter(guard.post?.[2] ?? null, { wallet, mint: pay.mint, label: pay.symbol });
-      return { txBase64, lastValidBlockHeight: Number(built.lastValidBlockHeight), detail: { quotedOut: String(q.outRaw), minOut: String(q.minOutRaw), impactPct: q.impactPct } };
+      return { txBase64, lastValidBlockHeight: Number(built.lastValidBlockHeight), detail: { quotedOut: String(q.outRaw), minOut: String(q.minOutRaw), impactPct: q.impactPct, paid: String(amountRaw) } };
     } });
   }
 
@@ -450,7 +464,8 @@ export function createExecutor({
     return { claimed: true, claimable, ...result };
   }
 
-  const inFlight = (wallet) => db.openIntents(wallet).length > 0;
+  /* in flight, or landed and not yet in the wallet's ledger (open, or closed by the owner on the chain's word) */
+  const inFlight = (wallet) => db.openIntents(wallet).length > 0 || db.unreadIntents(wallet).length > 0;
   return Object.freeze({ submit, settle, recover, resolveIntent, inFlight, jupiterSwap, pumpBuy, pumpSell, readCurve, wrap, unwrap, transferToTreasury, burn, claimCreatorFees, assertMaySend });
 }
 

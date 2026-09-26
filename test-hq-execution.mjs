@@ -364,6 +364,73 @@ section("A MARKER THAT LANDED BUT CANNOT BE READ BACK: PROTECTIONS STILL GO, AND
   ok("…and one already settled is left as it is", (await ex2.resolveIntent("landed-1")).resolved === false);
 }
 
+section("CLOSED ON THE CHAIN'S WORD, NOT YET READ: BUYS STAY REFUSED, AND THE INDEXER READS ON AROUND IT");
+{
+  /* the verifier's case: a landed buy getTransaction does not return; the owner resolves it with
+     acceptLanded (Solscan shows it); a deposit arrives after it */
+  const wallet = addr(61), db = memDb();
+  const landedSig = fakeSig(), depositSig = fakeSig();
+  let readable = false;
+  const deposit = jsonTx({ signature: depositSig, slot: 50, keys: [addr(62), wallet], balances: { [addr(62)]: [5e9, 4e9 - 5000], [wallet]: [0, 1e9] } });
+  const landedTx = jsonTx({ signature: landedSig, slot: 40, keys: [wallet], balances: { [wallet]: [2e9, 2e9 - 5000] } });
+  const rpc = extRpc({
+    getSignatureStatuses: () => ({ value: [{ slot: 40, confirmationStatus: "finalized", err: null }] }),
+    getTransaction: ([sig]) => (sig === depositSig ? deposit : sig === landedSig && readable ? landedTx : null),
+    getSignaturesForAddress: () => [{ signature: depositSig, slot: 50 }, { signature: landedSig, slot: 40 }],
+    getBlockHeight: () => 2_000, isBlockhashValid: () => ({ value: false }),
+  });
+  const ex = createExecutor({ config: testConfig(liveEnv), db, rpc, jupiter: null, signers: signingSpies(), sleep: async () => {} });
+  db.createIntent({ id: "buy1", agentId: 1, wallet, kind: "buy", mint: addr(63) });
+  db.updateIntent("buy1", { state: "landed", signature: landedSig, lastValidBlockHeight: 1_150, detail: { blockhash: "x" } });
+  ok("landed, not read back: buys refused", ex.inFlight(wallet) === true);
+  const r = await ex.resolveIntent("buy1", { acceptLanded: true });
+  ok("the owner closes it on the chain's word: confirmed, marked unread, and put down to be read", r.resolved && r.state === "confirmed" && db.listPendingReads(wallet).some((x) => x.signature === landedSig));
+  let built = 0;
+  ok("…but buys stay refused while the transaction is not in the wallet's ledger (the holding check would pass without it)", ex.inFlight(wallet) === true
+    && await refusedWith(() => ex.submit({ owner: liveOwner(1, wallet), kind: "buy", build: async () => { built++; return {}; } }), "in_flight") && built === 0);
+  const { createIndexer } = await import("./services/hq/lib/indexer.mjs");
+  const ix = createIndexer({ db, rpc, retryDelaysMs: [] });
+  const passes = [];
+  for (let i = 0; i < 2; i++) { try { passes.push(await ix.indexAddress(wallet)); } catch (e) { passes.push({ threw: e.message }); } }
+  ok("the indexer does not throw on the signature it cannot read: it moves on, and the later deposit is stored", passes.every((x) => !x.threw) && db.hasChainTx(wallet, depositSig), JSON.stringify(passes));
+  ok("…the unreadable one stays a pending read, asked for on every pass, and counts as history still to read", db.listPendingReads(wallet)[0]?.tries >= 1 && ix.incomplete() === 1 && !db.hasChainTx(wallet, landedSig));
+  readable = true;
+  await ix.indexAddress(wallet);
+  ok("the RPC returns it at last: stored, no longer pending, and the wallet's buys are free", db.hasChainTx(wallet, landedSig) && db.listPendingReads(wallet).length === 0 && ex.inFlight(wallet) === false && ix.incomplete() === 0);
+
+  /* a landed marker the owner never touched: once the indexer has the transaction, the settle closes it */
+  const sig2 = fakeSig();
+  db.createIntent({ id: "buy2", agentId: 1, wallet, kind: "buy" });
+  db.updateIntent("buy2", { state: "landed", signature: sig2, lastValidBlockHeight: 1_150, detail: { blockhash: "x" } });
+  db.putChainTx({ address: wallet, signature: sig2, slot: 60, blockTime: 1, err: false, tx: jsonTx({ signature: sig2, slot: 60, keys: [wallet], balances: { [wallet]: [1, 1] } }) });
+  const st = await ex.settle({ wallet });
+  ok("…and a landed marker whose transaction the indexer read is settled from chain_txs", st[0]?.state === "confirmed" && ex.inFlight(wallet) === false);
+}
+
+section("A JUPITER SELL PAYS AT MOST WHAT THE WALLET HOLDS");
+{
+  /* the ledger says 1,000 tokens; the chain says 600 are left (a partial sell landed, not read back) */
+  const wallet = addr(64), mint = addr(65);
+  const quoted = [];
+  const jupiter = { async quote(a) { quoted.push(String(a.amountRaw)); throw Object.assign(new Error("stop after the quote"), { clause: "test_stop" }); } };
+  const make = (held) => createExecutor({ config: testConfig(liveEnv), db: memDb(), rpc: extRpc({ getTokenAccountBalance: () => held }), jupiter, signers: signingSpies(), sleep: async () => {} });
+  const args = (extra) => ({ owner: liveOwner(1, wallet), pay: { mint, program: TOKEN_PROGRAM, decimals: 6, symbol: "X" }, get: { mint: "So11111111111111111111111111111111111111112", program: TOKEN_PROGRAM, decimals: 9, symbol: "SOL" },
+    amountRaw: 1_000n, slippageBps: 300, maxImpactPct: 100, allowedPairs: new Set(), kind: "sell", mint, protective: true, ...extra });
+  ok("sized up to what is held: 600 of the 1,000 the ledger names is quoted", await refusedWith(() => make(600n).jupiterSwap(args({ upToHeld: true })), "test_stop") && quoted.at(-1) === "600");
+  ok("…the whole amount when the wallet holds it", await refusedWith(() => make(5_000n).jupiterSwap(args({ upToHeld: true })), "test_stop") && quoted.at(-1) === "1000");
+  ok("…nothing held: nothing_held, and nothing quoted", await refusedWith(() => make(0n).jupiterSwap(args({ upToHeld: true })), "nothing_held") && quoted.length === 2);
+  ok("without it (a buy leg, a buyback leg): exactly the amount or nothing (balance_short)", await refusedWith(() => make(600n).jupiterSwap(args({})), "balance_short") && quoted.length === 2);
+
+  /* through the runtime: a live agent's stop loss on a coin off the curve goes to Jupiter sized that way */
+  const asked = [];
+  const spyEx = { inFlight: () => false, jupiterSwap: async (a) => { asked.push(a); return { signature: fakeSig() }; } };
+  const rig = await paperRig({ env: liveEnv, agents: [{ id: 3, mode: "live", wallet }], executor: () => spyEx });
+  const buy = jsonTx({ signature: fakeSig(), slot: 7, keys: [wallet, addr(66)], balances: { [wallet]: [1e9, 1e9 - 50_005_000] }, tokens: [{ index: 1, owner: wallet, mint, decimals: 6, pre: 0, post: 1_000 }] });
+  rig.db.putChainTx({ address: wallet, signature: buy.transaction.signatures[0], slot: 7, blockTime: buy.blockTime, err: false, tx: buy });
+  const sold = await rig.runtime.sell(rig.db.getAgent(3), mint, { trigger: "stop_loss", reason: "test" });
+  ok("the runtime's Jupiter sell asks for the ledger's quantity, up to what the wallet holds", sold.ok && asked[0]?.amountRaw === 1_000n && asked[0].upToHeld === true && asked[0].protective === true, JSON.stringify({ ok: sold.ok, clause: sold.clause }));
+}
+
 section("A SIMULATION THAT DOES NOT SAY THE WALLET'S BALANCE IS NO PASS");
 {
   const wallet = addr(36);

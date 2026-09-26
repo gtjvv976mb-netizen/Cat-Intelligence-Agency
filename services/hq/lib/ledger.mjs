@@ -25,9 +25,10 @@
  *     price. The rule is applied at every point in time the ledger values (each event, each
  *     recorded snapshot, now), so the portfolio, the return, the drawdown and the chart agree.
  *   · a token moved out by hand (not sold) leaves as a withdrawal at its value then (by the same
- *     rule, so 0 when stale), and that value less its cost is realized: moving a position out
- *     never hides its loss or its gain. Its network fee is an operation's cost; value that
- *     arrives with it is never profit.
+ *     rule, so 0 when stale). A loss below its cost is realized (moving a position out never
+ *     hides one); a gain above it never is (a move is not a sale): that part leaves as a
+ *     withdrawal of outside value ("other"), never return and never rank. Its network fee is an
+ *     operation's cost; value that arrives with it is never profit.
  *   · so, always: cash + rent + positions at cost = net deposits + fees claimed + realized + other
  *     (test-hq-ledger.mjs holds every recorded wallet to it).
  *   · a round trip is a position from empty to empty (dust of at most 0.01% of what was bought,
@@ -210,15 +211,19 @@ export function buildLedger(events, { marks = new Map(), lastMarks = new Map(), 
         const p = positions.get(e.mint);
         if (p && p.qty > ZERO) {
           const { moved, basis, atValue } = movedOut(p, e, e.t ?? null);
-          /* the tokens leave as a withdrawal at their value then (the stale rule: 0 when stale),
-             and that value less their cost is realized: the move never hides a loss or a gain */
+          /* the tokens leave as a withdrawal at their value then (the stale rule: 0 when stale).
+             A loss is realized (the move never hides one); a gain never is — a move is not a
+             sale, and a quote is not proceeds — so the part above cost leaves as withdrawn
+             outside value ("other"), which keeps the identity and never counts as return or rank */
           withdrawn += atValue;
-          const pnl = atValue - basis;
-          realized += pnl; p.tripPnl += pnl; realize(e.t, pnl);
+          const pnl = atValue < basis ? atValue - basis : ZERO;
+          const excess = atValue > basis ? atValue - basis : ZERO;
+          if (pnl !== ZERO) { realized += pnl; p.tripPnl += pnl; realize(e.t, pnl); }
+          other += excess;
           p.qty -= moved; p.cost -= basis;
           if (p.qty === ZERO) positions.delete(e.mint);
           transfers.push({ t: e.t, kind: "withdrawal", lamports: atValue, tx: e.signature ?? null, counterparty: null, memo: null, tokens: { mint: e.mint, raw: moved } });
-          flows.push({ t: e.t, kind: "token_out", mint: e.mint, tokens: moved, atValue, atCost: basis, pnl, tx: e.signature ?? null });
+          flows.push({ t: e.t, kind: "token_out", mint: e.mint, tokens: moved, atValue, atCost: basis, pnl, gainOut: excess, tx: e.signature ?? null });
         }
         break;
       }

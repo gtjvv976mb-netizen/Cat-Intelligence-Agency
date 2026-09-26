@@ -26,6 +26,7 @@ import { createRuntime } from "./services/hq/lib/runtime.mjs";
 import { liveTradeId } from "./services/hq/lib/db.mjs";
 import { agentObject, agentDetail, equitySeries, leaderboard } from "./services/hq/lib/views.mjs";
 import { WSOL_MINT } from "./bots/lib/verified.mjs";
+import { promote } from "./services/hq/lib/ranks.mjs";
 import { solString as solStr } from "./services/hq/lib/amounts.mjs";
 import { ROOT } from "./services/hq/test/doubles.mjs";
 import { validate, SCHEMAS } from "./services/hq/contract/schemas.mjs";
@@ -272,7 +273,8 @@ section("A TOKEN MOVED OUT LEAVES AT ITS VALUE, AND ITS LOSS OR GAIN IS REALIZED
     down.withdrawn === 90_000_000n && down.realized === -810_000_000n - 5_000n && down.transfers.some((x) => x.kind === "withdrawal" && x.lamports === 90_000_000n && x.tokens?.raw === 1_000n), `${down.withdrawn} ${down.realized}`);
   ok("…the return says so: −81% (with the move's fee), as it said before the move", down.roiPct === -81 && buildLedger(base, { snapshots: quoted(90_000_000n), now: day(3, 0, 10) }).roiPct === -81, `${down.roiPct}`);
   const up = buildLedger([...base, out], { snapshots: quoted(2_700_000_000n), now: day(4) });
-  ok("quoted three times its cost, then moved out: a withdrawal of 2.7, and the 1.8 gain realized", up.withdrawn === 2_700_000_000n && up.realized === 1_800_000_000n - 5_000n && up.roiPct === 179.99, `${up.withdrawn} ${up.realized} ${up.roiPct}`);
+  ok("quoted three times its cost, then moved out: a withdrawal of 2.7 (its 0.9 cost and the 1.8 above it), and nothing realized but the fee — a move is not a sale",
+    up.withdrawn === 2_700_000_000n && up.realized === -5_000n && up.other === 1_800_000_000n && up.roiPct === 0 && up.flows.some((f) => f.kind === "token_out" && f.gainOut === 1_800_000_000n && f.pnl === 0n), `${up.withdrawn} ${up.realized} ${up.other} ${up.roiPct}`);
   const stale = buildLedger([...base, { ...out, t: day(5) }], { snapshots: quoted(2_700_000_000n), now: day(6) });
   ok("moved out two days after its last quote: by the stale rule it leaves at 0, and its whole cost is a realized loss", stale.withdrawn === 0n && stale.realized === -900_000_000n - 5_000n);
   const hour = buildLedger([...base, { ...out, t: day(3, 5) }], { snapshots: quoted(2_700_000_000n), now: day(4) });
@@ -284,6 +286,21 @@ section("A TOKEN MOVED OUT LEAVES AT ITS VALUE, AND ITS LOSS OR GAIN IS REALIZED
   /* value that arrives with a move (the wallet paid; more came back than the fee) */
   const withValue = buildLedger([...base, { ...out, value: 5_000_000n }], { snapshots: quoted(900_000_000n), now: day(4) });
   ok("value that came back with a move is 'other', never realized profit", withValue.other === 5_000_000n && withValue.realized === 0n && identity(withValue), `${withValue.other} ${withValue.realized}`);
+}
+
+section("A MOVE OUT AT A THIN POOL'S QUOTE NEVER PROMOTES AN AGENT");
+{
+  /* the verifier's case: bought 0.5, one quote at 10x half an hour before the tokens are moved out, never sold */
+  const t = (h, m = 0) => new Date(Date.UTC(2026, 8, 2, h, m)).toISOString();
+  const ev = [
+    { kind: "deposit", t: t(0), slot: 1, lamports: SOL },
+    { kind: "trade", side: "buy", t: t(1), slot: 2, mint: MA, decimals: 6, tokens: 1_000n, sol: 500_000_000n, fee: 0n },
+    { kind: "token_out", t: t(3), slot: 3, mint: MA, decimals: 6, tokens: 1_000n, value: -5_000n, fee: 5_000n, signature: "Out" },
+  ];
+  const L = buildLedger(ev, { snapshots: [{ t: t(2, 30), marks: { [MA]: { lamports: "5000000000", tokens: "1000" } } }], now: t(4) });
+  ok("realized trading P&L is the move's fee only, never the 4.5 SOL the quote said it was up", L.realized === -5_000n && L.withdrawn === 5_000_000_000n && L.other === 4_500_000_000n, `${L.realized} ${L.withdrawn} ${L.other}`);
+  ok("…so the rank does not move (career realized 0): a quote is not proceeds", promote({ held: "recruit", careerRealizedLamports: L.realized }).promotion === null && promote({ held: "recruit", careerRealizedLamports: L.realized }).rank === "recruit");
+  ok("…no win is counted, and the identity holds", L.wins === 0 && identity(L));
 }
 
 section("THE RETURN IS OVER WHAT WAS DEPOSITED: A WITHDRAWAL OR A SWEEP NEVER CHANGES IT");

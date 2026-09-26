@@ -280,7 +280,7 @@ export function createRuntime({
       } else {
         const token = db.getToken(mint);
         result = await ex().jupiterSwap({ owner, pay: { mint, program: token?.program ?? state.program ?? TOKEN_PROGRAM, decimals: pos.decimals, symbol: token?.symbol ?? mint.slice(0, 4) }, get: WSOL,
-          amountRaw: qty, slippageBps: 300, maxImpactPct: 100, allowedPairs: new Set([`${mint}>${WSOL_MINT}`]), kind: "sell", mint, trigger, decisionId: decision.id, protective: true });
+          amountRaw: qty, upToHeld: true, slippageBps: 300, maxImpactPct: 100, allowedPairs: new Set([`${mint}>${WSOL_MINT}`]), kind: "sell", mint, trigger, decisionId: decision.id, protective: true });
       }
       if (whole) db.deletePositionState(agent.id, "live", mint);
       const v = await refresh(agent);

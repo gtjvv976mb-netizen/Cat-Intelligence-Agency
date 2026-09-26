@@ -243,6 +243,9 @@ From the fastest to the most final:
 - **Kill switch, from Railway**: set `HQ_KILL` to `1`. Same effect; it wins while it is set.
 - **One agent**: `agent pause N` (its protections still sell) or `agent liquidate N` (sell
   everything it holds now).
+- **A coin with no quote**: a stop loss needs a fresh quote, so a coin no source prices gets no
+  automatic stop; watch each agent's `unpricedPositions` on the site and liquidate by hand
+  (`agent liquidate N`) if it stays above zero.
 - **Live off**: remove `HQ_LIVE` — live agents then do nothing at all (not even protective
   sells), so liquidate first if they hold coins.
 - **Take the SOL out**: `agent withdraw N all` for each agent, to the treasury.
@@ -262,7 +265,10 @@ minute), so a slow or failed RPC normally sorts itself out. If one does not:
   otherwise stays open. A marker in state `landed` means the transaction is on chain but your RPC
   will not return it yet; while it lasts, stop losses and withdrawals still go, but no buy or
   sweep does. Look the signature up on Solscan; if it is there, `intent resolve <id> --landed`
-  closes it on the chain's word, and HQ reads the transaction when the RPC returns it.
+  closes the marker on the chain's word, but that agent still buys nothing and sweeps nothing
+  until HQ has read the transaction into its books (its ledger would be missing it): the
+  indexer asks for it again on every pass, reads the rest of the wallet's history meanwhile,
+  and `/health` counts the wallet under `backfilling` until it comes.
 - **A buyback stuck between its two swaps**: `node services/hq/cli.mjs buybacks` lists them. HQ
   tries the second swap (HYPE → $CIA) on each run and, after `HQ_BUYBACK_LEG_TRIES` refusals (a
   burn: that many failures), stops that buyback and moves on; the HYPE stays in the treasury and

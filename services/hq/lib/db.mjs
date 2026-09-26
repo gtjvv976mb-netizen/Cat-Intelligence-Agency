@@ -75,6 +75,11 @@ CREATE TABLE IF NOT EXISTS chain_txs (
   address TEXT NOT NULL, signature TEXT NOT NULL, slot INTEGER NOT NULL, block_time INTEGER,
   err INTEGER NOT NULL, tx_json TEXT, PRIMARY KEY (address, signature));
 CREATE INDEX IF NOT EXISTS chain_txs_order ON chain_txs (address, slot);
+-- signatures the RPC listed (or the chain says landed) whose transaction it would not return
+-- yet: read again on every pass until it does; the rest of the wallet's history goes on meanwhile
+CREATE TABLE IF NOT EXISTS pending_reads (
+  address TEXT NOT NULL, signature TEXT NOT NULL, slot INTEGER, block_time INTEGER, first_at TEXT NOT NULL, tries INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (address, signature));
 CREATE TABLE IF NOT EXISTS index_cursor (
   address TEXT PRIMARY KEY, newest_signature TEXT, complete INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, note TEXT);
 CREATE TABLE IF NOT EXISTS position_state (
@@ -271,6 +276,17 @@ export function openDb(file, { clock = () => Date.now() } = {}) {
         .run(address, newest ?? null, complete ? 1 : 0, iso(), note, resume === null ? null : JSON.stringify(resume));
     },
     listCursors: () => q("SELECT * FROM index_cursor").all().map((r) => ({ ...r, resume: json(r.resume_json, null) })),
+    /* ── transactions to read again ── */
+    addPendingRead({ address, signature, slot = null, blockTime = null }) {
+      q("INSERT OR IGNORE INTO pending_reads (address, signature, slot, block_time, first_at) VALUES (?, ?, ?, ?, ?)").run(address, signature, slot === null ? null : Number(slot), blockTime ?? null, iso());
+    },
+    listPendingReads: (address = null) => (address ? q("SELECT * FROM pending_reads WHERE address = ? ORDER BY slot, signature").all(address) : q("SELECT * FROM pending_reads ORDER BY address, slot").all()).map(plain),
+    triedPendingRead(address, signature) { q("UPDATE pending_reads SET tries = tries + 1 WHERE address = ? AND signature = ?").run(address, signature); },
+    dropPendingRead(address, signature) { q("DELETE FROM pending_reads WHERE address = ? AND signature = ?").run(address, signature); },
+    /** Markers the owner closed on the chain's word (landed, not read back) whose transaction is
+     *  still not in chain_txs: until it is, the wallet's ledger lacks it. */
+    unreadIntents: (wallet) => q(`SELECT * FROM intents WHERE wallet = ? AND state = 'confirmed' AND json_extract(detail_json, '$.unread') = 1
+      AND signature NOT IN (SELECT signature FROM chain_txs WHERE address = ?)`).all(wallet, wallet).map((r) => ({ ...r, detail: json(r.detail_json, null) })),
 
     /* ── what a strategy keeps about a position (entry time, peak, its own dials) ── */
     getPositionState: (agentId, mode, mint) => json(q("SELECT state_json FROM position_state WHERE agent_id = ? AND mode = ? AND mint = ?").get(agentId, mode, mint)?.state_json, null),

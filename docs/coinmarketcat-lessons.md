@@ -173,3 +173,47 @@ Post only what the journal and the popup show:
 
 A claim that "it works" means beating that line over months, net of fees. A good week is
 not proof.
+
+## 26 Sep 2026: the 24-hour cohort read did not happen
+
+**Method.** A read-only recorder polled pump.fun's public API
+(`frontend-api-v3.pump.fun`: the newest-first `/coins` listing, then `/coins/{mint}`). It
+logged every launch it saw. It re-read `ath_market_cap` at ages 1 h, 6 h and 24 h for three
+groups: every cat coin, a fixed 10% hashed control sample of non-cats, and a 20% hashed
+sample of all launches. A coin counts as a cat when the repo's `detectCat` matches its name
+or ticker. The control group is the non-cats in the 10% sample (hashed on mint). Mayhem-mode
+launches are left out. Peaks were checked with validation rule R1:
+ath ≤ 1.02 × the highest pump.fun 1-minute candle high × 1e9 supply, using candles up to
+the time of the read. A coin that fails R1 is counted at its candle peak instead.
+
+**What was recorded.** The recorder ran from 10:31 UTC on 25 Sep. It backfilled launches
+from about 09:40 UTC. Its last log line is at 22:22 UTC on 25 Sep. The environment then
+restarted, and the recorder was not running on 26 Sep. That left 20,146 launches logged,
+18,503 1-hour reads and 3,218 6-hour reads. **No 24-hour read was taken.** The earliest one
+was due at about 09:40 UTC on 26 Sep, eleven hours after the recorder stopped.
+
+| Peak market cap | Cats at 24 h | Controls at 24 h | Cats at 6 h (normal launches) | Controls at 6 h (normal launches) |
+|---|---|---|---|---|
+| Coins read | 0 | 0 | 31 | 62 |
+| $10k | – | – | 7 (22.6%) | 5 (8.1%) |
+| $20k | – | – | 5 (16.1%) | 5 (8.1%) |
+| $50k | – | – | 4 (12.9%) | 2 (3.2%) |
+| $100k | – | – | 3 (9.7%) | 2 (3.2%) |
+| $200k | – | – | 3 (9.7%) | 2 (3.2%) |
+| $500k | – | – | 1 (3.2%) | 2 (3.2%) |
+| $1M | – | – | 1 (3.2%) | 2 (3.2%) |
+
+The 6-hour columns are from the snapshot analysed at 16:45 UTC on 25 Sep. They cover
+launches from 09:40 to 10:40 UTC. They come from a different read and are not a stand-in for
+the 24-hour result.
+
+- **There is no 24-hour result.** No 24-hour funnel exists for cats or controls.
+- **The 6-hour gap is not reliable.** Cats lead at $10k–$100k, but on only 31 cat coins.
+  Three of the 7 cats that reached $10k are one ticker (GTAK) relaunched. Every confidence
+  interval overlaps the controls.
+- **Across the 414 coins read at both 1 h and 6 h, no peak of $10k or more grew by more than
+  5% after the first hour.** So a 24-hour read would probably change little for these coins.
+  That was measured on one hour of launches.
+- **Lesson for the recorder:** it runs as an unsupervised process, and a restart ends it
+  without any warning. A later run needs a supervisor or a resume step. It also needs a
+  check that the 24-hour reads are arriving.
